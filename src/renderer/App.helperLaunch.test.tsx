@@ -740,21 +740,19 @@ describe('App helper launch', () => {
     const props = mocks.sidebarProps.at(-1);
     if (!props) throw new Error('GlobalSidebar props were not captured');
     const tabs = props.tabs as Array<{ id: string; title: string; sessionId?: string | null; view?: string; recordId?: string }>;
+    const activeTabId = (props.activeTab as { id?: string } | undefined)?.id ?? null;
     return {
       tabs,
-      activeTabId: (props.activeTab as { id?: string } | undefined)?.id ?? null,
+      activeTabId,
       onSelectTab: (tabId: string) => {
-        const index = tabs.findIndex((tab) => tab.id === tabId);
-        if (index < 0 || index > 7) throw new Error(`Cannot select tab ${tabId} by shortcut`);
-        fireEvent.keyDown(window, { key: String(index + 1), ctrlKey: true });
+        // Pages are only reachable through their navigation entry now.
+        if (tabId !== activeTabId) throw new Error(`Cannot select hidden tab ${tabId}`);
       },
       onNewTab: () => {
         fireEvent.keyDown(window, { key: 't', ctrlKey: true });
       },
       onCloseTab: async (tabId: string) => {
-        const index = tabs.findIndex((tab) => tab.id === tabId);
-        if (index < 0 || index > 7) throw new Error(`Cannot close tab ${tabId} by shortcut`);
-        fireEvent.keyDown(window, { key: String(index + 1), ctrlKey: true });
+        if (tabId !== activeTabId) throw new Error(`Cannot close hidden tab ${tabId}`);
         fireEvent.keyDown(window, { key: 'w', ctrlKey: true });
       },
     };

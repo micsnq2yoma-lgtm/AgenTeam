@@ -1728,9 +1728,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       const isMac = navigator.platform.toLowerCase().includes('mac');
       if (
         dispatchAppShortcut(e, isMac, {
-          tabs: tabWorkspaceController.getSnapshot().tabs,
-          activeTabId: tabWorkspaceController.getSnapshot().activeTabId,
-          setActiveTabId,
           newTab: handleNewTab,
           closeCurrentTab,
           dismissTopmost,

@@ -492,9 +492,10 @@ html[data-color-scheme='dark'] .agenteam-wordmark {
   color: #e8eaed;
 }
 
-/* Launcher hero: the wordmark is the brand anchor, so it renders larger than
+/* Launcher only (not About, which shares the hero title class): the wordmark
+   is the brand anchor, so it renders larger than
    the Theme's title size without touching Theme packages. */
-.theme-launcher-hero-title .agenteam-wordmark {
+.theme-launcher-hero .theme-launcher-hero-title .agenteam-wordmark {
   font-size: 1.4em;
 }
 

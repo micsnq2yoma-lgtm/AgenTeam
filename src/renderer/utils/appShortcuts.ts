@@ -1,6 +1,6 @@
 /**
  * appShortcuts — the single declarative source of truth for application-level
- * keyboard shortcuts (new tab, close tab, switch tab, open task-center/settings,
+ * keyboard shortcuts (new page, close page, open task-center/settings,
  * reload-block).
  *
  * Previously these lived as a scattered if/else ladder inside App.tsx's global
@@ -31,9 +31,6 @@ export interface KeyboardEventLike {
 
 /** Primitives a shortcut's `run` may use — supplied by App.tsx at dispatch time. */
 export interface AppShortcutContext {
-  tabs: readonly { id: string }[];
-  activeTabId: string | null;
-  setActiveTabId: (id: string) => void;
   newTab: () => void;
   closeCurrentTab: () => void;
   /** Dismiss the topmost overlay layer; returns true if one was dismissed. */
@@ -58,22 +55,11 @@ export interface AppShortcut {
 const modHeld = (e: KeyboardEventLike, isMac: boolean): boolean => (isMac ? e.metaKey : e.ctrlKey);
 const modLabel = (isMac: boolean): string => (isMac ? '⌘' : 'Ctrl');
 
-/** Move the active tab by `delta`, optionally wrapping. Shared by cycle + bracket. */
-function shiftActiveTab(ctx: AppShortcutContext, delta: number, wrap: boolean): void {
-  const { tabs, activeTabId } = ctx;
-  if (tabs.length <= 1 || !activeTabId) return;
-  const idx = tabs.findIndex((t) => t.id === activeTabId);
-  if (idx === -1) return;
-  const next = wrap
-    ? (idx + delta + tabs.length) % tabs.length
-    : idx + delta;
-  if (next >= 0 && next < tabs.length) ctx.setActiveTabId(tabs[next].id);
-}
-
 /**
  * Ordered shortcut table. Dispatch tries each in order and stops at the first
- * match, mirroring the original handler's precedence (reload-block and Ctrl+Tab
- * are evaluated before the ⌘-gated entries).
+ * match, mirroring the original handler's precedence (reload-block is evaluated
+ * before the ⌘-gated entries). The single-page shell has no tab strip, so there
+ * are no tab-switching shortcuts.
  */
 export const APP_SHORTCUTS: AppShortcut[] = [
   {
@@ -85,26 +71,6 @@ export const APP_SHORTCUTS: AppShortcut[] = [
       e.key === 'F5'
       || (modHeld(e, isMac) && !e.altKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR')),
     run: () => { /* no-op: matched purely to preventDefault */ },
-  },
-  {
-    // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs (Ctrl on BOTH platforms by convention).
-    id: 'cycle-tab',
-    keys: () => 'Ctrl + Tab',
-    match: (e) => e.ctrlKey && !e.metaKey && !e.altKey && e.key === 'Tab',
-    run: (ctx, e) => shiftActiveTab(ctx, e.shiftKey ? -1 : 1, true),
-  },
-  {
-    // ⌘/Ctrl + 1~9 — jump to the Nth tab (9 always = last).
-    id: 'jump-to-tab',
-    keys: (isMac) => `${modLabel(isMac)} + 1~9`,
-    match: (e, isMac) => modHeld(e, isMac) && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key),
-    run: (ctx, e) => {
-      const { tabs } = ctx;
-      if (tabs.length === 0) return;
-      const digit = Number(e.key);
-      const targetIdx = digit === 9 ? tabs.length - 1 : digit - 1;
-      if (targetIdx < tabs.length) ctx.setActiveTabId(tabs[targetIdx].id);
-    },
   },
   {
     // ⌘/Ctrl+T — new tab. `!shiftKey` lets ⌘+Shift+T flow through to the
@@ -138,14 +104,6 @@ export const APP_SHORTCUTS: AppShortcut[] = [
     run: (ctx) => {
       if (!ctx.dismissTopmost() && !ctx.hasBlockingBackdrop()) ctx.closeCurrentTab();
     },
-  },
-  {
-    // ⌘/Ctrl+Shift+[ / ] — previous / next tab (no wrap).
-    id: 'switch-tab-bracket',
-    keys: (isMac) => `${modLabel(isMac)} + Shift + [ / ]`,
-    match: (e, isMac) =>
-      modHeld(e, isMac) && e.shiftKey && (e.code === 'BracketLeft' || e.code === 'BracketRight'),
-    run: (ctx, e) => shiftActiveTab(ctx, e.code === 'BracketLeft' ? -1 : 1, false),
   },
 ];
 

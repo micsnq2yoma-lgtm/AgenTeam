@@ -28,12 +28,12 @@
     "remove": "Remove"
   },
   "rightRail": {
-    "workspaceTitle": "Agent Team",
+    "workspaceTitle": "Projects",
     "logsTitle": "View Rust logs",
     "loading": "Loading...",
-    "emptyWorkspaceTitle": "No teams yet",
-    "emptyWorkspaceDescription": "Create a team: pick where its folder lives and turn on assistant mode if you like",
-    "addFolder": "New team",
+    "emptyWorkspaceTitle": "No projects yet",
+    "emptyWorkspaceDescription": "Create a project: pick where its folder lives and turn on assistant mode if you like",
+    "addFolder": "New project",
     "createFromTemplate": "Create from template",
     "collapse": "Collapse",
     "expandMore": "Show {{count}} more",
@@ -97,14 +97,14 @@
     "emptyThought": "(empty record)"
   },
   "newAgentPanel": {
-    "title": "New Agent Team",
+    "title": "New project",
     "close": "Close",
     "back": "Back",
     "recommended": "Recommended",
     "myTemplates": "My templates",
     "noDescription": "No description",
     "addTemplate": "Add template",
-    "addTemplateDescription": "Save a local folder as a template and reuse it to create teams",
+    "addTemplateDescription": "Save a local folder as a template and reuse it to create projects",
     "pickTemplateDirTitle": "Choose a folder to save as a template (it will be copied to the template library)",
     "pickParentDirTitle": "Choose where to save",
     "local": {
@@ -155,11 +155,11 @@
     "capChannelsTitle": "Lives in your chat apps",
     "capChannelsDescription": "Connect Feishu, WeChat and other IM in Agent settings after creation",
     "capabilitiesTitle": "What it can do",
-    "nameLabel": "Team name",
-    "namePlaceholder": "Name your team",
+    "nameLabel": "Project name",
+    "namePlaceholder": "Name your project",
     "changeIcon": "Change icon",
     "changePath": "Change",
-    "create": "Create team",
+    "create": "Create project",
     "errors": {
       "exists": "This folder already exists",
       "archived": "This folder is archived. Restore it from the archive",
@@ -170,28 +170,28 @@
       "deleteTemplateFailed": "Failed to delete template: {{message}}"
     },
     "team": {
-      "title": "New team",
+      "title": "New project",
       "description": "Pick where its folder lives and turn on assistant mode if you like",
-      "detailTitle": "New Agent Team",
+      "detailTitle": "New project",
       "locationLabel": "Location",
       "locationDefault": "Default location",
       "locationNew": "New folder",
       "locationExisting": "Existing folder",
       "assistantTitle": "Assistant mode",
-      "assistantDescription": "Give the team a resident assistant with a name, a personality and memory",
-      "assistantIntro": "The team gets a resident assistant. In your first chat you'll spend about 5 minutes shaping its name and personality together; after that it keeps getting to know you better.",
-      "plainIntro": "The team works directly in this folder, without the assistant persona or memory. Whatever you ask, it gives its all.",
+      "assistantDescription": "Give the project a resident assistant with a name, a personality and memory",
+      "assistantIntro": "The project gets a resident assistant. In your first chat you'll spend about 5 minutes shaping its name and personality together; after that it keeps getting to know you better.",
+      "plainIntro": "The project works directly in this folder, without the assistant persona or memory. Whatever you ask, it gives its all.",
       "capKeepFilesTitle": "Keeps your files",
       "capKeepFilesDescription": "Assistant persona and memory files are only added; files already in the folder are never overwritten"
     }
   },
   "workspaceSelector": {
-    "selectWorkspace": "Select team",
-    "title": "Agent Team",
+    "selectWorkspace": "Select project",
+    "title": "Projects",
     "defaultBadge": "Default",
     "setDefault": "Set default",
-    "setDefaultTitle": "Set as default team",
-    "setDefaultAria": "Set as default team: {{name}}"
+    "setDefaultTitle": "Set as default project",
+    "setDefaultAria": "Set as default project: {{name}}"
   },
   "workspaceEdit": {
     "title": "Edit Workspace",
