@@ -215,7 +215,7 @@ pub(super) fn mutate_bot_config(
     mutate: impl FnOnce(&mut serde_json::Value, bool) -> Result<(), String>,
 ) -> Result<bool, String> {
     let home = dirs::home_dir().ok_or("[im] Home dir not found")?;
-    let config_path = home.join(".myagents").join("config.json");
+    let config_path = home.join(".agenteam").join("config.json");
     let mut changed = false;
     with_config_lock(&config_path, true, |config| {
         // Find the bot/channel entry: search legacy imBotConfigs first, then agents[].channels[] (v0.1.42)
@@ -264,7 +264,7 @@ pub(super) fn mutate_bot_config(
     Ok(changed)
 }
 
-/// Persist a partial patch to a single bot's entry in `~/.myagents/config.json`.
+/// Persist a partial patch to a single bot's entry in `~/.agenteam/config.json`.
 /// Uses the shared config lock. `None` = no change, `Some("")` = clear.
 pub(super) fn persist_bot_config_patch(bot_id: &str, patch: &BotConfigPatch) -> Result<(), String> {
     mutate_bot_config(bot_id, |bot, is_channel| {
@@ -545,10 +545,10 @@ async fn update_bot_config_internal<R: Runtime>(
     Ok(())
 }
 
-/// Add a new bot entry to `~/.myagents/config.json`.
+/// Add a new bot entry to `~/.agenteam/config.json`.
 fn add_bot_config_to_disk(bot_config: &serde_json::Value) -> Result<(), String> {
     let home = dirs::home_dir().ok_or("[im] Home dir not found")?;
-    let config_path = home.join(".myagents").join("config.json");
+    let config_path = home.join(".agenteam").join("config.json");
     with_config_lock(&config_path, true, |config| {
         // Ensure imBotConfigs array exists
         if config.get("imBotConfigs").is_none() {
@@ -576,10 +576,10 @@ fn add_bot_config_to_disk(bot_config: &serde_json::Value) -> Result<(), String> 
     Ok(())
 }
 
-/// Remove a bot entry from `~/.myagents/config.json`.
+/// Remove a bot entry from `~/.agenteam/config.json`.
 fn remove_bot_config_from_disk(bot_id: &str) -> Result<(), String> {
     let home = dirs::home_dir().ok_or("[im] Home dir not found")?;
-    let config_path = home.join(".myagents").join("config.json");
+    let config_path = home.join(".agenteam").join("config.json");
     with_config_lock(&config_path, true, |config| {
         if let Some(bots) = config
             .get_mut("imBotConfigs")
@@ -593,7 +593,7 @@ fn remove_bot_config_from_disk(bot_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Read `availableProvidersJson` from the top-level field of `~/.myagents/config.json`.
+/// Read `availableProvidersJson` from the top-level field of `~/.agenteam/config.json`.
 
 /// Unified config update command: replaces all 6 old hot-update commands.
 #[deprecated(note = "Use cmd_update_agent_config instead")]
@@ -2233,7 +2233,7 @@ mod group_access_tests {
         };
         let home = std::path::PathBuf::from(home);
         assert_eq!(dirs::home_dir().unwrap(), home);
-        let path = home.join(".myagents/config.json");
+        let path = home.join(".agenteam/config.json");
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         let app = tauri::test::mock_app();
         app.manage(ManagedImBots::default());

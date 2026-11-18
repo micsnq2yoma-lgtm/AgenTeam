@@ -18,6 +18,7 @@ import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   acquireLockedResource,
+  extractNativeArchive,
   computeBuildFingerprint,
   documentRuntimeFromPreparedBundle,
   validatePreparedBundle,
@@ -191,9 +192,7 @@ async function extractArchive(entry, name) {
   );
   const destination = join(extractRoot, name);
   mkdirSync(destination, { recursive: true });
-  execFileSync('tar', ['-xf', archive, '-C', destination], {
-    stdio: 'inherit',
-  });
+  extractNativeArchive(archive, destination, entry.archiveMembers);
   return destination;
 }
 

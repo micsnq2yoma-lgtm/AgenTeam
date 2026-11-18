@@ -109,7 +109,7 @@ describe('codex command context', () => {
 
     const installDir = join(
       tempHome,
-      '.myagents',
+      '.agenteam',
       'runtimes',
       'codex',
       MANAGED_CODEX_REQUIRED_RUNTIME.version,
@@ -118,7 +118,7 @@ describe('codex command context', () => {
     mkdirSync(installDir, { recursive: true });
     const binary = join(installDir, process.platform === 'win32' ? 'codex.exe' : 'codex');
     writeFileSync(binary, '');
-    const root = join(tempHome, '.myagents', 'runtimes', 'codex');
+    const root = join(tempHome, '.agenteam', 'runtimes', 'codex');
     writeFileSync(join(root, 'installed.json'), JSON.stringify({
       ...verifiedInstalledMetadata(platform),
       executableRelativePath: process.platform === 'win32' ? 'codex.exe' : 'codex',
@@ -138,7 +138,7 @@ describe('codex command context', () => {
     expect(context.env.MYAGENTS_INTERNAL_CLI_TOKEN).toBe('internal-sidecar-capability');
     const rules = readFileSync(join(getManagedCodexHome(), 'rules', 'myagents.rules'), 'utf-8');
     expect(rules).toContain('prefix_rule(pattern=["myagents"], decision="allow")');
-    expect(rules).toContain(JSON.stringify(join(tempHome, '.myagents', 'bin', process.platform === 'win32' ? 'myagents.cmd' : 'myagents')));
+    expect(rules).toContain(JSON.stringify(join(tempHome, '.agenteam', 'bin', process.platform === 'win32' ? 'myagents.cmd' : 'myagents')));
   });
 
   it('prefers executableRelativePath from managed installed metadata', async () => {
@@ -149,7 +149,7 @@ describe('codex command context', () => {
     vi.stubEnv('HOME', tempHome);
     vi.stubEnv('USERPROFILE', tempHome);
 
-    const root = join(tempHome, '.myagents', 'runtimes', 'codex');
+    const root = join(tempHome, '.agenteam', 'runtimes', 'codex');
     const installDir = join(root, MANAGED_CODEX_REQUIRED_RUNTIME.version, platform);
     const nestedDir = join(installDir, 'package', 'bin');
     mkdirSync(nestedDir, { recursive: true });
@@ -174,7 +174,7 @@ describe('codex command context', () => {
     vi.stubEnv('USERPROFILE', tempHome);
 
     const staleVersion = '0.146.0';
-    const root = join(tempHome, '.myagents', 'runtimes', 'codex');
+    const root = join(tempHome, '.agenteam', 'runtimes', 'codex');
     const installDir = join(root, staleVersion, platform);
     mkdirSync(installDir, { recursive: true });
     const binary = join(installDir, process.platform === 'win32' ? 'codex.exe' : 'codex');
@@ -200,7 +200,7 @@ describe('codex command context', () => {
     vi.stubEnv('USERPROFILE', tempHome);
 
     const staleVersion = '0.0.0-unverified';
-    const root = join(tempHome, '.myagents', 'runtimes', 'codex');
+    const root = join(tempHome, '.agenteam', 'runtimes', 'codex');
     const installDir = join(root, staleVersion, platform);
     mkdirSync(installDir, { recursive: true });
     writeFileSync(join(installDir, process.platform === 'win32' ? 'codex.exe' : 'codex'), '');
@@ -222,7 +222,7 @@ describe('codex command context', () => {
     vi.stubEnv('HOME', tempHome);
     vi.stubEnv('USERPROFILE', tempHome);
 
-    const root = join(tempHome, '.myagents', 'runtimes', 'codex');
+    const root = join(tempHome, '.agenteam', 'runtimes', 'codex');
     const installDir = join(root, MANAGED_CODEX_REQUIRED_RUNTIME.version, platform);
     const nestedDir = join(installDir, 'vendor', 'x86_64-pc-windows-msvc', 'bin');
     mkdirSync(nestedDir, { recursive: true });
@@ -246,7 +246,7 @@ describe('codex command context', () => {
     vi.stubEnv('HOME', tempHome);
     vi.stubEnv('USERPROFILE', tempHome);
 
-    const root = join(tempHome, '.myagents', 'runtimes', 'codex');
+    const root = join(tempHome, '.agenteam', 'runtimes', 'codex');
     const installDir = join(root, MANAGED_CODEX_REQUIRED_RUNTIME.version, platform);
     mkdirSync(installDir, { recursive: true });
     writeFileSync(join(root, 'installed.json'), JSON.stringify({
@@ -266,7 +266,7 @@ describe('codex command context', () => {
     vi.stubEnv('HOME', tempHome);
     vi.stubEnv('USERPROFILE', tempHome);
 
-    const root = join(tempHome, '.myagents', 'runtimes', 'codex');
+    const root = join(tempHome, '.agenteam', 'runtimes', 'codex');
     const escapedDir = join(root, '..', platform);
     mkdirSync(escapedDir, { recursive: true });
     mkdirSync(root, { recursive: true });

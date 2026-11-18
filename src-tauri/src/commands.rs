@@ -375,7 +375,7 @@ pub fn cmd_get_platform() -> String {
 }
 
 /// Command: Get or create device ID
-/// Stored in ~/.myagents/device_id to persist across app reinstalls
+/// Stored in ~/.agenteam/device_id to persist across app reinstalls
 /// Only regenerates if the file is deleted by user
 #[tauri::command]
 pub fn cmd_get_device_id() -> Result<String, String> {
@@ -402,7 +402,7 @@ const DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID: &str = "mino";
 /// Resolve one immutable workspace template shipped with the current app.
 ///
 /// The bundled template is the only authority for creating a fresh builtin
-/// workspace. A user-owned copy under `~/.myagents/projects/` must never be
+/// workspace. A user-owned copy under `~/.agenteam/projects/` must never be
 /// used as a fallback source because it may already contain private identity,
 /// memory, credentials references, or other user customizations.
 fn resolve_bundled_workspace_template_at(
@@ -436,17 +436,17 @@ fn resolve_bundled_workspace_template<R: Runtime>(
 }
 
 /// Command: Initialize bundled workspace (mino) on first launch
-/// Copies from the immutable app template to ~/.myagents/projects/mino/.
+/// Copies from the immutable app template to ~/.agenteam/projects/mino/.
 /// An existing user-owned workspace is never overwritten.
 #[tauri::command]
 pub fn cmd_initialize_bundled_workspace<R: Runtime>(
     app_handle: AppHandle<R>,
 ) -> Result<InitBundledWorkspaceResult, String> {
     let home_dir = dirs::home_dir().ok_or("Failed to get home dir")?;
-    let mino_dest = home_dir.join(".myagents").join("projects").join("mino");
+    let mino_dest = home_dir.join(".agenteam").join("projects").join("mino");
 
     // NOTE: Path::exists() follows symlinks, so a dangling
-    // ~/.myagents/projects/mino link returns false here and we'd fall
+    // ~/.agenteam/projects/mino link returns false here and we'd fall
     // through to copy_dir_recursive — which fails on EEXIST and surfaces
     // a workspace-init error to the user every launch until they clear
     // the link by hand. Same family as the cpSync crash fixed in
@@ -492,7 +492,7 @@ pub fn cmd_create_bot_workspace<R: Runtime>(
     workspace_name: String,
 ) -> Result<InitBundledWorkspaceResult, String> {
     let home_dir = dirs::home_dir().ok_or("Failed to get home dir")?;
-    let projects_dir = home_dir.join(".myagents").join("projects");
+    let projects_dir = home_dir.join(".agenteam").join("projects");
 
     // Sanitize name: remove @, replace non-alphanumeric (except CJK) with dash, trim
     let sanitized = sanitize_workspace_name(&workspace_name);
@@ -527,11 +527,11 @@ pub fn cmd_create_bot_workspace<R: Runtime>(
 }
 
 /// Command: Remove a workspace directory created by `cmd_create_bot_workspace`.
-/// Safety: only allows deleting directories under `~/.myagents/projects/`.
+/// Safety: only allows deleting directories under `~/.agenteam/projects/`.
 #[tauri::command]
 pub fn cmd_remove_bot_workspace(workspace_path: String) -> Result<(), String> {
     let home_dir = dirs::home_dir().ok_or("Failed to get home dir")?;
-    let projects_dir = home_dir.join(".myagents").join("projects");
+    let projects_dir = home_dir.join(".agenteam").join("projects");
 
     let target = PathBuf::from(&workspace_path);
     // Canonicalize both paths to prevent traversal attacks
@@ -543,7 +543,7 @@ pub fn cmd_remove_bot_workspace(workspace_path: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to resolve workspace path: {}", e))?;
 
     if !canon_target.starts_with(&canon_projects) || canon_target == canon_projects {
-        return Err("Refusing to delete: path is not inside ~/.myagents/projects/".to_string());
+        return Err("Refusing to delete: path is not inside ~/.agenteam/projects/".to_string());
     }
 
     fs::remove_dir_all(&canon_target)
@@ -552,12 +552,12 @@ pub fn cmd_remove_bot_workspace(workspace_path: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Command: Remove a template directory from ~/.myagents/templates/.
-/// Safety: only allows deleting directories under ~/.myagents/templates/.
+/// Command: Remove a template directory from ~/.agenteam/templates/.
+/// Safety: only allows deleting directories under ~/.agenteam/templates/.
 #[tauri::command]
 pub fn cmd_remove_template_folder(template_path: String) -> Result<(), String> {
     let home_dir = dirs::home_dir().ok_or("Failed to get home dir")?;
-    let templates_dir = home_dir.join(".myagents").join("templates");
+    let templates_dir = home_dir.join(".agenteam").join("templates");
 
     if !templates_dir.exists() {
         return Err("Templates directory does not exist".to_string());
@@ -579,7 +579,7 @@ pub fn cmd_remove_template_folder(template_path: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to resolve template path: {}", e))?;
 
     if !canon_target.starts_with(&canon_templates) || canon_target == canon_templates {
-        return Err("Refusing to delete: path is not inside ~/.myagents/templates/".to_string());
+        return Err("Refusing to delete: path is not inside ~/.agenteam/templates/".to_string());
     }
 
     fs::remove_dir_all(&canon_target)
@@ -677,7 +677,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 
 /// Command: Create a workspace from a user template (copy source dir to dest dir).
 /// Reuses copy_dir_recursive which skips .git and node_modules.
-/// Safety: source_path must be under ~/.myagents/templates/.
+/// Safety: source_path must be under ~/.agenteam/templates/.
 /// The dest_path parent must exist; the dest_path itself must NOT exist.
 #[tauri::command]
 pub fn cmd_create_workspace_from_template(
@@ -691,9 +691,9 @@ pub fn cmd_create_workspace_from_template(
         return Err(format!("Template source not found: {}", source_path));
     }
 
-    // Validate source is under ~/.myagents/templates/
+    // Validate source is under ~/.agenteam/templates/
     let home_dir = dirs::home_dir().ok_or("Failed to get home dir")?;
-    let templates_dir = home_dir.join(".myagents").join("templates");
+    let templates_dir = home_dir.join(".agenteam").join("templates");
     if templates_dir.exists() {
         let canon_templates = templates_dir
             .canonicalize()
@@ -702,7 +702,7 @@ pub fn cmd_create_workspace_from_template(
             .canonicalize()
             .map_err(|e| format!("Failed to resolve source path: {}", e))?;
         if !canon_src.starts_with(&canon_templates) {
-            return Err("Source path must be inside ~/.myagents/templates/".to_string());
+            return Err("Source path must be inside ~/.agenteam/templates/".to_string());
         }
     } else {
         return Err("Templates directory does not exist".to_string());
@@ -797,7 +797,7 @@ fn resolve_template_source<R: Runtime>(
             return Err(format!("Template source not found: {}", p));
         }
         let home_dir = dirs::home_dir().ok_or("Failed to get home dir")?;
-        let templates_dir = home_dir.join(".myagents").join("templates");
+        let templates_dir = home_dir.join(".agenteam").join("templates");
         if !templates_dir.exists() {
             return Err("Templates directory does not exist".to_string());
         }
@@ -808,7 +808,7 @@ fn resolve_template_source<R: Runtime>(
             .canonicalize()
             .map_err(|e| format!("Failed to resolve source path: {}", e))?;
         if !canon_src.starts_with(&canon_templates) {
-            return Err("Source path must be inside ~/.myagents/templates/".to_string());
+            return Err("Source path must be inside ~/.agenteam/templates/".to_string());
         }
         // Return canonical path (not the original `src`) — closes the TOCTOU between
         // validation and consumption, since the caller will read from canon_src directly.
@@ -906,7 +906,63 @@ pub fn cmd_apply_template_to_workspace<R: Runtime>(
     Ok(())
 }
 
-/// Command: Copy a local folder into the templates library (~/.myagents/templates/<name>/).
+/// Command: Prepare the folder behind a new Agent Team — the single creation
+/// entry for every team, whatever its location or assistant mode.
+///
+/// - `adopt_existing = false`: `dest_path` must not exist yet; it is created.
+/// - `adopt_existing = true`: `dest_path` must be an existing directory.
+/// - `assistant_template_id`: when set, the bundled assistant files are laid
+///   down without overwriting anything already in the folder.
+#[tauri::command]
+pub fn cmd_prepare_team_folder<R: Runtime>(
+    app_handle: AppHandle<R>,
+    dest_path: String,
+    adopt_existing: bool,
+    assistant_template_id: Option<String>,
+) -> Result<(), String> {
+    let assistant_src = match assistant_template_id.as_deref() {
+        Some(id) => Some(resolve_bundled_workspace_template(&app_handle, id)?),
+        None => None,
+    };
+    let home = dirs::home_dir().ok_or("Failed to get home dir")?;
+    ulog_info!(
+        "[team] Preparing team folder {:?} (adopt_existing={}, assistant={:?})",
+        dest_path,
+        adopt_existing,
+        assistant_template_id
+    );
+    prepare_team_folder_with_home(
+        &dest_path,
+        adopt_existing,
+        assistant_src.as_deref(),
+        &home,
+    )
+}
+
+fn prepare_team_folder_with_home(
+    dest_path: &str,
+    adopt_existing: bool,
+    assistant_src: Option<&Path>,
+    home: &Path,
+) -> Result<(), String> {
+    let dst = validate_file_path_with_home(dest_path, home)?;
+    if adopt_existing {
+        if !dst.is_dir() {
+            return Err(format!("Folder does not exist: {}", dest_path));
+        }
+    } else {
+        if dst.exists() {
+            return Err(format!("Destination already exists: {}", dest_path));
+        }
+        fs::create_dir_all(&dst).map_err(|e| format!("Failed to create team folder: {e}"))?;
+    }
+    if let Some(src) = assistant_src {
+        merge_dir_validated_with_home(src, &dst, home, false)?;
+    }
+    Ok(())
+}
+
+/// Command: Copy a local folder into the templates library (~/.agenteam/templates/<name>/).
 /// Returns the destination path.
 #[tauri::command]
 pub fn cmd_copy_folder_to_templates(
@@ -919,7 +975,7 @@ pub fn cmd_copy_folder_to_templates(
     }
 
     let home_dir = dirs::home_dir().ok_or("Failed to get home dir")?;
-    let templates_dir = home_dir.join(".myagents").join("templates");
+    let templates_dir = home_dir.join(".agenteam").join("templates");
     fs::create_dir_all(&templates_dir)
         .map_err(|e| format!("Failed to create templates dir: {}", e))?;
 
@@ -956,7 +1012,7 @@ pub fn cmd_copy_folder_to_templates(
 
 const ADMIN_AGENT_VERSION: &str = "30";
 
-/// Helper-bundled paths (relative to `~/.myagents/`) that previous versions
+/// Helper-bundled paths (relative to `~/.agenteam/`) that previous versions
 /// shipped but that have since been retired.
 ///
 /// `merge_dir_recursive` is overwrite-only ("never deletes"), so a file
@@ -965,7 +1021,7 @@ const ADMIN_AGENT_VERSION: &str = "30";
 /// silently diverge fresh-install from upgrade behavior. Each retire
 /// MUST also append the relative path here so the next sync removes it.
 ///
-/// Once `~/.myagents/.admin-agent-version` has rolled past the version
+/// Once `~/.agenteam/.admin-agent-version` has rolled past the version
 /// that introduced the retire, the entry is harmless to keep (it just
 /// no-ops on absent paths).
 const RETIRED_ADMIN_PATHS: &[&str] = &[
@@ -974,7 +1030,7 @@ const RETIRED_ADMIN_PATHS: &[&str] = &[
     ".claude/skills/support/references/cloud-space.md",
 ];
 
-/// Merge bundled admin agent files into ~/.myagents/
+/// Merge bundled admin agent files into ~/.agenteam/
 /// Version-gated: only runs when ADMIN_AGENT_VERSION changes.
 #[tauri::command]
 pub async fn cmd_sync_admin_agent<R: Runtime>(app_handle: AppHandle<R>) -> Result<bool, String> {
@@ -985,7 +1041,7 @@ pub async fn cmd_sync_admin_agent<R: Runtime>(app_handle: AppHandle<R>) -> Resul
 
 fn sync_admin_agent_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<bool, String> {
     let home = dirs::home_dir().ok_or("Home dir not found")?;
-    let dest = home.join(".myagents");
+    let dest = home.join(".agenteam");
 
     // Version gate
     let ver_file = dest.join(".admin-agent-version");
@@ -1041,7 +1097,7 @@ fn sync_admin_agent_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<boo
         }
     }
 
-    // Merge into ~/.myagents/
+    // Merge into ~/.agenteam/
     merge_dir_recursive(&src, &dest).map_err(|e| format!("Merge failed: {}", e))?;
 
     fs::write(&ver_file, ADMIN_AGENT_VERSION)
@@ -1091,7 +1147,7 @@ const SYSTEM_SKILLS: &[&str] = &[
     // to the Runtime, so execution no longer depends on a Skill name.
     "myagents-task-alignment",
     // v10: ultra-research removed — not generic enough to ship as system
-    // skill. Existing installs retain the dir at ~/.myagents/skills/
+    // skill. Existing installs retain the dir at ~/.agenteam/skills/
     // ultra-research/ until the user deletes it (no orphan cleanup logic).
     "download-anything",
     // v52: myagents-cli documents physical local directory/.zip/.skill
@@ -1153,7 +1209,7 @@ const SYSTEM_SKILLS: &[&str] = &[
 const RETIRED_SYSTEM_SKILLS: &[&str] = &["myagents-sensor", "task-alignment", "task-implement"];
 
 /// Force-sync every system skill from the app bundle to
-/// `~/.myagents/skills/<name>/`. Runs once per `SYSTEM_SKILLS_VERSION`
+/// `~/.agenteam/skills/<name>/`. Runs once per `SYSTEM_SKILLS_VERSION`
 /// bump — idempotent otherwise. User edits to these directories will
 /// be overwritten when the version changes, by design (see module
 /// comment above).
@@ -1191,7 +1247,7 @@ pub(crate) async fn sync_system_skills_for_startup<R: Runtime>(
 
 fn ensure_system_skills_installation_current() -> Result<(), String> {
     let home = dirs::home_dir().ok_or("Home dir not found")?;
-    ensure_system_skills_installation_current_at(&home.join(".myagents"))
+    ensure_system_skills_installation_current_at(&home.join(".agenteam"))
 }
 
 fn ensure_system_skills_installation_current_at(myagents_dir: &Path) -> Result<(), String> {
@@ -1229,7 +1285,7 @@ fn ensure_system_skills_installation_current_at(myagents_dir: &Path) -> Result<(
 
 fn sync_system_skills_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<bool, String> {
     let home = dirs::home_dir().ok_or("Home dir not found")?;
-    let myagents_dir = home.join(".myagents");
+    let myagents_dir = home.join(".agenteam");
     let skills_dir = myagents_dir.join("skills");
 
     let res = app_handle
@@ -1250,7 +1306,7 @@ fn sync_system_skills_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<b
     //
     // The version stamp alone is NOT proof the install is healthy (issue #321):
     // the old destructive sync could write the version after leaving empty
-    // `~/.myagents/skills/<name>/` dirs, freezing that broken state forever.
+    // `~/.agenteam/skills/<name>/` dirs, freezing that broken state forever.
     // Validating the on-disk result here makes the gate self-healing — a frozen
     // or incomplete install re-runs the (now non-destructive) sync regardless of
     // whether the version happened to be bumped. Healthy installs still
@@ -1324,7 +1380,7 @@ fn sync_system_skills_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<b
     // Only advance the version gate when every system skill actually landed.
     // A missing/incomplete bundled source is a packaging defect; freezing the
     // version on a partial sweep would make the broken state permanent (the
-    // old behavior that produced empty `~/.myagents/skills/<name>` dirs on
+    // old behavior that produced empty `~/.agenteam/skills/<name>` dirs on
     // Windows — issue #321). Leaving the version unwritten retries next launch
     // and keeps the warnings above visible.
     let complete =
@@ -1347,7 +1403,7 @@ fn sync_system_skills_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<b
 }
 
 /// Outcome of syncing one system skill from the app bundle into
-/// `~/.myagents/skills/`.
+/// `~/.agenteam/skills/`.
 enum SystemSkillSync {
     /// Source was valid and copied over `dst`.
     Synced,
@@ -1362,7 +1418,7 @@ enum SystemSkillSync {
 /// one file every SKILL.md-gated scanner (Settings panel, slash picker, SDK
 /// runtime) requires to recognize a skill. An empty / SKILL.md-less directory
 /// is a packaging defect, not a skill. Applies equally to a bundled source dir
-/// and an installed `~/.myagents/skills/<name>` dir.
+/// and an installed `~/.agenteam/skills/<name>` dir.
 fn skill_dir_is_complete(dir: &Path) -> bool {
     if dir.file_name().is_some_and(|name| name == "cuse") {
         return crate::cuse_skill::complete(dir);
@@ -1436,7 +1492,7 @@ fn sync_one_system_skill(src: &Path, dst: &Path) -> Result<SystemSkillSync, Stri
     // SYSTEM_SKILLS_VERSION bumps mean "the whole skill snapshot is new".
     //
     // Path::exists() follows symlinks → returns false for broken links, so a
-    // dangling `~/.myagents/skills/<name>` left by the user (e.g. pointing at
+    // dangling `~/.agenteam/skills/<name>` left by the user (e.g. pointing at
     // a moved repo) would slip past and then trip `fs::create_dir_all` in
     // `merge_dir_recursive` with EEXIST, failing the whole startup sync.
     // symlink_metadata() does NOT follow, so it's the right probe for "is
@@ -1507,6 +1563,18 @@ fn merge_dir_recursive_validated_with_home(
     dst: &Path,
     home: &Path,
 ) -> Result<(), String> {
+    merge_dir_validated_with_home(src, dst, home, true)
+}
+
+/// Shared walker for template merges. `overwrite = false` keeps every file the
+/// destination already has, so adopting an existing folder never clobbers the
+/// user's own `CLAUDE.md` or project files.
+fn merge_dir_validated_with_home(
+    src: &Path,
+    dst: &Path,
+    home: &Path,
+    overwrite: bool,
+) -> Result<(), String> {
     fs::create_dir_all(dst).map_err(|e| format!("Failed to create template directory: {e}"))?;
     for entry in fs::read_dir(src).map_err(|e| format!("Failed to read template: {e}"))? {
         let entry = entry.map_err(|e| format!("Failed to read template entry: {e}"))?;
@@ -1523,8 +1591,8 @@ fn merge_dir_recursive_validated_with_home(
         let target = dst.join(&name);
         validate_template_target_with_home(&target, home)?;
         if ft.is_dir() {
-            merge_dir_recursive_validated_with_home(&entry.path(), &target, home)?;
-        } else {
+            merge_dir_validated_with_home(&entry.path(), &target, home, overwrite)?;
+        } else if overwrite || !target.exists() {
             fs::copy(entry.path(), &target)
                 .map_err(|e| format!("Failed to copy template file: {e}"))?;
         }
@@ -1807,7 +1875,7 @@ mod system_skills_tests {
         assert!(helper.contains("`/support`"));
         assert!(helper.contains("`/tool-install`"));
         assert!(support.contains("先用 `/myagents-docs` 确认正确产品预期"));
-        assert!(support.contains("不读取 `~/.myagents/credentials/`"));
+        assert!(support.contains("不读取 `~/.agenteam/credentials/`"));
         assert!(!support.contains("myagents space"));
         assert!(tool_install.contains("MYAGENTS_NPM_GLOBAL_PREFIX"));
         assert!(tool_install.contains("不写 Agent-CLI Registry"));
@@ -2165,6 +2233,8 @@ const CREDENTIAL_PATHS: &[&str] = &[
     ".config/op",
     ".myagents/codex/auth.json",
     ".myagents/credentials",
+    ".agenteam/codex/auth.json",
+    ".agenteam/credentials",
 ];
 #[cfg(target_os = "macos")]
 const MAC_SENSITIVE_SUBDIRS: &[&str] = &[
@@ -2366,19 +2436,19 @@ mod path_safety_crosscheck_tests {
     fn managed_codex_blacklist_protects_only_auth_file() {
         let home = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/controlled-test-home");
         assert!(validate_file_path_with_home(
-            &home.join(".myagents/codex/auth.json").to_string_lossy(),
+            &home.join(".agenteam/codex/auth.json").to_string_lossy(),
             &home,
         )
         .is_err());
         assert!(validate_file_path_with_home(
             &home
-                .join(".myagents/codex/generated_images/thread/call.png")
+                .join(".agenteam/codex/generated_images/thread/call.png")
                 .to_string_lossy(),
             &home,
         )
         .is_ok());
         assert!(validate_file_path_with_home(
-            &home.join(".myagents/codex/config.toml").to_string_lossy(),
+            &home.join(".agenteam/codex/config.toml").to_string_lossy(),
             &home,
         )
         .is_ok());
@@ -2394,7 +2464,7 @@ mod path_safety_crosscheck_tests {
             .unwrap();
         let home = tmp.path().join("home");
         let src = tmp.path().join("template");
-        let dst = home.join(".myagents/codex");
+        let dst = home.join(".agenteam/codex");
         fs::create_dir_all(&src).unwrap();
         fs::create_dir_all(&dst).unwrap();
         fs::write(src.join("auth.json"), "replacement").unwrap();
@@ -3907,5 +3977,63 @@ mod runtime_detection_cache_tests {
             }
             _ => panic!("expected cache hit"),
         }
+    }
+}
+
+#[cfg(test)]
+mod team_folder_tests {
+    use super::prepare_team_folder_with_home;
+    use std::fs;
+
+    fn assistant_src(root: &std::path::Path) -> std::path::PathBuf {
+        let src = root.join("tpl");
+        fs::create_dir_all(src.join(".claude/rules")).unwrap();
+        fs::write(src.join("CLAUDE.md"), "assistant").unwrap();
+        fs::write(src.join(".claude/rules/01-IDENTITY.md"), "id").unwrap();
+        src
+    }
+
+    #[test]
+    fn new_folder_is_created_and_receives_assistant_files() {
+        let root = tempfile::tempdir().unwrap();
+        let src = assistant_src(root.path());
+        let dest = root.path().join("teams/alpha");
+        let path = dest.to_string_lossy().to_string();
+        prepare_team_folder_with_home(&path, false, Some(&src), root.path()).unwrap();
+        assert_eq!(fs::read_to_string(dest.join("CLAUDE.md")).unwrap(), "assistant");
+        assert!(dest.join(".claude/rules/01-IDENTITY.md").is_file());
+    }
+
+    #[test]
+    fn new_folder_rejects_an_existing_destination() {
+        let root = tempfile::tempdir().unwrap();
+        let dest = root.path().join("taken");
+        fs::create_dir_all(&dest).unwrap();
+        let path = dest.to_string_lossy().to_string();
+        let err = prepare_team_folder_with_home(&path, false, None, root.path()).unwrap_err();
+        assert!(err.contains("already exists"));
+    }
+
+    #[test]
+    fn adopting_a_folder_keeps_existing_files() {
+        let root = tempfile::tempdir().unwrap();
+        let src = assistant_src(root.path());
+        let dest = root.path().join("project");
+        fs::create_dir_all(&dest).unwrap();
+        fs::write(dest.join("CLAUDE.md"), "mine").unwrap();
+        let path = dest.to_string_lossy().to_string();
+        prepare_team_folder_with_home(&path, true, Some(&src), root.path()).unwrap();
+        assert_eq!(fs::read_to_string(dest.join("CLAUDE.md")).unwrap(), "mine");
+        assert!(dest.join(".claude/rules/01-IDENTITY.md").is_file());
+    }
+
+    #[test]
+    fn adopting_requires_an_existing_folder() {
+        let root = tempfile::tempdir().unwrap();
+        let dest = root.path().join("missing");
+        let path = dest.to_string_lossy().to_string();
+        let err = prepare_team_folder_with_home(&path, true, None, root.path()).unwrap_err();
+        assert!(err.contains("does not exist"));
+        assert!(!dest.exists());
     }
 }

@@ -13,7 +13,7 @@ vi.mock('../utils/platform', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../utils/platform')>()),
   getHomeDirOrNull: () => scratch.directory,
 }));
-beforeAll(() => mkdirSync(`${scratch.directory}/.myagents`, { recursive: true }));
+beforeAll(() => mkdirSync(`${scratch.directory}/.agenteam`, { recursive: true }));
 afterAll(() => rmSync(scratch.directory, { recursive: true, force: true }));
 
 describe('Token Dance fixed request attribution', () => {

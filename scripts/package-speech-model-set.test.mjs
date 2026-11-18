@@ -64,8 +64,8 @@ function createPublisherFixture() {
     ),
   );
   cpSync(
-    join(repoRoot, "src-tauri", "tauri.conf.json"),
-    join(root, "src-tauri", "tauri.conf.json"),
+    join(repoRoot, "src-tauri", "upstream-resources.pub"),
+    join(root, "src-tauri", "upstream-resources.pub"),
   );
   writeFileSync(
     join(root, ".env"),
@@ -349,7 +349,7 @@ test(
     try {
       const result = runPublisher(fixture, { FAKE_SIGNING_VALID: "0" });
       assert.notEqual(result.status, 0);
-      assert.match(result.stderr, /does not match the App updater public key/);
+      assert.match(result.stderr, /does not match the upstream resource public key/);
       const uploads = readFileSync(fixture.rcloneLog, "utf8")
         .trim()
         .split("\n");

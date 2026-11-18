@@ -71,7 +71,7 @@ function getGeneratedAudioDir(): string {
   const workspace = edgeTtsConfig?.workspace;
   const dir = workspace
     ? join(workspace, 'myagents_files', 'generated_audio')
-    : join(homedir(), '.myagents', 'generated_audio');
+    : join(homedir(), '.agenteam', 'generated_audio');
   if (!existsSync(dir)) {
     ensureDirSync(dir);
     if (workspace) ensureGitignorePattern(workspace, 'myagents_files/');

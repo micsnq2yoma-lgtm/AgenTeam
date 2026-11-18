@@ -784,7 +784,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     // Rust (Issue #232). flushOpenTabsNow() writes localStorage (the fast path),
     // but WebKit/WebView2 persist localStorage to disk ASYNCHRONOUSLY, so the
     // abrupt NSIS exit(0) (Windows) / relaunch() (macOS) can drop that last
-    // write. persistOpenTabsDurable() additionally fsyncs a ~/.myagents/
+    // write. persistOpenTabsDurable() additionally fsyncs a ~/.agenteam/
     // open-tabs.json backstop and is AWAITED here, so the tabs the user had
     // open at the click are committed to disk before the process dies; boot
     // consumes the backstop and adopts it only if localStorage came up empty.

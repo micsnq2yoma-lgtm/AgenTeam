@@ -14,7 +14,7 @@ let home: string;
 let originalHome: string | undefined;
 let store: SessionStoreModule;
 
-const sessionsDir = () => join(home, '.myagents', 'sessions');
+const sessionsDir = () => join(home, '.agenteam', 'sessions');
 const jsonlPath = (id: string) => join(sessionsDir(), `${id}.jsonl`);
 const legacyJsonPath = (id: string) => join(sessionsDir(), `${id}.json`);
 

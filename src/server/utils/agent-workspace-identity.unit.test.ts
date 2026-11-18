@@ -350,7 +350,7 @@ describe('persisted Agent workspace identity', () => {
     await expect(registerWorkspaceAgent(file)).rejects.toMatchObject({
       code: 'WORKSPACE_PATH_NOT_DIRECTORY',
     });
-    await expect(registerWorkspaceAgent('/etc')).rejects.toMatchObject({
+    await expect(registerWorkspaceAgent(process.platform === 'win32' ? 'C:\\Windows' : '/etc')).rejects.toMatchObject({
       code: 'WORKSPACE_PATH_UNSAFE',
     });
 

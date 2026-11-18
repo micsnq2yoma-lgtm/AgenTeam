@@ -1,6 +1,6 @@
 /**
  * Regression test for issue #239 — `cc-plugin install file://…` of a plugin
- * that ALREADY lives in ~/.myagents/plugins/<name> used to 409 with
+ * that ALREADY lives in ~/.agenteam/plugins/<name> used to 409 with
  * "目录已存在" and never register, so `cc-plugin list` showed nothing while
  * the dir sat on disk.
  *
@@ -31,7 +31,7 @@ describe('plugin install — register-in-place (#239)', () => {
     // getHomeDirOrNull() reads HOME (unix) / USERPROFILE (win) at call time.
     process.env.HOME = home;
     process.env.USERPROFILE = home;
-    const myagents = join(home, '.myagents');
+    const myagents = join(home, '.agenteam');
     mkdirSync(myagents, { recursive: true });
     // Seed an empty config so withConfigLock has a file to lock + rewrite.
     writeFileSync(join(myagents, 'config.json'), JSON.stringify({}, null, 2), 'utf-8');
@@ -44,8 +44,8 @@ describe('plugin install — register-in-place (#239)', () => {
   });
 
   it('registers a valid plugin dir that already sits in plugins/<name> instead of 409ing', async () => {
-    // User manually created ~/.myagents/plugins/test-echo with a valid layout.
-    const pluginDir = join(home, '.myagents', 'plugins', 'test-echo');
+    // User manually created ~/.agenteam/plugins/test-echo with a valid layout.
+    const pluginDir = join(home, '.agenteam', 'plugins', 'test-echo');
     mkdirSync(join(pluginDir, '.claude-plugin'), { recursive: true });
     mkdirSync(join(pluginDir, 'commands'), { recursive: true });
     writeFileSync(
@@ -71,13 +71,13 @@ describe('plugin install — register-in-place (#239)', () => {
     const listedPlugin = listed.find((p) => p.name === 'test-echo');
     expect(listedPlugin).toBeDefined();
     expect(listedPlugin?.dataPath).toBe(
-      join(home, '.myagents', 'plugins', 'data', 'test-echo-local'),
+      join(home, '.agenteam', 'plugins', 'data', 'test-echo-local'),
     );
   });
 
   it('still 409s a name collision when the source is OUTSIDE plugins/ (orphan dir)', async () => {
     // A pre-existing (unrelated) dir occupies plugins/foo …
-    const occupied = join(home, '.myagents', 'plugins', 'foo');
+    const occupied = join(home, '.agenteam', 'plugins', 'foo');
     mkdirSync(occupied, { recursive: true });
     writeFileSync(join(occupied, 'stray.txt'), 'not a plugin', 'utf-8');
 
@@ -109,12 +109,12 @@ describe('plugin install — register-in-place (#239)', () => {
     // Force the config commit to fail AFTER the staging→install rename:
     // replace config.json with a (non-empty) DIRECTORY so withConfigLock's final
     // renameSync(config.json.tmp → config.json) throws.
-    const configPath = join(home, '.myagents', 'config.json');
+    const configPath = join(home, '.agenteam', 'config.json');
     rmSync(configPath, { force: true });
     mkdirSync(configPath, { recursive: true });
     writeFileSync(join(configPath, 'block'), 'x', 'utf-8');
 
-    const installPath = join(home, '.myagents', 'plugins', 'rollback-plugin');
+    const installPath = join(home, '.agenteam', 'plugins', 'rollback-plugin');
     return expect(installPlugin(pathToFileURL(external).href)).rejects.toBeTruthy().then(() => {
       // The half-finished dir must be rolled back — not left as an orphan that
       // would 409 every future install of the same name.

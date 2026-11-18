@@ -43,8 +43,8 @@ describe('buildUserToolsSectionText', () => {
 
 describe('buildLauncherSource', () => {
   it('embeds name and entry path as JSON (safe against spaces/quotes in paths)', () => {
-    const src = buildLauncherSource('md-merge', '/Users/x y/.myagents/tools/md-merge/run.mjs');
-    expect(src).toContain('"/Users/x y/.myagents/tools/md-merge/run.mjs"');
+    const src = buildLauncherSource('md-merge', '/Users/x y/.agenteam/tools/md-merge/run.mjs');
+    expect(src).toContain('"/Users/x y/.agenteam/tools/md-merge/run.mjs"');
     expect(src.startsWith('#!/usr/bin/env node\n')).toBe(true);
     // CJS：POSIX shim 无扩展名，node 按 CJS 解释（bin 目录无 package.json）
     expect(src).toContain("require('node:child_process')");

@@ -18,7 +18,7 @@ let prevUserProfile: string | undefined;
 
 beforeEach(() => {
   scratch = mkdtempSync(join(tmpdir(), 'myagents-async-config-'));
-  const configDir = join(scratch, '.myagents');
+  const configDir = join(scratch, '.agenteam');
   mkdirSync(configDir, { recursive: true });
   writeFileSync(
     join(configDir, 'config.json'),
@@ -45,7 +45,7 @@ describe('atomicModifyConfig (async)', () => {
     await result;
 
     const persisted = JSON.parse(
-      readFileSync(join(scratch, '.myagents', 'config.json'), 'utf-8'),
+      readFileSync(join(scratch, '.agenteam', 'config.json'), 'utf-8'),
     ) as Record<string, unknown>;
     expect(persisted.marker).toBe('set');
   });
@@ -62,7 +62,7 @@ describe('atomicModifyConfig (async)', () => {
     await Promise.all([slow, fast]);
 
     const persisted = JSON.parse(
-      readFileSync(join(scratch, '.myagents', 'config.json'), 'utf-8'),
+      readFileSync(join(scratch, '.agenteam', 'config.json'), 'utf-8'),
     ) as Record<string, unknown>;
     expect(persisted.initial).toBe(true);
     expect(persisted.slow).toBe('a');

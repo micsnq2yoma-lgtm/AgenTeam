@@ -1,7 +1,7 @@
 //! CLI mode and launcher authority for the `myagents` binary.
 //!
 //! The app bundle is the only owner of CLI business code. The files under
-//! `~/.myagents/bin/` are deterministic thin launchers that re-enter the
+//! `~/.agenteam/bin/` are deterministic thin launchers that re-enter the
 //! current MyAgents executable with [`CLI_BOOTSTRAP_ARG`]; this module then
 //! runs the bundled Node.js runtime against the bundled `cli/myagents.cjs`.
 //! No CLI business payload is copied into the user's home directory.
@@ -830,7 +830,7 @@ mod tests {
     fn direct_binary_groups_remain_backwards_compatible() {
         assert!(is_cli_mode(&["--version".to_string()]));
         assert!(is_cli_mode(&["mcp".to_string(), "list".to_string()]));
-        assert!(!is_cli_mode(&["myagents://open".to_string()]));
+        assert!(!is_cli_mode(&["agenteam://open".to_string()]));
     }
 
     #[test]
@@ -1020,7 +1020,7 @@ mod tests {
     #[test]
     fn legacy_payload_and_truthy_marker_converge_without_a_version_gate() {
         let temp = tempfile::tempdir().unwrap();
-        let data_dir = temp.path().join(".myagents");
+        let data_dir = temp.path().join(".agenteam");
         let bin_dir = data_dir.join("bin");
         fs::create_dir_all(&bin_dir).unwrap();
         fs::write(
@@ -1048,7 +1048,7 @@ mod tests {
     #[test]
     fn launcher_installation_failure_is_retryable_without_a_marker() {
         let temp = tempfile::tempdir().unwrap();
-        let data_dir = temp.path().join(".myagents");
+        let data_dir = temp.path().join(".agenteam");
         fs::create_dir_all(&data_dir).unwrap();
         fs::write(data_dir.join("bin"), b"not a directory").unwrap();
 
@@ -1082,7 +1082,7 @@ mod tests {
         use std::os::unix::fs::symlink;
 
         let temp = tempfile::tempdir().unwrap();
-        let data_dir = temp.path().join(".myagents");
+        let data_dir = temp.path().join(".agenteam");
         let bin_dir = data_dir.join("bin");
         fs::create_dir_all(&bin_dir).unwrap();
         let external = temp.path().join("external-cli");
@@ -1109,7 +1109,7 @@ mod tests {
         use std::os::unix::fs::symlink;
 
         let temp = tempfile::tempdir().unwrap();
-        let data_dir = temp.path().join(".myagents");
+        let data_dir = temp.path().join(".agenteam");
         let external_bin = temp.path().join("external-bin");
         fs::create_dir_all(&data_dir).unwrap();
         fs::create_dir_all(&external_bin).unwrap();

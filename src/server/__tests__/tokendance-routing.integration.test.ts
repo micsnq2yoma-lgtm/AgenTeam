@@ -13,7 +13,7 @@ vi.mock('../utils/platform', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../utils/platform')>()),
   getHomeDirOrNull: () => scratch.home,
 }));
-beforeAll(() => mkdirSync(`${scratch.home}/.myagents`, { recursive: true }));
+beforeAll(() => mkdirSync(`${scratch.home}/.agenteam`, { recursive: true }));
 afterAll(() => rmSync(scratch.home, { recursive: true, force: true }));
 
 const config: AdminAppConfig = {

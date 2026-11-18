@@ -77,12 +77,12 @@ describe('buildClaudeSessionEnv npm prefix isolation', () => {
       ? 'C:\\Users\\myagents-test'
       : '/tmp/myagents-env-home';
     const prefix = process.platform === 'win32'
-      ? resolve(home, '.myagents', 'npm-global')
-      : `${home}/.myagents/npm-global`;
+      ? resolve(home, '.agenteam', 'npm-global')
+      : `${home}/.agenteam/npm-global`;
     const binDir = process.platform === 'win32' ? prefix : `${prefix}/bin`;
     const appBinDir = process.platform === 'win32'
-      ? resolve(home, '.myagents', 'bin')
-      : `${home}/.myagents/bin`;
+      ? resolve(home, '.agenteam', 'bin')
+      : `${home}/.agenteam/bin`;
 
     vi.stubEnv(process.platform === 'win32' ? 'USERPROFILE' : 'HOME', home);
     vi.stubEnv('npm_config_prefix', prefix);
@@ -327,9 +327,9 @@ describe('Claude SDK context window env', () => {
     const prevHome = process.env.HOME;
     const tempHome = mkdtempSync(join(tmpdir(), 'myagents-env-home-'));
     try {
-      mkdirSync(join(tempHome, '.myagents'), { recursive: true });
+      mkdirSync(join(tempHome, '.agenteam'), { recursive: true });
       writeFileSync(
-        join(tempHome, '.myagents', 'config.json'),
+        join(tempHome, '.agenteam', 'config.json'),
         JSON.stringify({
           presetCustomModels: {
             'custom-dragon': [{ model: 'claude-opus-4-6', contextLength: 1_000_000 }],
@@ -361,8 +361,8 @@ describe('Claude SDK context window env', () => {
   it('uses only the active provider row for context and adopts its later discovery metadata (#516)', () => {
     const prevHome = process.env.HOME;
     const tempHome = mkdtempSync(join(tmpdir(), 'myagents-env-home-'));
-    const providerDir = join(tempHome, '.myagents', 'providers');
-    const cacheDir = join(tempHome, '.myagents', 'cache');
+    const providerDir = join(tempHome, '.agenteam', 'providers');
+    const cacheDir = join(tempHome, '.agenteam', 'cache');
     const providerPath = join(providerDir, 'amd.json');
     try {
       mkdirSync(providerDir, { recursive: true });

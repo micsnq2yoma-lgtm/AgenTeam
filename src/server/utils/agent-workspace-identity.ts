@@ -152,7 +152,7 @@ function validateWorkspaceForRegistration(rawPath: string): string {
   const identity = normalizeWorkspacePathIdentity(normalized);
   const rootIdentity = normalizeWorkspacePathIdentity(parse(normalized).root);
   const privateDataIdentity = normalizeWorkspacePathIdentity(
-    resolve(homedir(), '.myagents'),
+    resolve(homedir(), '.agenteam'),
   );
   if (
     !identity ||

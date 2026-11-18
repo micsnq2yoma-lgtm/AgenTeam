@@ -93,7 +93,7 @@ export const MARKDOWN_SANITIZE_SCHEMA = {
   ...defaultSchema,
   protocols: {
     ...defaultSchema.protocols,
-    href: [...(defaultSchema.protocols?.href ?? []), 'file', 'myagents'],
+    href: [...(defaultSchema.protocols?.href ?? []), 'file', 'agenteam'],
     src: [...(defaultSchema.protocols?.src ?? []), 'file'],
   },
   tagNames: [

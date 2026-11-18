@@ -42,6 +42,23 @@ it.each(['darwin-aarch64', 'windows-x86_64'])('keeps background updates on %s', 
   expect(vi.getTimerCount()).toBe(0);
 });
 
+it.each([null, '0.6.2'])('uses the native candidate version for a manual Windows check (%s)', async version => {
+  mocks.platform = 'windows-x86_64';
+  mocks.invoke.mockImplementation(async (command: string) => {
+    if (command === 'check_available_update_version') return version;
+    return command === 'check_and_download_update' ? true : null;
+  });
+  const { result, unmount } = renderHook(() => useUpdater());
+  try {
+    await act(async () => {
+      expect(await result.current.checkForUpdate()).toBe(version ? 'downloading' : 'up-to-date');
+    });
+    expect(mocks.invoke).toHaveBeenCalledWith('check_available_update_version');
+    expect(result.current.updateReady).toBe(Boolean(version));
+    expect(result.current.updateVersion).toBe(version);
+  } finally { unmount(); mocks.invoke.mockReset(); }
+});
+
 it('does not log the expected development updater rejection as an error', async () => {
   mocks.platform = 'darwin-aarch64';
   mocks.invoke.mockImplementation(async (command: string) => {

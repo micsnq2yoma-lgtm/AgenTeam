@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "AgenTeam",
-  "version": "0.5.13",
-  "identifier": "com.myagents.app",
+  "version": "0.6.1",
+  "identifier": "io.github.micsnq2yoma-lgtm.agenteam",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -16,7 +16,7 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$HOME/.myagents/**"
+          "$HOME/.agenteam/**"
         ]
       },
       "csp": "default-src 'self' ipc: tauri: asset: http://ipc.localhost; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' ipc: tauri: asset: http://ipc.localhost http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* https://download.myagents.io; img-src 'self' data: blob: asset: myagents-resource: myagents: http://myagents-resource.localhost http://myagents.localhost http://asset.localhost https://asset.localhost https://download.myagents.io https:; media-src 'self' blob: asset: myagents-resource: myagents: http://myagents-resource.localhost http://myagents.localhost http://asset.localhost https://asset.localhost;",
@@ -33,7 +33,7 @@
       "appimage",
       "deb"
     ],
-    "createUpdaterArtifacts": "v1Compatible",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -95,7 +95,7 @@
     "windows": {
       "certificateThumbprint": null,
       "timestampUrl": null,
-      "allowDowngrades": true,
+      "allowDowngrades": false,
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
       },
@@ -121,14 +121,14 @@
     "deep-link": {
       "desktop": {
         "schemes": [
-          "myagents"
+          "agenteam"
         ]
       }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY3RkQ5QjIzMTE4RTgyRTkKUldUcGdvNFJJNXY5OTB3T2pnUzVUbjFrV203Zk5ZTDg0NVJRdGI0UVRranJzTUsvM0hGcmFlc0IK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM1RjIwNEExMDE0Mzk1RTkKUldUcGxVTUJvUVR5eFEzdFJ3eDgyQUdxVjNKVCtydGNQL3hwejd4NERxc1VucllFUWJmVTBDSHkK",
       "endpoints": [
-        "https://download.myagents.io/update/{{target}}.json"
+        "https://github.com/micsnq2yoma-lgtm/AgenTeam/releases/latest/download/latest.json"
       ]
     }
   }

@@ -31,8 +31,8 @@ export function buildSessionExecutablePath(
   // stale npm/AppData/inherited commands with the same name.
   if (home) {
     essentialPaths.push(isWindows
-      ? resolve(home, '.myagents', 'bin')
-      : `${home}/.myagents/bin`);
+      ? resolve(home, '.agenteam', 'bin')
+      : `${home}/.agenteam/bin`);
   }
 
   for (const dir of getSystemNodeDirs()) {

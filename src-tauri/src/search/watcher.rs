@@ -15,7 +15,7 @@
 //!    that forgets to notify silently orphans the index.
 //!
 //! Watching the filesystem makes the correct behavior the default: *any*
-//! process that touches `~/.myagents/sessions/` flows through to the index
+//! process that touches `~/.agenteam/sessions/` flows through to the index
 //! with zero coupling. Same "pit of success" pattern as `local_http` and
 //! `process_cmd`.
 //!
@@ -324,7 +324,7 @@ mod tests {
     fn classifies_both_formats_but_not_candidates_or_path_escapes() {
         for directory in ["sessions", "sessions-v2"] {
             assert!(
-                matches!(classify_path(Path::new(&format!("/System/Volumes/Data/home/.myagents/{directory}/abc-123.jsonl"))), Classified::SessionFile(id) if id == "abc-123")
+                matches!(classify_path(Path::new(&format!("/System/Volumes/Data/home/.agenteam/{directory}/abc-123.jsonl"))), Classified::SessionFile(id) if id == "abc-123")
             );
         }
         for path in [

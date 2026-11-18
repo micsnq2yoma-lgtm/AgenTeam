@@ -637,8 +637,4 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 echo ""
-read -p "是否发布到 Cloudflare R2? (y/N) " -n 1 -r
-echo ""
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    "${PROJECT_DIR}/publish_release.sh"
-fi
+echo "AgenTeam distribution status: specs/guides/build_and_release_guide.md"

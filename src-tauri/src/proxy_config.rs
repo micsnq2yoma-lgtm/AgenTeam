@@ -12,7 +12,7 @@
 //! - System proxy is inherited when not configured (like other normal apps)
 //! - `NO_PROXY` always protects localhost (Bun's `fetch()` honors `HTTP_PROXY`)
 //!
-//! Configuration is read from `~/.myagents/config.json` and can be enabled/disabled
+//! Configuration is read from `~/.agenteam/config.json` and can be enabled/disabled
 //! via Settings > General > Network Proxy.
 
 use serde::{Deserialize, Serialize};
@@ -51,7 +51,7 @@ const PROXY_ENV_KEYS: &[&str] = &[
     "no_proxy",
 ];
 
-/// Proxy settings from `~/.myagents/config.json`
+/// Proxy settings from `~/.agenteam/config.json`
 ///
 /// # Example JSON
 /// ```json
@@ -111,7 +111,7 @@ struct PartialAppConfig {
 
 fn read_proxy_settings_from_disk() -> Option<ProxySettings> {
     let home = dirs::home_dir()?;
-    let config_path = home.join(".myagents").join("config.json");
+    let config_path = home.join(".agenteam").join("config.json");
 
     // Read config file
     let content = match fs::read_to_string(&config_path) {
@@ -152,14 +152,14 @@ fn read_proxy_settings_from_disk() -> Option<ProxySettings> {
     config.proxy_settings
 }
 
-/// Read raw proxy settings from ~/.myagents/config.json.
+/// Read raw proxy settings from ~/.agenteam/config.json.
 /// Returns settings even when `enabled=false` so callers that propagate config
 /// to sidecars can preserve scope and the disabled state.
 pub fn read_raw_proxy_settings() -> Option<ProxySettings> {
     read_proxy_settings_from_disk()
 }
 
-/// Read proxy settings from ~/.myagents/config.json
+/// Read proxy settings from ~/.agenteam/config.json
 /// Returns Some(ProxySettings) if proxy is enabled, None otherwise
 /// Logs errors for invalid configuration to help users debug
 pub fn read_proxy_settings() -> Option<ProxySettings> {

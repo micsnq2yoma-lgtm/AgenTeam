@@ -1,18 +1,15 @@
 //! Shared verification for first-party downloadable resource manifests.
 //!
-//! The public key is intentionally the same trust root used by the Tauri app
-//! updater. Resource owners may reuse this verifier, but they still own their
-//! manifest schema, download allowlist, staging, and activation lifecycle.
+//! The upstream resource publisher and AgenTeam application updates use separate keys.
 
 use base64::{engine::general_purpose, Engine as _};
 use minisign_verify::{PublicKey, Signature};
 
-// Keep this in sync with `tauri.conf.json > plugins.updater.pubkey`.
-pub(crate) const MYAGENTS_MINISIGN_PUBKEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY3RkQ5QjIzMTE4RTgyRTkKUldUcGdvNFJJNXY5OTB3T2pnUzVUbjFrV203Zk5ZTDg0NVJRdGI0UVRranJzTUsvM0hGcmFlc0IK";
+const MYAGENTS_MINISIGN_PUBKEY: &str = include_str!("../upstream-resources.pub");
 
 fn decode_base64_text(value: &str, label: &str) -> Result<String, String> {
     let bytes = general_purpose::STANDARD
-        .decode(value)
+        .decode(value.trim())
         .map_err(|error| format!("invalid {label} base64: {error}"))?;
     String::from_utf8(bytes).map_err(|error| format!("invalid {label} UTF-8: {error}"))
 }
@@ -32,7 +29,12 @@ pub(crate) fn verify_minisign_bytes(
     signature_value: &str,
     label: &str,
 ) -> Result<(), String> {
-    let public_key = public_key()?;
+    verify_with_key(bytes, signature_value, MYAGENTS_MINISIGN_PUBKEY, label)
+}
+
+pub(crate) fn verify_with_key(bytes: &[u8], signature_value: &str, key: &str, label: &str) -> Result<(), String> {
+    let key = decode_base64_text(key, "public key")?;
+    let public_key = PublicKey::decode(&key).map_err(|e| format!("Invalid {label} public key: {e}"))?;
     let signature = signature(signature_value, label)?;
     public_key
         .verify(bytes, &signature, true)
@@ -45,7 +47,7 @@ mod tests {
     use std::{fs, path::Path};
 
     #[test]
-    fn shared_pubkey_matches_tauri_updater_pubkey() {
+    fn component_and_desktop_updates_use_separate_publishers() {
         let conf_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tauri.conf.json");
         let content = fs::read_to_string(conf_path).expect("tauri.conf.json");
         let json: serde_json::Value = serde_json::from_str(&content).expect("valid tauri config");
@@ -55,6 +57,6 @@ mod tests {
             .and_then(|value| value.get("pubkey"))
             .and_then(|value| value.as_str())
             .expect("updater pubkey");
-        assert_eq!(updater_pubkey, MYAGENTS_MINISIGN_PUBKEY);
+        assert_ne!(updater_pubkey, MYAGENTS_MINISIGN_PUBKEY.trim());
     }
 }

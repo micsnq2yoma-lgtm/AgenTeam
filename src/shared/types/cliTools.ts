@@ -3,7 +3,7 @@
  *
  * 真相源分层：
  * - `tool.json`（CliToolManifest）随工具目录走，是工具自身的单一真相源；
- * - `~/.myagents/tools/registry.json`（CliToolRegistryFile）只存产品侧状态
+ * - `~/.agenteam/tools/registry.json`（CliToolRegistryFile）只存产品侧状态
  *   （enabled / registeredAt）+ description 缓存，损坏可丢弃重扫。
  *
  * 该文件保持纯净（无 fs / 进程依赖），renderer 与 sidecar 共同消费。
@@ -37,7 +37,7 @@ export interface CliToolRegistryEntry {
   version?: string;
   envKeys?: string[];
   deps?: string[];
-  /** 工具目录绝对路径（规范位置 ~/.myagents/tools/<name>） */
+  /** 工具目录绝对路径（规范位置 ~/.agenteam/tools/<name>） */
   dir: string;
   /** 入口脚本绝对路径 */
   entryPath: string;
@@ -63,14 +63,14 @@ export const CLI_TOOL_PROMPT_MAX_TOOLS = 20;
 export const CLI_TOOL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
 
 /**
- * 保证危险的保留名黑名单。`~/.myagents/bin` 在 PATH 中先于系统路径，
+ * 保证危险的保留名黑名单。`~/.agenteam/bin` 在 PATH 中先于系统路径，
  * 重名工具会在所有 Agent session 与内嵌终端里静默遮蔽系统命令。
  * 这里只收"必然存在/必然灾难"的核心命令；其余安装态命令靠注册时的
  * PATH 碰撞动态检测兜底（server 侧 findPathCollision）。
  */
 export const CLI_TOOL_RESERVED_NAMES: ReadonlySet<string> = new Set([
   'myagents',
-  // 外部 Runtime 的 CLI：重名工具会被 resolveCommand 解析到（~/.myagents/bin
+  // 外部 Runtime 的 CLI：重名工具会被 resolveCommand 解析到（~/.agenteam/bin
   // 在 fallback PATH 前列），导致 spawn 的是注册工具而不是真 runtime——必然灾难级。
   'claude', 'codex',
   'node', 'npm', 'npx', 'corepack', 'bun', 'uv', 'uvx',
@@ -96,7 +96,7 @@ export function validateCliToolName(name: unknown): CliToolValidationResult {
     return {
       ok: false,
       code: 'NAME_RESERVED',
-      error: `Tool name "${name}" is reserved: ~/.myagents/bin precedes system paths on PATH, so it would silently shadow the system command in every agent session and terminal`,
+      error: `Tool name "${name}" is reserved: ~/.agenteam/bin precedes system paths on PATH, so it would silently shadow the system command in every agent session and terminal`,
       recovery: 'Pick a different name with a domain prefix (e.g. "img-curl" instead of "curl").',
     };
   }

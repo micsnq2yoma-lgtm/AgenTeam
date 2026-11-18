@@ -31,7 +31,7 @@ export const VALID_SECTIONS: SettingsSection[] = [
   'developer',
 ];
 
-export const MYAGENTS_GITHUB_URL = 'https://github.com/hAcKlyc/MyAgents';
+export const MYAGENTS_GITHUB_URL = 'https://github.com/micsnq2yoma-lgtm/AgenTeam';
 export const MYAGENTS_SOURCE_CODE_URL = MYAGENTS_GITHUB_URL;
 export const MYAGENTS_RELEASES_URL = `${MYAGENTS_GITHUB_URL}/releases`;
 

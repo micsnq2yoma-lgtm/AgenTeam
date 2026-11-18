@@ -666,7 +666,7 @@ describe('GlobalSidebar rail flyout', () => {
     for (const [button, label] of [
       [addButton, String(i18n.t('launcher:newAgentPanel.title'))],
       [viewOptionsButton, '更多'],
-      [newChatButton, '新对话'],
+      [newChatButton, String(i18n.t('app:globalSidebar.newChat'))],
       [moreButton, '更多'],
     ] as const) {
       expect(button).not.toHaveAttribute('title');
@@ -1283,7 +1283,10 @@ describe('GlobalSidebar rail flyout', () => {
     expect(brandLink).not.toHaveClass('w-10', 'overflow-hidden');
     expect(brandLink).not.toHaveAttribute('inert');
     expect(brandLink).toHaveAttribute('aria-hidden', 'false');
-    expect(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.search')) })).toBe(search);
+    // Expanded search lives in the team header; the brand-row control stays mounted but inert.
+    expect(brandRow?.querySelector('[data-global-sidebar-search-trigger]')).toBe(search);
+    expect(search).toHaveAttribute('aria-hidden', 'true');
+    expect(search).toHaveAttribute('inert');
     expect(screen.getByRole('button', { name: String(i18n.t('app:notificationCenter.bell')) })).toBe(notification);
     expect(navigation.querySelector('[data-global-sidebar-brand-row]')).toBe(brandRow);
     expect(navigation.querySelector('[data-global-sidebar-primary-nav]')).not.toHaveClass('global-sidebar-rail-stack');
@@ -1310,6 +1313,10 @@ describe('GlobalSidebar rail flyout', () => {
     expect(navigation).toHaveAttribute('data-global-sidebar-motion', 'expand');
     act(() => { vi.advanceTimersByTime(200); });
     expect(navigation.querySelector('[data-global-sidebar-workspace-region]')).toBeInTheDocument();
+    const headerSearch = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.search')) });
+    expect(headerSearch).not.toBe(search);
+    expect(navigation.querySelector('[data-global-sidebar-workspace-region]')).toContainElement(headerSearch);
+    expect(search).toHaveAttribute('aria-hidden', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.collapse')) }));
     act(() => { vi.advanceTimersByTime(200); });
@@ -1344,7 +1351,7 @@ describe('GlobalSidebar rail flyout', () => {
     for (const label of [
       i18n.t('app:globalSidebar.newChat'),
       i18n.t('app:globalSidebar.tasks'),
-      i18n.t('app:globalSidebar.more'),
+      i18n.t('settings:sidebar.nav.bots'),
       i18n.t('app:globalSidebar.capabilities'),
       i18n.t('app:globalSidebar.helper'),
       i18n.t('app:globalSidebar.settings'),
@@ -1492,6 +1499,52 @@ describe('GlobalSidebar rail flyout', () => {
 
     expect(screen.getByTestId('task-center-overlay')).toBeInTheDocument();
     expect(document.querySelector('[data-history-search-overlay-panel]')).toBe(coldPanel);
+  });
+
+  it('anchors the notification bell to the account row, not to a grid column', () => {
+    mocks.forcedRail = false;
+    window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
+      version: 1,
+      preferredMode: 'expanded',
+      expandedWorkspaceKeys: [],
+      hasSeededDefaultExpansion: true,
+      showAutomationSessions: true,
+      sessionView: 'all',
+    }));
+    const { container } = renderSidebar();
+
+    // The slot is absolutely positioned inside a grid row. A grid-column class would make
+    // column 2 its containing block and apply the CSS offset twice, throwing the bell
+    // far to the right of the sidebar.
+    const slot = container.querySelector('.global-sidebar-notification-slot');
+    expect(slot).not.toBeNull();
+    expect(slot?.className).not.toMatch(/(^|\s)(col-|row-)/);
+  });
+
+  it('puts search between the team view options and the new-team button when expanded', () => {
+    mocks.isTauri = true;
+    mocks.forcedRail = false;
+    window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
+      version: 1,
+      preferredMode: 'expanded',
+      expandedWorkspaceKeys: [],
+      hasSeededDefaultExpansion: true,
+      showAutomationSessions: true,
+      sessionView: 'all',
+    }));
+    const { container } = renderSidebar();
+
+    const search = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.search')) });
+    expect(container.querySelector('[data-global-sidebar-workspace-region]')).toContainElement(search);
+    expect(container.querySelector('[data-global-sidebar-brand-row]')).not.toContainElement(search);
+    const labels = [...(search.parentElement?.parentElement?.querySelectorAll('button') ?? [])]
+      .map(button => button.getAttribute('aria-label'));
+    const viewOptions = labels.indexOf(String(i18n.t('app:globalSidebar.workspaceViewOptions')));
+    const create = labels.indexOf(String(i18n.t('launcher:newAgentPanel.title')));
+    const searchIndex = labels.indexOf(String(i18n.t('app:globalSidebar.search')));
+    expect(viewOptions).toBeGreaterThanOrEqual(0);
+    expect(searchIndex).toBeGreaterThan(viewOptions);
+    expect(create).toBeGreaterThan(searchIndex);
   });
 
   it('consumes a Tag navigation intent when the search surface closes before content handles it', async () => {
@@ -1907,25 +1960,19 @@ describe('GlobalSidebar rail flyout', () => {
 
 describe('Bot settings shortcut', () => {
   beforeEach(() => { vi.useRealTimers(); vi.clearAllMocks(); mocks.projects = []; window.localStorage.clear(); });
-  it('opens Bot, closes the menu, and preserves Settings navigation', async () => {
+  it('shows the chat-bot entry directly in the nav and preserves Settings navigation', () => {
     const onOpenSettings = vi.fn();
     const settingsTab: Tab = { id: 'settings-tab', view: 'settings', title: 'Settings' };
     renderSidebar({ onOpenSettings, tabs: [settingsTab], activeTab: settingsTab });
-    const more = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.more')) });
+    const bot = screen.getByRole('button', { name: '聊天机器人' });
     const settings = screen.getByRole('button', { name: '设置' });
     expect(settings).toHaveAttribute('aria-current', 'page');
-    expect(more).not.toHaveAttribute('aria-current');
-    fireEvent.pointerEnter(more);
-    const bot = await screen.findByRole('menuitem', { name: '聊天机器人 Bot' });
-    expect(screen.queryByRole('menuitem', { name: String(i18n.t('app:globalSidebar.team')) })).not.toBeInTheDocument();
+    expect(bot).not.toHaveAttribute('aria-current');
+    expect(screen.queryByRole('button', { name: '更多' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     fireEvent.click(bot);
     expect(onOpenSettings).toHaveBeenCalledWith('agent');
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     fireEvent.click(settings);
     expect(onOpenSettings).toHaveBeenLastCalledWith();
-    fireEvent.keyDown(more, { key: 'ArrowRight' });
-    expect(await screen.findByRole('menuitem', { name: '聊天机器人 Bot' })).toBeVisible();
-    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
-    expect(more).toHaveFocus();
   });
 });

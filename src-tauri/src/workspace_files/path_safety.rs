@@ -156,7 +156,7 @@ pub fn validate_external_read_path(absolute_path: &str) -> WfResult<PathBuf> {
 /// MyAgents-managed directory (see `is_trusted_managed_target`). Blocks the
 /// "malicious `evil_link → /etc/passwd` checked into a repo" attack from
 /// leaking content out of the workspace, while still allowing the
-/// junctions / symlinks MyAgents projects from `~/.myagents/skills` etc.
+/// junctions / symlinks MyAgents projects from `~/.agenteam/skills` etc.
 /// into `<workspace>/.claude/skills/` (see Node `syncProjectUserConfigFiles`).
 ///
 /// Behavior:
@@ -214,7 +214,7 @@ fn trusted_managed_roots() -> Vec<PathBuf> {
     let Some(home) = dirs::home_dir() else {
         return Vec::new();
     };
-    let myagents = home.join(".myagents");
+    let myagents = home.join(".agenteam");
     ["skills", "commands", "agents"]
         .iter()
         .filter_map(|sub| fs::canonicalize(myagents.join(sub)).ok())
@@ -232,7 +232,7 @@ const MANAGED_GLOBAL_SKILL_READ_ONLY: &str =
     "MANAGED_GLOBAL_SKILL_READ_ONLY: workspace Skill projections are read-only; edit the global Skill from Settings";
 
 /// Reject mutations whose target is a MyAgents-managed projection of
-/// `~/.myagents/skills`. Reads deliberately keep using the broader trusted
+/// `~/.agenteam/skills`. Reads deliberately keep using the broader trusted
 /// resolver above; this guard is mutation-only so copy-out and previews remain
 /// available while workspace writes cannot flow through a junction into the
 /// single global source of truth.
@@ -251,7 +251,7 @@ pub fn reject_managed_global_skill_mutation(
     reject_managed_global_skill_mutation_with_root(
         workspace_root,
         lexical_target,
-        &home.join(".myagents").join("skills"),
+        &home.join(".agenteam").join("skills"),
     )
 }
 
@@ -2460,7 +2460,7 @@ mod tests {
 
     #[test]
     fn trusted_target_empty_roots_rejects_everything() {
-        // Defence: if `trusted_managed_roots()` returns empty (no `.myagents`
+        // Defence: if `trusted_managed_roots()` returns empty (no `.agenteam`
         // dir yet), the whitelist degrades closed — `is_trusted_managed_target`
         // returns false for any path so the original symlink-escape rejection
         // still fires.
@@ -2546,7 +2546,7 @@ mod tests {
     fn resolve_existing_allows_symlink_into_trusted_root() {
         use std::os::unix::fs::symlink;
         let ws = make_tmp_workspace();
-        // Stand in for `~/.myagents/skills/`.
+        // Stand in for `~/.agenteam/skills/`.
         let managed = make_test_workspace("path_safety_managed");
         let managed_skill = managed.join("baoyu-imagine");
         fs::create_dir_all(&managed_skill).unwrap();
@@ -2562,7 +2562,7 @@ mod tests {
         let canonical_managed = fs::canonicalize(&managed).unwrap();
 
         // Direct: bypass `trusted_managed_roots()` (which reads real
-        // `~/.myagents/`) and inject our tmp root via the pure helper.
+        // `~/.agenteam/`) and inject our tmp root via the pure helper.
         let lexical =
             resolve_inside_workspace(&ws, ".claude/skills/baoyu-imagine/SKILL.md").unwrap();
         let canonical = fs::canonicalize(&lexical).unwrap();

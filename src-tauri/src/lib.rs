@@ -262,7 +262,7 @@ pub fn run() {
     // ── DIAGNOSTIC PANIC HOOK (April 2026 crash investigation) ─────────────
     // Install BEFORE any other init so we capture every panic, including
     // setup-time / did_finish_launching ones that don't reach the unified
-    // logger. Writes to ~/.myagents/logs/panic-{pid}-{timestamp}.log so a
+    // logger. Writes to ~/.agenteam/logs/panic-{pid}-{timestamp}.log so a
     // post-mortem has the actual panic message even when the app aborts
     // before normal log flush.
     {
@@ -491,6 +491,7 @@ pub fn run() {
             browser_resource::cmd_browser_resource_install,
             browser_resource::cmd_browser_resource_maintain,
             // Updater commands
+            updater::check_available_update_version,
             updater::check_and_download_update,
             updater::restart_app,
             updater::test_update_connectivity,
@@ -549,6 +550,7 @@ pub fn run() {
             // Workspace template commands
             commands::cmd_create_workspace_from_template,
             commands::cmd_create_workspace_from_bundled_template,
+            commands::cmd_prepare_team_folder,
             commands::cmd_template_apply_preview,
             commands::cmd_apply_template_to_workspace,
             commands::cmd_copy_folder_to_templates,

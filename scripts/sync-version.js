@@ -52,4 +52,16 @@ workerCargoContent = workerCargoContent.replace(
 writeFileSync(workerCargoPath, workerCargoContent, 'utf-8');
 console.log('  ✓ src-tauri/document-worker/Cargo.toml');
 
+// Cargo --locked and the release verifier consume the root package entries too.
+for (const [directory, name] of [
+    ['src-tauri', 'myagents'],
+    ['src-tauri/document-worker', 'myagents-document-worker'],
+]) {
+    const path = join(rootDir, directory, 'Cargo.lock');
+    const content = readFileSync(path, 'utf8');
+    const entry = new RegExp('(^name = "' + name + '"\\r?\\nversion = ")[^"]+', 'm');
+    if (!entry.test(content)) throw new Error(`Missing ${name} in ${path}`);
+    writeFileSync(path, content.replace(entry, (_, prefix) => prefix + version));
+}
+
 console.log(`\n版本号已同步到 ${version}`);

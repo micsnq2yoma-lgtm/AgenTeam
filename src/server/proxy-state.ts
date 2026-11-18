@@ -127,7 +127,7 @@ function readInheritedProxySnapshot(): Record<string, string | undefined> {
 
 function readInitialProxySettings(): ProxySettings | null {
   try {
-    const raw = readFileSync(join(homedir(), '.myagents', 'config.json'), 'utf8');
+    const raw = readFileSync(join(homedir(), '.agenteam', 'config.json'), 'utf8');
     const parsed = JSON.parse(raw.replace(/^\uFEFF/, '')) as { proxySettings?: unknown };
     return coerceProxySettings(parsed.proxySettings);
   } catch {

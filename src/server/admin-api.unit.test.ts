@@ -143,7 +143,7 @@ function writeJson(path: string, value: unknown): void {
 }
 
 function readConfig(): Record<string, unknown> {
-  return JSON.parse(readFileSync(join(scratch, '.myagents', 'config.json'), 'utf-8')) as Record<string, unknown>;
+  return JSON.parse(readFileSync(join(scratch, '.agenteam', 'config.json'), 'utf-8')) as Record<string, unknown>;
 }
 
 function readJson(path: string): Record<string, unknown>[] {
@@ -152,7 +152,7 @@ function readJson(path: string): Record<string, unknown>[] {
 
 beforeEach(() => {
   scratch = mkdtempSync(join(tmpdir(), 'myagents-admin-api-'));
-  mkdirSync(join(scratch, '.myagents'), { recursive: true });
+  mkdirSync(join(scratch, '.agenteam'), { recursive: true });
   prevHome = process.env.HOME;
   prevUserProfile = process.env.USERPROFILE;
   prevSidecarId = process.env.MYAGENTS_SIDECAR_ID;
@@ -245,8 +245,8 @@ describe('current Runtime configuration ownership', () => {
     sessionEngineMocks.state.context = { sessionId: 'dsh-session', workspacePath: workspace };
     agentSessionMocks.agentDir = join(scratch, 'stale-sdk-workspace');
     const server = { id: 'runtime-mcp', name: 'Runtime MCP', type: 'http', url: 'https://synthetic.invalid/mcp' };
-    writeJson(join(scratch, '.myagents', 'config.json'), { mcpServers: [server], mcpEnabledServers: [server.id] });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{ id: 'runtime-project', path: workspace, mcpEnabledServers: [server.id] }]);
+    writeJson(join(scratch, '.agenteam', 'config.json'), { mcpServers: [server], mcpEnabledServers: [server.id] });
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{ id: 'runtime-project', path: workspace, mcpEnabledServers: [server.id] }]);
     const { handleReload } = await import('./admin-api');
     expect(await handleReload()).toMatchObject({ success: true });
     expect(sessionEngineMocks.updateMcpServers).toHaveBeenCalledWith([expect.objectContaining({ id: server.id })]);
@@ -609,7 +609,7 @@ describe('admin-api help registry', () => {
 
 describe('external CLI private config envelope', () => {
   it('cannot be read or mutated through generic config handlers', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       externalCliAccess: {
         enabled: true,
         token: 'mae_private',
@@ -845,10 +845,10 @@ describe('admin-api AnyDoc forwarding', () => {
 
 describe('admin-api speech forwarding', () => {
   function enableSpeechForCurrentSession(): void {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       enabledOfficialToolIds: ['speech-recognition'],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-speech',
       name: 'Speech Workspace',
       path: '/workspace/authoritative',
@@ -1086,7 +1086,7 @@ describe('admin-api cron create', () => {
 
   it('leaves execution routing unset when the caller did not request a Task override', async () => {
     const workspacePath = '/tmp/myagents-managed-codex-workspace';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       defaultProviderId: 'anthropic-sub',
       agents: [{
         id: 'agent-managed-codex',
@@ -1097,7 +1097,7 @@ describe('admin-api cron create', () => {
         runtime: 'builtin',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-managed-codex', path: workspacePath, agentId: 'agent-managed-codex',
     }]);
     const { handleCronCreate } = await import('./admin-api');
@@ -1179,10 +1179,10 @@ describe('admin-api cron update', () => {
 describe('admin-api accepted task attempt analytics', () => {
   it('uses the same semantic receipt path for Task create and get', async () => {
     const workspacePath = '/tmp/myagents-task-receipt';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{ id: 'agent-receipt', name: 'Receipt Agent', workspacePath }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-receipt', path: workspacePath, agentId: 'agent-receipt',
     }]);
     const persistedTask = {
@@ -1490,10 +1490,10 @@ describe('admin-api Task Agent experience', () => {
     const workspacePath = join(scratch, 'current-workspace');
     mkdirSync(workspacePath, { recursive: true });
     agentSessionMocks.agentDir = workspacePath;
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{ id: 'agent-current', name: 'Current Agent', workspacePath }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-current',
       name: 'Current Project',
       path: workspacePath,
@@ -1555,7 +1555,7 @@ describe('admin-api Task Agent experience', () => {
     const workspacePath = configureCurrentWorkspace();
     const otherPath = join(scratch, 'other-workspace');
     mkdirSync(otherPath, { recursive: true });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [
       {
         id: 'project-current',
         name: 'Current Project',
@@ -1779,7 +1779,7 @@ describe('admin-api Task Agent experience', () => {
 describe('admin-api task runtime model identity', () => {
   it('treats an explicit Task providerId as builtin instead of inheriting an external Agent runtime', async () => {
     const workspacePath = '/tmp/myagents-task-builtin-provider';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-external-default',
         name: 'External Default',
@@ -1787,7 +1787,7 @@ describe('admin-api task runtime model identity', () => {
         runtime: 'codex',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-external-default',
       path: workspacePath,
       agentId: 'agent-external-default',
@@ -1941,7 +1941,7 @@ describe('admin-api task runtime model identity', () => {
 
   it('rejects inherited managed source when the workspace runtime is not Codex', async () => {
     const workspacePath = '/tmp/myagents-claude-code-task-source';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-claude-code-task-source',
         name: 'Claude Code Task Source',
@@ -1949,7 +1949,7 @@ describe('admin-api task runtime model identity', () => {
         runtime: 'claude-code',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-claude-code-task-source', path: workspacePath, agentId: 'agent-claude-code-task-source',
     }]);
     const { handleTaskCreateDirect } = await import('./admin-api');
@@ -1967,7 +1967,7 @@ describe('admin-api task runtime model identity', () => {
 
   it('validates clearRuntimeOverride against the inherited Agent identity', async () => {
     const workspacePath = '/tmp/myagents-clear-runtime-override';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-clear-runtime-override',
         name: 'Clear Runtime Override',
@@ -1975,7 +1975,7 @@ describe('admin-api task runtime model identity', () => {
         runtime: 'builtin',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-clear-runtime-override', path: workspacePath, agentId: 'agent-clear-runtime-override',
     }]);
     managementApiMocks.managementApi.mockResolvedValueOnce({
@@ -2002,7 +2002,7 @@ describe('admin-api task runtime model identity', () => {
 
   it('uses the managed Codex catalog when a managed Agent Task only overrides model', async () => {
     const workspacePath = '/tmp/myagents-managed-task-model';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-managed-task-model',
         name: 'Managed Task Model',
@@ -2012,7 +2012,7 @@ describe('admin-api task runtime model identity', () => {
         runtime: 'builtin',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-managed-task-model', path: workspacePath, agentId: 'agent-managed-task-model',
     }]);
     const { handleTaskCreateDirect } = await import('./admin-api');
@@ -2051,7 +2051,7 @@ describe('admin-api task runtime model identity', () => {
 
   it('rejects system-only permission values for inherited managed Codex', async () => {
     const workspacePath = '/tmp/myagents-managed-task-permission';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-managed-task-permission',
         name: 'Managed Task Permission',
@@ -2061,7 +2061,7 @@ describe('admin-api task runtime model identity', () => {
         runtime: 'builtin',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-managed-task-permission', path: workspacePath, agentId: 'agent-managed-task-permission',
     }]);
     const { handleTaskCreateDirect } = await import('./admin-api');
@@ -2080,7 +2080,7 @@ describe('admin-api task runtime model identity', () => {
   it('rejects inherited managed Codex when its runtime is not installed', async () => {
     const workspacePath = '/tmp/myagents-managed-task-missing-runtime';
     runtimeModelMocks.managedInstalled = false;
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-managed-task-missing-runtime',
         name: 'Managed Task Missing Runtime',
@@ -2090,7 +2090,7 @@ describe('admin-api task runtime model identity', () => {
         runtime: 'builtin',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-managed-task-missing-runtime', path: workspacePath, agentId: 'agent-managed-task-missing-runtime',
     }]);
     const { handleTaskCreateDirect } = await import('./admin-api');
@@ -2110,7 +2110,7 @@ describe('admin-api task runtime model identity', () => {
 
 describe('admin-api agent set configuration intent', () => {
   it('commits an IM model default without projecting Runtime changes before the caller releases its peer fence', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       providerVerifyStatus: { 'anthropic-sub': { status: 'valid' } },
       agents: [{ id: 'im-agent', name: 'IM Agent', runtime: 'builtin', enabled: true,
         providerId: 'anthropic-sub', model: 'old', permissionMode: 'plan', mcpEnabledServers: ['owned-mcp'] }],
@@ -2124,7 +2124,7 @@ describe('admin-api agent set configuration intent', () => {
 
   it('rejects unavailable default selections and new Channel execution overrides before writing', async () => {
     const config = { agents: [{ id: 'im-agent', name: 'IM Agent', permissionMode: 'auto', channels: [] }] };
-    writeJson(join(scratch, '.myagents', 'config.json'), config);
+    writeJson(join(scratch, '.agenteam', 'config.json'), config);
     const { commitAgentModelSelection, handleAgentChannelAdd } = await import('./admin-api');
     expect(await commitAgentModelSelection('im-agent', { kind: 'product-provider', providerId: 'anthropic-sub', model: 'claude-sonnet-4-6' }))
       .toMatchObject({ success: false });
@@ -2147,7 +2147,7 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'auto',
       }],
     };
-    writeJson(join(scratch, '.myagents', 'config.json'), config);
+    writeJson(join(scratch, '.agenteam', 'config.json'), config);
     const { handleAgentSet } = await import('./admin-api');
 
     const result = await handleAgentSet({
@@ -2164,7 +2164,7 @@ describe('admin-api agent set configuration intent', () => {
 
   it('stores managed Codex product permission without changing provider or model', async () => {
     const workspacePath = '/tmp/myagents-agent-set-managed-codex';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-managed-codex',
         name: 'Managed Codex',
@@ -2175,7 +2175,7 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'auto',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-managed-codex',
       name: 'Managed Codex',
       path: workspacePath,
@@ -2200,7 +2200,7 @@ describe('admin-api agent set configuration intent', () => {
       runtime: 'builtin',
       permissionMode: 'fullAgency',
     });
-    expect(readJson(join(scratch, '.myagents', 'projects.json'))[0]).toMatchObject({
+    expect(readJson(join(scratch, '.agenteam', 'projects.json'))[0]).toMatchObject({
       providerId: 'codex-sub',
       model: 'gpt-5.6-sol',
       permissionMode: 'fullAgency',
@@ -2213,7 +2213,7 @@ describe('admin-api agent set configuration intent', () => {
   });
 
   it('writes DSH runtimePreference atomically with the legacy Runtime projection', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-runtime-dsh',
         name: 'DSH Intent',
@@ -2272,8 +2272,8 @@ describe('admin-api agent set configuration intent', () => {
       model: 'claude-opus-4-6',
       permissionMode: 'auto',
     }];
-    writeJson(join(scratch, '.myagents', 'config.json'), config);
-    writeJson(join(scratch, '.myagents', 'projects.json'), projects);
+    writeJson(join(scratch, '.agenteam', 'config.json'), config);
+    writeJson(join(scratch, '.agenteam', 'projects.json'), projects);
     const { handleAgentSet } = await import('./admin-api');
 
     const result = await handleAgentSet({
@@ -2285,7 +2285,7 @@ describe('admin-api agent set configuration intent', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('Valid');
     expect(readConfig()).toEqual(config);
-    expect(readJson(join(scratch, '.myagents', 'projects.json'))).toEqual(projects);
+    expect(readJson(join(scratch, '.agenteam', 'projects.json'))).toEqual(projects);
     expect(managementApiMocks.managementApi).not.toHaveBeenCalled();
   });
 
@@ -2301,8 +2301,8 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'auto',
       }],
     };
-    writeJson(join(scratch, '.myagents', 'config.json'), config);
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'config.json'), config);
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-full-auto',
       name: 'Full Auto Guard',
       path: workspacePath,
@@ -2339,7 +2339,7 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'auto',
       }],
     };
-    writeJson(join(scratch, '.myagents', 'config.json'), config);
+    writeJson(join(scratch, '.agenteam', 'config.json'), config);
     const { handleAgentSet } = await import('./admin-api');
 
     const invalid = await handleAgentSet({
@@ -2373,7 +2373,7 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'auto',
       }],
     };
-    writeJson(join(scratch, '.myagents', 'config.json'), config);
+    writeJson(join(scratch, '.agenteam', 'config.json'), config);
     const { handleAgentSet } = await import('./admin-api');
 
     const result = await handleAgentSet({
@@ -2414,8 +2414,8 @@ describe('admin-api agent set configuration intent', () => {
       model: 'claude-sonnet-4-6',
       permissionMode: 'auto',
     }];
-    writeJson(join(scratch, '.myagents', 'config.json'), config);
-    writeJson(join(scratch, '.myagents', 'projects.json'), projects);
+    writeJson(join(scratch, '.agenteam', 'config.json'), config);
+    writeJson(join(scratch, '.agenteam', 'projects.json'), projects);
     const { handleAgentSet } = await import('./admin-api');
 
     const result = await handleAgentSet({ id: 'agent-invalid-route', key, value });
@@ -2423,7 +2423,7 @@ describe('admin-api agent set configuration intent', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain(errorText);
     expect(readConfig()).toEqual(config);
-    expect(readJson(join(scratch, '.myagents', 'projects.json'))).toEqual(projects);
+    expect(readJson(join(scratch, '.agenteam', 'projects.json'))).toEqual(projects);
     expect(managementApiMocks.managementApi).not.toHaveBeenCalled();
   });
 
@@ -2436,7 +2436,7 @@ describe('admin-api agent set configuration intent', () => {
     addCustomModel,
   ) => {
     const workspacePath = `/tmp/myagents-agent-effective-model-${value}`;
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       providerVerifyStatus: {
         'anthropic-sub': { status: 'valid', verifiedAt: '2026-07-21T00:00:00.000Z' },
       },
@@ -2460,7 +2460,7 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'auto',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-effective-model',
       name: 'Effective Model',
       path: workspacePath,
@@ -2476,7 +2476,7 @@ describe('admin-api agent set configuration intent', () => {
     expect(result.success).toBe(addCustomModel);
     if (addCustomModel) {
       expect((readConfig().agents as Record<string, unknown>[])[0]).toMatchObject({ model: value });
-      expect(readJson(join(scratch, '.myagents', 'projects.json'))[0]).toMatchObject({ model: value });
+      expect(readJson(join(scratch, '.agenteam', 'projects.json'))[0]).toMatchObject({ model: value });
     } else {
       expect(result.error).toContain('not registered');
     }
@@ -2503,8 +2503,8 @@ describe('admin-api agent set configuration intent', () => {
       model: 'claude-sonnet-4-6',
       permissionMode: 'auto',
     }];
-    writeJson(join(scratch, '.myagents', 'config.json'), config);
-    writeJson(join(scratch, '.myagents', 'projects.json'), projects);
+    writeJson(join(scratch, '.agenteam', 'config.json'), config);
+    writeJson(join(scratch, '.agenteam', 'projects.json'), projects);
     const { handleAgentSet } = await import('./admin-api');
     adminConfigBehavior.failProjectWrite = true;
 
@@ -2517,13 +2517,13 @@ describe('admin-api agent set configuration intent', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('Project mirror could not be saved');
     expect((readConfig().agents as Record<string, unknown>[])[0]).toEqual(config.agents[0]);
-    expect(readJson(join(scratch, '.myagents', 'projects.json'))).toEqual(projects);
+    expect(readJson(join(scratch, '.agenteam', 'projects.json'))).toEqual(projects);
     expect(managementApiMocks.managementApi).not.toHaveBeenCalled();
   });
 
   it('serializes concurrent Agent intents so Agent and Project end on the same value', async () => {
     const workspacePath = '/tmp/myagents-agent-set-concurrent';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       providerVerifyStatus: {
         'anthropic-sub': { status: 'valid', verifiedAt: '2026-07-21T00:00:00.000Z' },
       },
@@ -2536,7 +2536,7 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'auto',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-concurrent',
       name: 'Concurrent',
       path: workspacePath,
@@ -2554,14 +2554,14 @@ describe('admin-api agent set configuration intent', () => {
 
     expect(results.every(result => result.success)).toBe(true);
     const agentModel = ((readConfig().agents as Record<string, unknown>[])[0]).model;
-    const projectModel = readJson(join(scratch, '.myagents', 'projects.json'))[0].model;
+    const projectModel = readJson(join(scratch, '.agenteam', 'projects.json'))[0].model;
     expect(projectModel).toBe(agentModel);
     expect(['claude-opus-4-6', 'claude-haiku-4-5']).toContain(agentModel);
   });
 
   it('validates a delayed model intent against the provider committed before its lock turn', async () => {
     const workspacePath = '/tmp/myagents-agent-set-validation-lock';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       providerVerifyStatus: {
         'anthropic-sub': { status: 'valid', verifiedAt: '2026-07-21T00:00:00.000Z' },
         'xai-sub': { status: 'valid', verifiedAt: '2026-07-21T00:00:00.000Z' },
@@ -2575,7 +2575,7 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'auto',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-validation-lock',
       name: 'Validation Lock',
       path: workspacePath,
@@ -2613,7 +2613,7 @@ describe('admin-api agent set configuration intent', () => {
       providerId: 'xai-sub',
       model: 'claude-sonnet-4-6',
     });
-    expect(readJson(join(scratch, '.myagents', 'projects.json'))[0]).toMatchObject({
+    expect(readJson(join(scratch, '.agenteam', 'projects.json'))[0]).toMatchObject({
       providerId: 'xai-sub',
       model: 'claude-sonnet-4-6',
     });
@@ -2626,7 +2626,7 @@ describe('admin-api agent set configuration intent', () => {
     const workspacePath = '/tmp/myagents-agent-set-mirror';
     const initialProviderId = key === 'model' ? 'anthropic-sub' : 'codex-sub';
     const initialModel = key === 'model' ? 'claude-sonnet-4-6' : 'gpt-5.6-sol';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       providerVerifyStatus: {
         'anthropic-sub': { status: 'valid', verifiedAt: '2026-07-21T00:00:00.000Z' },
       },
@@ -2639,7 +2639,7 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'fullAgency',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-mirror',
       name: 'Mirror',
       path: workspacePath,
@@ -2653,7 +2653,7 @@ describe('admin-api agent set configuration intent', () => {
     const result = await handleAgentSet({ id: 'agent-mirror', key, value });
 
     expect(result.success).toBe(true);
-    expect(readJson(join(scratch, '.myagents', 'projects.json'))[0]).toMatchObject({ [key]: value });
+    expect(readJson(join(scratch, '.agenteam', 'projects.json'))[0]).toMatchObject({ [key]: value });
     expect(managementApiMocks.managementApi).toHaveBeenCalledWith(
       '/api/agent/reload-config',
       'POST',
@@ -2673,7 +2673,7 @@ describe('admin-api agent set configuration intent', () => {
   ])('accepts managed Codex %s changes through the product provider catalog', async (key, value) => {
     const workspacePath = `/tmp/myagents-agent-managed-${key}`;
     const settingProvider = key === 'providerId';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       managedCodexProviderDevGate: true,
       managedCodexRuntimeInstall: { status: 'installed', usable: true },
       managedCodexAuth: { status: 'valid', authMethod: 'chatgpt' },
@@ -2686,7 +2686,7 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'auto',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-managed-set',
       name: 'Managed Set',
       path: workspacePath,
@@ -2701,7 +2701,7 @@ describe('admin-api agent set configuration intent', () => {
 
     expect(result.success).toBe(true);
     expect((readConfig().agents as Record<string, unknown>[])[0]).toMatchObject({ [key]: value });
-    expect(readJson(join(scratch, '.myagents', 'projects.json'))[0]).toMatchObject({ [key]: value });
+    expect(readJson(join(scratch, '.agenteam', 'projects.json'))[0]).toMatchObject({ [key]: value });
   });
 
   it('rejects an unverified subscription provider before mutating either store', async () => {
@@ -2725,8 +2725,8 @@ describe('admin-api agent set configuration intent', () => {
       model: 'claude-sonnet-4-6',
       permissionMode: 'auto',
     }];
-    writeJson(join(scratch, '.myagents', 'config.json'), config);
-    writeJson(join(scratch, '.myagents', 'projects.json'), projects);
+    writeJson(join(scratch, '.agenteam', 'config.json'), config);
+    writeJson(join(scratch, '.agenteam', 'projects.json'), projects);
     const { handleAgentSet } = await import('./admin-api');
 
     const result = await handleAgentSet({
@@ -2738,12 +2738,12 @@ describe('admin-api agent set configuration intent', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('not verified');
     expect(readConfig()).toEqual(config);
-    expect(readJson(join(scratch, '.myagents', 'projects.json'))).toEqual(projects);
+    expect(readJson(join(scratch, '.agenteam', 'projects.json'))).toEqual(projects);
     expect(managementApiMocks.managementApi).not.toHaveBeenCalled();
   });
 
   it('shows managed Codex as its effective runtime instead of the stored builtin carrier', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-managed-show',
         name: 'Managed Show',
@@ -2754,7 +2754,7 @@ describe('admin-api agent set configuration intent', () => {
         permissionMode: 'fullAgency',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-managed-show',
       name: 'Managed Show',
       path: '/tmp/myagents-agent-managed-show',
@@ -2796,7 +2796,7 @@ describe('admin-api model add', () => {
       apiProtocol: 'openai', authType: 'api_key', upstreamFormat: 'responses', maxOutputTokens: 8192,
       primaryModel: 'B', models: [{ model: 'A', modelName: 'Model A' }, { model: 'B', modelName: 'Model B' }],
     } });
-    expect(existsSync(join(scratch, '.myagents', 'providers', 'contract-provider.json'))).toBe(false);
+    expect(existsSync(join(scratch, '.agenteam', 'providers', 'contract-provider.json'))).toBe(false);
   });
 
   it.each([
@@ -2823,7 +2823,7 @@ describe('admin-api model add', () => {
         expect(buildRequestBody('model', 'add', [], parsed.flags)).toMatchObject({ dryRun: true });
       }
       // The production router stops at failed admission, before any Admin IO.
-      expect(existsSync(join(scratch, '.myagents', 'providers', 'no-write.json'))).toBe(false);
+      expect(existsSync(join(scratch, '.agenteam', 'providers', 'no-write.json'))).toBe(false);
     }
     expect(parseArgs(['mcp', 'add', '--args', '--stdio']).flags.args).toEqual(['--stdio']);
   });
@@ -2838,7 +2838,7 @@ describe('admin-api model add', () => {
     const result = await handleModelAdd({ provider: { id: 'legacy-default', name: 'Legacy', baseUrl: 'https://provider.example', models: ['A'] }, dryRun: true });
     expect(result).toMatchObject({ success: true, preview: { authType: 'auth_token' } });
     expect((result.preview as Record<string, unknown>).apiProtocol ?? 'anthropic').toBe('anthropic');
-    writeJson(join(scratch, '.myagents', 'config.json'), { notARealKey: 'stored' });
+    writeJson(join(scratch, '.agenteam', 'config.json'), { notARealKey: 'stored' });
     const unset = parseArgs(['config', 'unset', 'notARealKey', '--dry-run']);
     expect(validateInternalCliInvocation(unset.positional, unset.flags)).toBeUndefined();
     expect(validateDryRunSupport(unset.positional, unset.flags)).toBeUndefined();
@@ -2948,7 +2948,7 @@ describe('admin-api model add', () => {
 
   it('keeps the provider definition when remove config cleanup fails', async () => {
     const { handleModelAdd, handleModelRemove } = await import('./admin-api');
-    const providerPath = join(scratch, '.myagents', 'providers', 'transaction-provider.json');
+    const providerPath = join(scratch, '.agenteam', 'providers', 'transaction-provider.json');
     const providerPayload = {
       id: 'transaction-provider',
       name: 'Transaction Provider',
@@ -2970,7 +2970,7 @@ describe('admin-api model add', () => {
 
 describe('admin-api model verify credential authority', () => {
   it('verifies sdk-native subscriptions without requiring an API key', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {});
+    writeJson(join(scratch, '.agenteam', 'config.json'), {});
     const { handleModelVerify } = await import('./admin-api');
 
     const result = await handleModelVerify({ id: 'anthropic-sub', model: 'claude-sonnet-5' });
@@ -2984,7 +2984,7 @@ describe('admin-api model verify credential authority', () => {
   });
 
   it('rejects host-managed subscriptions at their credential owner before the API-key path', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {});
+    writeJson(join(scratch, '.agenteam', 'config.json'), {});
     const { handleModelVerify } = await import('./admin-api');
 
     const result = await handleModelVerify({ id: 'xai-sub' });
@@ -2999,7 +2999,7 @@ describe('admin-api model verify credential authority', () => {
   });
 
   it('redirects runtime-managed subscriptions to the managed-provider owner', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), { managedCodexProviderDevGate: true });
+    writeJson(join(scratch, '.agenteam', 'config.json'), { managedCodexProviderDevGate: true });
     const { handleModelVerify } = await import('./admin-api');
 
     const result = await handleModelVerify({ id: 'codex-sub' });
@@ -3019,18 +3019,18 @@ describe('admin-api model verify credential authority', () => {
 
 describe('admin-api config dry-run contract', () => {
   it('previews config set without writing config.json', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), { uiLanguage: 'zh-CN' });
-    const before = readFileSync(join(scratch, '.myagents', 'config.json'), 'utf-8');
+    writeJson(join(scratch, '.agenteam', 'config.json'), { uiLanguage: 'zh-CN' });
+    const before = readFileSync(join(scratch, '.agenteam', 'config.json'), 'utf-8');
     const { handleConfigSet } = await import('./admin-api');
 
     const result = await handleConfigSet({ key: 'uiLanguage', value: 'en-US', dryRun: true });
 
     expect(result).toMatchObject({ success: true, dryRun: true, preview: { key: 'uiLanguage', value: 'en-US' } });
-    expect(readFileSync(join(scratch, '.myagents', 'config.json'), 'utf-8')).toBe(before);
+    expect(readFileSync(join(scratch, '.agenteam', 'config.json'), 'utf-8')).toBe(before);
   });
 
   it('rejects unknown keys in both dry-run and write, and removes an old stray key', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), { appearanceMode: 'system', notARealKey: 'x' });
+    writeJson(join(scratch, '.agenteam', 'config.json'), { appearanceMode: 'system', notARealKey: 'x' });
     const { handleConfigSet, handleConfigUnset } = await import('./admin-api');
     for (const dryRun of [true, false]) {
       await expect(handleConfigSet({ key: 'appearanceMod', value: 'dark', dryRun })).resolves.toMatchObject({
@@ -3057,7 +3057,7 @@ describe('admin-api MCP add contract', () => {
       success: false,
       error: expect.stringContaining('保留名冲突'),
     });
-    expect(existsSync(join(scratch, '.myagents', 'config.json'))).toBe(false);
+    expect(existsSync(join(scratch, '.agenteam', 'config.json'))).toBe(false);
     expect(managementApiMocks.managementApi).not.toHaveBeenCalled();
   });
 
@@ -3072,7 +3072,7 @@ describe('admin-api MCP add contract', () => {
       success: false,
       error: expect.stringContaining('reserved by a built-in Browser tool'),
     });
-    expect(existsSync(join(scratch, '.myagents', 'config.json'))).toBe(false);
+    expect(existsSync(join(scratch, '.agenteam', 'config.json'))).toBe(false);
     expect(managementApiMocks.managementApi).not.toHaveBeenCalled();
   });
 
@@ -3118,7 +3118,7 @@ describe('admin-api MCP add contract', () => {
       env: { TOKEN: 'original-secret', MODE: 'production' },
       isBuiltin: false,
     };
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [original],
       mcpEnabledServers: ['existing-server'],
     });
@@ -3167,7 +3167,7 @@ describe('admin-api MCP add contract', () => {
 
 describe('admin-api MCP connectivity test', () => {
   it('explains global disablement without attempting a connection', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [{ id: 'ddg-search', type: 'stdio', command: 'uvx', isBuiltin: false }],
       mcpEnabledServers: [],
     });
@@ -3180,7 +3180,7 @@ describe('admin-api MCP connectivity test', () => {
   });
 
   it('diagnoses the managed Browser through its Session capability instead of spawning the sentinel', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpEnabledServers: ['myagents-browser'],
     });
     managementApiMocks.managementApi.mockResolvedValueOnce({
@@ -3213,7 +3213,7 @@ describe('admin-api MCP connectivity test', () => {
   });
 
   it('rejects a configured stdio command that exists but exits before MCP initialize', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpEnabledServers: ['broken-stdio'],
       mcpServers: [{
         id: 'broken-stdio',
@@ -3235,8 +3235,8 @@ describe('admin-api MCP connectivity test', () => {
   it('handshakes with the merged stdio args and env used by persisted MCP config', async () => {
     agentSessionMocks.agentDir = process.cwd();
     const expectedManagedBin = process.platform === 'win32'
-      ? join(scratch, '.myagents', 'npm-global')
-      : join(scratch, '.myagents', 'npm-global', 'bin');
+      ? join(scratch, '.agenteam', 'npm-global')
+      : join(scratch, '.agenteam', 'npm-global', 'bin');
     const serverCode = [
       "import { Server } from '@modelcontextprotocol/sdk/server/index.js';",
       "import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';",
@@ -3249,7 +3249,7 @@ describe('admin-api MCP connectivity test', () => {
       "const server = new Server({ name: 'issue-504-fixture', version: '1.0.0' }, { capabilities: {} });",
       'await server.connect(new StdioServerTransport());',
     ].join('\n');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpEnabledServers: ['merged-stdio'],
       mcpServers: [{
         id: 'merged-stdio',
@@ -3279,7 +3279,7 @@ describe('admin-api MCP connectivity test', () => {
 
   it('redacts even short configured MCP environment values from stdio handshake diagnostics', async () => {
     const secret = 'z9';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpEnabledServers: ['redacted-stdio'],
       mcpServers: [{
         id: 'redacted-stdio',
@@ -3303,7 +3303,7 @@ describe('admin-api MCP connectivity test', () => {
   it.each(['http', 'sse'] as const)(
     'rejects a 200 response that does not complete an MCP initialize handshake for %s',
     async (type) => {
-      writeJson(join(scratch, '.myagents', 'config.json'), {
+      writeJson(join(scratch, '.agenteam', 'config.json'), {
         mcpEnabledServers: [`invalid-${type}`],
         mcpServers: [{
           id: `invalid-${type}`,
@@ -3331,7 +3331,7 @@ describe('admin-api MCP connectivity test', () => {
   );
 
   it('handshakes with resolved HTTP URL placeholders and configured headers', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpEnabledServers: ['resolved-http'],
       mcpServers: [{
         id: 'resolved-http',
@@ -3390,7 +3390,7 @@ describe('admin-api MCP connectivity test', () => {
   });
 
   it('completes the endpoint and initialize exchange for an SSE server', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpEnabledServers: ['valid-sse'],
       mcpServers: [{
         id: 'valid-sse',
@@ -3461,7 +3461,7 @@ describe('admin-api MCP connectivity test', () => {
   });
 
   it('matches Session OAuth precedence when a canonical configured header is empty', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpEnabledServers: ['oauth-http'],
       mcpServers: [{
         id: 'oauth-http',
@@ -3514,7 +3514,7 @@ describe('admin-api MCP connectivity test', () => {
   });
 
   it('bounds stored OAuth resolution within the overall 15 second test deadline', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpEnabledServers: ['stalled-oauth-http'],
       mcpServers: [{
         id: 'stalled-oauth-http',
@@ -3552,7 +3552,7 @@ describe('admin-api MCP connectivity test', () => {
   });
 
   it('rejects an unknown persisted transport type instead of falling through to valid', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpEnabledServers: ['unknown-transport'],
       mcpServers: [{
         id: 'unknown-transport',
@@ -3576,12 +3576,12 @@ describe('admin-api MCP project scope', () => {
     const api = await import('./admin-api');
     const workspacePath = join(scratch, 'partial-mcp');
     agentSessionMocks.agentDir = workspacePath;
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [{ id: 'custom', name: 'Custom', type: 'stdio', command: 'node' }],
       mcpEnabledServers: action === 'enable' ? [] : ['custom'],
       agents: [{ id: 'owner', name: 'Owner', enabled: true, workspacePath, mcpEnabledServers: ['custom'] }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project', path: workspacePath, agentId: 'owner', mcpEnabledServers: ['custom'],
     }]);
     adminConfigBehavior.failProjectWrite = true;
@@ -3597,12 +3597,12 @@ describe('admin-api MCP project scope', () => {
     const { handleMcpEnable } = await import('./admin-api');
     const workspacePath = join(scratch, 'legacy-mcp');
     agentSessionMocks.agentDir = workspacePath;
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [{ id: 'custom', name: 'Custom', type: 'stdio', command: 'node' }],
       mcpEnabledServers: ['custom'],
       agents: [{ id: 'owner', name: 'Owner', enabled: true, workspacePath, mcpEnabledServers: ['legacy-unavailable'] }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{ id: 'project', path: workspacePath, agentId: 'owner' }]);
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{ id: 'project', path: workspacePath, agentId: 'owner' }]);
     expect(await handleMcpEnable({ id: 'custom', scope: 'project' })).toMatchObject({ success: true });
     expect(readConfig()).toMatchObject({ agents: [{ mcpEnabledServers: ['legacy-unavailable', 'custom'] }] });
     expect(sessionEngineMocks.updateMcpServers).toHaveBeenCalledWith([expect.objectContaining({ id: 'custom' })]);
@@ -3611,14 +3611,14 @@ describe('admin-api MCP project scope', () => {
   it('supports an explicit Agent MCP selection without changing globally disabled availability', async () => {
     const { handleAgentSet } = await import('./admin-api');
     const workspacePath = join(scratch, 'agent-mcp-set');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [{ id: 'custom', name: 'Custom', type: 'stdio', command: 'node' }],
       mcpEnabledServers: [], agents: [{ id: 'owner', name: 'Owner', enabled: true, workspacePath }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{ id: 'project', path: workspacePath, agentId: 'owner' }]);
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{ id: 'project', path: workspacePath, agentId: 'owner' }]);
     expect(await handleAgentSet({ id: 'owner', key: 'mcpEnabledServers', value: ['custom', 'custom'] })).toMatchObject({ success: true });
     expect(readConfig()).toMatchObject({ mcpEnabledServers: [], agents: [{ mcpEnabledServers: ['custom'] }] });
-    expect(JSON.parse(readFileSync(join(scratch, '.myagents', 'projects.json'), 'utf8'))[0].mcpEnabledServers).toEqual(['custom']);
+    expect(JSON.parse(readFileSync(join(scratch, '.agenteam', 'projects.json'), 'utf8'))[0].mcpEnabledServers).toEqual(['custom']);
     const before = readConfig();
     expect(await handleAgentSet({ id: 'owner', key: 'mcpEnabledServers', value: ['unknown'] })).toMatchObject({ success: false });
     expect(readConfig()).toEqual(before);
@@ -3631,26 +3631,26 @@ describe('admin-api MCP project scope', () => {
     const api = await import('./admin-api');
     const workspacePath = join(scratch, 'mcp-owner');
     agentSessionMocks.agentDir = workspacePath;
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [{ id: 'custom', name: 'Custom', type: 'stdio', command: 'node' }],
       mcpEnabledServers: ['custom'],
       agents: [{ id: 'owner', name: 'Owner', enabled: true, workspacePath,
         mcpEnabledServers: action === 'enable' ? [] : ['custom'] }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project', path: workspacePath, agentId: 'owner', mcpEnabledServers: ['stale-mirror'],
     }]);
     const result = await (action === 'enable' ? api.handleMcpEnable : api.handleMcpDisable)({ id: 'custom', scope: 'project' });
     expect(result.success).toBe(true);
     const selection = action === 'enable' ? ['custom'] : [];
     expect(readConfig()).toMatchObject({ agents: [{ mcpEnabledServers: selection }] });
-    expect(JSON.parse(readFileSync(join(scratch, '.myagents', 'projects.json'), 'utf8'))[0].mcpEnabledServers).toEqual(selection);
+    expect(JSON.parse(readFileSync(join(scratch, '.agenteam', 'projects.json'), 'utf8'))[0].mcpEnabledServers).toEqual(selection);
   });
 
   it('fails project-only enable when the current workspace is not registered', async () => {
     const { handleMcpEnable } = await import('./admin-api');
     agentSessionMocks.agentDir = 'c:/users/me/project/';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [{
         id: 'win-custom',
         name: 'Windows Custom',
@@ -3659,7 +3659,7 @@ describe('admin-api MCP project scope', () => {
       }],
       mcpEnabledServers: [],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), []);
+    writeJson(join(scratch, '.agenteam', 'projects.json'), []);
 
     const result = await handleMcpEnable({ id: 'win-custom', scope: 'project' });
 
@@ -3671,7 +3671,7 @@ describe('admin-api MCP project scope', () => {
   it('keeps global enable effective when project scope is skipped for an unregistered workspace', async () => {
     const { handleMcpEnable } = await import('./admin-api');
     agentSessionMocks.agentDir = 'c:/users/me/project/';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [{
         id: 'win-custom',
         name: 'Windows Custom',
@@ -3680,7 +3680,7 @@ describe('admin-api MCP project scope', () => {
       }],
       mcpEnabledServers: [],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), []);
+    writeJson(join(scratch, '.agenteam', 'projects.json'), []);
 
     const result = await handleMcpEnable({ id: 'win-custom', scope: 'both' });
 
@@ -3705,7 +3705,7 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
   it('removes HTTP MCP definitions from global config and Agent legacy payloads', async () => {
     const { handleMcpRemove } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [remoteHttp],
       mcpEnabledServers: ['yuandian-law'],
       mcpServerEnv: { 'yuandian-law': { TOKEN: 'secret' } },
@@ -3737,7 +3737,7 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
   it('removes Agent-only legacy HTTP MCP servers after Admin API load-boundary promotion', async () => {
     const { handleMcpRemove } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [],
       mcpEnabledServers: [],
       agents: [{
@@ -3765,7 +3765,7 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
   it('cascades custom MCP remove across config, projects, sessions, legacy Bot payloads, and Rust stores', async () => {
     const { handleMcpRemove } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [remoteHttp],
       mcpEnabledServers: ['yuandian-law', 'keep'],
       mcpServerEnv: { 'yuandian-law': { TOKEN: 'secret' } },
@@ -3787,13 +3787,13 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
         mcpServersJson: JSON.stringify([remoteHttp]),
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-1',
       name: 'Project',
       path: '/tmp/workspace',
       mcpEnabledServers: ['yuandian-law'],
     }]);
-    writeJson(join(scratch, '.myagents', 'sessions.json'), [{
+    writeJson(join(scratch, '.agenteam', 'sessions.json'), [{
       id: 'session-1',
       agentDir: '/tmp/workspace',
       createdAt: new Date().toISOString(),
@@ -3804,8 +3804,8 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
     const result = await handleMcpRemove({ id: 'yuandian-law' });
     const config = readConfig();
-    const project = readJson(join(scratch, '.myagents', 'projects.json'))[0];
-    const session = readJson(join(scratch, '.myagents', 'sessions.json'))[0];
+    const project = readJson(join(scratch, '.agenteam', 'projects.json'))[0];
+    const session = readJson(join(scratch, '.agenteam', 'sessions.json'))[0];
     const agent = (config.agents as Array<Record<string, unknown>>)[0];
     const bot = (config.imBotConfigs as Array<Record<string, unknown>>)[0];
 
@@ -3827,11 +3827,11 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
   it('keeps AppConfig definition when Rust Task/Cron cleanup fails', async () => {
     const { handleMcpRemove } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [remoteHttp],
       mcpEnabledServers: ['yuandian-law'],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-1',
       name: 'Project',
       path: '/tmp/workspace',
@@ -3845,7 +3845,7 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
     const result = await handleMcpRemove({ id: 'yuandian-law' });
     const config = readConfig();
-    const project = readJson(join(scratch, '.myagents', 'projects.json'))[0];
+    const project = readJson(join(scratch, '.agenteam', 'projects.json'))[0];
 
     expect(result.success).toBe(false);
     expect(result.recoveryHint).toEqual({ recoveryCommand: 'myagents status', message: 'retry later' });
@@ -3856,28 +3856,28 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
   it('keeps AppConfig definition when session snapshot cleanup cannot be written', async () => {
     const { handleMcpRemove } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [remoteHttp],
       mcpEnabledServers: ['yuandian-law'],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-1',
       name: 'Project',
       path: '/tmp/workspace',
       mcpEnabledServers: ['yuandian-law'],
     }]);
-    writeJson(join(scratch, '.myagents', 'sessions.json'), [{
+    writeJson(join(scratch, '.agenteam', 'sessions.json'), [{
       id: 'session-1',
       agentDir: '/tmp/workspace',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       mcpEnabledServers: ['yuandian-law'],
     }]);
-    mkdirSync(join(scratch, '.myagents', 'sessions.json.tmp'));
+    mkdirSync(join(scratch, '.agenteam', 'sessions.json.tmp'));
 
     const result = await handleMcpRemove({ id: 'yuandian-law' });
     const config = readConfig();
-    const project = readJson(join(scratch, '.myagents', 'projects.json'))[0];
+    const project = readJson(join(scratch, '.agenteam', 'projects.json'))[0];
 
     expect(result.success).toBe(false);
     expect((config.mcpServers as Array<Record<string, unknown>>).map(s => s.id)).toEqual(['yuandian-law']);
@@ -3888,19 +3888,19 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
   it('does not delete a new same-id definition added during cleanup-only remove', async () => {
     const { handleMcpRemove } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [],
       mcpEnabledServers: ['yuandian-law'],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-1',
       name: 'Project',
       path: '/tmp/workspace',
       mcpEnabledServers: ['yuandian-law'],
     }]);
-    writeJson(join(scratch, '.myagents', 'sessions.json'), []);
+    writeJson(join(scratch, '.agenteam', 'sessions.json'), []);
     managementApiMocks.managementApi.mockImplementationOnce(async () => {
-      writeJson(join(scratch, '.myagents', 'config.json'), {
+      writeJson(join(scratch, '.agenteam', 'config.json'), {
         mcpServers: [remoteHttp],
         mcpEnabledServers: ['yuandian-law'],
       });
@@ -3909,7 +3909,7 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
     const result = await handleMcpRemove({ id: 'yuandian-law' });
     const config = readConfig();
-    const project = readJson(join(scratch, '.myagents', 'projects.json'))[0];
+    const project = readJson(join(scratch, '.agenteam', 'projects.json'))[0];
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('re-added during cleanup-only remove');
@@ -3920,7 +3920,7 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
   it('disables Agent-only legacy HTTP MCP servers without letting promotion re-enable them', async () => {
     const { handleMcpDisable } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [],
       mcpEnabledServers: [],
       agents: [{
@@ -3946,7 +3946,7 @@ describe('admin-api MCP remove/disable legacy HTTP servers', () => {
 
 describe('admin-api Agent runtime lifecycle convergence', () => {
   it('removes the durable channel before stopping that exact Rust runtime', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-channel-remove',
         name: 'Channel Remove',
@@ -3983,7 +3983,7 @@ describe('admin-api Agent runtime lifecycle convergence', () => {
   });
 
   it('retries exact runtime cleanup after the durable channel is already absent', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-channel-retry',
         name: 'Channel Retry',
@@ -4011,7 +4011,7 @@ describe('admin-api Agent runtime lifecycle convergence', () => {
   });
 
   it('reports a truthful partial failure when config deletion lands but runtime stop fails', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-channel-stop-fails',
         name: 'Channel Stop Fails',
@@ -4045,7 +4045,7 @@ describe('admin-api Agent runtime lifecycle convergence', () => {
       value: false,
     })],
   ])('%s resets proactive children without stopping Channel runtimes', async (_label, run) => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-disable',
         name: 'Disable',
@@ -4084,7 +4084,7 @@ describe('admin-api Agent runtime lifecycle convergence', () => {
   });
 
   it('returns failure when proactive config saves but runtime or managed tasks do not converge', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-reconcile-fails',
         name: 'Reconcile Fails',
@@ -4112,7 +4112,7 @@ describe('admin-api Agent runtime lifecycle convergence', () => {
   });
 
   it('agent enable resets all proactive children while preserving their settings', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-enable',
         name: 'Enable',
@@ -4122,7 +4122,7 @@ describe('admin-api Agent runtime lifecycle convergence', () => {
         channels: [{ id: 'channel-off', type: 'telegram', enabled: false }],
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-enable',
       name: 'Enable',
       path: '/tmp/enable',
@@ -4143,7 +4143,7 @@ describe('admin-api Agent runtime lifecycle convergence', () => {
   });
 
   it('still converges runtime state when archiving an already-disabled Agent', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-archive-disabled',
         name: 'Archive Disabled',
@@ -4152,7 +4152,7 @@ describe('admin-api Agent runtime lifecycle convergence', () => {
         channels: [{ id: 'channel-1', type: 'openclaw:weixin', enabled: true }],
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-archive-disabled',
       name: 'Archive Disabled',
       path: '/tmp/archive-disabled',
@@ -4175,13 +4175,13 @@ describe('admin-api Agent runtime lifecycle convergence', () => {
 
 describe('admin-api Agent / Session discovery', () => {
   it('projects only valid visible Workspace identities into the network catalog without leaking execution credentials', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), { agents: [
+    writeJson(join(scratch, '.agenteam', 'config.json'), { agents: [
       { id: 'active', name: 'Active', enabled: false, channels: [{ id: 'secret-channel', botToken: 'do-not-expose' }] },
       { id: 'archived', name: 'Archived', enabled: true, channels: [] },
       { id: 'orphan', name: 'Orphan', enabled: true, workspacePath: '/orphan', channels: [] },
       { id: 'conflicted', name: 'Conflicted', channels: [] },
     ] });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [
       { id: 'active-workspace', name: 'Active', path: '/active', agentId: 'active', icon: 'lightning' },
       { id: 'archived-workspace', name: 'Archived', path: '/archived', agentId: 'archived', archivedAt: '2026-10-01T00:00:00Z' },
       { id: 'hidden-workspace', name: 'Hidden', path: '/hidden', hidden: true },
@@ -4201,8 +4201,8 @@ describe('admin-api Agent / Session discovery', () => {
   });
   it('separates registered channel platforms from plugin installation types in discovery', async () => {
     const channel = { id: 'wecom-connection', type: 'openclaw:wecom-openclaw-plugin', name: 'WeCom', enabled: true, botToken: 'never-disclose' };
-    writeJson(join(scratch, '.myagents', 'config.json'), { agents: [{ id: 'agent-one', name: 'One', channels: [channel] }] });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{ id: 'workspace-one', name: 'One', path: '/one', agentId: 'agent-one' }]);
+    writeJson(join(scratch, '.agenteam', 'config.json'), { agents: [{ id: 'agent-one', name: 'One', channels: [channel] }] });
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{ id: 'workspace-one', name: 'One', path: '/one', agentId: 'agent-one' }]);
     managementApiMocks.managementApi.mockImplementation(async (path) => path === '/api/im/channel-context'
       ? { ok: true, defaultTarget: null, channels: [{ channelId: channel.id, platform: 'openclaw:wecom' }] }
       : { ok: true, channels: [{ botId: channel.id, platform: 'openclaw:wecom', pluginId: 'wecom-openclaw-plugin' }] });
@@ -4218,7 +4218,7 @@ describe('admin-api Agent / Session discovery', () => {
     const globalIm = await handleImChannels();
     expect(globalIm.data).toMatchObject({ channels: [expect.objectContaining({ platform: 'openclaw:wecom', pluginId: 'wecom-openclaw-plugin' })] });
     expect(JSON.stringify([list, channels])).not.toContain('never-disclose');
-    expect(JSON.parse(readFileSync(join(scratch, '.myagents', 'config.json'), 'utf8')).agents[0].channels[0]).toEqual(channel);
+    expect(JSON.parse(readFileSync(join(scratch, '.agenteam', 'config.json'), 'utf8')).agents[0].channels[0]).toEqual(channel);
   });
 
   it('links IM help and readme to recorded Session history', async () => {
@@ -4232,11 +4232,11 @@ describe('admin-api Agent / Session discovery', () => {
   });
 
   it('lists healthy Agents and exposes conflicted targets with paths but no credentials', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), { agents: [
+    writeJson(join(scratch, '.agenteam', 'config.json'), { agents: [
       { id: 'shared', name: 'Shared', channels: [{ id: 'secret-channel', botToken: 'do-not-expose' }] },
       { id: 'healthy', name: 'Healthy', channels: [] },
     ] });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [
       { id: 'one', name: 'One', path: '/one', agentId: 'shared' },
       { id: 'two', name: 'Two', path: '/two', agentId: 'shared', hidden: true },
       { id: 'three', name: 'Three', path: '/three', agentId: 'healthy' },
@@ -4253,14 +4253,14 @@ describe('admin-api Agent / Session discovery', () => {
 
   it('returns visible Project-backed and legacy orphan Agents while marking only the selected Project Agent current', async () => {
     agentSessionMocks.agentDir = '/tmp/current-workspace';
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [
         { id: 'agent-current', name: 'Current', enabled: false, workspacePath: '/tmp/current-workspace', channels: [] },
         { id: 'agent-other', name: 'Other', enabled: true, workspacePath: '/tmp/other-workspace', channels: [] },
         { id: 'agent-orphan', name: 'Orphan', enabled: true, workspacePath: '/tmp/orphan', channels: [] },
       ],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [
       { id: 'project-current', name: 'Current', path: '/tmp/current-workspace', agentId: 'agent-current' },
       { id: 'project-other', name: 'Other', path: '/tmp/other-workspace', agentId: 'agent-other' },
       { id: 'project-hidden', name: 'Hidden', path: '/tmp/hidden', hidden: true },
@@ -4300,8 +4300,8 @@ describe('admin-api Agent / Session discovery', () => {
     const agents = ['active', 'disabled', 'archived', 'internal', 'orphan'].map(id => ({
       id, name: id, enabled: id !== 'disabled', workspacePath: `/tmp/${id}`, channels: [],
     }));
-    writeJson(join(scratch, '.myagents', 'config.json'), { agents });
-    writeJson(join(scratch, '.myagents', 'projects.json'), agents.filter(agent => agent.id !== 'orphan').map(agent => ({
+    writeJson(join(scratch, '.agenteam', 'config.json'), { agents });
+    writeJson(join(scratch, '.agenteam', 'projects.json'), agents.filter(agent => agent.id !== 'orphan').map(agent => ({
       id: `project-${agent.id}`, name: agent.name, path: agent.workspacePath, agentId: agent.id,
       ...(agent.id === 'archived' ? { archivedAt: '2026-09-01T00:00:00.000Z' } : {}),
       ...(agent.id === 'internal' ? { internal: true } : {}),
@@ -4313,13 +4313,13 @@ describe('admin-api Agent / Session discovery', () => {
   });
 
   it('lists persisted history only, newest first, without exposing prepared Sessions', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{ id: 'agent-1', name: 'Workspace', enabled: true, workspacePath: '/tmp/workspace', channels: [] }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-1', name: 'Workspace', path: '/tmp/workspace', agentId: 'agent-1',
     }]);
-    writeJson(join(scratch, '.myagents', 'sessions.json'), [
+    writeJson(join(scratch, '.agenteam', 'sessions.json'), [
       {
         id: 'session-old', agentDir: '/tmp/workspace', title: 'Old',
         createdAt: '2026-07-01T00:00:00.000Z', lastActiveAt: '2026-07-01T00:00:00.000Z',
@@ -4361,7 +4361,7 @@ describe('admin-api Agent / Session discovery', () => {
   });
 
   it('reports DSH Agent defaults and Session history as Integrated Product identity', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-dsh',
         name: 'DSH Workspace',
@@ -4375,13 +4375,13 @@ describe('admin-api Agent / Session discovery', () => {
         channels: [],
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-dsh',
       name: 'DSH Workspace',
       path: '/tmp/dsh-workspace',
       agentId: 'agent-dsh',
     }]);
-    writeJson(join(scratch, '.myagents', 'sessions.json'), [{
+    writeJson(join(scratch, '.agenteam', 'sessions.json'), [{
       id: 'session-dsh',
       agentDir: '/tmp/dsh-workspace',
       title: 'DSH Session',
@@ -4420,7 +4420,7 @@ describe('admin-api Agent / Session discovery', () => {
 describe('admin-api Agent workspace archive', () => {
   it('archives a linked agent workspace and pauses proactive agent state', async () => {
     const { handleAgentArchive, handleAgentList } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-1',
         name: 'Workspace',
@@ -4429,7 +4429,7 @@ describe('admin-api Agent workspace archive', () => {
         channels: [{ id: 'channel-1', type: 'telegram', enabled: true }],
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-1',
       name: 'Workspace',
       path: '/tmp/workspace',
@@ -4443,7 +4443,7 @@ describe('admin-api Agent workspace archive', () => {
     expect(result.success).toBe(true);
     const config = readConfig();
     expect((config.agents as Array<Record<string, unknown>>)[0].enabled).toBe(false);
-    const projects = readJson(join(scratch, '.myagents', 'projects.json'));
+    const projects = readJson(join(scratch, '.agenteam', 'projects.json'));
     expect(projects[0].archivedAt).toEqual(expect.any(String));
     expect(projects[0].archivedAgentEnabledBeforeArchive).toBe(true);
     expect(projects[0]).not.toHaveProperty('pinnedAt');
@@ -4470,7 +4470,7 @@ describe('admin-api Agent workspace archive', () => {
 
   it('keeps restore intent when archive is called repeatedly', async () => {
     const { handleAgentArchive, handleAgentUnarchive } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-1',
         name: 'Workspace',
@@ -4482,7 +4482,7 @@ describe('admin-api Agent workspace archive', () => {
         channels: [{ id: 'channel-1', type: 'telegram', enabled: true }],
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-1',
       name: 'Workspace',
       path: '/tmp/workspace',
@@ -4491,7 +4491,7 @@ describe('admin-api Agent workspace archive', () => {
 
     expect((await handleAgentArchive({ id: 'agent-1' })).success).toBe(true);
     expect((await handleAgentArchive({ id: 'agent-1' })).success).toBe(true);
-    let projects = readJson(join(scratch, '.myagents', 'projects.json'));
+    let projects = readJson(join(scratch, '.agenteam', 'projects.json'));
     expect(projects[0].archivedAgentEnabledBeforeArchive).toBe(true);
 
     expect((await handleAgentUnarchive({ id: 'agent-1' })).success).toBe(true);
@@ -4503,13 +4503,13 @@ describe('admin-api Agent workspace archive', () => {
       memoryEvolution: { enabled: false, lastGardenerStatus: 'completed' },
       channels: [{ id: 'channel-1', enabled: true }],
     });
-    projects = readJson(join(scratch, '.myagents', 'projects.json'));
+    projects = readJson(join(scratch, '.agenteam', 'projects.json'));
     expect(projects[0]).not.toHaveProperty('archivedAt');
   });
 
   it('rejects plain enable for archived agent workspaces', async () => {
     const { handleAgentEnable } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-1',
         name: 'Workspace',
@@ -4518,7 +4518,7 @@ describe('admin-api Agent workspace archive', () => {
         channels: [],
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-1',
       name: 'Workspace',
       path: '/tmp/workspace',
@@ -4540,7 +4540,7 @@ describe('admin-api Agent workspace archive', () => {
 
   it('unarchives a workspace and restores proactive state only when recorded', async () => {
     const { handleAgentUnarchive } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-1',
         name: 'Workspace',
@@ -4551,7 +4551,7 @@ describe('admin-api Agent workspace archive', () => {
         mcpServersJson: '[]',
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-1',
       name: 'Workspace',
       path: '/tmp/workspace',
@@ -4568,7 +4568,7 @@ describe('admin-api Agent workspace archive', () => {
     expect(agents[0].mcpServersJson).toBe('[]');
     const config = readConfig();
     expect((config.agents as Array<Record<string, unknown>>)[0].enabled).toBe(true);
-    const projects = readJson(join(scratch, '.myagents', 'projects.json'));
+    const projects = readJson(join(scratch, '.agenteam', 'projects.json'));
     expect(projects[0]).not.toHaveProperty('archivedAt');
     expect(projects[0]).not.toHaveProperty('archivedAgentEnabledBeforeArchive');
     expect(managementApiMocks.managementApi).toHaveBeenCalledWith(
@@ -4581,7 +4581,7 @@ describe('admin-api Agent workspace archive', () => {
 
   it('reports projection failure after unarchive without hiding the saved lifecycle change', async () => {
     const { handleAgentUnarchive } = await import('./admin-api');
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
         id: 'agent-1',
         name: 'Workspace',
@@ -4590,7 +4590,7 @@ describe('admin-api Agent workspace archive', () => {
         channels: [],
       }],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project-1',
       name: 'Workspace',
       path: '/tmp/workspace',
@@ -4606,7 +4606,7 @@ describe('admin-api Agent workspace archive', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('was unarchived');
-    const projects = readJson(join(scratch, '.myagents', 'projects.json'));
+    const projects = readJson(join(scratch, '.agenteam', 'projects.json'));
     expect(projects[0]).not.toHaveProperty('archivedAt');
   });
 });
@@ -4616,7 +4616,7 @@ describe('admin config discovery and MCP observations', () => {
   it('redacts serialized Agent credentials and secret maps through both parent and leaf reads', async () => {
     const secret = 'synthetic-provider-credential-123456789';
     const snapshot = JSON.stringify({ apiKey: secret, baseUrl: 'https://fixture.invalid' });
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{ id: 'agent-fixture', name: 'Fixture', providerEnvJson: snapshot,
         channels: [{ overrides: { providerEnvJson: snapshot, mcpServersJson: snapshot } }] }],
       providerApiKeys: { fixture: secret },
@@ -4636,7 +4636,7 @@ describe('admin config discovery and MCP observations', () => {
   });
 
   it('lists stored keys and types without exposing secrets, including nested credentials', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       theme: 'dark', providerApiKeys: { deepseek: 'synthetic-private-value' },
       custom: { count: 3, nested: { password: 'synthetic-password' } },
     });
@@ -4657,8 +4657,8 @@ describe('admin config discovery and MCP observations', () => {
   });
 
   it('reads workspace MCP selection from the Session facade independently of global configuration', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), { agents: [], mcpEnabledServers: ['one'] });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{ id: 'project', name: 'Fixture', path: '/fixture/current', mcpEnabledServers: ['one', 'two'] }]);
+    writeJson(join(scratch, '.agenteam', 'config.json'), { agents: [], mcpEnabledServers: ['one'] });
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{ id: 'project', name: 'Fixture', path: '/fixture/current', mcpEnabledServers: ['one', 'two'] }]);
     sessionEngineMocks.state.context = { sessionId: 'current', workspacePath: '/fixture/current' };
     agentSessionMocks.agentDir = '/fixture/old-builtin';
     const { handleStatus } = await import('./admin-api');
@@ -4666,8 +4666,8 @@ describe('admin config discovery and MCP observations', () => {
   });
 
   it('counts only current ready MCP servers and keeps unknown observations distinct from zero', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), { agents: [] });
-    writeJson(join(scratch, '.myagents', 'projects.json'), []);
+    writeJson(join(scratch, '.agenteam', 'config.json'), { agents: [] });
+    writeJson(join(scratch, '.agenteam', 'projects.json'), []);
     const { handleStatus } = await import('./admin-api');
     expect(await handleStatus()).toMatchObject({ data: {
       activeMcpInSession: null,

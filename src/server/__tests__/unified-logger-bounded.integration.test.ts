@@ -12,7 +12,7 @@
  *
  * Isolation: `vi.mock('../logUtils')` redirects LOGS_DIR to a per-run
  * tmpdir BEFORE UnifiedLogger imports it, so the test never writes to
- * the developer's real `~/.myagents/logs/`. (Prior versions polluted
+ * the developer's real `~/.agenteam/logs/`. (Prior versions polluted
  * the real unified log with thousands of `[bench]` entries every run.)
  */
 

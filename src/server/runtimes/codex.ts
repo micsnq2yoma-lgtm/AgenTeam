@@ -1073,7 +1073,7 @@ export function buildCodexCompletedFileChangeInput(
 // ─── Temp image directory for Codex (which requires file paths, not base64) ───
 const TEMP_IMG_DIR = join(
   process.env.HOME || process.env.USERPROFILE || '/tmp',
-  '.myagents', 'tmp', 'codex-images',
+  '.agenteam', 'tmp', 'codex-images',
 );
 
 /**

@@ -37,7 +37,7 @@ rg -n "\\[AppErrorBoundary\\]|\\[REACT\\] \\[ERROR\\]" ./logs/unified-*.log | no
 
 ## 修复边界
 
-- 不要直接引导用户改 `~/.myagents` 内部索引来修文件树。
+- 不要直接引导用户改 `~/.agenteam` 内部索引来修文件树。
 - 不要把工作区文件 IO 失败归因到 Provider/MCP，除非证据显示失败发生在 AI runtime turn 内。
 - 涉及删除/覆盖/移动前必须让用户确认具体路径；报告里路径要脱敏 home 用户名和凭据片段。
 - 修复后从用户原入口验证同一种操作，并同时确认文件系统真实结果与 UI watcher 刷新；只看到命令成功不代表界面已同步。

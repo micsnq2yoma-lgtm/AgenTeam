@@ -20,26 +20,26 @@ describe('AppRoute', () => {
 
     const commentRoute = createTaskCommentAppRoute('task_1', 'comment-2');
     expect(serializeAppRoute(commentRoute)).toBe(
-      'myagents://open/v1/tasks/task_1/comments/comment-2',
+      'agenteam://open/v1/tasks/task_1/comments/comment-2',
     );
     expect(parseAppRouteUrl(serializeAppRoute(commentRoute))).toEqual(commentRoute);
   });
 
   it.each([
-    'myagents://attachment/session/file.png',
-    'myagents://tool-attachment/session/turn/file.png',
+    'agenteam://attachment/session/file.png',
+    'agenteam://tool-attachment/session/turn/file.png',
     'myagents-resource://attachment/session/file.png',
-    'myagents://evil/v1/spaces/a/issues/b',
-    'myagents://open/v2/spaces/a/issues/b',
-    'myagents://open/v1/spaces/a/issues/b/extra',
-    'myagents://open/v1/tasks/a/comments/b/extra',
-    'myagents://open/v1/tasks/a/issues/b',
-    'myagents://open/v1/spaces/a/issues/b?prompt=run',
-    'myagents://open/v1/spaces/a/issues/b#fragment',
-    'myagents://open/v1/spaces/a%2Fb/issues/c',
-    'myagents://open/v1/spaces/a/issues/%ZZ',
-    'myagents://user@open/v1/spaces/a/issues/b',
-    'myagents://open:42/v1/spaces/a/issues/b',
+    'agenteam://evil/v1/spaces/a/issues/b',
+    'agenteam://open/v2/spaces/a/issues/b',
+    'agenteam://open/v1/spaces/a/issues/b/extra',
+    'agenteam://open/v1/tasks/a/comments/b/extra',
+    'agenteam://open/v1/tasks/a/issues/b',
+    'agenteam://open/v1/spaces/a/issues/b?prompt=run',
+    'agenteam://open/v1/spaces/a/issues/b#fragment',
+    'agenteam://open/v1/spaces/a%2Fb/issues/c',
+    'agenteam://open/v1/spaces/a/issues/%ZZ',
+    'agenteam://user@open/v1/spaces/a/issues/b',
+    'agenteam://open:42/v1/spaces/a/issues/b',
   ])('rejects unsupported or ambiguous input: %s', (value) => {
     expect(parseAppRouteUrl(value)).toBeNull();
   });

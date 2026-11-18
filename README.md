@@ -10,9 +10,11 @@
 
 [中文](README.md) · [English](README.en.md) · [上游 MyAgents 官网](https://myagents.io) · [上游发行版](https://github.com/hAcKlyc/MyAgents/releases) · [贡献指南](CONTRIBUTING.md)
 
+[AgenTeam Releases](https://github.com/micsnq2yoma-lgtm/AgenTeam/releases) · [Windows 预览与构建](specs/guides/windows_build_guide.md)
+
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-13.0+-black.svg)](https://myagents.io)
-[![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://myagents.io)
+[![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://github.com/micsnq2yoma-lgtm/AgenTeam/releases)
 
 </div>
 

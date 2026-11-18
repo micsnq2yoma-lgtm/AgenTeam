@@ -75,7 +75,7 @@ export function getFallbackPaths(options: FallbackPathOptions = {}): string[] {
 
         // Keep this in sync with buildClaudeSessionEnv(): product-owned
         // launchers first, then runtimes and package-manager fallbacks.
-        pushPath(paths, userProfile ? joinForPlatform(platform, userProfile, '.myagents', 'bin') : '', platform);
+        pushPath(paths, userProfile ? joinForPlatform(platform, userProfile, '.agenteam', 'bin') : '', platform);
         pushPath(paths, programFiles ? joinForPlatform(platform, programFiles, 'nodejs') : '', platform);
         pushPath(paths, programFilesX86 ? joinForPlatform(platform, programFilesX86, 'nodejs') : '', platform);
         pushPath(paths, nvmSymlink, platform);
@@ -99,7 +99,7 @@ export function getFallbackPaths(options: FallbackPathOptions = {}): string[] {
     // GUI apps don't inherit shell PATH, so we enumerate known binary directories.
     const home = envValue(env, 'HOME');
     const paths: string[] = [];
-    pushPath(paths, home ? `${home}/.myagents/bin` : '', platform);
+    pushPath(paths, home ? `${home}/.agenteam/bin` : '', platform);
     pushPath(paths, '/opt/homebrew/bin', platform);        // macOS Apple Silicon homebrew
     pushPath(paths, '/usr/local/bin', platform);           // macOS Intel homebrew / Linux system
     pushPath(paths, '/usr/bin', platform);

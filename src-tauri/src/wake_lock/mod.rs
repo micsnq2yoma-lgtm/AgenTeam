@@ -4,7 +4,7 @@
 //! when the host enters idle sleep: TCP streams to the Anthropic API die,
 //! the SDK never detects the dead socket, and the 10-minute watchdog kills
 //! the turn. Real incident: 2026-05-19 19:11–19:26, see
-//! `~/.myagents/logs/unified-2026-05-19.log`.
+//! `~/.agenteam/logs/unified-2026-05-19.log`.
 //!
 //! ## What this prevents
 //!
@@ -145,7 +145,7 @@ fn read_force_wake_lock_from(config_path: &std::path::Path) -> bool {
     cfg.force_wake_lock.unwrap_or(false)
 }
 
-/// Read `~/.myagents/config.json` for `forceWakeLock`. Defaults to `false`
+/// Read `~/.agenteam/config.json` for `forceWakeLock`. Defaults to `false`
 /// when the field is absent / file unreadable / JSON malformed. **Disk-first,
 /// never cached** — both startup boot and the tray initial-state lookup go
 /// through this single function. Mirrors `tray::should_minimize_to_tray()`.
@@ -333,7 +333,7 @@ mod tests {
 
     // ─── PRD 0.2.35 · should_force_wake_lock disk-read covenant ─────────────
     //
-    // The public `should_force_wake_lock()` reads `~/.myagents/config.json`,
+    // The public `should_force_wake_lock()` reads `~/.agenteam/config.json`,
     // which can't be redirected per-test. We exercise the inner
     // `read_force_wake_lock_from(path)` against tempfiles to lock down the
     // three cases the PRD specifies + the BOM / corruption tolerances every

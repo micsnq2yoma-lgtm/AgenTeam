@@ -97,7 +97,7 @@ pub async fn cmd_workspace_copy_paths(
                 // files that did go through — but they must reach the caller,
                 // not just the log (cross-review 0.2.33, Codex W3).
                 // ulog_* (not log::*) per unified_logging.md — log::warn!
-                // doesn't reach `~/.myagents/logs/unified-{date}.log`.
+                // doesn't reach `~/.agenteam/logs/unified-{date}.log`.
                 crate::ulog_warn!("[workspace_files::copy] skipping {}: {}", source, err);
                 errors.push(format!("{}: {}", source, err));
             }

@@ -16,8 +16,8 @@ export function getMyAgentsNpmGlobalPrefix(
 ): string | null {
   if (!home) return null;
   return isWindowsPlatform(platform)
-    ? pathWin32.resolve(home, '.myagents', 'npm-global')
-    : `${home}/.myagents/npm-global`;
+    ? pathWin32.resolve(home, '.agenteam', 'npm-global')
+    : `${home}/.agenteam/npm-global`;
 }
 
 export function getMyAgentsNpmGlobalBinDir(

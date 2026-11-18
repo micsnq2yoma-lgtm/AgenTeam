@@ -1,5 +1,5 @@
 // Task types (v0.1.69 Task Center)
-// Workspace-scoped execution units. Persisted to ~/.myagents/tasks.jsonl.
+// Workspace-scoped execution units. Persisted to ~/.agenteam/tasks.jsonl.
 // Associated markdown documents live under <workspace>/.task/<taskId>/.
 // See PRD §3.2 for the full schema and §9.1 for the state machine.
 
@@ -314,9 +314,9 @@ export interface Task {
   model?: string;
   /** PRD 0.2.9 — Per-task provider id override. When absent, the cron follows
    *  the workspace agent. When set, the sidecar live-resolves the provider
-   *  env from `~/.myagents/config.json` on every tick, so credential
+   *  env from `~/.agenteam/config.json` on every tick, so credential
    *  rotation propagates without re-saving the task and no credential
-   *  copies land in `~/.myagents/tasks/...jsonl`.
+   *  copies land in `~/.agenteam/tasks/...jsonl`.
    *
    *  Mutually exclusive with external runtime (`runtime ∈ {claude-code,
    *  codex}`) — those runtimes manage their own provider; the Rust
@@ -382,7 +382,7 @@ export interface Task {
  *  directly. Only existing files are surfaced (task.md is always created
  *  at task-creation time, so it's always present). */
 export interface TaskDocs {
-  /** Absolute path to the docs directory: `~/.myagents/tasks/<id>/`. */
+  /** Absolute path to the docs directory: `~/.agenteam/tasks/<id>/`. */
   dir: string;
   /** `task.md` — always present; the task's instruction/prompt body. */
   taskMd: string;

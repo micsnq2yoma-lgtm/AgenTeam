@@ -97,7 +97,7 @@ export function extractBundle(bytes, staging, platform, version, commit) {
   return root;
 }
 
-export async function prepareCuseBundle({ target, destination = join(ROOT, 'bundled-skills', 'cuse'), cacheRoot = join(ROOT, 'src-tauri/resources/cuse-cache'), fetchBytes, log = console.log }) {
+export async function prepareCuseBundle({ target, destination = join(ROOT, 'bundled-skills', 'cuse'), cacheRoot = join(ROOT, 'src-tauri/resources/cuse-cache'), fetchBytes, releaseLock, log = console.log }) {
   const platform = cusePlatform(target);
   if (!platform) {
     // Shared build trees must not leak a previous Mac/Windows binary into Linux.
@@ -109,7 +109,7 @@ export async function prepareCuseBundle({ target, destination = join(ROOT, 'bund
     maxBytes, log, headers: { 'User-Agent': 'myagents-cuse-builder', 'Cache-Control': 'no-cache' },
   });
   log(`[resource:cuse ${platform}] CHECK: fetching current release metadata`);
-  const pointer = JSON.parse((await fetchBytes(`${FEED}/latest.json`, 64 * 1024)).toString('utf8'));
+  const pointer = releaseLock ?? JSON.parse((await fetchBytes(`${FEED}/latest.json`, 64 * 1024)).toString('utf8'));
   requireValue(pointer?.schema_version === 1 && stableVersion(pointer.version), 'invalid latest pointer');
   const version = pointer.version;
   const prefix = `${FEED}/releases/v${version}`;
@@ -160,8 +160,11 @@ export async function prepareCuseBundle({ target, destination = join(ROOT, 'bund
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  if (args.length !== 1 || args[0] === '--help') {
-    console.log('Usage: node scripts/prepare-cuse-bundle.mjs RUST_TARGET_TRIPLE\nFetch latest Cuse Skill+CLI into bundled-skills/cuse, verify all payloads, then replace.\nTargets: aarch64-apple-darwin, x86_64-apple-darwin, x86_64-pc-windows-msvc.\nLinux targets omit Cuse. Network failure is fatal; no version pin or stale fallback.');
+  if (!args.length || args.length > 2 || (args[1] && args[1] !== '--locked') || args[0] === '--help') {
+    console.log('Usage: node scripts/prepare-cuse-bundle.mjs RUST_TARGET_TRIPLE [--locked]\nFetch Cuse Skill+CLI into bundled-skills/cuse, verify all payloads, then replace.\nTargets: aarch64-apple-darwin, x86_64-apple-darwin, x86_64-pc-windows-msvc.\nLinux targets omit Cuse. Release builds use --locked to verify the pinned manifest.');
     if (args[0] !== '--help') process.exitCode = 1;
-  } else { await prepareCuseBundle({ target: args[0] }); }
+  } else {
+    const releaseLock = args[1] === '--locked' ? JSON.parse(readFileSync(join(ROOT, 'scripts/cuse-release-lock.json'), 'utf8')) : undefined;
+    await prepareCuseBundle({ target: args[0], releaseLock });
+  }
 }

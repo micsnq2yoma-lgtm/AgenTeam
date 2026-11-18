@@ -112,7 +112,7 @@ def check_startup(app, env, scratch):
                 texts = []
                 log.flush()
                 texts.append((scratch / 'startup.log').read_text(errors='replace'))
-                for path in (scratch / '.myagents' / 'logs').glob('unified-*.log'):
+                for path in (scratch / '.agenteam' / 'logs').glob('unified-*.log'):
                     texts.append(path.read_text(errors='replace'))
                 ports = re.findall(r'TCP health check passed[^\n]*on port (\d+)', '\n'.join(texts))
                 for port in set(ports):

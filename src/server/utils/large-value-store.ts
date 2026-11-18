@@ -3,7 +3,7 @@
  *
  * Goal: keep large payloads (tool results, file previews, binary blobs) OUT of
  * the SSE / IPC JSON channel. When a value exceeds `inlineMaxBytes`, spill it
- * to disk under `~/.myagents/refs/<id>` and return a `LargeValueRef` placeholder
+ * to disk under `~/.agenteam/refs/<id>` and return a `LargeValueRef` placeholder
  * carrying just a `preview` (head N bytes) plus metadata. Consumers fetch the
  * full body via the sidecar's `GET /refs/:id` endpoint over its existing port.
  *
@@ -13,7 +13,7 @@
  *   - `clearSessionRefs(sessionId)` is called on session-end / reset to release
  *     refs owned by that session early.
  *
- * On-disk layout (under `~/.myagents/refs/`):
+ * On-disk layout (under `~/.agenteam/refs/`):
  *   <id>            — the actual bytes (Uint8Array | utf-8 text)
  *   <id>.meta.json  — `{ id, sizeBytes, mimetype, preview, expiresAt, sessionId? }`
  *
@@ -75,7 +75,7 @@ const META_PART_RE = /^[a-f0-9]{8,32}\.meta\.json\.part$/;
 function getRefsDir(): string {
   const override = process.env.MYAGENTS_REFS_DIR;
   if (override && override.length > 0) return override;
-  return join(homedir(), ".myagents", "refs");
+  return join(homedir(), ".agenteam", "refs");
 }
 
 function ensureRefsDir(): string {

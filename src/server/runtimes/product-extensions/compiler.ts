@@ -1028,7 +1028,7 @@ export function compileProductExtensionSnapshot(
     component('scenario', 'applied', 'scenario_compiled'),
   ];
   const userConfigRoot = input.userConfigRoot === undefined
-    ? (getHomeDirOrNull() ? join(getHomeDirOrNull()!, '.myagents') : null)
+    ? (getHomeDirOrNull() ? join(getHomeDirOrNull()!, '.agenteam') : null)
     : input.userConfigRoot;
   const enabledPluginIds = [...new Set(
     input.enabledPluginIds == null

@@ -2,9 +2,9 @@
 //!
 //! Sources, in dedup priority order (first wins):
 //! 1. `<workspace>/.claude/commands/*.md`        — project commands
-//! 2. `~/.myagents/commands/*.md`                — user commands
+//! 2. `~/.agenteam/commands/*.md`                — user commands
 //! 3. `<workspace>/.claude/skills/*/SKILL.md`    — project skills
-//! 4. `~/.myagents/skills/*/SKILL.md`            — user skills (respects skills config disabled list)
+//! 4. `~/.agenteam/skills/*/SKILL.md`            — user skills (respects skills config disabled list)
 //! 5. Built-in commands (compact, context, …)
 //!
 //! Returned shape exactly matches the sidecar `/api/commands` response
@@ -93,7 +93,7 @@ pub async fn cmd_list_slash_commands(workspace: String) -> Result<SlashCommandsR
     let workspace_exists = workspace_root.is_dir();
 
     let home_dir = dirs::home_dir().ok_or_else(|| "home dir unavailable".to_string())?;
-    let myagents_root = home_dir.join(".myagents");
+    let myagents_root = home_dir.join(".agenteam");
 
     let disabled = disabled_skill_names_for_slash(&myagents_root);
 
@@ -945,7 +945,7 @@ mod tests {
 
     #[test]
     fn disabled_skill_names_include_tool_creator_when_cli_tool_registry_gate_is_off() {
-        let root = make_test_workspace("slash_gate_off_home").join(".myagents");
+        let root = make_test_workspace("slash_gate_off_home").join(".agenteam");
         fs::create_dir_all(&root).unwrap();
 
         let disabled = disabled_skill_names_for_slash(&root);
@@ -956,7 +956,7 @@ mod tests {
 
     #[test]
     fn disabled_skill_names_do_not_include_tool_creator_when_cli_tool_registry_gate_is_on() {
-        let root = make_test_workspace("slash_gate_on_home").join(".myagents");
+        let root = make_test_workspace("slash_gate_on_home").join(".agenteam");
         fs::create_dir_all(&root).unwrap();
         fs::write(
             root.join("config.json"),
@@ -972,7 +972,7 @@ mod tests {
 
     #[test]
     fn disabled_skill_names_keep_required_system_skills_available() {
-        let root = make_test_workspace("slash_required_home").join(".myagents");
+        let root = make_test_workspace("slash_required_home").join(".agenteam");
         fs::create_dir_all(&root).unwrap();
         fs::write(
             root.join("skills-config.json"),

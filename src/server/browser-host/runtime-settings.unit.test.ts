@@ -16,7 +16,7 @@ describe("compileBrowserRuntimeSettings", () => {
       connectionConfig: {
         capabilities: ["storage"],
         allowUnrestrictedFileAccess: false,
-        outputDir: "/workspace/a/.myagents/browser-artifacts/session-a",
+        outputDir: "/workspace/a/.agenteam/browser-artifacts/session-a",
         outputMode: "stdout",
         browser: {
           browserName: "chromium",
@@ -32,7 +32,7 @@ describe("compileBrowserRuntimeSettings", () => {
     expect(
       compileBrowserRuntimeSettings("../session:a", "/workspace/a")
         .connectionConfig.outputDir,
-    ).toBe("/workspace/a/.myagents/browser-artifacts/___session_a");
+    ).toBe("/workspace/a/.agenteam/browser-artifacts/___session_a");
   });
 
   it("rejects an artifact directory symlink that escapes the authorized workspace", () => {
@@ -40,9 +40,9 @@ describe("compileBrowserRuntimeSettings", () => {
     const root = mkdtempSync(join(tmpdir(), "myagents-browser-root-"));
     const workspace = join(root, "workspace");
     const outside = join(root, "outside");
-    mkdirSync(join(workspace, ".myagents"), { recursive: true });
+    mkdirSync(join(workspace, ".agenteam"), { recursive: true });
     mkdirSync(outside);
-    symlinkSync(outside, join(workspace, ".myagents", "browser-artifacts"));
+    symlinkSync(outside, join(workspace, ".agenteam", "browser-artifacts"));
     try {
       expect(() =>
         compileBrowserRuntimeSettings("session-a", workspace),

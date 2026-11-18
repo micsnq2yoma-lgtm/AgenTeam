@@ -112,7 +112,7 @@ impl OsIdentityStore {
         #[cfg(target_os = "linux")]
         let builder = keyring::secret_service::default_credential_builder();
         let credential = builder
-            .build(None, "MyAgents.AgentNetwork.v1", &user)
+            .build(None, "AgenTeam.AgentNetwork.v1", &user)
             .map_err(|_| CryptoError::CredentialUnavailable)?;
         Ok(keyring::Entry::new_with_credential(credential))
     }

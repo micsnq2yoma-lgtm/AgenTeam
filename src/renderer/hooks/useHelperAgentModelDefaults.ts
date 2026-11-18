@@ -1,7 +1,7 @@
 // useHelperAgentModelDefaults — bridge between the BugReportOverlay's model
 // picker and the helper Agent's persisted default model.
 //
-// The helper Agent is the AgentConfig bound to the `~/.myagents/` workspace
+// The helper Agent is the AgentConfig bound to the `~/.agenteam/` workspace
 // (project marked `internal: true`, "MyAgents 诊断"). Like any other workspace
 // Agent, its `providerId` / `model` fields define the default picked when a
 // new helper session starts. This hook lets the overlay read those defaults

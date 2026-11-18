@@ -46,6 +46,8 @@ const CREDENTIAL_PATHS: readonly string[] = [
   '.config/op',
   '.myagents/codex/auth.json',
   '.myagents/credentials',
+  '.agenteam/codex/auth.json',
+  '.agenteam/credentials',
 ];
 
 const MAC_SENSITIVE_SUBDIRS: readonly string[] = [
@@ -74,7 +76,7 @@ export const __blacklistForCrossCheck = {
 } as const;
 
 /** Trusted root for MyAgents-owned tool attachments (relative to $HOME). */
-export const TOOL_ATTACHMENT_ROOT_REL = '.myagents/generated/tool-attachments';
+export const TOOL_ATTACHMENT_ROOT_REL = '.agenteam/generated/tool-attachments';
 
 export interface PathSafetyOk {
   ok: true;
@@ -184,7 +186,7 @@ function checkBlacklist(canonical: string): PathSafetyResult {
 
 /**
  * Validate that `target` is inside the MyAgents-owned attachment root
- * (`~/.myagents/generated/tool-attachments/...`). Used by `saveToolAttachment`
+ * (`~/.agenteam/generated/tool-attachments/...`). Used by `saveToolAttachment`
  * to refuse writes outside the trusted root.
  */
 export function validateTrustedAttachmentRoot(

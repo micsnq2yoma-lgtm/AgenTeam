@@ -7,7 +7,7 @@
  * or the input grows — extra height only ever extends downward.
  *
  * Switching to 「记录」 repurposes the input as a freeform Record entry
- * (persisted to ~/.myagents/thoughts/ via `thoughtCreate`), bypassing the full
+ * (persisted to ~/.agenteam/thoughts/ via `thoughtCreate`), bypassing the full
  * Chat launch flow. Switching back to 「对话」 restores the default behavior.
  */
 
@@ -133,8 +133,6 @@ interface BrandSectionProps {
   workspaceEnabledPlugins?: string[];
   onWorkspacePluginToggle?: (pluginId: string, enabled: boolean) => void;
   onRefreshProviders?: () => void;
-  // Navigation
-  onGoToSettings?: () => void;
   // Runtime (external runtimes adapt model/permission selectors)
   runtime?: RuntimeType;
   usesExternalRuntimeControls?: boolean;
@@ -209,7 +207,6 @@ export default memo(function BrandSection({
   workspaceEnabledPlugins,
   onWorkspacePluginToggle,
   onRefreshProviders,
-  onGoToSettings,
   runtime,
   usesExternalRuntimeControls,
   runtimeModels,
@@ -316,7 +313,7 @@ export default memo(function BrandSection({
   // Feed the # picker with `projects` (the same data backing the Agent
   // Workspace panel on the right) rather than `config.agents` — the
   // latter skips plain workspaces not yet upgraded to Agents AND leaks
-  // internal workspaces like `~/.myagents`, producing a candidate list
+  // internal workspaces like `~/.agenteam`, producing a candidate list
   // that didn't match what the user sees on screen.
   const tagCandidates = useThoughtTagCandidates(thoughts, projects);
 
@@ -612,36 +609,6 @@ export default memo(function BrandSection({
     return () => window.removeEventListener('keydown', handler);
   }, [modeSegmentEnabled, setModeAndFocus]);
 
-  // Check if any provider is available (has valid subscription or API key configured)
-  // Validation status is informational — having a key is enough to be "available"
-  const hasAnyProvider = useMemo(() => {
-    return (
-      providers?.some((p) => {
-        if (p.type === 'subscription') {
-          // Issue #203: a valid SDK verify is sufficient proof —
-          // accountEmail is enrichment that may be missing for users
-          // who only ran `claude auth login`.
-          const v = providerVerifyStatus?.[p.id];
-          return v?.status === 'valid';
-        }
-        return !!apiKeys?.[p.id];
-      }) ?? false
-    );
-  }, [providers, apiKeys, providerVerifyStatus]);
-
-  const providerSettingsPrompt = !hasAnyProvider ? (
-    <p className="pl-3 text-left text-sm text-[var(--ink-muted)]">
-      {t('brand.providerPrompt.prefix')}
-      <button
-        type="button"
-        onClick={() => onGoToSettings?.()}
-        className="ml-1 rounded-md px-1 py-0.5 text-[var(--accent-warm)] transition-colors hover:bg-[var(--accent-warm-subtle)] hover:text-[var(--accent-warm-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-warm-muted)]"
-      >
-        {t('brand.providerPrompt.configure')}
-      </button>
-    </p>
-  ) : null;
-
   return (
     <section
       ref={sectionRef}
@@ -774,7 +741,6 @@ export default memo(function BrandSection({
                 onOpenTaskCenter={openTaskCenter}
                 onOpenRecord={onOpenRecord}
               />
-              {providerSettingsPrompt}
             </div>
           )}
           {/* PRD 0.2.7 Phase F: launcher-only chip row that surfaces
@@ -798,7 +764,6 @@ export default memo(function BrandSection({
                   onRuntimeChange={onRuntimeChange}
                 />
               </div>
-              {providerSettingsPrompt}
             </div>
           )}
         </div>

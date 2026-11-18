@@ -38,7 +38,7 @@ export function serializeAppRoute(route: AppRoute): string {
   if (route.name !== 'task.comment' || !isAppRouteId(route.params.taskId) || !isAppRouteId(route.params.commentId)) {
     throw new Error('Unsupported app route');
   }
-  return `myagents://open/v1/tasks/${encodeURIComponent(route.params.taskId)}/comments/${encodeURIComponent(route.params.commentId)}`;
+  return `agenteam://open/v1/tasks/${encodeURIComponent(route.params.taskId)}/comments/${encodeURIComponent(route.params.commentId)}`;
 }
 
 export function parseAppRouteUrl(raw: string): AppRoute | null {
@@ -51,7 +51,7 @@ export function parseAppRouteUrl(raw: string): AppRoute | null {
     return null;
   }
   if (
-    url.protocol !== 'myagents:'
+    url.protocol !== 'agenteam:'
     || url.hostname !== 'open'
     || url.port
     || url.username

@@ -801,7 +801,7 @@ function PluginInstallDialog({
   // Sequential (not parallel) — concurrent same-host installs would burn
   // GitHub rate limits and the disk write race protection in installPlugin
   // assumes serial calls per name. Each candidate gets a fresh /install
-  // with a distinct subPath so it lands at ~/.myagents/plugins/<name>/.
+  // with a distinct subPath so it lands at ~/.agenteam/plugins/<name>/.
   const startBatch = useCallback(async (chosen: PluginCandidate[]) => {
     if (chosen.length === 0) {
       toastRef.current.error(t('plugins.install.errors.selectAtLeastOne'));

@@ -145,3 +145,7 @@ v0.5.12 Ubuntu setup 曾收到原地址的 HTTP 406；本机后续请求能成�
 目标 Node 的版本显示来自已经通过缓存准入和 staging 校验的 metadata，不能通过在 host 上运行跨架构二进制判断版本。`codesign: replacing existing signature` 表示构建副本正在重新签名，不是构建失败。
 
 Tauri CLI 会提示 `com.myagents.app` 以 `.app` 结尾。该值是已发布应用的安装身份，并参与数据路径、通知与系统权限识别；保留该提示，不为消除提示改动 identifier 或过滤构建日志。原生依赖的 macOS API 维护记录见 `vendor/tao/MYAGENTS_PATCH.md` 和 `vendor/tauri-runtime-wry/MYAGENTS_PATCH.md`。
+
+## AgenTeam Windows 候选包
+
+发布构建通过 `scripts/cuse-release-lock.json` 锁定 Cuse 清单及其摘要。Windows ONNX Runtime 1.28.0 的 DLL、导入库、C API 头文件和许可来自微软 NuGet 包，与原先锁定的源码提交一致。下载端按仓库锁验证完整归档，提取时只选择 Windows x64 所需文件。[NuGet 发行元数据](https://api.nuget.org/v3/catalog0/data/2026.07.25.05.45.40/microsoft.ml.onnxruntime.1.28.0.json)

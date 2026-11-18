@@ -924,7 +924,7 @@ interface SkillsConfig {
 
 function getSkillsConfigPath(): string {
   const homeDir = getHomeDirOrNull() || '';
-  return join(homeDir, '.myagents', 'skills-config.json');
+  return join(homeDir, '.agenteam', 'skills-config.json');
 }
 
 function readSkillsConfig(): SkillsConfig {
@@ -1065,7 +1065,7 @@ function isSystemSkillName(name: string): boolean {
 }
 
 /**
- * Seed bundled skills to ~/.myagents/skills/ on first launch.
+ * Seed bundled skills to ~/.agenteam/skills/ on first launch.
  * Only copies skills that haven't been seeded before (tracked in skills-config.json).
  *
  * System skills (SYSTEM_SKILLS above) are owned by Rust's
@@ -1086,7 +1086,7 @@ function seedBundledSkills(): void {
 
     const config = readSkillsConfig();
     const homeDir = getHomeDirOrNull() || '';
-    const userSkillsDir = join(homeDir, '.myagents', 'skills');
+    const userSkillsDir = join(homeDir, '.agenteam', 'skills');
 
     ensureDirSync(userSkillsDir);
 
@@ -1112,7 +1112,7 @@ function seedBundledSkills(): void {
       // hiding the symlink from every guard below, so we must lstat first.
       // Repro: `node -e 'fs.cpSync("/tmp/src", "/tmp/dangling", {recursive:true})'`
       // where /tmp/dangling -> /nonexistent. Reported as user crash on v0.2.5
-      // (~/.myagents/skills/docx pointed at a deleted target).
+      // (~/.agenteam/skills/docx pointed at a deleted target).
       let dstLstat: ReturnType<typeof lstatSync> | null = null;
       try {
         dstLstat = lstatSync(dst);
@@ -1182,13 +1182,13 @@ function seedBundledSkills(): void {
 }
 
 /**
- * Ensure the ~/.myagents/plugins/ directory tree exists for Claude Plugin
+ * Ensure the ~/.agenteam/plugins/ directory tree exists for Claude Plugin
  * support (PRD 0.2.17). Unlike skills, plugins are never seeded by the app —
  * the user installs them via UI/CLI, and the directories below merely have
  * to exist so first-install doesn't have to MkDir-A-Path twice.
  *
- *   ~/.myagents/plugins/                  plugin install root
- *   ~/.myagents/plugins/data/             ${CLAUDE_PLUGIN_DATA} parent
+ *   ~/.agenteam/plugins/                  plugin install root
+ *   ~/.agenteam/plugins/data/             ${CLAUDE_PLUGIN_DATA} parent
  *
  * Idempotent. Called at sidecar startup alongside seedBundledSkills.
  */
@@ -1201,7 +1201,7 @@ function ensurePluginsDirs(): void {
       );
       return;
     }
-    const root = join(homeDir, '.myagents', 'plugins');
+    const root = join(homeDir, '.agenteam', 'plugins');
     const dataRoot = join(root, 'data');
     ensureDirSync(root);
     ensureDirSync(dataRoot);
@@ -2100,7 +2100,7 @@ function startupBeacon(step: string): void {
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, '0');
     const d = String(now.getDate()).padStart(2, '0');
-    const logsDir = join(homedir(), '.myagents', 'logs');
+    const logsDir = join(homedir(), '.agenteam', 'logs');
     ensureDirSync(logsDir);
     const filePath = join(logsDir, `unified-${y}-${m}-${d}.log`);
     const h = String(now.getHours()).padStart(2, '0');
@@ -2607,7 +2607,7 @@ async function main() {
       // Resolution:
       //   1. Look up the external-path registry (Codex savedPath, dynamic URLs after fetch).
       //      Hit → serve that real path.
-      //   2. Miss → fall back to the trusted attachment root <home>/.myagents/generated/
+      //   2. Miss → fall back to the trusted attachment root <home>/.agenteam/generated/
       //      tool-attachments/<s>/<t>/<f> (where base64 / URL downloads land).
       //
       // Security: the registry only holds paths registered by saveToolAttachment, which
@@ -4576,7 +4576,7 @@ async function main() {
 
           // Security: allow reading from workspace/myagents_files/{generated_images,temp}/ or legacy paths
           const resolvedPath = resolve(imagePath);
-          const legacyDir = join(homedir(), '.myagents', 'generated');
+          const legacyDir = join(homedir(), '.agenteam', 'generated');
           const legacyDirSep = legacyDir.endsWith(sep)
             ? legacyDir
             : legacyDir + sep;
@@ -4652,7 +4652,7 @@ async function main() {
           const resolvedPath = resolve(audioPath);
           const legacyAudioDir = join(
             homedir(),
-            '.myagents',
+            '.agenteam',
             'generated_audio',
           );
           const legacyAudioDirSep = legacyAudioDir.endsWith(sep)
@@ -4815,7 +4815,7 @@ async function main() {
           const { readdirSync, statSync } = await import('fs');
           const { join: joinPath } = await import('path');
           const { homedir } = await import('os');
-          const logsDir = joinPath(homedir(), '.myagents', 'logs');
+          const logsDir = joinPath(homedir(), '.agenteam', 'logs');
 
           // Collect last 3 days of unified-*.log files
           const now = Date.now();
@@ -6456,8 +6456,8 @@ async function main() {
 
       // Cross-platform home directory for user skills/commands
       const homeDir = getHomeDirOrNull() || '';
-      const userSkillsBaseDir = join(homeDir, '.myagents', 'skills');
-      const userCommandsBaseDir = join(homeDir, '.myagents', 'commands');
+      const userSkillsBaseDir = join(homeDir, '.agenteam', 'skills');
+      const userCommandsBaseDir = join(homeDir, '.agenteam', 'commands');
 
       // Helper: Get project base directories (supports explicit agentDir parameter)
       // Security: validates agentDir to prevent path traversal attacks
@@ -7261,7 +7261,7 @@ async function main() {
         }
       }
 
-      // POST /api/skill/copy-to-global - Copy a project skill to global (~/.myagents/skills/)
+      // POST /api/skill/copy-to-global - Copy a project skill to global (~/.agenteam/skills/)
       // NOTE: This route MUST be before /api/skill/:name to avoid being captured by the wildcard
       if (
         pathname === '/api/skill/copy-to-global' &&
@@ -8858,7 +8858,7 @@ async function main() {
 
       // ============= SUB-AGENTS API =============
 
-      const userAgentsBaseDir = join(homeDir, '.myagents', 'agents');
+      const userAgentsBaseDir = join(homeDir, '.agenteam', 'agents');
 
       // Helper: Get project agents directory (supports explicit agentDir parameter)
       const getProjectAgentsDir = (queryAgentDir: string | null) => {
@@ -8997,9 +8997,9 @@ async function main() {
       // Supports conflict handling: mode = 'skip' (default) | 'overwrite'
       //
       // Preserves the source agent's layout:
-      //   folder  (.claude/agents/foo/foo.md)        → ~/.myagents/agents/foo/foo.md  + _meta.json
-      //   flat    (.claude/agents/foo.md)            → ~/.myagents/agents/foo.md       (no _meta.json — flat has no home for it)
-      //   nested  (.claude/agents/team/reviewer.md)  → ~/.myagents/agents/team/reviewer.md  (ditto)
+      //   folder  (.claude/agents/foo/foo.md)        → ~/.agenteam/agents/foo/foo.md  + _meta.json
+      //   flat    (.claude/agents/foo.md)            → ~/.agenteam/agents/foo.md       (no _meta.json — flat has no home for it)
+      //   nested  (.claude/agents/team/reviewer.md)  → ~/.agenteam/agents/team/reviewer.md  (ditto)
       //
       // Why preserve instead of canonicalize to `folder`: `nested` folderNames
       // contain `/` (e.g. "team/reviewer"), which collapses ambiguously if
@@ -11693,7 +11693,7 @@ description: >
   //
   // Startup returns immediately; detected PATH is applied whenever the shell
   // finishes. `getShellEnv()` keeps returning the platform fallback PATH until
-  // then — sufficient for common binary lookups (.myagents/bin, homebrew, nvm,
+  // then — sufficient for common binary lookups (.agenteam/bin, homebrew, nvm,
   // fnm, volta, pnpm, cargo all in fallback).
   import('./utils/shell').then(({ warmupShellPath, getShellPath }) => {
     warmupShellPath().then(() => {

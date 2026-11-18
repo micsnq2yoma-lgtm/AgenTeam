@@ -697,7 +697,7 @@ mod tests {
         let Some(home) = std::env::var_os("MYAGENTS_TEAM_AI_TEST_HOME") else {
             return;
         };
-        let dir = std::path::PathBuf::from(home).join(".myagents");
+        let dir = std::path::PathBuf::from(home).join(".agenteam");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("config.json"), serde_json::to_vec(&json!({"agents":[{"id":"agent","name":"Team","enabled":false,
             "channels":[{"id":"bot","type":"telegram","enabled":false,"name":"Bot"}]}]})).unwrap()).unwrap();

@@ -895,15 +895,6 @@ export default function Launcher({
     ],
   );
 
-  // Navigate to Settings > Providers page
-  const handleGoToSettings = useCallback(() => {
-    window.dispatchEvent(
-      new CustomEvent(CUSTOM_EVENTS.OPEN_SETTINGS, {
-        detail: { section: 'providers' },
-      }),
-    );
-  }, []);
-
   const handleOpenSpeechSettings = useCallback(() => {
     setRecordingSourceDialog(null);
     window.dispatchEvent(
@@ -1287,7 +1278,6 @@ export default function Launcher({
           workspaceEnabledPlugins={launcherEnabledPlugins}
           onWorkspacePluginToggle={handleLauncherPluginToggle}
           onRefreshProviders={refreshProviders}
-          onGoToSettings={handleGoToSettings}
           runtime={
             launcherRuntime !== 'builtin' ? launcherRuntime : undefined
           }

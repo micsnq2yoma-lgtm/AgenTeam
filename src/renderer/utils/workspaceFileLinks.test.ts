@@ -187,8 +187,8 @@ describe('resolveAgainstWorkspace', () => {
   });
 
   it('passes an already-absolute path through unchanged (posix)', () => {
-    expect(resolveAgainstWorkspace('/Users/me/.myagents/generated/x.mp3', WORKSPACE))
-      .toBe('/Users/me/.myagents/generated/x.mp3');
+    expect(resolveAgainstWorkspace('/Users/me/.agenteam/generated/x.mp3', WORKSPACE))
+      .toBe('/Users/me/.agenteam/generated/x.mp3');
   });
 
   it('passes an already-absolute Windows path through unchanged', () => {
@@ -328,11 +328,11 @@ describe('resolveFileActionTarget', () => {
 
   it('keeps an encoded Windows Task candidate link outside the workspace', () => {
     expect(resolveFileActionTarget(
-      'file:///C:/Users/me/.myagents/task-discussions/discussion%201/candidates/review/task.md',
+      'file:///C:/Users/me/.agenteam/task-discussions/discussion%201/candidates/review/task.md',
       'C:\\Users\\me\\work',
     )).toEqual({
       scope: 'local',
-      path: 'C:\\Users\\me\\.myagents\\task-discussions\\discussion 1\\candidates\\review\\task.md',
+      path: 'C:\\Users\\me\\.agenteam\\task-discussions\\discussion 1\\candidates\\review\\task.md',
     });
   });
 });

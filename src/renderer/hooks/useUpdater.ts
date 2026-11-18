@@ -8,17 +8,14 @@
 // 5. User clicks → restartAndUpdate() → app restarts with new version
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { listenWithCleanup } from '@/utils/tauriListen';
 import { relaunch } from '@tauri-apps/plugin-process';
 
 import { track } from '@/analytics';
-import { i18n } from '@/i18n';
 import { isTauriEnvironment } from '@/utils/browserMock';
 import { isDebugMode } from '@/utils/debug';
 import { isLinuxDesktop } from '@/utils/desktopPlatform';
-import { compareVersions } from '../../shared/utils';
 
 export interface UpdateReadyInfo {
     version: string;
@@ -67,10 +64,6 @@ const usesDeferredInstall = isWindows || isMac;
 // Periodic check interval: 30 minutes
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 
-function updaterText(key: string): string {
-    return String(i18n.t(`app:updater.${key}`));
-}
-
 export function useUpdater(): UseUpdaterResult {
     const [updateReady, setUpdateReady] = useState(false);
     const [updateVersion, setUpdateVersion] = useState<string | null>(null);
@@ -87,15 +80,13 @@ export function useUpdater(): UseUpdaterResult {
     const checkingRef = useRef(false);
     const downloadingRef = useRef(false);
     const installingRef = useRef(false);
-    // Cache app version — it never changes during a session, no need to IPC every time.
-    const appVersionRef = useRef<string | null>(null);
 
     // Keep ref in sync with state
     useEffect(() => {
         updateReadyRef.current = updateReady;
     }, [updateReady]);
 
-    // Manual update check: test connectivity → compare version → download if needed
+    // Settings asks the native updater for the available version, then downloads it.
     // Returns a result string so the caller can show appropriate toast feedback.
     const checkForUpdate = useCallback(async (): Promise<CheckUpdateResult> => {
         if (isLinuxDesktop()) return 'error'; // deb upgrades are installed manually.
@@ -113,26 +104,10 @@ export function useUpdater(): UseUpdaterResult {
         // spinner visible and let the updater:ready-to-restart event clear it.
         let keepDownloadingState = false;
         try {
-            // Step 1: Get remote version
-            const result = await invoke('test_update_connectivity') as string;
-            const versionMatch = result.match(/version:\s*([^\n]+)/);
-            if (!versionMatch) {
-                throw new Error(updaterText('remoteVersionParseFailed'));
-            }
-            const remoteVer = versionMatch[1].trim();
+            const remoteVer = await invoke<string | null>('check_available_update_version');
+            if (remoteVer === null) return 'up-to-date';
 
-            // Step 2: Get local version (cached) and compare
-            if (!appVersionRef.current) {
-                appVersionRef.current = await getVersion();
-            }
-            const comparison = compareVersions(remoteVer, appVersionRef.current);
-
-            if (comparison <= 0) {
-                // Already up to date
-                return 'up-to-date';
-            }
-
-            // Step 3: New version available → download
+            // Surface the selected version while the native downloader runs.
             checkingRef.current = false;
             setChecking(false);
             downloadingRef.current = true;
@@ -146,7 +121,7 @@ export function useUpdater(): UseUpdaterResult {
                 return 'downloading';
             }
             // check_and_download_update returned false, but we already confirmed
-            // comparison > 0 (newer version exists). This typically means the Rust
+            // a newer version exists. This typically means the Rust
             // background download is already in progress (UPDATE_IN_PROGRESS lock).
             // Keep downloading spinner visible — updater:ready-to-restart event will
             // call setDownloading(false) and setUpdateReady(true) when background finishes.

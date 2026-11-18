@@ -55,7 +55,7 @@ pub async fn cmd_workspace_open_with_default(
 }
 
 /// Reveal an **absolute** path in the OS file manager. Used by the
-/// Skill/Command detail panels to open `~/.myagents/skills/<name>/SKILL.md`
+/// Skill/Command detail panels to open `~/.agenteam/skills/<name>/SKILL.md`
 /// (which lives outside any chat workspace).
 ///
 /// Existing ordinary local files are allowed on any volume. The canonical

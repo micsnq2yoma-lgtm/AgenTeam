@@ -183,7 +183,7 @@ async fn prepare_attachments(
     }
     let mut roots = vec![workspace.to_path_buf(), std::env::temp_dir()];
     if let Some(home) = dirs::home_dir() {
-        roots.push(home.join(".myagents/tmp"));
+        roots.push(home.join(".agenteam/tmp"));
     }
     let roots: Vec<_> = roots
         .into_iter()

@@ -410,7 +410,7 @@ impl SearchEngine {
                     // Peek at task.md — bounded read so we don't blow out I/O
                     // on a huge workspace. `task_docs_dir` errors on bad inputs
                     // so we silently skip in that case. After v0.1.69 relocation
-                    // task docs live in ~/.myagents/tasks/<id>/, not in the
+                    // task docs live in ~/.agenteam/tasks/<id>/, not in the
                     // workspace.
                     if let Ok(dir) = crate::task::task_docs_dir(&t.id) {
                         let md = dir.join("task.md");

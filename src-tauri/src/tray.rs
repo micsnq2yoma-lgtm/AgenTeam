@@ -471,7 +471,7 @@ struct PartialAppConfig {
 }
 
 /// Check if minimize to tray is enabled
-/// Reads from ~/.myagents/config.json, defaults to false if not configured.
+/// Reads from ~/.agenteam/config.json, defaults to false if not configured.
 ///
 /// Uses the project-canonical `app_dirs::myagents_data_dir()` helper rather
 /// than raw `dirs::home_dir()` — that way any future dev/prod data-dir

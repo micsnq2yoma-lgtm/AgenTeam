@@ -160,9 +160,7 @@ import {
   runFloatingBallToggleTransaction,
 } from '@/floating-ball/nativeFloatingBall';
 import {
-  MYAGENTS_GITHUB_URL,
   MYAGENTS_RELEASES_URL,
-  MYAGENTS_SOURCE_CODE_URL,
   PLAYWRIGHT_DEVICE_PRESETS,
 } from './settingsSections';
 import {
@@ -803,13 +801,6 @@ export default function Settings({
 
   // App version from Tauri
   const [appVersion, setAppVersion] = useState<string>('');
-  const sourceRevision = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(
-    appVersion,
-  )
-    ? `v${appVersion}`
-    : 'main';
-  const sourceLicenseUrl = `${MYAGENTS_GITHUB_URL}/blob/${sourceRevision}/LICENSE`;
-  const sourceNoticesUrl = `${MYAGENTS_GITHUB_URL}/blob/${sourceRevision}/THIRD_PARTY_NOTICES.md`;
   useEffect(() => {
     if (mode !== 'settings') return;
     if (!isTauriEnvironment()) {
@@ -821,53 +812,9 @@ export default function Settings({
       .catch(() => setAppVersion('unknown'));
   }, [mode]);
 
-  // QR code URL for user community section
-  // Tauri: Downloads on first launch and caches locally, CDN in browser
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
-  const [qrCodeLoading, setQrCodeLoading] = useState(false);
   const [logExporting, setLogExporting] = useState(false);
   const [showBugReport, setShowBugReport] = useState(false);
   const helperAgentDefaults = useHelperAgentModelDefaults();
-
-  // Load QR code when entering about section
-  useEffect(() => {
-    if (activeSection !== 'about') return;
-
-    let cancelled = false;
-    setQrCodeLoading(true);
-
-    if (isTauriEnvironment()) {
-      // Tauri mode: Call backend API to download & cache QR code
-      // The API downloads from CDN on first call, then serves from cache
-      apiGetJson<{ success: boolean; dataUrl?: string }>('/api/assets/qr-code')
-        .then((result) => {
-          if (cancelled) return;
-          if (result.success && result.dataUrl) {
-            setQrCodeDataUrl(result.dataUrl);
-          }
-        })
-        .catch((error) => {
-          if (cancelled) return;
-          console.error('[Settings] Failed to load QR code:', error);
-          // Silently fail - QR code section will remain hidden
-        })
-        .finally(() => {
-          if (!cancelled) setQrCodeLoading(false);
-        });
-    } else {
-      // Browser mode: Direct CDN URL
-      setQrCodeDataUrl(
-        'https://download.myagents.io/assets/feedback_qr_code.png',
-      );
-      setQrCodeLoading(false);
-    }
-
-    return () => {
-      cancelled = true;
-      setQrCodeDataUrl(null); // 统一清理，避免内存泄漏
-      setQrCodeLoading(false);
-    };
-  }, [activeSection]);
 
   // Developer section unlock state
   const [devSectionVisible, setDevSectionVisible] = useState(
@@ -6123,117 +6070,6 @@ export default function Settings({
                   </button>
                 </div>
               </div>
-
-              {/* User Community QR Code - Show loading state, then image when ready */}
-              {(qrCodeLoading || qrCodeDataUrl) && (
-                <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">
-                  <div className="flex flex-col items-center text-center">
-                    <p className="text-sm font-medium text-[var(--ink)]">
-                      {tSettings('about.communityTitle')}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--ink-muted)]">
-                      {tSettings('about.communityDescription')}
-                    </p>
-                    {qrCodeLoading ? (
-                      <div className="mt-4 h-36 w-36 flex items-center justify-center">
-                        <LoaderIcon className="h-8 w-8 animate-spin text-[var(--ink-muted)]" />
-                      </div>
-                    ) : (
-                      <img
-                        src={qrCodeDataUrl!}
-                        alt={tSettings('about.communityQrAlt')}
-                        className="mt-4 h-36 w-36 rounded-lg"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Contact & Links */}
-              <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-[var(--ink-muted)]">
-                      Developer
-                    </p>
-                    <p className="mt-1 text-[var(--ink)]">Ethan L</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-[var(--ink-muted)]">
-                      Website
-                    </p>
-                    <ExternalLink
-                      href="https://myagents.io"
-                      className="mt-1 block text-[var(--accent)] hover:underline"
-                    >
-                      myagents.io
-                    </ExternalLink>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-[var(--ink-muted)]">
-                      Contact
-                    </p>
-                    <ExternalLink
-                      href="mailto:myagents.io@gmail.com"
-                      className="mt-1 block text-[var(--accent)] hover:underline"
-                    >
-                      myagents.io@gmail.com
-                    </ExternalLink>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-[var(--ink-muted)]">
-                      GitHub
-                    </p>
-                    <ExternalLink
-                      href={MYAGENTS_GITHUB_URL}
-                      className="mt-1 block text-[var(--accent)] hover:underline"
-                    >
-                      github.com/hAcKlyc/MyAgents
-                    </ExternalLink>
-                  </div>
-                </div>
-              </div>
-
-              {/* Open-source and commercial licensing */}
-              <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">
-                <h3 className="text-base font-medium text-[var(--ink)]">
-                  {tSettings('about.licensingTitle')}
-                </h3>
-                <p className="mt-1 text-xs leading-relaxed text-[var(--ink-muted)]">
-                  {tSettings('about.licensingDescription')}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2 text-sm">
-                  <ExternalLink
-                    href={sourceLicenseUrl}
-                    className="rounded-lg bg-[var(--paper-inset)] px-3 py-1.5 text-[var(--ink)] transition-colors hover:bg-[var(--hover-bg)]"
-                  >
-                    {tSettings('about.communityLicense')}
-                  </ExternalLink>
-                  <ExternalLink
-                    href={MYAGENTS_SOURCE_CODE_URL}
-                    className="rounded-lg bg-[var(--paper-inset)] px-3 py-1.5 text-[var(--ink)] transition-colors hover:bg-[var(--hover-bg)]"
-                  >
-                    {tSettings('about.sourceCode')}
-                  </ExternalLink>
-                  <ExternalLink
-                    href={sourceNoticesUrl}
-                    className="rounded-lg bg-[var(--paper-inset)] px-3 py-1.5 text-[var(--ink)] transition-colors hover:bg-[var(--hover-bg)]"
-                  >
-                    {tSettings('about.thirdPartyNotices')}
-                  </ExternalLink>
-                  <ExternalLink
-                    href="mailto:myagents.io@gmail.com"
-                    className="rounded-lg bg-[var(--button-primary-bg)] px-3 py-1.5 font-medium text-[var(--button-primary-text)] transition-colors hover:bg-[var(--button-primary-bg-hover)]"
-                  >
-                    {tSettings('about.commercialLicensing')}
-                  </ExternalLink>
-                </div>
-              </div>
-
-              {/* Copyright */}
-              <p className="text-center text-xs text-[var(--ink-muted)]">
-                {tSettings('about.licensingCopyright')}
-              </p>
             </div>
           )}
 

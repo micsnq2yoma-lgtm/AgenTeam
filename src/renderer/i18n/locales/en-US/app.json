@@ -25,7 +25,7 @@
     "openWebsite": "Open the upstream MyAgents website",
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
-    "newChat": "New chat",
+    "newChat": "Create new chat",
     "search": "Search",
     "tasks": "Automations",
     "createTask": "Create task",
@@ -33,7 +33,7 @@
     "helper": "AI Helper",
     "settings": "Settings",
     "workspaces": "Agent Workspaces",
-    "workspaceSection": "Agent Workspaces",
+    "workspaceSection": "Agent Team",
     "workspaceViewOptions": "Workspace and session view options",
     "allSessions": "All sessions",
     "favoriteSessions": "Favorites only",
@@ -43,8 +43,7 @@
     "newChatHere": "Start a new chat here",
     "emptyWorkspaceSessions": "No sessions yet",
     "loadMore": "Show more",
-    "agentNetwork": "AgentNet Multi-Device Network",
-    "more": "More"
+    "agentNetwork": "Multi-Device Network"
   },
   "titlebar": {
     "helper": "AI Helper",

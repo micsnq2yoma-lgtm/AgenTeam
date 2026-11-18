@@ -117,7 +117,7 @@ fn external_cli_skill_path() -> String {
 
 /// Reconcile the explicit-read external AI guide with the current App version.
 ///
-/// This intentionally writes outside `~/.myagents/skills`: the file is a
+/// This intentionally writes outside `~/.agenteam/skills`: the file is a
 /// handoff document referenced by Settings, not an installed/injected skill.
 pub(crate) fn ensure_external_cli_skill() -> Result<bool, String> {
     let data_dir = crate::app_dirs::myagents_data_dir()
