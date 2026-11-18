@@ -1013,6 +1013,8 @@ export default memo(function GlobalSidebar({
     && navigator.platform.toLowerCase().includes('win');
   const tree = (
     <WorkspaceTree
+      onSearch={expanded && searchAvailable ? handleSearchOpen : undefined}
+      searchOpen={searchOpen}
       fadeBottom={expanded}
       projects={activeProjects}
       archivedProjects={archivedProjects}
@@ -1149,7 +1151,11 @@ export default memo(function GlobalSidebar({
                 aria-label={t('globalSidebar.search')}
                 aria-haspopup="dialog"
                 aria-expanded={searchOpen}
-                className={`global-sidebar-row global-sidebar-action-button flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                aria-hidden={expanded}
+                inert={expanded}
+                className={`global-sidebar-row global-sidebar-action-button flex items-center justify-center transition-[color,background-color,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                  expanded ? 'pointer-events-none opacity-0' : ''
+                } ${
                   searchOpen
                     ? 'bg-[var(--paper-inset)] text-[var(--ink)]'
                     : 'text-[var(--ink-muted)] hover:bg-[var(--hover-bg)] hover:text-[var(--ink)]'
@@ -1521,6 +1527,9 @@ export default memo(function GlobalSidebar({
 });
 
 interface WorkspaceTreeProps {
+  /** Present only while the sidebar is expanded; rail mode keeps search beside the brand. */
+  onSearch?: () => void;
+  searchOpen?: boolean;
   fadeBottom: boolean;
   projects: Project[];
   archivedProjects: Project[];
@@ -1630,6 +1639,8 @@ function WorkspaceSessionBranch({
 }
 
 function WorkspaceTree({
+  onSearch,
+  searchOpen = false,
   fadeBottom,
   projects,
   archivedProjects,
@@ -1793,6 +1804,27 @@ function WorkspaceTree({
             onClick={() => { onToggleAutomation(); setViewMenu(false); }}
           />
         </Popover>
+        {onSearch && (
+          <Tip label={t('globalSidebar.search')} position="bottom" align="end" disabled={searchOpen}>
+            <button
+              type="button"
+              onPointerEnter={() => { void loadHistorySearchOverlayContent(); }}
+              onFocus={() => { void loadHistorySearchOverlayContent(); }}
+              onClick={onSearch}
+              aria-label={t('globalSidebar.search')}
+              aria-haspopup="dialog"
+              aria-expanded={searchOpen}
+              className={`global-sidebar-action-button flex items-center justify-center rounded-lg transition-colors ${
+                searchOpen
+                  ? 'bg-[var(--paper-inset)] text-[var(--ink)]'
+                  : 'text-[var(--ink-muted)] hover:bg-[var(--paper-inset)] hover:text-[var(--ink)]'
+              }`}
+              data-global-sidebar-search-trigger
+            >
+              <SearchIcon className="h-4 w-4" />
+            </button>
+          </Tip>
+        )}
         <Tip label={tLauncher('newAgentPanel.title')} position="bottom" align="end">
           <button
             type="button"

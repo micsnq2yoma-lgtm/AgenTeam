@@ -1283,7 +1283,10 @@ describe('GlobalSidebar rail flyout', () => {
     expect(brandLink).not.toHaveClass('w-10', 'overflow-hidden');
     expect(brandLink).not.toHaveAttribute('inert');
     expect(brandLink).toHaveAttribute('aria-hidden', 'false');
-    expect(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.search')) })).toBe(search);
+    // Expanded search lives in the team header; the brand-row control stays mounted but inert.
+    expect(brandRow?.querySelector('[data-global-sidebar-search-trigger]')).toBe(search);
+    expect(search).toHaveAttribute('aria-hidden', 'true');
+    expect(search).toHaveAttribute('inert');
     expect(screen.getByRole('button', { name: String(i18n.t('app:notificationCenter.bell')) })).toBe(notification);
     expect(navigation.querySelector('[data-global-sidebar-brand-row]')).toBe(brandRow);
     expect(navigation.querySelector('[data-global-sidebar-primary-nav]')).not.toHaveClass('global-sidebar-rail-stack');
@@ -1310,6 +1313,10 @@ describe('GlobalSidebar rail flyout', () => {
     expect(navigation).toHaveAttribute('data-global-sidebar-motion', 'expand');
     act(() => { vi.advanceTimersByTime(200); });
     expect(navigation.querySelector('[data-global-sidebar-workspace-region]')).toBeInTheDocument();
+    const headerSearch = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.search')) });
+    expect(headerSearch).not.toBe(search);
+    expect(navigation.querySelector('[data-global-sidebar-workspace-region]')).toContainElement(headerSearch);
+    expect(search).toHaveAttribute('aria-hidden', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.collapse')) }));
     act(() => { vi.advanceTimersByTime(200); });
@@ -1492,6 +1499,32 @@ describe('GlobalSidebar rail flyout', () => {
 
     expect(screen.getByTestId('task-center-overlay')).toBeInTheDocument();
     expect(document.querySelector('[data-history-search-overlay-panel]')).toBe(coldPanel);
+  });
+
+  it('puts search between the team view options and the new-team button when expanded', () => {
+    mocks.isTauri = true;
+    mocks.forcedRail = false;
+    window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
+      version: 1,
+      preferredMode: 'expanded',
+      expandedWorkspaceKeys: [],
+      hasSeededDefaultExpansion: true,
+      showAutomationSessions: true,
+      sessionView: 'all',
+    }));
+    const { container } = renderSidebar();
+
+    const search = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.search')) });
+    expect(container.querySelector('[data-global-sidebar-workspace-region]')).toContainElement(search);
+    expect(container.querySelector('[data-global-sidebar-brand-row]')).not.toContainElement(search);
+    const labels = [...(search.parentElement?.parentElement?.querySelectorAll('button') ?? [])]
+      .map(button => button.getAttribute('aria-label'));
+    const viewOptions = labels.indexOf(String(i18n.t('app:globalSidebar.workspaceViewOptions')));
+    const create = labels.indexOf(String(i18n.t('launcher:newAgentPanel.title')));
+    const searchIndex = labels.indexOf(String(i18n.t('app:globalSidebar.search')));
+    expect(viewOptions).toBeGreaterThanOrEqual(0);
+    expect(searchIndex).toBeGreaterThan(viewOptions);
+    expect(create).toBeGreaterThan(searchIndex);
   });
 
   it('consumes a Tag navigation intent when the search surface closes before content handles it', async () => {
