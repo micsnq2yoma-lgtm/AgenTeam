@@ -47,7 +47,13 @@ async function poll(label, fn, timeout=90000) {
   const deadline = Date.now()+timeout;
   let last = '';
   while (Date.now()<deadline) {
-    try {const result=await fn(); if(result) return result;} catch(e) {last=String(e.message||e).slice(0,390);}
+    let timer;
+    try {
+      const timeoutAttempt=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('attempt exceeded 12 seconds')),12000);});
+      const result=await Promise.race([fn(),timeoutAttempt]);
+      if(result) return result;
+    } catch(e) {last=String(e.message||e).slice(0,390);}
+    finally {clearTimeout(timer);}
     await wait(850);
   }
   throw Error(label+' timed out. '+last);
