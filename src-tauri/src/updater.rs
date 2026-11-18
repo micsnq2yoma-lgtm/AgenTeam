@@ -739,6 +739,22 @@ fn emit_update_ready(app: &AppHandle, version: &str) {
     }
 }
 
+/// Look up the installable version for Settings using the same platform and proxy as the downloader.
+#[tauri::command]
+pub async fn check_available_update_version(app: AppHandle) -> Result<Option<String>, String> {
+    if let Some(reason) = update_disabled_reason(cfg!(debug_assertions), std::env::consts::OS) {
+        return Err(reason.to_string());
+    }
+    let current = app.package_info().version.to_string();
+    let update = build_updater_with_proxy(&app)?
+        .check()
+        .await
+        .map_err(|e| format!("Update check failed: {e}"))?;
+    Ok(update
+        .map(|item| item.version)
+        .filter(|version| is_version_greater(version, &current)))
+}
+
 /// Command: Manual check and silent download (for periodic checks from frontend)
 /// Returns true if an update was downloaded and is ready
 #[tauri::command]

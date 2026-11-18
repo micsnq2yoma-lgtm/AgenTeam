@@ -491,6 +491,7 @@ pub fn run() {
             browser_resource::cmd_browser_resource_install,
             browser_resource::cmd_browser_resource_maintain,
             // Updater commands
+            updater::check_available_update_version,
             updater::check_and_download_update,
             updater::restart_app,
             updater::test_update_connectivity,
