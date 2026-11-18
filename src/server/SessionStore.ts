@@ -3,7 +3,7 @@ import { normalizeMcpSelection, normalizeMcpSelectionField } from '../shared/mcp
  * SessionStore - Handles persistence of session data using JSONL format.
  *
  * Storage structure:
- * ~/.myagents/
+ * ~/.agenteam/
  * ├── sessions.json          # Array of SessionMetadata (index)
  * └── sessions/
  *     ├── {session-id}.jsonl  # Messages in JSONL format (append-only)
@@ -58,7 +58,7 @@ import { assertDshProductInputMatches, fingerprintDshProductInput } from './sess
 import { normalizeSessionRuntimeIdentity, resolveBuiltinSdkSessionId } from './utils/session-runtime-identity';
 import { resolveLastVisibleTurnPreview } from './utils/session-message-preview';
 
-const MYAGENTS_DIR = join(homedir(), '.myagents');
+const MYAGENTS_DIR = join(homedir(), '.agenteam');
 const SESSIONS_FILE = join(MYAGENTS_DIR, 'sessions.json');
 const SESSIONS_DIR = join(MYAGENTS_DIR, 'sessions');
 const SESSIONS_V2_DIR = join(MYAGENTS_DIR, 'sessions-v2');

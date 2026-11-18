@@ -66,7 +66,7 @@ kill_existing() {
         kill -9 $pid_5173 2>/dev/null || true
     fi
 
-    local LOCK_FILE="$HOME/.myagents/app.lock"
+    local LOCK_FILE="$HOME/.agenteam/app.lock"
     if [ -f "$LOCK_FILE" ]; then
         local OLD_PID=$(cat "$LOCK_FILE" 2>/dev/null)
         if [[ "$OLD_PID" =~ ^[1-9][0-9]*$ ]] && kill -0 "$OLD_PID" 2>/dev/null; then

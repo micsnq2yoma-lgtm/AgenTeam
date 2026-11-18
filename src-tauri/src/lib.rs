@@ -262,7 +262,7 @@ pub fn run() {
     // ── DIAGNOSTIC PANIC HOOK (April 2026 crash investigation) ─────────────
     // Install BEFORE any other init so we capture every panic, including
     // setup-time / did_finish_launching ones that don't reach the unified
-    // logger. Writes to ~/.myagents/logs/panic-{pid}-{timestamp}.log so a
+    // logger. Writes to ~/.agenteam/logs/panic-{pid}-{timestamp}.log so a
     // post-mortem has the actual panic message even when the app aborts
     // before normal log flush.
     {

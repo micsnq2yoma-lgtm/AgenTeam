@@ -32,11 +32,11 @@ async function exitedChildPid(): Promise<number> {
 }
 
 function transcriptPath(sessionId: string): string {
-  return join(testHome, '.myagents', 'sessions', `${sessionId}.jsonl`);
+  return join(testHome, '.agenteam', 'sessions', `${sessionId}.jsonl`);
 }
 
 function transcriptLockPath(sessionId: string): string {
-  return join(testHome, '.myagents', 'session-locks', `${sessionId}.jsonl.lock`);
+  return join(testHome, '.agenteam', 'session-locks', `${sessionId}.jsonl.lock`);
 }
 
 async function createSeededSession(): Promise<{ id: string; transcript: string }> {

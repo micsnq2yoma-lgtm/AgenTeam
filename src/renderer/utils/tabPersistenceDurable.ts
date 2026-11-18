@@ -10,7 +10,7 @@
 // on the next launch. (Normal Cmd+Q gives the WebView a clean teardown that
 // flushes, which is why only the update path was reported broken.)
 //
-// This module adds a fsync-durable snapshot at `~/.myagents/open-tabs.json`,
+// This module adds a fsync-durable snapshot at `~/.agenteam/open-tabs.json`,
 // written (and AWAITED) right before the update-restart, and CONSUMED (deleted)
 // on the next boot. It reuses the same atomic tmp+fsync+rename helper as
 // config.json (configStore.safeWriteJson / safeLoadJson), so durability does

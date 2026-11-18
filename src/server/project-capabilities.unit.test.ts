@@ -34,14 +34,14 @@ function makeFixture() {
   vi.stubEnv('TMPDIR', join(root, 'tmp'));
   vi.stubEnv('TEMP', join(root, 'tmp'));
   vi.stubEnv('TMP', join(root, 'tmp'));
-  write(join(home, '.myagents', 'config.json'), JSON.stringify({
+  write(join(home, '.agenteam', 'config.json'), JSON.stringify({
     agents: [{ id: 'agent-1', path: workspace }],
   }));
-  write(join(home, '.myagents', 'projects.json'), JSON.stringify([
+  write(join(home, '.agenteam', 'projects.json'), JSON.stringify([
     { id: 'project-1', path: workspace, agentId: 'agent-1' },
   ]));
   for (const name of REQUIRED_SYSTEM_SKILLS) {
-    write(join(home, '.myagents', 'skills', name, 'SKILL.md'), skill(name, 'required'));
+    write(join(home, '.agenteam', 'skills', name, 'SKILL.md'), skill(name, 'required'));
   }
   return { home, workspace };
 }
@@ -57,7 +57,7 @@ describe('effective project capabilities', () => {
     const bundled = readFileSync('bundled-skills/myagents-task-alignment/SKILL.md', 'utf8').replace(/\r\n/g, '\n');
     const content = ending === 'LF' ? bundled : ending === 'CRLF'
       ? bundled.replace(/\n/g, '\r\n') : bundled.replace('\n', '\r\n');
-    const path = join(home, '.myagents', 'skills', 'myagents-task-alignment', 'SKILL.md');
+    const path = join(home, '.agenteam', 'skills', 'myagents-task-alignment', 'SKILL.md');
     write(path, content);
     expect(() => assertProductSystemSkillCandidate(resolveEffectiveProjectCapabilities(workspace), TASK_ALIGNMENT_SKILL_REQUIREMENT)).not.toThrow();
     write(path, content + 'Changed instructions.');
@@ -67,7 +67,7 @@ describe('effective project capabilities', () => {
   it('keeps display metadata separate from a Unicode filename-derived invocation identity', () => {
     const { home, workspace } = makeFixture();
     write(
-      join(home, '.myagents', 'commands', '中文-总结.md'),
+      join(home, '.agenteam', 'commands', '中文-总结.md'),
       '---\nname: 中文 总结\ndescription: 总结当前工作\n---\n执行总结。\n',
     );
 
@@ -88,7 +88,7 @@ describe('effective project capabilities', () => {
   it('uses the same nested path identity for global Commands', () => {
     const { home, workspace } = makeFixture();
     write(
-      join(home, '.myagents', 'commands', '发布', '生成-周报.md'),
+      join(home, '.agenteam', 'commands', '发布', '生成-周报.md'),
       '---\nname: 全局周报\ndescription: 总结当前工作\n---\n执行总结。\n',
     );
 
@@ -103,9 +103,9 @@ describe('effective project capabilities', () => {
 
   it('defaults candidates on, resolves project before global, and disables the winner without fallback', async () => {
     const { home, workspace } = makeFixture();
-    write(join(home, '.myagents', 'skills', 'global-review', 'SKILL.md'), skill('review', 'global'));
+    write(join(home, '.agenteam', 'skills', 'global-review', 'SKILL.md'), skill('review', 'global'));
     write(join(workspace, '.claude', 'skills', 'local-review', 'SKILL.md'), skill('review', 'project'));
-    write(join(home, '.myagents', 'commands', 'ship.md'), '---\nname: ship\n---\nGlobal ship.\n');
+    write(join(home, '.agenteam', 'commands', 'ship.md'), '---\nname: ship\n---\nGlobal ship.\n');
 
     const initial = resolveEffectiveProjectCapabilities(workspace);
     const review = initial.candidates.find(item => item.canonicalName === 'review');
@@ -126,7 +126,7 @@ describe('effective project capabilities', () => {
     ]);
     expect(updated.enabledSkills.some(item => item.canonicalName === 'review')).toBe(false);
 
-    const config = JSON.parse(readFileSync(join(home, '.myagents', 'config.json'), 'utf8'));
+    const config = JSON.parse(readFileSync(join(home, '.agenteam', 'config.json'), 'utf8'));
     expect(config.agents[0].capabilitySelection.disabled.skills).toEqual([
       'project:skill:local-review',
     ]);
@@ -168,7 +168,7 @@ describe('effective project capabilities', () => {
 
   it('keeps required system Skills enabled and rejects disabling them', async () => {
     const { home, workspace } = makeFixture();
-    write(join(home, '.myagents', 'skills', 'myagents-cli', 'SKILL.md'), skill('myagents-cli', 'required'));
+    write(join(home, '.agenteam', 'skills', 'myagents-cli', 'SKILL.md'), skill('myagents-cli', 'required'));
 
     const snapshot = resolveEffectiveProjectCapabilities(workspace);
     expect(snapshot.enabledSkills).toContainEqual(expect.objectContaining({
@@ -184,7 +184,7 @@ describe('effective project capabilities', () => {
 
   it('uses the default enabled set without an exact owner but keeps writes strict', async () => {
     const { home, workspace } = makeFixture();
-    write(join(home, '.myagents', 'projects.json'), JSON.stringify([]));
+    write(join(home, '.agenteam', 'projects.json'), JSON.stringify([]));
     expect(resolveEffectiveProjectCapabilities(workspace)).toMatchObject({
       agentId: '',
       enabledSkills: expect.arrayContaining([
@@ -200,7 +200,7 @@ describe('effective project capabilities', () => {
 
   it('treats historical project task-alignment copies as ordinary optional Skills', async () => {
     const { home, workspace } = makeFixture();
-    write(join(home, '.myagents', 'config.json'), JSON.stringify({
+    write(join(home, '.agenteam', 'config.json'), JSON.stringify({
       agents: [{
         id: 'agent-1',
         path: workspace,
@@ -262,7 +262,7 @@ describe('effective project capabilities', () => {
     const { home, workspace } = makeFixture();
     const secondWorkspace = join(home, 'second-workspace');
     mkdirSync(secondWorkspace, { recursive: true });
-    write(join(home, '.myagents', 'projects.json'), JSON.stringify([
+    write(join(home, '.agenteam', 'projects.json'), JSON.stringify([
       { id: 'project-1', path: workspace, agentId: 'agent-1' },
       { id: 'project-2', path: secondWorkspace, agentId: 'agent-1' },
     ]));
@@ -277,7 +277,7 @@ describe('effective project capabilities', () => {
   it('isolates a global Skill that aliases a required system identity', () => {
     const { home, workspace } = makeFixture();
     write(
-      join(home, '.myagents', 'skills', 'not-system-owned', 'SKILL.md'),
+      join(home, '.agenteam', 'skills', 'not-system-owned', 'SKILL.md'),
       skill('myagents-cli', 'not the official install'),
     );
     const snapshot = resolveEffectiveProjectCapabilities(workspace);
@@ -308,7 +308,7 @@ describe('effective project capabilities', () => {
 
   it('treats a real project entry as the owner of its physical projection slot', () => {
     const { home, workspace } = makeFixture();
-    write(join(home, '.myagents', 'skills', 'shared-slot', 'SKILL.md'), skill('global-name', 'global'));
+    write(join(home, '.agenteam', 'skills', 'shared-slot', 'SKILL.md'), skill('global-name', 'global'));
     write(join(workspace, '.claude', 'skills', 'shared-slot', 'SKILL.md'), skill('project-name', 'project'));
 
     const snapshot = resolveEffectiveProjectCapabilities(workspace);
@@ -323,9 +323,9 @@ describe('effective project capabilities', () => {
 
   it('keeps invalid real project entries in control of their physical slots', () => {
     const { home, workspace } = makeFixture();
-    write(join(home, '.myagents', 'skills', 'occupied-skill', 'SKILL.md'), skill('global-skill', 'global'));
+    write(join(home, '.agenteam', 'skills', 'occupied-skill', 'SKILL.md'), skill('global-skill', 'global'));
     mkdirSync(join(workspace, '.claude', 'skills', 'occupied-skill'), { recursive: true });
-    write(join(home, '.myagents', 'commands', 'occupied-command.md'), 'Global command.\n');
+    write(join(home, '.agenteam', 'commands', 'occupied-command.md'), 'Global command.\n');
     write(join(workspace, '.claude', 'commands', 'occupied-command.md'), '---\nname: local\n---\n');
 
     const snapshot = resolveEffectiveProjectCapabilities(workspace);
@@ -344,8 +344,8 @@ describe('effective project capabilities', () => {
     const outsideCommand = join(home, 'outside', 'command.md');
     write(join(outsideSkill, 'SKILL.md'), skill('outside-skill', 'outside'));
     write(outsideCommand, 'Outside command.\n');
-    const globalSkills = join(home, '.myagents', 'skills');
-    const globalCommands = join(home, '.myagents', 'commands');
+    const globalSkills = join(home, '.agenteam', 'skills');
+    const globalCommands = join(home, '.agenteam', 'commands');
     write(join(globalSkills, 'real-skill', 'SKILL.md'), skill('real-skill', 'real'));
     write(join(globalCommands, 'real-command.md'), 'Real command.\n');
     symlinkSync(outsideSkill, join(globalSkills, 'outside-skill'));
@@ -371,7 +371,7 @@ describe('effective project capabilities', () => {
 
   it('treats a retired project Skill symlink as an ordinary winner by canonical name', () => {
     const { home, workspace } = makeFixture();
-    write(join(home, '.myagents', 'skills', 'global-alignment', 'SKILL.md'), skill('task-alignment', 'global'));
+    write(join(home, '.agenteam', 'skills', 'global-alignment', 'SKILL.md'), skill('task-alignment', 'global'));
     const foreign = join(home, 'foreign-project-skill');
     write(join(foreign, 'SKILL.md'), skill('task-alignment', 'project link'));
     const projectSkills = join(workspace, '.claude', 'skills');
@@ -391,8 +391,8 @@ describe('effective project capabilities', () => {
 
   it('supports a platform-valid colon in a Skill folder identity', () => {
     const { home, workspace } = makeFixture();
-    write(join(home, '.myagents', 'skills', 'bad:name', 'SKILL.md'), skill('bad-name', 'colon folder'));
-    write(join(home, '.myagents', 'skills', 'healthy', 'SKILL.md'), skill('healthy', 'healthy'));
+    write(join(home, '.agenteam', 'skills', 'bad:name', 'SKILL.md'), skill('bad-name', 'colon folder'));
+    write(join(home, '.agenteam', 'skills', 'healthy', 'SKILL.md'), skill('healthy', 'healthy'));
 
     const snapshot = resolveEffectiveProjectCapabilities(workspace);
 

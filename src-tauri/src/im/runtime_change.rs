@@ -48,7 +48,7 @@ pub(crate) async fn freeze_via_file_lock_status(
 ) -> Result<FileLockFreezeOutcome, String> {
     let myagents_dir = dirs::home_dir()
         .ok_or_else(|| "home_dir unavailable".to_string())?
-        .join(".myagents");
+        .join(".agenteam");
     let sessions_path = myagents_dir.join("sessions.json");
     let lock_path = myagents_dir.join("sessions.lock");
 

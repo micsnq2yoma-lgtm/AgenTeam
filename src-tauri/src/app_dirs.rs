@@ -1,12 +1,12 @@
 //! Centralized application data directory and PID lock file management.
 //!
-//! All code that needs `~/.myagents/` SHOULD use [`myagents_data_dir()`] instead of
+//! All code that needs `~/.agenteam/` SHOULD use [`myagents_data_dir()`] instead of
 //! hardcoding the path. This enables future dev/prod isolation (separate data dirs
 //! for debug vs release builds) with a single change to this module.
 //!
 //! ## PID Lock File
 //!
-//! `~/.myagents/app.lock` contains the PID of the running MyAgents instance.
+//! `~/.agenteam/app.lock` contains the PID of the running MyAgents instance.
 //! - Written by [`acquire_lock()`] during app startup (after single-instance check).
 //! - Read by build scripts (`build_dev.sh`, `start_dev.sh`) to precisely kill the
 //!   running instance before starting a new one.
@@ -104,13 +104,13 @@ impl LockAcquireResult {
     }
 }
 
-/// Return the MyAgents data directory (`~/.myagents/` by default).
+/// Return the MyAgents data directory (`~/.agenteam/` by default).
 ///
 /// Future: debug builds may return `~/.myagents-dev/` to enable simultaneous
 /// dev/prod operation with fully isolated state (config, bots, sidecars, ports).
 /// For now, both profiles share the same directory.
 pub fn myagents_data_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".myagents"))
+    dirs::home_dir().map(|h| h.join(".agenteam"))
 }
 
 /// Path to the PID lock file.
@@ -118,7 +118,7 @@ fn lock_file_path() -> Option<PathBuf> {
     myagents_data_dir().map(|d| d.join("app.lock"))
 }
 
-/// Write the current process PID to `~/.myagents/app.lock` and report
+/// Write the current process PID to `~/.agenteam/app.lock` and report
 /// whether a prior instance's state was encountered.
 ///
 /// If an existing lock file contains a PID of a still-running MyAgents process,

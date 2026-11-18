@@ -523,7 +523,7 @@ async function createOwnedRoots(productSessionId: string): Promise<Readonly<{
   attachmentRoot: string;
 }>> {
   const { runtimeHome: requestedRuntimeHome, attachmentRoot: requestedAttachmentRoot } =
-    dshSessionOwnedPaths(join(getHomeDir(), '.myagents'), productSessionId);
+    dshSessionOwnedPaths(join(getHomeDir(), '.agenteam'), productSessionId);
   await Promise.all([
     mkdir(requestedRuntimeHome, { recursive: true, mode: 0o700 }),
     mkdir(requestedAttachmentRoot, { recursive: true, mode: 0o700 }),

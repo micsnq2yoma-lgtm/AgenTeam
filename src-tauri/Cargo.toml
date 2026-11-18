@@ -1,11 +1,11 @@
 [package]
 name = "myagents"
-version = "0.5.13"
+version = "0.6.0"
 description = "AgenTeam — Focus Your Attention on Valuable Things."
-authors = ["MyAgents Team <myagents.io@gmail.com>"]
+authors = ["AgenTeam contributors"]
 license = "AGPL-3.0-only"
-repository = "https://github.com/hAcKlyc/MyAgents"
-homepage = "https://myagents.io"
+repository = "https://github.com/micsnq2yoma-lgtm/AgenTeam"
+homepage = "https://github.com/micsnq2yoma-lgtm/AgenTeam"
 edition = "2021"
 # Protocol validation and the audited JWT dependency require Rust 1.88; the
 # pinned root toolchain remains the build authority. Windows paths that replace an

@@ -44,8 +44,8 @@ describe('workspacePathsEqual', () => {
   it('treats Windows backslash and forward-slash forms as the same workspace (#320)', () => {
     expect(
       workspacePathsEqual(
-        'C:\\Users\\Administrator\\.myagents\\projects\\mino',
-        'C:/Users/Administrator/.myagents/projects/mino',
+        'C:\\Users\\Administrator\\.agenteam\\projects\\mino',
+        'C:/Users/Administrator/.agenteam/projects/mino',
       ),
     ).toBe(true);
   });

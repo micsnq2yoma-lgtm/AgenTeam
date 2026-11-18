@@ -18,7 +18,7 @@ use tokio::sync::{mpsc, Mutex};
 use crate::im::adapter::{AdapterResult, ImAdapter, ImStreamAdapter};
 use crate::im::types::ImMessage;
 use crate::{ulog_debug, ulog_error, ulog_info, ulog_warn};
-// Note: ulog_* macros write to BOTH system log AND unified log (~/.myagents/logs/unified-*.log)
+// Note: ulog_* macros write to BOTH system log AND unified log (~/.agenteam/logs/unified-*.log)
 // This is critical for bridge stdout/stderr — using log::info! only writes to system log.
 
 // ===== Per-plugin install/prepare mutex =====
@@ -1587,7 +1587,7 @@ mod tests {
     fn openclaw_bridge_state_env_scopes_runtime_files_under_channel_dir() {
         let base = std::env::temp_dir()
             .join("myagents-test")
-            .join(".myagents")
+            .join(".agenteam")
             .join("agents")
             .join("agent-1")
             .join("channels")
@@ -2240,7 +2240,7 @@ pub async fn install_openclaw_plugin<R: tauri::Runtime>(
 
     let base_dir = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".myagents")
+        .join(".agenteam")
         .join("openclaw-plugins")
         .join(&plugin_id);
 
@@ -2733,7 +2733,7 @@ pub async fn uninstall_openclaw_plugin(plugin_id: &str) -> Result<(), String> {
 
     let plugins_dir = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".myagents")
+        .join(".agenteam")
         .join("openclaw-plugins")
         .join(plugin_id);
 
@@ -2761,7 +2761,7 @@ pub async fn uninstall_openclaw_plugin(plugin_id: &str) -> Result<(), String> {
 pub async fn list_openclaw_plugins() -> Result<Vec<serde_json::Value>, String> {
     let plugins_dir = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".myagents")
+        .join(".agenteam")
         .join("openclaw-plugins");
 
     if !plugins_dir.exists() {

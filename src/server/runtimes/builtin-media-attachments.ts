@@ -40,7 +40,7 @@ import { ensureDirSync } from '../utils/fs-utils';
 import { ensureGitignorePattern } from '../utils/gitignore';
 import type { ExtractedToolResultAttachment } from '../utils/tool-result-attachments';
 
-/** generated dir segment names (`~/.myagents/<name>` or `<ws>/myagents_files/<name>`). */
+/** generated dir segment names (`~/.agenteam/<name>` or `<ws>/myagents_files/<name>`). */
 const GENERATED_DIR_NAMES = ['generated_audio', 'generated_images', 'generated'];
 
 export interface BuiltinAttachmentCtxBase {
@@ -53,7 +53,7 @@ export interface BuiltinAttachmentCtxBase {
    * the same `myagents_files/` convention edge-tts / gemini-image use, but
    * foldered per tool (user's request #293-followup) so a Playwright run's
    * screenshots sit under their own folder. Absent (IM/cron with no
-   * workspace) → falls back to `~/.myagents/generated/<tool-name>/`.
+   * workspace) → falls back to `~/.agenteam/generated/<tool-name>/`.
    */
   workspace?: string;
 }
@@ -76,7 +76,7 @@ function toolDirName(toolName: string): string {
 function ensureToolGeneratedDir(toolName: string, workspace?: string): string {
   const dir = workspace
     ? path.join(workspace, 'myagents_files', toolDirName(toolName))
-    : path.join(homedir(), '.myagents', 'generated', toolDirName(toolName));
+    : path.join(homedir(), '.agenteam', 'generated', toolDirName(toolName));
   ensureDirSync(dir);
   if (workspace) ensureGitignorePattern(workspace, 'myagents_files/');
   return dir;

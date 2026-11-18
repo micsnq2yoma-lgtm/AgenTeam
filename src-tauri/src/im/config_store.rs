@@ -60,7 +60,7 @@ pub(crate) fn read_channel_discovery_configs(
 
 // ===== Auto-start on app launch =====
 
-/// Config shape from ~/.myagents/config.json (only what we need)
+/// Config shape from ~/.agenteam/config.json (only what we need)
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PartialAppConfig {
@@ -105,7 +105,7 @@ fn read_projects_for_agent_projection() -> Vec<PartialProjectEntry> {
     let Some(home) = dirs::home_dir() else {
         return Vec::new();
     };
-    let path = home.join(".myagents").join("projects.json");
+    let path = home.join(".agenteam").join("projects.json");
     let Ok(content) = std::fs::read_to_string(path) else {
         return Vec::new();
     };
@@ -159,7 +159,7 @@ fn agent_claim_conflict(projects: &[PartialProjectEntry], agent_id: &str) -> Opt
 /// Otherwise an in-flight start omitted from ManagedAgents could evade the stop locks.
 pub(super) fn read_agent_channel_ids_from_disk(agent_id: &str) -> Result<Vec<String>, String> {
     let home = dirs::home_dir().ok_or("Home directory unavailable")?;
-    let value = crate::config_io::read_config_json(&home.join(".myagents").join("config.json"))?;
+    let value = crate::config_io::read_config_json(&home.join(".agenteam").join("config.json"))?;
     Ok(agent_channel_ids_from_value(&value, agent_id))
 }
 
@@ -335,7 +335,7 @@ fn read_archived_agent_workspaces_from_disk() -> ArchivedAgentWorkspaces {
         Some(h) => h,
         None => return ArchivedAgentWorkspaces::default(),
     };
-    let path = home.join(".myagents").join("projects.json");
+    let path = home.join(".agenteam").join("projects.json");
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
         Err(_) => return ArchivedAgentWorkspaces::default(),
@@ -2171,7 +2171,7 @@ pub fn schedule_auto_start<R: Runtime>(app_handle: AppHandle<R>) {
     });
 }
 
-/// Read IM bot configs from ~/.myagents/config.json
+/// Read IM bot configs from ~/.agenteam/config.json
 /// Returns (bot_id, config) pairs for all enabled bots.
 ///
 /// Recovery chain (mirrors frontend safeLoadJson):
@@ -2183,7 +2183,7 @@ pub(super) fn read_im_configs_from_disk() -> Vec<(String, ImConfig)> {
         Some(h) => h,
         None => return Vec::new(),
     };
-    let config_dir = home.join(".myagents");
+    let config_dir = home.join(".agenteam");
     let main_path = config_dir.join("config.json");
 
     // Try main → .bak → .tmp (same order as frontend safeLoadJson)
@@ -3055,7 +3055,7 @@ pub(crate) fn read_agent_configs_from_disk() -> Vec<AgentConfigRust> {
         Some(h) => h,
         None => return Vec::new(),
     };
-    let config_dir = home.join(".myagents");
+    let config_dir = home.join(".agenteam");
     let main_path = config_dir.join("config.json");
 
     let candidates = [
@@ -3176,7 +3176,7 @@ pub(super) fn persist_agent_channel_enabled(
     enabled: bool,
 ) -> Result<(), String> {
     let home = dirs::home_dir().ok_or("Home dir not found")?;
-    let config_path = home.join(".myagents/config.json");
+    let config_path = home.join(".agenteam/config.json");
     persist_agent_channel_enabled_at_path(
         &config_path,
         &read_archived_agent_workspaces_from_disk(),
@@ -3235,14 +3235,14 @@ fn persist_agent_channel_enabled_at_path(
     Ok(())
 }
 
-/// Persist a partial patch to a single agent's entry in `~/.myagents/config.json`.
+/// Persist a partial patch to a single agent's entry in `~/.agenteam/config.json`.
 #[allow(dead_code)] // Kept for potential future use; disk persistence now done by TypeScript service
 pub(super) fn persist_agent_config_patch(
     agent_id: &str,
     patch: &AgentConfigPatch,
 ) -> Result<(), String> {
     let home = dirs::home_dir().ok_or("[agent] Home dir not found")?;
-    let config_path = home.join(".myagents").join("config.json");
+    let config_path = home.join(".agenteam").join("config.json");
 
     with_config_lock(&config_path, true, |config| {
         let agents = config

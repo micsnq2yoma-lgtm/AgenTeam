@@ -461,7 +461,7 @@ async function runVisionQueryInner(args: {
     options: {
       maxTurns: 1,
       sessionId,
-      cwd: args.workspacePath || resolve(homedir(), '.myagents', 'projects'),
+      cwd: args.workspacePath || resolve(homedir(), '.agenteam', 'projects'),
       settingSources: [],
       strictMcpConfig: true,
       permissionMode: 'bypassPermissions',

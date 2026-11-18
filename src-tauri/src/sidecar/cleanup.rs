@@ -2,10 +2,10 @@ use super::*;
 
 // ===== Port File for CLI Discovery =====
 
-/// Write the Global Sidecar port to ~/.myagents/sidecar.port so the CLI can discover it.
+/// Write the Global Sidecar port to ~/.agenteam/sidecar.port so the CLI can discover it.
 pub(super) fn write_global_port_file(port: u16) {
     if let Some(home) = dirs::home_dir() {
-        let port_file = home.join(".myagents").join(PORT_FILE_NAME);
+        let port_file = home.join(".agenteam").join(PORT_FILE_NAME);
         if let Err(e) = std::fs::write(&port_file, port.to_string()) {
             ulog_warn!("[sidecar] Failed to write port file {:?}: {}", port_file, e);
         } else {
@@ -17,7 +17,7 @@ pub(super) fn write_global_port_file(port: u16) {
 /// Remove the port file (called on app exit / sidecar shutdown).
 pub(super) fn remove_global_port_file() {
     if let Some(home) = dirs::home_dir() {
-        let port_file = home.join(".myagents").join(PORT_FILE_NAME);
+        let port_file = home.join(".agenteam").join(PORT_FILE_NAME);
         let _ = std::fs::remove_file(&port_file);
     }
 }
@@ -44,8 +44,8 @@ pub(super) fn remove_global_port_file() {
 pub(super) const CHILD_CLEANUP_PATTERNS: &[crate::process_cleanup::ProcessPattern] = &[
     // SDK subprocess spawned by Claude Agent SDK.
     crate::process_cleanup::ProcessPattern::new("SDK", "claude-agent-sdk"),
-    // MCP servers installed under ~/.myagents/mcp/.
-    crate::process_cleanup::ProcessPattern::new("MCP", ".myagents/mcp/"),
+    // MCP servers installed under ~/.agenteam/mcp/.
+    crate::process_cleanup::ProcessPattern::new("MCP", ".agenteam/mcp/"),
     // Well-known external MCP packages launched via `bun x` / `npx`.
     crate::process_cleanup::ProcessPattern::new("MCP-ext", "@playwright/mcp"),
     crate::process_cleanup::ProcessPattern::new("MCP-ext", "@anthropic-ai/mcp"),
@@ -60,7 +60,7 @@ pub(super) const STARTUP_CLEANUP_PATTERNS: &[crate::process_cleanup::ProcessPatt
     crate::process_cleanup::ProcessPattern::new("sidecar", SIDECAR_MARKER),
     // SDK subprocess spawned by Claude Agent SDK.
     crate::process_cleanup::ProcessPattern::new("SDK", "claude-agent-sdk"),
-    crate::process_cleanup::ProcessPattern::new("MCP", ".myagents/mcp/"),
+    crate::process_cleanup::ProcessPattern::new("MCP", ".agenteam/mcp/"),
     crate::process_cleanup::ProcessPattern::new("MCP-ext", "@playwright/mcp"),
     crate::process_cleanup::ProcessPattern::new("MCP-ext", "@anthropic-ai/mcp"),
     crate::process_cleanup::ProcessPattern::new("nodejs", "/myagents/nodejs/"),

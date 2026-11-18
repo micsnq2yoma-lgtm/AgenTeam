@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Runtime};
 
-const APP_ROUTE_SCHEME: &str = "myagents";
+const APP_ROUTE_SCHEME: &str = "agenteam";
 const APP_ROUTE_AUTHORITY: &str = "open";
 const MAX_ID_BYTES: usize = 200;
 
@@ -119,7 +119,7 @@ impl AppRoute {
     pub fn to_deep_link(&self) -> String {
         match self {
             Self::TaskComment { params, .. } => format!(
-                "myagents://open/v1/tasks/{}/comments/{}",
+                "agenteam://open/v1/tasks/{}/comments/{}",
                 params.task_id, params.comment_id
             ),
         }
@@ -196,21 +196,21 @@ mod tests {
     #[test]
     fn rejects_resource_and_ambiguous_urls() {
         for value in [
-            "myagents://attachment/session/file.png",
-            "myagents://tool-attachment/session/turn/file.png",
+            "agenteam://attachment/session/file.png",
+            "agenteam://tool-attachment/session/turn/file.png",
             "myagents-resource://attachment/session/file.png",
-            "myagents://evil/v1/spaces/a/issues/b",
-            "myagents://open/v2/spaces/a/issues/b",
-            "myagents://open/v1/spaces/a/issues/b/extra",
-            "myagents://open/v1/tasks/a/comments/b/extra",
-            "myagents://open/v1/tasks/a/issues/b",
-            "myagents://open//v1/spaces/a/issues/b",
-            "myagents://open/v1/spaces/a/issues/b?prompt=run",
-            "myagents://open/v1/spaces/a/issues/b#fragment",
-            "myagents://open/v1/spaces/a%2Fb/issues/c",
-            "myagents://open/v1/spaces/a/issues/%ZZ",
-            "myagents://user@open/v1/spaces/a/issues/b",
-            "myagents://open:42/v1/spaces/a/issues/b",
+            "agenteam://evil/v1/spaces/a/issues/b",
+            "agenteam://open/v2/spaces/a/issues/b",
+            "agenteam://open/v1/spaces/a/issues/b/extra",
+            "agenteam://open/v1/tasks/a/comments/b/extra",
+            "agenteam://open/v1/tasks/a/issues/b",
+            "agenteam://open//v1/spaces/a/issues/b",
+            "agenteam://open/v1/spaces/a/issues/b?prompt=run",
+            "agenteam://open/v1/spaces/a/issues/b#fragment",
+            "agenteam://open/v1/spaces/a%2Fb/issues/c",
+            "agenteam://open/v1/spaces/a/issues/%ZZ",
+            "agenteam://user@open/v1/spaces/a/issues/b",
+            "agenteam://open:42/v1/spaces/a/issues/b",
         ] {
             assert_eq!(parse_deep_link(value), None, "{value}");
         }
@@ -241,7 +241,7 @@ mod tests {
         assert_eq!(pending.generation, 42);
         assert_eq!(
             pending.route.to_deep_link(),
-            "myagents://open/v1/tasks/task-b/comments/comment-b"
+            "agenteam://open/v1/tasks/task-b/comments/comment-b"
         );
     }
 }

@@ -42,7 +42,7 @@ describe('#513 — reset uses current MCP authority before pre-warm', () => {
     vi.useFakeTimers();
     scratch = mkdtempSync(join(tmpdir(), 'myagents-reset-mcp-'));
     workspacePath = join(scratch, 'workspace');
-    mkdirSync(join(scratch, '.myagents'), { recursive: true });
+    mkdirSync(join(scratch, '.agenteam'), { recursive: true });
     mkdirSync(workspacePath, { recursive: true });
 
     previousHome = process.env.HOME;
@@ -50,7 +50,7 @@ describe('#513 — reset uses current MCP authority before pre-warm', () => {
     process.env.HOME = scratch;
     process.env.USERPROFILE = scratch;
 
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       mcpServers: [
         {
           id: 'current',
@@ -69,7 +69,7 @@ describe('#513 — reset uses current MCP authority before pre-warm', () => {
       ],
       mcpEnabledServers: ['current'],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project',
       name: 'Project',
       path: workspacePath,
@@ -118,7 +118,7 @@ describe('#513 — reset uses current MCP authority before pre-warm', () => {
   });
 
   it('resets from Agent defaults even when the compatibility Project selects a different server', async () => {
-    writeJson(join(scratch, '.myagents', 'config.json'), {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{ id: 'owner', name: 'Owner', workspacePath, mcpEnabledServers: ['agent-selected'] }],
       mcpServers: [
         { id: 'agent-selected', name: 'Agent', type: 'stdio', command: 'agent-command' },
@@ -126,7 +126,7 @@ describe('#513 — reset uses current MCP authority before pre-warm', () => {
       ],
       mcpEnabledServers: ['agent-selected', 'project-selected'],
     });
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [{
       id: 'project', name: 'Project', path: workspacePath, agentId: 'owner', mcpEnabledServers: ['project-selected'],
     }]);
     await resetSession();

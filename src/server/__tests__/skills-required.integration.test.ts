@@ -98,9 +98,9 @@ describe('required system skill API contract', () => {
     const scratch = mkdtempSync(join(tmpdir(), 'myagents-required-skills-'));
     const home = join(scratch, 'home');
     const workspace = join(realpathSync(scratch), 'workspace');
-    const userSkills = join(home, '.myagents', 'skills');
+    const userSkills = join(home, '.agenteam', 'skills');
     const projectSkills = join(workspace, '.claude', 'skills');
-    const configPath = join(home, '.myagents', 'skills-config.json');
+    const configPath = join(home, '.agenteam', 'skills-config.json');
     mkdirSync(userSkills, { recursive: true });
     mkdirSync(projectSkills, { recursive: true });
     mkdirSync(join(scratch, 'tmp'), { recursive: true });
@@ -109,8 +109,8 @@ describe('required system skill API contract', () => {
       writeSkill(userSkills, name);
     }
     writeSkill(projectSkills, 'local-skill');
-    writeFileSync(join(home, '.myagents', 'config.json'), JSON.stringify({ agents: [{ id: 'agent-1', path: workspace }] }));
-    writeFileSync(join(home, '.myagents', 'projects.json'), JSON.stringify([{ id: 'project-1', path: workspace, agentId: 'agent-1' }]));
+    writeFileSync(join(home, '.agenteam', 'config.json'), JSON.stringify({ agents: [{ id: 'agent-1', path: workspace }] }));
+    writeFileSync(join(home, '.agenteam', 'projects.json'), JSON.stringify([{ id: 'project-1', path: workspace, agentId: 'agent-1' }]));
     writeSkill(userSkills, OPTIONAL_SYSTEM_SKILL, 'author: Legacy Author');
     writeSkill(userSkills, 'user-skill', 'metadata:\n  author: Standard Author\n  version: "1.0"');
     mkdirSync(join(userSkills, 'damaged-skill'), { recursive: true });

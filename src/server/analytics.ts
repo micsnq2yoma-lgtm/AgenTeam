@@ -2,7 +2,7 @@
  * Server-side Analytics
  *
  * Lightweight event tracker for the Node Sidecar.
- * Reads config from ~/.myagents/analytics_config.json (written by frontend at startup).
+ * Reads config from ~/.agenteam/analytics_config.json (written by frontend at startup).
  * Uses the existing general-network transport and an in-memory receipt queue.
  */
 
@@ -16,7 +16,7 @@ import {
   assertAnalyticsReceipt, assertAnalyticsStatus,
 } from '../shared/analyticsDelivery';
 
-const CONFIG_PATH = join(homedir(), '.myagents', 'analytics_config.json');
+const CONFIG_PATH = join(homedir(), '.agenteam', 'analytics_config.json');
 
 interface AnalyticsConfig {
   enabled: boolean;

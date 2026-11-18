@@ -1,11 +1,12 @@
 ﻿#!/usr/bin/env pwsh
-# MyAgents Windows 正式发布构建脚本
+# AgenTeam Windows 正式发布构建脚本
 # 构建 NSIS 安装包和便携版 ZIP
 # 支持 Windows x64
 
 param(
     [switch]$SkipTypeCheck,
-    [switch]$SkipPortable
+    [switch]$SkipPortable,
+    [switch]$Candidate
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,7 +26,7 @@ try {
 
     Write-Host ""
     Write-Host "=========================================" -ForegroundColor Cyan
-    Write-Host "  MyAgents Windows 发布构建" -ForegroundColor Green
+    Write-Host "  AgenTeam Windows 发布构建" -ForegroundColor Green
     Write-Host "  Version: $Version" -ForegroundColor Blue
     Write-Host "=========================================" -ForegroundColor Cyan
     Write-Host ""
@@ -41,17 +42,7 @@ try {
     $CargoVersion = if ($CargoVersionMatch.Success) { $CargoVersionMatch.Groups[1].Value } else { "" }
 
     if ($PkgVersion -ne $Version -or $PkgVersion -ne $CargoVersion) {
-        Write-Host "版本号不一致:" -ForegroundColor Yellow
-        Write-Host "  package.json:    $PkgVersion" -ForegroundColor Cyan
-        Write-Host "  tauri.conf.json: $Version" -ForegroundColor Cyan
-        Write-Host "  Cargo.toml:      $CargoVersion" -ForegroundColor Cyan
-        Write-Host ""
-        $sync = Read-Host "是否同步版本号到 $PkgVersion? (y/N)"
-        if ($sync -eq "y" -or $sync -eq "Y") {
-            & node "$ProjectDir\scripts\sync-version.js"
-            $Version = $PkgVersion
-            Write-Host ""
-        }
+        throw "Version mismatch: package=$PkgVersion tauri=$Version cargo=$CargoVersion. Run node scripts/sync-version.js."
     }
 
     # ========================================
@@ -59,7 +50,7 @@ try {
     # ========================================
     Write-Host "[1/7] 加载环境配置..." -ForegroundColor Blue
 
-    if (Test-Path $EnvFile) {
+    if (-not $Candidate -and (Test-Path $EnvFile)) {
         # 加载 .env (支持行内注释)
         Get-Content $EnvFile | ForEach-Object {
             if ($_ -match '^([^#=]+)=(.*)$') {
@@ -86,69 +77,10 @@ try {
 
     # 检查 Tauri 签名密钥
     $TauriSigningKey = [Environment]::GetEnvironmentVariable("TAURI_SIGNING_PRIVATE_KEY", "Process")
-    if (-not $TauriSigningKey) {
-        Write-Host ""
-        Write-Host "=========================================" -ForegroundColor Yellow
-        Write-Host "  警告: TAURI_SIGNING_PRIVATE_KEY 未设置" -ForegroundColor Yellow
-        Write-Host "  自动更新功能将不可用!" -ForegroundColor Yellow
-        Write-Host "=========================================" -ForegroundColor Yellow
-        Write-Host ""
-        $continue = Read-Host "是否继续构建? (Y/n)"
-        if ($continue -eq "n" -or $continue -eq "N") {
-            Write-Host "构建已取消" -ForegroundColor Red
-            throw "用户取消构建"
-        }
+    if (-not $Candidate -and -not $TauriSigningKey) {
+        throw 'Provide an AgenTeam updater signing key, or use -Candidate for a separately signed candidate.'
     }
-    else {
-        Write-Host "  OK - Tauri 签名私钥已配置" -ForegroundColor Green
-    }
-    Write-Host ""
-
-    # ========================================
-    # 检查统计上报配置 (VITE_ANALYTICS_*)
-    # ========================================
-    # 埋点是编译期 gate：isAnalyticsEnabled() 要求 VITE_ANALYTICS_ENABLED=true 且
-    # API_KEY / ENDPOINT 非空 (src/renderer/analytics/config.ts)。.env 是 gitignored，
-    # 不会随 git checkout 过来——若这台 Windows 构建机没填好 .env，Vite 会把这三个变量
-    # 编译成空字符串，整个 Windows 包**完全不上报统计**，平台分布看板里 Windows 凭空消失。
-    # build_macos.sh 在 .env 缺失时直接 exit，所以 mac 包从不会静默掉这个；Windows 这条
-    # 之前是"警告 + 继续"，于是出现过 Windows 包带着 analytics OFF 发版。这里改成显式确认，
-    # 与上面的签名私钥检查同一套交互（Fork / 自建无需上报者直接回车继续）。
-    Write-Host "[1.5/7] 检查统计上报配置..." -ForegroundColor Blue
-    $AnalyticsEnabled = [Environment]::GetEnvironmentVariable("VITE_ANALYTICS_ENABLED", "Process")
-    $AnalyticsKey = [Environment]::GetEnvironmentVariable("VITE_ANALYTICS_API_KEY", "Process")
-    $AnalyticsEndpoint = [Environment]::GetEnvironmentVariable("VITE_ANALYTICS_ENDPOINT", "Process")
-    $AnalyticsOn = ($AnalyticsEnabled -eq "true") `
-        -and -not [string]::IsNullOrWhiteSpace($AnalyticsKey) `
-        -and -not [string]::IsNullOrWhiteSpace($AnalyticsEndpoint)
-    if ($AnalyticsOn) {
-        Write-Host "  OK - 统计上报已启用 (endpoint=$AnalyticsEndpoint)" -ForegroundColor Green
-    }
-    else {
-        Write-Host ""
-        Write-Host "=========================================" -ForegroundColor Yellow
-        Write-Host "  警告: 统计上报未启用 (VITE_ANALYTICS_* 缺失或为空)" -ForegroundColor Yellow
-        Write-Host "  此 Windows 构建将不会上报任何统计事件！" -ForegroundColor Yellow
-        Write-Host "  → 平台分布看板里 Windows 用户会凭空消失。" -ForegroundColor Yellow
-        Write-Host "  官方发版请确认本机 .env 已配置:" -ForegroundColor Yellow
-        Write-Host "    VITE_ANALYTICS_ENABLED=true" -ForegroundColor Yellow
-        Write-Host "    VITE_ANALYTICS_API_KEY=<key>" -ForegroundColor Yellow
-        Write-Host "    VITE_ANALYTICS_ENDPOINT=<url>" -ForegroundColor Yellow
-        Write-Host "  (Fork / 自建无需上报可忽略本提示。)" -ForegroundColor Yellow
-        Write-Host "=========================================" -ForegroundColor Yellow
-        Write-Host ""
-        $continueAnalytics = Read-Host "是否继续构建? (Y/n)"
-        if ($continueAnalytics -eq "n" -or $continueAnalytics -eq "N") {
-            Write-Host "构建已取消" -ForegroundColor Red
-            throw "用户取消构建"
-        }
-    }
-    Write-Host ""
-
-    # ========================================
-    # 检查依赖
-    # ========================================
-    Write-Host "[2/7] 检查依赖..." -ForegroundColor Blue
+    Write-Host "[2/7] 检查构建依赖..." -ForegroundColor Blue
 
     function Get-CargoBinPath {
         if ($env:CARGO_HOME) {
@@ -237,6 +169,8 @@ try {
     & "$ProjectDir\scripts\download_nodejs.ps1"
     Use-BundledNodeBuildTools -ProjectDir $ProjectDir
 
+    . (Join-Path $ProjectDir 'scripts/git-installer.ps1')
+    Get-GitInstaller -ProjectDir $ProjectDir
     $gitInstallerPath = "src-tauri\nsis\Git-Installer.exe"
     Write-Host "  检查 Git installer... " -NoNewline
     if (Test-Path $gitInstallerPath) {
@@ -288,7 +222,11 @@ try {
     # release build self-contained by letting npm reconcile it before any Node
     # consumer runs. A current tree is a fast no-op.
     Write-Host "  对齐 Node.js 项目依赖..." -ForegroundColor Cyan
-    & npm install --no-audit --no-fund
+    if ($Candidate) {
+        & npm ci --no-audit --no-fund
+    } else {
+        & npm install --no-audit --no-fund
+    }
     if ($LASTEXITCODE -ne 0) {
         throw "Node.js 项目依赖安装失败"
     }
@@ -352,30 +290,6 @@ try {
     # ========================================
     Write-Host "[准备] 清理旧构建..." -ForegroundColor Blue
 
-    # 杀死残留进程（避免文件锁定）
-    $appProcesses = Get-Process | Where-Object { $_.ProcessName -eq "MyAgents" }
-
-    if ($appProcesses) {
-        $appProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
-        Write-Host "  清理了 $($appProcesses.Count) 个 MyAgents 进程" -ForegroundColor Gray
-    }
-
-    # 验证进程清理完成（最多等待 2 秒）
-    $maxWait = 20  # 20 * 100ms = 2s
-    $waited = 0
-    while ($waited -lt $maxWait) {
-        $remainingApp = Get-Process -Name "MyAgents" -ErrorAction SilentlyContinue
-        if (-not $remainingApp) {
-            break
-        }
-        Start-Sleep -Milliseconds 100
-        $waited++
-    }
-
-    if ($waited -gt 0) {
-        Write-Host "  进程清理验证完成 (耗时 $($waited * 100)ms)" -ForegroundColor Gray
-    }
-
     # 清理构建输出目录
     $dirsToClean = @(
         @{ Path = "dist"; Name = "前端构建输出" },
@@ -426,7 +340,11 @@ try {
     & npm run build:assets
     if ($LASTEXITCODE -ne 0) { throw "前端和运行时资源构建失败" }
     $buildAssetsConfig = Join-Path ([System.IO.Path]::GetTempPath()) "myagents-assets-$PID.json"
-    Set-Content -Path $buildAssetsConfig -Value '{"build":{"beforeBuildCommand":null}}' -Encoding utf8
+    $invocationConfig = '{"build":{"beforeBuildCommand":null}}' | ConvertFrom-Json
+    if ($Candidate) {
+        $invocationConfig | Add-Member -NotePropertyName bundle -NotePropertyValue @{ createUpdaterArtifacts = $false }
+    }
+    [IO.File]::WriteAllText($buildAssetsConfig, ($invocationConfig | ConvertTo-Json -Depth 4))
 
     # 填充 tsx-runtime（Plugin Bridge 走绝对路径 --import）—— Windows 当前
     # 仅 x64 构建；将来加 arm64 时把 --cpu 参数化。
@@ -457,7 +375,7 @@ try {
     Write-Host "  这可能需要几分钟，请耐心等待..." -ForegroundColor Yellow
 
     Write-Host "  准备离线文档与语音推理资源..." -ForegroundColor Cyan
-    & node "$ProjectDir\scripts\prepare-cuse-bundle.mjs" "x86_64-pc-windows-msvc"
+    & node "$ProjectDir\scripts\prepare-cuse-bundle.mjs" "x86_64-pc-windows-msvc" --locked
     if ($LASTEXITCODE -ne 0) { throw "Cuse Skill+CLI preparation failed" }
     & node "$ProjectDir\scripts\prepare-native-inference.mjs" "x86_64-pc-windows-msvc"
     if ($LASTEXITCODE -ne 0) { throw "原生推理资源准备失败" }
@@ -479,7 +397,7 @@ try {
         $targetDir = "src-tauri\target\x86_64-pc-windows-msvc\release"
         $nsisDir = "$targetDir\bundle\nsis"
         # Cargo supplies the executable name; Tauri uses AgenTeam for the installer and shortcut.
-        $exePath = "$targetDir\myagents.exe"
+        $exePath = "$targetDir\AgenTeam.exe"
 
         if (Test-Path $exePath) {
             $portableDir = Join-Path $targetDir "portable"
@@ -558,29 +476,21 @@ try {
         Write-Host "    ZIP:  $($file.Name) ($size)" -ForegroundColor Cyan
     }
 
-    $tarFiles = Get-ChildItem -Path $nsisDir -Filter "*.nsis.zip" -ErrorAction SilentlyContinue
-    foreach ($file in $tarFiles) {
-        $size = "{0:N2} MB" -f ($file.Length / 1MB)
-        Write-Host "    更新包: $($file.Name) ($size)" -ForegroundColor Cyan
-    }
-
     Write-Host ""
     Write-Host "  输出目录:" -ForegroundColor Blue
     Write-Host "    $nsisDir" -ForegroundColor Cyan
     Write-Host ""
 
-    $sigFiles = Get-ChildItem -Path $nsisDir -Filter "*.sig" -ErrorAction SilentlyContinue
+    $sigFiles = Get-ChildItem -Path $nsisDir -Filter "*-setup.exe.sig" -ErrorAction SilentlyContinue
     if ($sigFiles) {
         Write-Host "  OK - 自动更新签名已生成" -ForegroundColor Green
     }
-    else {
-        Write-Host "  警告: 未生成自动更新签名 (TAURI_SIGNING_PRIVATE_KEY 未设置)" -ForegroundColor Yellow
-    }
+    elseif (-not $Candidate) { throw "Missing NSIS updater signature" }
 
     Write-Host ""
     Write-Host "后续步骤:" -ForegroundColor Blue
     Write-Host "  1. 测试安装包" -ForegroundColor White
-    Write-Host "  2. 运行 .\publish_windows.ps1 发布到 R2" -ForegroundColor White
+    Write-Host "  2. 参阅 specs/guides/build_and_release_guide.md 验签并创建 GitHub Release 草稿" -ForegroundColor White
     Write-Host ""
 
     $BuildSuccess = $true
@@ -608,13 +518,4 @@ try {
     if ($buildAssetsConfig -and (Test-Path $buildAssetsConfig)) { Remove-Item $buildAssetsConfig -Force }
 }
 
-Write-Host ""
-if ($BuildSuccess) {
-    Write-Host "按回车键退出..." -ForegroundColor Cyan
-} else {
-    Write-Host "按回车键退出..." -ForegroundColor Yellow
-}
-Read-Host
-if (-not $BuildSuccess) {
-    exit 1
-}
+if (-not $BuildSuccess) { exit 1 }

@@ -28,7 +28,7 @@ it('adopts the real history after lock contention beyond the former two-second c
   let release!: () => void;
   let held = false;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  const holder = withFileLock({ lockPath: join(state.home, '.myagents/session-locks', `${id}.jsonl.lock`) }, async () => { held = true; await gate; });
+  const holder = withFileLock({ lockPath: join(state.home, '.agenteam/session-locks', `${id}.jsonl.lock`) }, async () => { held = true; await gate; });
   await vi.waitFor(() => expect(held).toBe(true));
   const binding = store.activateSessionTranscript(id);
   try {

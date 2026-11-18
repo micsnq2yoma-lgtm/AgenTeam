@@ -133,18 +133,18 @@ describe('NewAgentPanel new team', () => {
 
   it('creates an assistant team at the default location with assistant defaults', async () => {
     const { onCreated, onClose } = await openTeam('alpha');
-    await waitFor(() => expect(pathText()).toContain('.myagents/projects/alpha'));
+    await waitFor(() => expect(pathText()).toContain('.agenteam/projects/alpha'));
 
     fireEvent.click(createButton());
 
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     expect(mocks.invoke).toHaveBeenCalledWith('cmd_prepare_team_folder', {
-      destPath: '/Users/me/.myagents/projects/alpha',
+      destPath: '/Users/me/.agenteam/projects/alpha',
       adoptExisting: false,
       assistantTemplateId: 'mino',
     });
     const [path, options] = mocks.addProject.mock.calls[0];
-    expect(path).toBe('/Users/me/.myagents/projects/alpha');
+    expect(path).toBe('/Users/me/.agenteam/projects/alpha');
     expect(options).toMatchObject({
       displayName: 'alpha',
       templateId: 'mino',
@@ -157,7 +157,7 @@ describe('NewAgentPanel new team', () => {
   });
 
   it('previews the suffixed folder when the default name is taken', async () => {
-    mocks.existingPaths = new Set(['/Users/me/.myagents/projects/alpha']);
+    mocks.existingPaths = new Set(['/Users/me/.agenteam/projects/alpha']);
     await openTeam('alpha');
     await waitFor(() => expect(pathText()).toContain('alpha-2'));
   });
@@ -356,7 +356,7 @@ describe('NewAgentPanel user template', () => {
     await waitFor(() => expect(mocks.addProject).toHaveBeenCalled());
     expect(mocks.invoke).toHaveBeenCalledWith('cmd_create_workspace_from_template', {
       sourcePath: '/t/research',
-      destPath: '/Users/me/.myagents/projects/研究助手',
+      destPath: '/Users/me/.agenteam/projects/研究助手',
     });
     expect(mocks.addProject.mock.calls[0][1]).toMatchObject({
       displayName: '研究助手',

@@ -8,7 +8,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${PROJECT_DIR}/.env"
 SOURCE_LOCK="${PROJECT_DIR}/src-tauri/media-worker/model-pack-source-lock.json"
 ORIGIN_LOCK="${PROJECT_DIR}/src-tauri/media-worker/model-pack-mirror-origin-lock.json"
-TAURI_CONFIG="${PROJECT_DIR}/src-tauri/tauri.conf.json"
+RESOURCE_KEY="${PROJECT_DIR}/src-tauri/upstream-resources.pub"
 R2_BUCKET="myagents-releases"
 DOWNLOAD_BASE_URL="https://download.myagents.io"
 
@@ -157,11 +157,10 @@ if [ ! -s "$MIRROR_PLAN" ]; then
 fi
 
 VERIFY_DIR=$(mktemp -d)
-UPDATER_PUBKEY=$(node - "$TAURI_CONFIG" <<'NODE'
+UPDATER_PUBKEY=$(node - "$RESOURCE_KEY" <<'NODE'
 const { readFileSync } = require('node:fs');
 const [configPath] = process.argv.slice(2);
-const config = JSON.parse(readFileSync(configPath, 'utf8'));
-const encodedPublicKey = config?.plugins?.updater?.pubkey;
+const encodedPublicKey = readFileSync(configPath, 'utf8').trim();
 if (typeof encodedPublicKey !== 'string' || encodedPublicKey.length === 0) {
   throw new Error(`Missing updater public key: ${configPath}`);
 }
@@ -353,7 +352,7 @@ if ! cmp -s "$SOURCE_LOCK" "$MANIFEST_PATH"; then
 fi
 decode_signature "$SIGNATURE_PATH" "${VERIFY_DIR}/local-manifest.minisig"
 if ! minisign -Vm "$MANIFEST_PATH" -x "${VERIFY_DIR}/local-manifest.minisig" -P "$UPDATER_PUBKEY" >/dev/null; then
-    echo "Error: manifest signature does not match the App updater public key" >&2
+    echo "Error: manifest signature does not match the upstream resource public key" >&2
     exit 1
 fi
 
@@ -384,7 +383,7 @@ cmp -s "$SOURCE_LOCK" "${VERIFY_DIR}/manifest.json" || {
 }
 decode_signature "${VERIFY_DIR}/manifest.json.sig" "${VERIFY_DIR}/published-manifest.minisig"
 if ! minisign -Vm "${VERIFY_DIR}/manifest.json" -x "${VERIFY_DIR}/published-manifest.minisig" -P "$UPDATER_PUBKEY" >/dev/null; then
-    echo "Error: published signature does not match the App updater public key" >&2
+    echo "Error: published signature does not match the upstream resource public key" >&2
     exit 1
 fi
 

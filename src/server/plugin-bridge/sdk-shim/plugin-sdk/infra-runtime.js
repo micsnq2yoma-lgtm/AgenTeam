@@ -14,10 +14,10 @@ import { mkdirSync, lstatSync, rmdirSync, writeFileSync, unlinkSync } from 'node
 /**
  * Resolve the preferred OpenClaw temp directory.
  * In real OpenClaw: tries XDG_RUNTIME_DIR → ~/.openclaw/tmp → os.tmpdir(), with permission checks.
- * Our shim: uses ~/.myagents/tmp (MyAgents convention, always writable).
+ * Our shim: uses ~/.agenteam/tmp (MyAgents convention, always writable).
  */
 export function resolvePreferredOpenClawTmpDir(options) {
-  const dir = join(homedir(), '.myagents', 'tmp');
+  const dir = join(homedir(), '.agenteam', 'tmp');
   try { mkdirSync(dir, { recursive: true }); } catch { /* ignore */ }
   return dir;
 }

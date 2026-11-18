@@ -1279,7 +1279,7 @@ export function printResult(
 
   // Task create-* — AI-facing flow: print task_id + docs path + next-step
   // hint + any override echo so the caller doesn't have to guess the id via
-  // `ls -lt ~/.myagents/tasks/`. JSON mode above returns the full payload.
+  // `ls -lt ~/.agenteam/tasks/`. JSON mode above returns the full payload.
   // All create-* forms go through the same enriched server-side response.
   // `enrichTaskCreateResponse` server-side, so one printer covers both.
   if (group === 'task' && action === 'create-direct') {
@@ -1397,7 +1397,7 @@ function formatDetectorOccurredAt(value: unknown): string {
  *   ✓ Task created
  *     task_id:   <uuid>
  *     name:      <string>
- *     docs_path: ~/.myagents/tasks/<uuid>/
+ *     docs_path: ~/.agenteam/tasks/<uuid>/
  *     dispatch:  myagents task run <uuid>
  */
 function printTaskCreateResult(data: Record<string, unknown>): void {
@@ -1407,7 +1407,7 @@ function printTaskCreateResult(data: Record<string, unknown>): void {
   const id = String(task?.id ?? '');
   const name = String(task?.name ?? '');
   const home = process.env.HOME ?? '';
-  const absDocs = `${home}/.myagents/tasks/${id}/`;
+  const absDocs = `${home}/.agenteam/tasks/${id}/`;
   const displayDocs = home && absDocs.startsWith(home)
     ? `~${absDocs.slice(home.length)}`
     : absDocs;

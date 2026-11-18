@@ -36,7 +36,7 @@ vi.mock('./process-host', async original => ({
     };
     request = async (method: string, params: DshRpcObject) => {
       if (method === 'extension/replace') {
-        const registry = new DshAttachmentRegistry(dshSessionOwnedPaths(join(fixture.home, '.myagents'), 'product-diagnostics').attachmentRoot);
+        const registry = new DshAttachmentRegistry(dshSessionOwnedPaths(join(fixture.home, '.agenteam'), 'product-diagnostics').attachmentRoot);
         await registry.initialize();
         const snapshot = await registry.readJson(params.snapshotAttachment as { attachmentId: string; mimeType: string; sizeBytes: number; sha256: string }) as DshRpcObject;
         fixture.revision = String(snapshot.revision);

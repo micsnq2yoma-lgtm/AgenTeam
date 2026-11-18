@@ -7,7 +7,7 @@
  * or the input grows — extra height only ever extends downward.
  *
  * Switching to 「记录」 repurposes the input as a freeform Record entry
- * (persisted to ~/.myagents/thoughts/ via `thoughtCreate`), bypassing the full
+ * (persisted to ~/.agenteam/thoughts/ via `thoughtCreate`), bypassing the full
  * Chat launch flow. Switching back to 「对话」 restores the default behavior.
  */
 
@@ -316,7 +316,7 @@ export default memo(function BrandSection({
   // Feed the # picker with `projects` (the same data backing the Agent
   // Workspace panel on the right) rather than `config.agents` — the
   // latter skips plain workspaces not yet upgraded to Agents AND leaks
-  // internal workspaces like `~/.myagents`, producing a candidate list
+  // internal workspaces like `~/.agenteam`, producing a candidate list
   // that didn't match what the user sees on screen.
   const tagCandidates = useThoughtTagCandidates(thoughts, projects);
 

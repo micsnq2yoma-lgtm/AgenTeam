@@ -19,7 +19,7 @@ describe('server MCP catalogue merge', () => {
   it('uses Agent defaults rather than a divergent Project mirror for new and legacy execution', () => {
     const scratch = mkdtempSync(join(tmpdir(), 'myagents-mcp-default-owner-'));
     scratchDirs.push(scratch);
-    const configDir = join(scratch, '.myagents');
+    const configDir = join(scratch, '.agenteam');
     mkdirSync(configDir);
     vi.stubEnv('HOME', scratch);
     const configPath = join(configDir, 'config.json');
@@ -80,7 +80,7 @@ describe('server MCP catalogue merge', () => {
   it('resolves owned Session IDs against current definitions and global enablement', () => {
     const scratch = mkdtempSync(join(tmpdir(), 'myagents-admin-config-'));
     scratchDirs.push(scratch);
-    const configDir = join(scratch, '.myagents');
+    const configDir = join(scratch, '.agenteam');
     mkdirSync(configDir, { recursive: true });
     vi.stubEnv(process.platform === 'win32' ? 'USERPROFILE' : 'HOME', scratch);
     const configPath = join(configDir, 'config.json');

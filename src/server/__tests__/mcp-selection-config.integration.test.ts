@@ -11,9 +11,9 @@ beforeEach(() => {
   scratch = mkdtempSync(join(tmpdir(), 'myagents-mcp-selection-'));
   vi.stubEnv('HOME', scratch);
   vi.stubEnv('USERPROFILE', scratch);
-  mkdirSync(join(scratch, '.myagents'));
-  configPath = join(scratch, '.myagents', 'config.json');
-  projectsPath = join(scratch, '.myagents', 'projects.json');
+  mkdirSync(join(scratch, '.agenteam'));
+  configPath = join(scratch, '.agenteam', 'config.json');
+  projectsPath = join(scratch, '.agenteam', 'projects.json');
 });
 afterEach(() => {
   vi.unstubAllEnvs();

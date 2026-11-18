@@ -52,7 +52,7 @@ async function startHost(
 ) {
   const home = join(scratch, role);
   const workspace = join(home, "workspace");
-  const configDir = join(home, ".myagents");
+  const configDir = join(home, ".agenteam");
   await mkdir(workspace, { recursive: true });
   await mkdir(configDir, { recursive: true });
   await writeFile(

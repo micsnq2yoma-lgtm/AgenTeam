@@ -499,7 +499,7 @@ test('native prerequisite preflight runs before expensive or destructive entry-p
     invocation:
       'prepare-native-inference.mjs" "$DEV_NATIVE_TARGET" --check-prerequisites',
     toolchain: '"${PROJECT_DIR}/scripts/ensure_rust_toolchain.sh"',
-    expensiveBoundary: 'LOCK_FILE="$HOME/.myagents/app.lock"',
+    expensiveBoundary: 'LOCK_FILE="$HOME/.agenteam/app.lock"',
     label: 'macOS dev build',
   });
   assertEarlyNativePreflight({

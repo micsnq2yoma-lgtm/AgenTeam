@@ -54,7 +54,7 @@ describe('DSH native collaboration boundaries', () => {
     fixture.request.mockImplementation(async (method: string, params: DshRpcObject) => {
       switch (method) {
         case 'extension/replace': {
-          const registry = new DshAttachmentRegistry(dshSessionOwnedPaths(join(fixture.home, '.myagents'), 'session-steer-reject').attachmentRoot);
+          const registry = new DshAttachmentRegistry(dshSessionOwnedPaths(join(fixture.home, '.agenteam'), 'session-steer-reject').attachmentRoot);
           await registry.initialize();
           const snapshot = await registry.readJson(params.snapshotAttachment as { attachmentId: string; mimeType: string; sizeBytes: number; sha256: string }) as { revision: string };
           fixture.extensionRevision = snapshot.revision;

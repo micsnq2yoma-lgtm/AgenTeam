@@ -25,7 +25,7 @@ MyAgents 是带状态的 Agent 平台：Goal、Task、Record、IM Bot、MCP、Pr
 
 ## 前置：CLI 是否可用
 
-CLI 通过 `~/.myagents/bin/myagents` 暴露，App 内 Agent 的 PATH 和调用上下文由产品注入，直接运行命令。它通过 Sidecar Admin API 操作（端口由 `MYAGENTS_PORT` 注入）。外部终端或 AI 需用户在「设置 → 外部调用」主动开启并取得受保护的 `MYAGENTS_API_TOKEN`，只允许公开命令；不要读取内部凭据来绕过授权，也不要输出 token。
+CLI 通过 `~/.agenteam/bin/myagents` 暴露，App 内 Agent 的 PATH 和调用上下文由产品注入，直接运行命令。它通过 Sidecar Admin API 操作（端口由 `MYAGENTS_PORT` 注入）。外部终端或 AI 需用户在「设置 → 外部调用」主动开启并取得受保护的 `MYAGENTS_API_TOKEN`，只允许公开命令；不要读取内部凭据来绕过授权，也不要输出 token。
 
 - 遇到 `command not found`：让用户重启一次应用触发 CLI 同步
 - 遇到 `ECONNREFUSED`：Sidecar 没起来，让用户检查应用是否在运行
@@ -95,7 +95,7 @@ myagents mcp oauth revoke <id>                          # 撤销授权
 - 如果 help 提示去「设置 → 关于&反馈 → 实验室 → CLI 工具注册表」开启，说明当前会话不能创建、注册或管理用户 CLI 工具；不要继续尝试 `tool-creator` / `myagents tool add`，转而完成一次性任务或请用户打开实验开关。
 - 如果 help 返回完整 `list/add/remove/env` 用法，才按下面流程处理。
 
-注册的 CLI 工具会投 shim 到 `~/.myagents/bin/`（全 runtime + 终端的 PATH 上），
+注册的 CLI 工具会投 shim 到 `~/.agenteam/bin/`（全 runtime + 终端的 PATH 上），
 description 自动注入所有新 session 的上下文——未来的 AI 会自己发现并使用它。
 **写一个新工具**用 `tool-creator` skill（钉死 Agent-CLI 契约：非交互 / 退出码 /
 --json / readme 子命令 / ≤800 字 description）；这里只管注册与管理。
@@ -103,7 +103,7 @@ description 自动注入所有新 session 的上下文——未来的 AI 会自�
 ```bash
 myagents tool list                       # 注册表总览（含 enabled 状态 + 缺失 env key）
 myagents tool add <dir>                  # 注册（dir 须含 tool.json + 入口脚本；不在
-                                         #  ~/.myagents/tools/ 下会自动拷入）[--dry-run]
+                                         #  ~/.agenteam/tools/ 下会自动拷入）[--dry-run]
 myagents tool info <name>                # 看 manifest + enabled + 缺失 env
 myagents tool enable <name>              # 进新 session 的上下文
 myagents tool disable <name>             # 从上下文隐藏（shim 仍在 PATH，可手动调）
@@ -117,7 +117,7 @@ myagents tool env <name> delete KEY      # 删
 - 用户说"把这个脚本/能力注册成工具、以后直接用" → 先走 `tool-creator` skill 把它规范化，再 `tool add`
 - "我有哪些自己的工具" → `tool list`
 - 工具报缺 API key（退出码 3）→ `tool env <name> set KEY=<用户提供的值>`
-- 注册名撞系统命令会被打回（`~/.myagents/bin` 在 PATH 前列，重名会遮蔽系统命令）→ 换带领域前缀的名字
+- 注册名撞系统命令会被打回（`~/.agenteam/bin` 在 PATH 前列，重名会遮蔽系统命令）→ 换带领域前缀的名字
 - 注册成功后 MUST 在回复中告知用户：工具名 + 干什么 + 可在 设置 → 工具箱 管理
 
 ### 官方图片理解工具（vision）
@@ -383,7 +383,7 @@ myagents cc-plugin disable <name>                       # 禁用
 myagents cc-plugin show <id|name>                       # 详情（含 manifest + 组件清单）
 ```
 
-**与上面 `plugin` 的区别：** `cc-plugin` 是 Claude Plugin 协议（skills/agents/MCP/hooks），落在 `~/.myagents/plugins/<name>/`；SDK 加载支持的组件，DSH/Managed Codex 按各自 admission 支持部分扩展，不保证 SDK hooks 等价。`plugin`（无前缀）是 OpenClaw IM 渠道插件。
+**与上面 `plugin` 的区别：** `cc-plugin` 是 Claude Plugin 协议（skills/agents/MCP/hooks），落在 `~/.agenteam/plugins/<name>/`；SDK 加载支持的组件，DSH/Managed Codex 按各自 admission 支持部分扩展，不保证 SDK hooks 等价。`plugin`（无前缀）是 OpenClaw IM 渠道插件。
 
 **何时用：**
 - "粘个 GitHub URL 装个插件" → `cc-plugin install owner/repo`

@@ -562,8 +562,8 @@ describe('Task Center UX refinements', () => {
   it('shows the canonical Task path with a home-relative prefix and no redundant heading', async () => {
     const taskWithDocs = task({
       docs: {
-        dir: '/Users/zhihu/.myagents/tasks/task-1',
-        taskMd: '/Users/zhihu/.myagents/tasks/task-1/task.md',
+        dir: '/Users/zhihu/.agenteam/tasks/task-1',
+        taskMd: '/Users/zhihu/.agenteam/tasks/task-1/task.md',
       },
     });
 
@@ -579,12 +579,12 @@ describe('Task Center UX refinements', () => {
 
     expect(
       await screen.findByRole('button', {
-        name: '~/.myagents/tasks/task-1/task.md',
+        name: '~/.agenteam/tasks/task-1/task.md',
       }),
     ).toBeInTheDocument();
     expect(screen.queryByText('task.md · 执行 Prompt')).not.toBeInTheDocument();
     expect(
-      screen.queryByText('/Users/zhihu/.myagents/tasks/task-1/task.md'),
+      screen.queryByText('/Users/zhihu/.agenteam/tasks/task-1/task.md'),
     ).not.toBeInTheDocument();
   });
 

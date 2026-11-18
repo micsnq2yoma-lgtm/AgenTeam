@@ -185,7 +185,7 @@ rg -n "ERROR|WARN|auth error|401|403|429|terminal_reason|AppErrorBoundary|extern
 
 ## 安全边界
 
-- 不读取 `~/.myagents/credentials/`、Claude/Codex 等供应商 credential home、Agent 网络私钥或系统 Keychain；停用集成留下的凭据同样受保护。
+- 不读取 `~/.agenteam/credentials/`、Claude/Codex 等供应商 credential home、Agent 网络私钥或系统 Keychain；停用集成留下的凭据同样受保护。
 - 不要求用户把 API Key/Token 发进持久对话；引导使用产品受保护输入入口。
 - 不直接编辑 Session、Project、Task、Goal、Space 内部 store。
 - 不把完整日志、用户文件内容、大 base64 或可识别个人路径放进 Issue。

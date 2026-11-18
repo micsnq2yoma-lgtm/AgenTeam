@@ -5,7 +5,7 @@ description: 把用户的可复用需求封装成标准化的 Agent-CLI 工具�
 
 # Tool Creator — 创建并注册 Agent-CLI 工具
 
-你正在 MyAgents 里运行。MyAgents 有一个**工具注册表**（`~/.myagents/tools/`）：注册进去的 CLI 工具会被投放到 PATH（`~/.myagents/bin/`），它的 description 会自动注入所有未来会话的 system prompt——**未来的 AI（包括别的 runtime 上的）会自己想起它、查它的用法、调用它**。用户也能在设置页「工具箱」里看到并管理它。
+你正在 MyAgents 里运行。MyAgents 有一个**工具注册表**（`~/.agenteam/tools/`）：注册进去的 CLI 工具会被投放到 PATH（`~/.agenteam/bin/`），它的 description 会自动注入所有未来会话的 system prompt——**未来的 AI（包括别的 runtime 上的）会自己想起它、查它的用法、调用它**。用户也能在设置页「工具箱」里看到并管理它。
 
 这个 skill 教你两件事：**写出一个对 Agent 友好的合格 CLI 工具**，以及**把它注册进去**。
 
@@ -33,7 +33,7 @@ description: 把用户的可复用需求封装成标准化的 Agent-CLI 工具�
 ### 目录布局
 
 ```
-~/.myagents/tools/<tool-name>/
+~/.agenteam/tools/<tool-name>/
 ├── tool.json      # manifest（注册时被读取校验）
 └── run.mjs        # 入口，Node 单文件
 ```
@@ -52,7 +52,7 @@ description: 把用户的可复用需求封装成标准化的 Agent-CLI 工具�
 }
 ```
 
-- `name`：kebab-case，3–30 字符。**起名避开常见系统命令**（`curl`、`jq`、`git`、`node`…）——`~/.myagents/bin` 在 PATH 里排在系统路径之前，重名会遮蔽系统命令，注册时会被直接打回。加领域前缀最稳妥（`md-merge` 而不是 `merge`）。
+- `name`：kebab-case，3–30 字符。**起名避开常见系统命令**（`curl`、`jq`、`git`、`node`…）——`~/.agenteam/bin` 在 PATH 里排在系统路径之前，重名会遮蔽系统命令，注册时会被直接打回。加领域前缀最稳妥（`md-merge` 而不是 `merge`）。
 - `envKeys`：工具需要的环境变量名列表（API key 等）。
 - `deps`：依赖的外部二进制（`ffmpeg` 等），没有就空数组。
 
@@ -136,7 +136,7 @@ node run.mjs <真实参数>     # 一次真实调用：stdout 干净？exit code
 ## 第 5 步：注册 + 告知
 
 ```bash
-myagents tool add ~/.myagents/tools/<tool-name>     # 校验 manifest、投 shim、进注册表
+myagents tool add ~/.agenteam/tools/<tool-name>     # 校验 manifest、投 shim、进注册表
 myagents tool env <tool-name> set API_KEY=<value>    # 原型 B：设密钥（让用户提供，绝不编造）
 myagents tool list                                   # 确认出现在清单里
 ```
@@ -149,7 +149,7 @@ myagents tool list                                   # 确认出现在清单里
 
 注册的工具对**当前 session 之外**的会话在它们下次启动时生效；你自己刚写完它，本 session 直接用就行。
 
-如果 `myagents tool --help` 报 unknown command：当前 app 版本还没有注册机。把工具完整写好放在 `~/.myagents/tools/<name>/`，告知用户"工具已就绪，等应用更新后运行 `myagents tool add` 注册"。
+如果 `myagents tool --help` 报 unknown command：当前 app 版本还没有注册机。把工具完整写好放在 `~/.agenteam/tools/<name>/`，告知用户"工具已就绪，等应用更新后运行 `myagents tool add` 注册"。
 
 ## 速查：完整流程
 

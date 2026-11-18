@@ -12,7 +12,7 @@ import {
   type GlobalSkillInventorySnapshot,
 } from '../global-skill-inventory';
 
-const MYAGENTS_USER_DIR = '.myagents';
+const MYAGENTS_USER_DIR = '.agenteam';
 
 /**
  * Get the MyAgents user directory path.

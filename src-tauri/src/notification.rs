@@ -499,7 +499,7 @@ pub(crate) fn submit_session_completion<R: Runtime>(
 /// when the target may need to open a session that has no live Tab yet.
 ///
 /// Sound is gated by the `notificationSound` user preference, read disk-first
-/// from `~/.myagents/config.json` (defaults to enabled if missing). The
+/// from `~/.agenteam/config.json` (defaults to enabled if missing). The
 /// preference flows through to the platform-specific sound API:
 ///   - Windows: `Toast::sound(None)` for silent, `Sound::Default` for default.
 ///   - macOS: `NSUserNotificationDefaultSoundName` (default mac chime).
@@ -660,7 +660,7 @@ fn show_linux_toast<R: Runtime>(
     Ok(())
 }
 
-/// User notification preferences read from `~/.myagents/config.json`.
+/// User notification preferences read from `~/.agenteam/config.json`.
 ///
 /// Both fields default to `true` (fail-open) when the config file is missing
 /// or unparseable — silently disabling notifications because we couldn't read

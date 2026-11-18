@@ -98,7 +98,7 @@ node "${PROJECT_DIR}/scripts/prepare-cliproxy.mjs" "$CLIPROXY_HOST_PLATFORM"
 # SIGKILL(-9) 防止 macOS Automatic Termination 自动重启被杀的 .app。
 if [ "$CLIPROXY_BUILD_ONLY" != true ]; then
 echo -e "${BLUE}[准备] 杀死残留进程...${NC}"
-LOCK_FILE="$HOME/.myagents/app.lock"
+LOCK_FILE="$HOME/.agenteam/app.lock"
 if [ -f "$LOCK_FILE" ]; then
     OLD_PID=$(cat "$LOCK_FILE" 2>/dev/null)
     # Validate PID is a positive integer before using it with kill

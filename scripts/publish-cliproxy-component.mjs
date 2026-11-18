@@ -74,9 +74,9 @@ export function assertPublicationRevision(previous, incoming) {
 }
 
 export function verifyManifestSignature(content, wrapped) {
-  const config = JSON.parse(readFileSync(join(repo, 'src-tauri/tauri.conf.json'), 'utf8'));
-  const publicKey = Buffer.from(config.plugins.updater.pubkey, 'base64').toString('utf8').split(/\r?\n/).find(line => line.startsWith('RW'));
-  if (!publicKey) throw new Error('The existing updater trust root is missing');
+  const key = readFileSync(join(repo, 'src-tauri/upstream-resources.pub'), 'utf8').trim();
+  const publicKey = Buffer.from(key, 'base64').toString('utf8').split(/\r?\n/).find(line => line.startsWith('RW'));
+  if (!publicKey) throw new Error('The existing resource trust root is missing');
   const scratch = mkdtempSync(join(tmpdir(), 'myagents-cliproxy-verify-'));
   try {
     writeFileSync(join(scratch, 'manifest'), content);

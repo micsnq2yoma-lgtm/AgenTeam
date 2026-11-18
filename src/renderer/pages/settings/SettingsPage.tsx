@@ -6163,10 +6163,10 @@ export default function Settings({
                       Website
                     </p>
                     <ExternalLink
-                      href="https://myagents.io"
+                      href={MYAGENTS_GITHUB_URL}
                       className="mt-1 block text-[var(--accent)] hover:underline"
                     >
-                      myagents.io
+                      AgenTeam
                     </ExternalLink>
                   </div>
                   <div>
@@ -6188,7 +6188,7 @@ export default function Settings({
                       href={MYAGENTS_GITHUB_URL}
                       className="mt-1 block text-[var(--accent)] hover:underline"
                     >
-                      github.com/hAcKlyc/MyAgents
+                      github.com/micsnq2yoma-lgtm/AgenTeam
                     </ExternalLink>
                   </div>
                 </div>

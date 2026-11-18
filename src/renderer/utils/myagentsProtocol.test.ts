@@ -42,8 +42,8 @@ describe('myagents-resource protocol projection', () => {
     expect(canonicalizeLegacyMyAgentsResourceUrl('myagents://tool-attachment/s/t/file.png')).toBe(
       'myagents-resource://tool-attachment/s/t/file.png',
     );
-    expect(canonicalizeLegacyMyAgentsResourceUrl('myagents://open/v1/spaces/a/issues/b')).toBe(
-      'myagents://open/v1/spaces/a/issues/b',
+    expect(canonicalizeLegacyMyAgentsResourceUrl('agenteam://open/v1/spaces/a/issues/b')).toBe(
+      'agenteam://open/v1/spaces/a/issues/b',
     );
   });
 });

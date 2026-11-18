@@ -4,7 +4,7 @@
 // the async URI scheme handler in `src-tauri/src/attachment_protocol.rs`
 // (`myagents-resource://...` on macOS/Linux,
 // `http://myagents-resource.localhost/...` on
-// Windows). The handler serves bytes from `~/.myagents/attachments/<rel>`
+// Windows). The handler serves bytes from `~/.agenteam/attachments/<rel>`
 // through the WebView resource pipeline. Zero JSON round-trip, zero base64
 // bloat, zero main-thread read.
 //

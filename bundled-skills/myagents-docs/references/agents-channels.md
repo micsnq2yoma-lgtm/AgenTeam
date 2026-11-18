@@ -80,7 +80,7 @@ Task 的执行 Session 与通知目标分别配置。通知按 Channel + session
 - 能修复的配置问题修复并验证
 - 确认产品 Bug 或功能建议后，经用户确认整理并提交 Issue
 
-小助理不是用户业务 Workspace 的长期 Agent，也不应把 `~/.myagents` 内部数据目录当普通项目随意改写。
+小助理不是用户业务 Workspace 的长期 Agent，也不应把 `~/.agenteam` 内部数据目录当普通项目随意改写。
 
 ## 桌面宠物 / 悬浮窗
 

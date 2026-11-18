@@ -8,15 +8,15 @@ import {
 
 describe('npm prefix env utilities', () => {
   it('builds the MyAgents npm global prefix and bin dir per platform', () => {
-    expect(getMyAgentsNpmGlobalPrefix('/Users/tester', 'darwin')).toBe('/Users/tester/.myagents/npm-global');
-    expect(getMyAgentsNpmGlobalBinDir('/Users/tester', 'darwin')).toBe('/Users/tester/.myagents/npm-global/bin');
+    expect(getMyAgentsNpmGlobalPrefix('/Users/tester', 'darwin')).toBe('/Users/tester/.agenteam/npm-global');
+    expect(getMyAgentsNpmGlobalBinDir('/Users/tester', 'darwin')).toBe('/Users/tester/.agenteam/npm-global/bin');
 
-    expect(getMyAgentsNpmGlobalPrefix('C:\\Users\\tester', 'win32')).toMatch(/C:[/\\]Users[/\\]tester[/\\]\.myagents[/\\]npm-global/);
-    expect(getMyAgentsNpmGlobalBinDir('C:\\Users\\tester', 'win32')).toMatch(/C:[/\\]Users[/\\]tester[/\\]\.myagents[/\\]npm-global/);
+    expect(getMyAgentsNpmGlobalPrefix('C:\\Users\\tester', 'win32')).toMatch(/C:[/\\]Users[/\\]tester[/\\]\.agenteam[/\\]npm-global/);
+    expect(getMyAgentsNpmGlobalBinDir('C:\\Users\\tester', 'win32')).toMatch(/C:[/\\]Users[/\\]tester[/\\]\.agenteam[/\\]npm-global/);
   });
 
   it('scrubs only npm prefix variables that point at the MyAgents prefix', () => {
-    const prefix = '/Users/tester/.myagents/npm-global';
+    const prefix = '/Users/tester/.agenteam/npm-global';
     const env: NodeJS.ProcessEnv = {
       npm_config_prefix: `${prefix}/`,
       NPM_CONFIG_PREFIX: '/Users/tester/.npm-global',

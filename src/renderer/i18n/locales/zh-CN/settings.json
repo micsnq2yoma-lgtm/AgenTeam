@@ -783,7 +783,7 @@
       "conflictMessage": "以下 {{count}} 个 Agent 已存在，请选择处理方式：",
       "skipExisting": "跳过已存在",
       "overwriteAll": "全部覆盖",
-      "storageHint": "用户 Agent 存储在 ~/.myagents/agents/ 目录下，对所有项目生效"
+      "storageHint": "用户 Agent 存储在 ~/.agenteam/agents/ 目录下，对所有项目生效"
     },
     "agentDetail": {
       "inheritModel": "继承主模型 (inherit)",
@@ -919,7 +919,7 @@
       "emptyUserSkills": "还没有用户技能",
       "userCommandsTitle": "用户指令",
       "emptyUserCommands": "还没有用户指令",
-      "userStorageHint": "用户技能和指令存储在 ~/.myagents/ 目录下，对所有项目生效"
+      "userStorageHint": "用户技能和指令存储在 ~/.agenteam/ 目录下，对所有项目生效"
     },
     "skillDialogs": {
       "namePlaceholder": "例如：my-skill",

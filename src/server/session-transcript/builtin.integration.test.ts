@@ -12,7 +12,7 @@ vi.mock('os', async original => ({ ...await original<typeof import('os')>(), hom
 vi.mock('../utils/fs-utils', async original => {
   const actual = await original<typeof import('../utils/fs-utils')>();
   return { ...actual, ensureDirSync: (...args: Parameters<typeof actual.ensureDirSync>) => {
-    if (state.failProductIo && String(args[0]).endsWith(join('.myagents', 'sessions'))) {
+    if (state.failProductIo && String(args[0]).endsWith(join('.agenteam', 'sessions'))) {
       throw Object.assign(new Error('product directory denied'), { code: 'EACCES' });
     }
     return actual.ensureDirSync(...args);
@@ -21,11 +21,11 @@ vi.mock('../utils/fs-utils', async original => {
 vi.mock('node:fs/promises', async original => {
   const actual = await original<typeof import('node:fs/promises')>();
   return { ...actual, mkdir: async (...args: Parameters<typeof actual.mkdir>) => {
-    if (state.publicationGate && String(args[0]).endsWith(join('.myagents', 'sessions-v2'))) {
+    if (state.publicationGate && String(args[0]).endsWith(join('.agenteam', 'sessions-v2'))) {
       state.publicationBlocked = true;
       await state.publicationGate;
     }
-    if (state.failProductIo && String(args[0]).endsWith(join('.myagents', 'sessions-v2'))) {
+    if (state.failProductIo && String(args[0]).endsWith(join('.agenteam', 'sessions-v2'))) {
       return Promise.reject(Object.assign(new Error('product directory denied'), { code: 'EACCES' }));
     }
     return actual.mkdir(...args);
@@ -382,7 +382,7 @@ describe('builtin V2 execution independent of product storage', () => {
     }
     const result = await reset;
     expect(result.success).toBe(true);
-    const disk = JSON.parse(await readFile(join(state.home, '.myagents', 'sessions.json'), 'utf8'));
+    const disk = JSON.parse(await readFile(join(state.home, '.agenteam', 'sessions.json'), 'utf8'));
     expect(disk).toContainEqual(expect.objectContaining({ id: result.sessionId, agentDir: workspace, model: 'configured-model', providerId: 'configured-provider', configSnapshotAt: expect.any(String) }));
     expect(agent.getMessages()).toHaveLength(0);
   });
@@ -906,7 +906,7 @@ describe('builtin V2 execution independent of product storage', () => {
     await mkdir(workspace);
     const source = await store.createSession(workspace, { runtime: 'builtin' });
     const { createSessionMetadata } = await import('../types/session');
-    await mkdir(join(state.home, '.myagents'), { recursive: true });
+    await mkdir(join(state.home, '.agenteam'), { recursive: true });
     const branch = createSessionMetadata(workspace, { runtime: 'builtin', forkFrom: { sourceSessionId: source.id, messageUuid: 'native-a' } });
     await store.publishForkSession(branch, [
       { id: 'u', role: 'user', content: 'question', timestamp: 't', sdkUuid: 'native-u' },
@@ -932,7 +932,7 @@ describe('builtin V2 execution independent of product storage', () => {
     await mkdir(workspace);
     const source = await store.createSession(workspace, { runtime: 'builtin' });
     const { createSessionMetadata } = await import('../types/session');
-    await mkdir(join(state.home, '.myagents'), { recursive: true });
+    await mkdir(join(state.home, '.agenteam'), { recursive: true });
     const branch = createSessionMetadata(workspace, {
       runtime: 'builtin',
       forkFrom: { sourceSessionId: source.id, messageUuid: 'native-a2' },

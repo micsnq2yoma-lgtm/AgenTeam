@@ -124,7 +124,7 @@ async function findAvailablePath(dir: string, name: string): Promise<string> {
 
 async function resolveDefaultParentDir(): Promise<string> {
   try {
-    return await join(await homeDir(), '.myagents', 'projects');
+    return await join(await homeDir(), '.agenteam', 'projects');
   } catch {
     return '';
   }

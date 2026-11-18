@@ -22,7 +22,7 @@ vi.mock('@tauri-apps/api/core', () => tauriCoreMocks);
 const mocks = vi.hoisted(() => {
   const project = {
     id: 'helper-project',
-    path: '/Users/me/.myagents',
+    path: '/Users/me/.agenteam',
     displayName: 'MA Helper',
     agentId: 'helper-agent',
   };
@@ -2602,15 +2602,15 @@ describe('App helper launch', () => {
       if (command === 'cmd_record_discussion_context') {
         return {
           documentPath:
-            '/Users/me/.myagents/records/2026-08/record-audio/content.md',
+            '/Users/me/.agenteam/records/2026-08/record-audio/content.md',
           audioSources: [
             {
               track: 'microphone',
-              path: '/Users/me/.myagents/records/2026-08/record-audio/audio/microphone.opus',
+              path: '/Users/me/.agenteam/records/2026-08/record-audio/audio/microphone.opus',
             },
             {
               track: 'system',
-              path: '/Users/me/.myagents/records/2026-08/record-audio/audio/system.opus',
+              path: '/Users/me/.agenteam/records/2026-08/record-audio/audio/system.opus',
             },
           ],
         };
@@ -2664,13 +2664,13 @@ describe('App helper launch', () => {
 
     const prompt = composeQueryReminder({ visibleText: initial?.text ?? '', primaryContext: initial?.primaryContext });
     expect(prompt).toContain(
-      'sourceRecordDocumentPath: /Users/me/.myagents/records/2026-08/record-audio/content.md',
+      'sourceRecordDocumentPath: /Users/me/.agenteam/records/2026-08/record-audio/content.md',
     );
     expect(prompt).toContain(
-      '- microphone: /Users/me/.myagents/records/2026-08/record-audio/audio/microphone.opus',
+      '- microphone: /Users/me/.agenteam/records/2026-08/record-audio/audio/microphone.opus',
     );
     expect(prompt).toContain(
-      '- system: /Users/me/.myagents/records/2026-08/record-audio/audio/system.opus',
+      '- system: /Users/me/.agenteam/records/2026-08/record-audio/audio/system.opus',
     );
     expect(prompt).toContain(
       '请完整读取 sourceRecordDocumentPath 指向的录音文稿',

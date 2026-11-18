@@ -2,7 +2,7 @@
 //!
 //! Tauri owns OS path reads. For image drops that should remain visual
 //! attachments, copy bytes from the external path into the app-owned
-//! `~/.myagents/attachments/<session>/` store and return only a relative ref
+//! `~/.agenteam/attachments/<session>/` store and return only a relative ref
 //! to the renderer. The renderer then sends the ref to Sidecar instead of
 //! pushing large base64 through IPC/JSON.
 
@@ -26,7 +26,7 @@ pub struct PreparedUserImageAttachment {
     pub name: String,
     pub mime_type: String,
     pub size_bytes: u64,
-    /// Relative path under `~/.myagents/attachments/`, suitable for
+    /// Relative path under `~/.agenteam/attachments/`, suitable for
     /// `myagents-resource://attachment/<relativePath>`.
     pub relative_path: String,
 }

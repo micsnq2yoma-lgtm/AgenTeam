@@ -112,7 +112,7 @@ export interface SystemPromptOptions {
    */
   cliToolsEnabled?: boolean;
   /**
-   * Include user-registered CLI tools from ~/.myagents/tools/registry.json in
+   * Include user-registered CLI tools from ~/.agenteam/tools/registry.json in
    * the prompt. Separate from `cliToolsEnabled` because Task / Record / IM
    * media are stable product CLI capabilities, while the user tool registry is
    * an experimental feature gate.

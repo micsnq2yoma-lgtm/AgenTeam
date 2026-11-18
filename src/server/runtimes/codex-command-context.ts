@@ -125,11 +125,11 @@ function managedCodexPlatform(): string | null {
 }
 
 export function getManagedCodexHome(): string {
-  return join(homedir(), '.myagents', 'codex');
+  return join(homedir(), '.agenteam', 'codex');
 }
 
 function getMyAgentsCliExecutablePath(): string {
-  return join(homedir(), '.myagents', 'bin', process.platform === 'win32' ? 'myagents.cmd' : 'myagents');
+  return join(homedir(), '.agenteam', 'bin', process.platform === 'win32' ? 'myagents.cmd' : 'myagents');
 }
 
 function codexRuleString(value: string): string {
@@ -178,7 +178,7 @@ export function ensureManagedCodexRules(): void {
 }
 
 export function getManagedCodexRuntimeRoot(): string {
-  return join(homedir(), '.myagents', 'runtimes', 'codex');
+  return join(homedir(), '.agenteam', 'runtimes', 'codex');
 }
 
 function managedCodexInstallDir(platform: string, version = MANAGED_CODEX_REQUIRED_RUNTIME.version): string {

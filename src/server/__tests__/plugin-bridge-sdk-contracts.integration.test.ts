@@ -30,7 +30,7 @@ describe('SDK temp paths — executable contracts across public subpaths', () =>
       const legacy = await sdk('infra-runtime');
       expect(current.resolvePreferredOpenClawTmpDir).toBe(legacy.resolvePreferredOpenClawTmpDir);
       const root = current.resolvePreferredOpenClawTmpDir();
-      expect(root).toBe(path.join(scratch, '.myagents', 'tmp'));
+      expect(root).toBe(path.join(scratch, '.agenteam', 'tmp'));
       // The exact 2.4.10 import-time operation that failed before registration.
       expect(path.join(root, 'weixin/media/outbound-temp')).toContain('outbound-temp');
       const log = path.join(root, 'openclaw-test.log');
@@ -135,7 +135,7 @@ describe('SDK migration preserves Bridge owners and legacy entry points', () => 
     expect(legacy.loadConfig()).toEqual(getOpenClawConfigSnapshot());
     expect(legacy.loadConfig()).toMatchObject({ updated: 'now', channels: { sample: { enabled: true } } });
     expect(existsSync(path.join(scratch, '.openclaw'))).toBe(false);
-    expect(existsSync(path.join(scratch, '.myagents', 'config.json'))).toBe(false);
+    expect(existsSync(path.join(scratch, '.agenteam', 'config.json'))).toBe(false);
   });
 
   it('serializes async mutations and recovers after a rejected callback', async () => {

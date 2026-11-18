@@ -62,7 +62,7 @@ describe('DSH product Browser capability lifecycle', () => {
     fixture.request.mockReset().mockImplementation(async (method: string, params: DshRpcObject) => {
       switch (method) {
         case 'extension/replace': {
-          const registry = new DshAttachmentRegistry(dshSessionOwnedPaths(join(fixture.home, '.myagents'), 'product-browser').attachmentRoot);
+          const registry = new DshAttachmentRegistry(dshSessionOwnedPaths(join(fixture.home, '.agenteam'), 'product-browser').attachmentRoot);
           await registry.initialize();
           const candidate = await registry.readJson(params.snapshotAttachment as { attachmentId: string; mimeType: string; sizeBytes: number; sha256: string }) as DshRpcObject;
           const revision = String(candidate.revision);

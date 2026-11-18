@@ -7,7 +7,7 @@
 ## Ground truth
 
 - MyAgents 用统一 `ToolAttachment[]` 管线跨 Runtime 渲染媒体，不应依赖某个工具的专用 React 卡片。
-- Sidecar 归档路径形如 `~/.myagents/generated/tool-attachments/<sessionId>/<turnId>/`；中间 namespace 在部分来源中会使用 toolUseId。报告时以实际路径和事件字段为准，不臆造二者相等。
+- Sidecar 归档路径形如 `~/.agenteam/generated/tool-attachments/<sessionId>/<turnId>/`；中间 namespace 在部分来源中会使用 toolUseId。报告时以实际路径和事件字段为准，不臆造二者相等。
 - 部分工具把稳定产物写到 `<workspace>/myagents_files/<tool>/`；外部 Runtime 也可能先返回原始 `savedPath`，再由当前 Session 安全归档/引用。
 - 流程可能先发 placeholder，再通过 `chat:tool-attachment-update` 以 `(toolUseId, pendingId)` 替换成真实 attachment。
 - attachment endpoint/registry 归当前 Session owner Sidecar。不要拿另一个 Session 的文件 URL 验证当前 Session。
@@ -18,7 +18,7 @@
 先从诊断信封拿到实际 Workspace 与 Session ID，再在对应位置检查；不要把小助理自己的 cwd 当成用户 Workspace。
 
 ```bash
-find <HOME>/.myagents/generated/tool-attachments/<session-id> -maxdepth 3 -type f 2>/dev/null | tail -40
+find <HOME>/.agenteam/generated/tool-attachments/<session-id> -maxdepth 3 -type f 2>/dev/null | tail -40
 find <absolute-workspace-path>/myagents_files -maxdepth 4 -type f 2>/dev/null | tail -40
 rg -n "tool-attachment|ToolAttachment|chat:tool-attachment-update|pendingId|imageGeneration|image_generation|savedPath|sourcePath|ToolAttachmentGallery|myagents-resource://|myagents://|error://|rejected_path|too_large|unsupported_url" ./logs/unified-*.log | node .claude/skills/support/scripts/redact-log-output.mjs | tail -200
 rg -n "\\[AppErrorBoundary\\]|\\[REACT\\] \\[ERROR\\]" ./logs/unified-*.log | node .claude/skills/support/scripts/redact-log-output.mjs | tail -80

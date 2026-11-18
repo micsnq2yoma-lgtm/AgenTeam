@@ -23,9 +23,9 @@ describe('Markdown web links', () => {
   });
 
   it.each([
-    'myagents://open/v1/tasks/task_1/comments/comment-2',
-    'myagents://open/v1/tasks/abcd-1234/comments/123',
-    'myagents://open/v1/tasks/old_task/comments/task_comment-456',
+    'agenteam://open/v1/tasks/task_1/comments/comment-2',
+    'agenteam://open/v1/tasks/abcd-1234/comments/123',
+    'agenteam://open/v1/tasks/old_task/comments/task_comment-456',
   ])('sends a validated app intent for %s', href => {
     const received: unknown[] = [];
     const handler = (event: Event) => received.push((event as CustomEvent).detail);

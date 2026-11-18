@@ -631,12 +631,12 @@ const DECORATIVE_TEXT_MAX_LENGTH = 5000;
  * This avoids setting CLAUDE_CONFIG_DIR (which would break Keychain credential lookup).
  *
  * Skills (directories):
- * - Creates symlinks for globally enabled skills: <project>/.claude/skills/<name> → ~/.myagents/skills/<name>
+ * - Creates symlinks for globally enabled skills: <project>/.claude/skills/<name> → ~/.agenteam/skills/<name>
  * - Removes links disabled by the global skills-config (not project selection)
  * - Does NOT touch real (non-symlink) skill directories in the project
  *
  * Commands (.md files):
- * - Creates symlinks for all commands: <project>/.claude/commands/<name>.md → ~/.myagents/commands/<name>.md
+ * - Creates symlinks for all commands: <project>/.claude/commands/<name>.md → ~/.agenteam/commands/<name>.md
  * - Does NOT touch real (non-symlink) command files in the project
  *
  * Called at session startup (startStreamingSession) and after skill/command CRUD operations.
@@ -4066,7 +4066,7 @@ function checkMcpToolPermission(toolName: string, server?: McpServerProvenance):
  *
  * We exclude 'user' because:
  * - 'user' reads from ~/.claude/ (Claude CLI's directory, not ours)
- * - Our product uses ~/.myagents/ for user-level config
+ * - Our product uses ~/.agenteam/ for user-level config
  * - Setting CLAUDE_CONFIG_DIR to redirect would break Anthropic subscription OAuth
  *   (SDK derives Keychain service names from CLAUDE_CONFIG_DIR path hash)
  */
@@ -6067,7 +6067,7 @@ const WINDOWS_UTF8_BASH_ENV_CONTENT = [
 
 function ensureWindowsUtf8BashEnvScript(home: string): string | undefined {
   if (!home) return undefined;
-  const scriptDir = resolve(home, '.myagents', 'runtime');
+  const scriptDir = resolve(home, '.agenteam', 'runtime');
   const scriptPath = resolve(scriptDir, WINDOWS_UTF8_BASH_ENV_FILENAME);
   try {
     ensureDirSync(scriptDir);

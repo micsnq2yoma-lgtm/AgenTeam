@@ -16,7 +16,7 @@ metadata:
 ## 工作边界
 
 - 安装独立于用户项目的本机工具、CLI 或运行环境；不要改动用户项目的依赖清单、锁文件或源码。
-- 当前工作区 `~/.myagents/` 是应用数据目录，不是源码构建目录。需要 clone、解压或编译时使用独立临时目录。
+- 当前工作区 `~/.agenteam/` 是应用数据目录，不是源码构建目录。需要 clone、解压或编译时使用独立临时目录。
 - MCP definition 由 MyAgents 的工具配置流程安装；Skill、Plugin 与 App 更新也使用各自的产品入口。
 - 本 Skill 不写 Agent-CLI Registry，也不创建额外的 installed receipt。结果在当前对话中交付即可。
 

@@ -240,13 +240,13 @@ pub fn with_sync_log_context<R>(ctx: LogContext, f: impl FnOnce() -> R) -> R {
     })
 }
 
-/// Get logs directory path (~/.myagents/logs/)
+/// Get logs directory path (~/.agenteam/logs/)
 fn get_logs_dir() -> PathBuf {
     static LOGS_DIR: OnceLock<PathBuf> = OnceLock::new();
     LOGS_DIR
         .get_or_init(|| {
             let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-            home.join(".myagents").join("logs")
+            home.join(".agenteam").join("logs")
         })
         .clone()
 }
@@ -430,7 +430,7 @@ fn format_line(entry: &LogEntry) -> String {
 /// Append log entry to unified log file (via buffered writer).
 const fn should_persist_logs() -> bool {
     // Rust unit tests share the developer's real HOME by default. Persisting
-    // their synthetic failures into ~/.myagents/logs makes production triage
+    // their synthetic failures into ~/.agenteam/logs makes production triage
     // indistinguishable from test activity. Test output still reaches the
     // normal Rust log capture; only the user-owned unified file sink is off.
     !cfg!(test)

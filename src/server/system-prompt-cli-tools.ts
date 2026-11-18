@@ -301,8 +301,8 @@ export function buildCliToolsAppend(
 
   // User-registered CLI tools — universal (PRD 0.2.36 cli_first_tool_registry).
   // Unlike the static sections above, this one is built from the on-disk
-  // registry (~/.myagents/tools/registry.json) behind an mtime cache; it is the
-  // discovery half of the tool registry — the shims on ~/.myagents/bin are the
+  // registry (~/.agenteam/tools/registry.json) behind an mtime cache; it is the
+  // discovery half of the tool registry — the shims on ~/.agenteam/bin are the
   // execution half. Empty registry → empty string → no section emitted.
   // Registry changes take effect at the next session start / pre-warm (system
   // prompts are immutable for a live session by design).

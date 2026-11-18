@@ -1,4 +1,4 @@
-//! Read-only access to `~/.myagents/skills-config.json`.
+//! Read-only access to `~/.agenteam/skills-config.json`.
 //!
 //! Used by the no-Sidecar Launcher picker. Project-level capability selection
 //! is intentionally not interpreted in Rust; Runtime admission is Node-owned.
@@ -27,7 +27,7 @@ struct AppConfigGate {
     cli_tool_registry_enabled: bool,
 }
 
-/// Read the user's disabled-skill list from `~/.myagents/skills-config.json`.
+/// Read the user's disabled-skill list from `~/.agenteam/skills-config.json`.
 /// Returns an empty list if the file is missing, unreadable, or malformed —
 /// safe default lets the caller continue without disabling anything.
 pub fn read_disabled_list(myagents_root: &Path) -> Vec<String> {
@@ -67,7 +67,7 @@ pub fn is_required_system_skill(name: &str) -> bool {
 }
 
 /// Read the experimental user-registered CLI tool registry gate from
-/// `~/.myagents/config.json`. Omitted/malformed/unreadable means disabled,
+/// `~/.agenteam/config.json`. Omitted/malformed/unreadable means disabled,
 /// matching the TypeScript `isCliToolRegistryEnabled()` helper.
 pub fn read_cli_tool_registry_enabled(myagents_root: &Path) -> bool {
     let path = myagents_root.join("config.json");

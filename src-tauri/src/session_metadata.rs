@@ -445,13 +445,13 @@ mod tests {
     #[test]
     fn projection_path_matching_is_structural_across_apfs_aliases() {
         assert!(is_session_projection_path(Path::new(
-            "/System/Volumes/Data/Users/alice/.myagents/sessions.json"
+            "/System/Volumes/Data/Users/alice/.agenteam/sessions.json"
         )));
         assert!(is_session_projection_path(Path::new(
-            "/System/Volumes/Data/Users/alice/.myagents/sessions/session-1.jsonl"
+            "/System/Volumes/Data/Users/alice/.agenteam/sessions/session-1.jsonl"
         )));
         assert!(!is_session_projection_path(Path::new(
-            "/Users/alice/.myagents/sessions.json.tmp"
+            "/Users/alice/.agenteam/sessions.json.tmp"
         )));
         assert!(!is_session_projection_path(Path::new(
             "/Users/alice/other/session-1.jsonl"

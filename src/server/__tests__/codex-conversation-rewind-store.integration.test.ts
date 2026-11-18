@@ -75,7 +75,7 @@ async function seedTranscript(sessionId: string, messages: SessionMessage[]): Pr
 }
 
 function writeIntent(sessionId: string, intent: PendingConversationMutation): void {
-  const path = join(testHome, '.myagents', 'sessions.json');
+  const path = join(testHome, '.agenteam', 'sessions.json');
   const sessions = JSON.parse(readFileSync(path, 'utf-8')) as SessionMetadata[];
   const index = sessions.findIndex(session => session.id === sessionId);
   sessions[index] = { ...sessions[index], pendingConversationMutation: intent };

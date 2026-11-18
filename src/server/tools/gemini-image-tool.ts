@@ -68,7 +68,7 @@ function getGeneratedDir(): string {
   const workspace = geminiImageConfig?.workspace;
   const dir = workspace
     ? join(workspace, 'myagents_files', 'generated_images')
-    : join(homedir(), '.myagents', 'generated');
+    : join(homedir(), '.agenteam', 'generated');
   if (!existsSync(dir)) {
     ensureDirSync(dir);
     if (workspace) ensureGitignorePattern(workspace, 'myagents_files/');
@@ -77,7 +77,7 @@ function getGeneratedDir(): string {
 }
 
 function getContextsDir(): string {
-  const dir = join(homedir(), '.myagents', 'image-contexts');
+  const dir = join(homedir(), '.agenteam', 'image-contexts');
   ensureDirSync(dir);
   return dir;
 }

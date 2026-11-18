@@ -1,7 +1,7 @@
 //! Codex-compatible desktop pet pack management.
 //!
 //! Runtime windows live in `floating_ball.rs`; this module owns filesystem
-//! concerns for user-installed pet packs under `~/.myagents/pets`.
+//! concerns for user-installed pet packs under `~/.agenteam/pets`.
 
 use futures_util::StreamExt;
 use serde::Serialize;

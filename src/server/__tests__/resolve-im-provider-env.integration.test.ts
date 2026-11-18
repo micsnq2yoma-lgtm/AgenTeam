@@ -22,7 +22,7 @@ const AGENT_WORKSPACE = '/tmp/agent-237';
 
 function writeConfig(config: Record<string, unknown>): void {
   writeFileSync(
-    join(scratch, '.myagents', 'config.json'),
+    join(scratch, '.agenteam', 'config.json'),
     JSON.stringify(config, null, 2),
     'utf-8',
   );
@@ -30,7 +30,7 @@ function writeConfig(config: Record<string, unknown>): void {
 
 beforeEach(() => {
   scratch = mkdtempSync(join(tmpdir(), 'myagents-im-provider-'));
-  const configDir = join(scratch, '.myagents');
+  const configDir = join(scratch, '.agenteam');
   mkdirSync(configDir, { recursive: true });
   prevHome = process.env.HOME;
   prevUserProfile = process.env.USERPROFILE;

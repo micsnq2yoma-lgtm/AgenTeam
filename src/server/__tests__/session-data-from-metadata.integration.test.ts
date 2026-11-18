@@ -41,7 +41,7 @@ describe('SessionStore bulk-read path', () => {
     const snapshot = await store.loadSessionTranscript(metadata.id);
     expect((await store.appendSessionMessages(metadata.id, snapshot.cursor, [message])).ok).toBe(true);
 
-    const sessionsPath = join(home, '.myagents', 'sessions.json');
+    const sessionsPath = join(home, '.agenteam', 'sessions.json');
     const persistedIndex = readFileSync(sessionsPath, 'utf-8');
     writeFileSync(sessionsPath, '[]', 'utf-8');
 

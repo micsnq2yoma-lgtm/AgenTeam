@@ -620,7 +620,7 @@ export interface WorkspaceTemplate {
   description: string; // Description (can be empty)
   icon?: string; // Phosphor icon ID (e.g. "sparkle") or emoji fallback; defaults to cube icon if absent
   isBuiltin: boolean; // true = preset template bundled with app
-  path?: string; // User template: absolute path under ~/.myagents/templates/
+  path?: string; // User template: absolute path under ~/.agenteam/templates/
   /** Product-level Agent defaults applied when creating a workspace from this template. */
   agentDefaults?: WorkspaceTemplateAgentDefaults;
 }
@@ -1097,7 +1097,7 @@ export interface AppConfig {
 
   // ===== CLI Tool Registry (PRD 0.2.36) =====
   // Per-tool environment variables (API keys etc.) for registered CLI tools
-  // (~/.myagents/tools/). Same shape as mcpServerEnv. The ~/.myagents/bin
+  // (~/.agenteam/tools/). Same shape as mcpServerEnv. The ~/.agenteam/bin
   // launcher shims read this at runtime, so env changes apply on next launch
   // without re-registration.
   cliToolEnv?: Record<string, Record<string, string>>;
@@ -1136,7 +1136,7 @@ export interface AppConfig {
 
   // ===== Claude Plugin Configuration (PRD 0.2.17) =====
   /** Installed Claude plugins. Each entry's installPath points at a directory
-   *  under ~/.myagents/plugins/<name>/ containing .claude-plugin/plugin.json.
+   *  under ~/.agenteam/plugins/<name>/ containing .claude-plugin/plugin.json.
    *  Disk is the source of truth; this is the index. */
   plugins?: import('./types/plugin').PluginEntry[];
   /** Global VISIBILITY gate keyed by PluginEntry.id ("<name>@local").

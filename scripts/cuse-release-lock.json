@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "version": "0.4.8",
+  "manifest": {
+    "url": "https://download.myagents.io/cuse/bundles/releases/v0.4.8/manifest.json",
+    "size": 1191,
+    "sha256": "4ad1a28c33f31b5d7522b42f3593e582868733d3de49bd9f2a07d16fb17fd955"
+  }
+}

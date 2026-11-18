@@ -142,7 +142,7 @@ pub struct FbScreenshot {
     pub window_title: Option<String>,
 }
 
-/// Persisted ball placement — `~/.myagents/floating_ball.json`.
+/// Persisted ball placement — `~/.agenteam/floating_ball.json`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FbPlacement {
@@ -167,7 +167,7 @@ impl Default for FbPlacement {
     }
 }
 
-/// Mirror of the renderer's gate fields in `~/.myagents/config.json`.
+/// Mirror of the renderer's gate fields in `~/.agenteam/config.json`.
 /// Read directly from disk (same pattern as `global_shortcut::load_config`)
 /// so startup doesn't depend on the frontend being mounted.
 #[derive(Debug, Clone)]

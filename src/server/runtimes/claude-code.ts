@@ -48,14 +48,14 @@ function buildMessageContent(text: string, images?: ResolvedImagePayload[]): str
 
 const HOOK_DIR = join(
   process.env.HOME || process.env.USERPROFILE || '/tmp',
-  '.myagents', 'tmp', 'cc-hooks',
+  '.agenteam', 'tmp', 'cc-hooks',
 );
 
 // System prompt tmp dir — separate from cc-hooks so the two concerns can be
 // cleaned independently.
 const SYSTEM_PROMPT_DIR = join(
   process.env.HOME || process.env.USERPROFILE || '/tmp',
-  '.myagents', 'tmp', 'cc-system-prompt',
+  '.agenteam', 'tmp', 'cc-system-prompt',
 );
 
 /**
@@ -143,7 +143,7 @@ process.stdin.resume();
 
 /**
  * Generate temporary hook settings + forwarder script for CC SessionStart hook.
- * Both files are written to ~/.myagents/tmp/cc-hooks/ (outside the project).
+ * Both files are written to ~/.agenteam/tmp/cc-hooks/ (outside the project).
  */
 export function buildSessionStartHookCommand(
   forwarderPath: string,

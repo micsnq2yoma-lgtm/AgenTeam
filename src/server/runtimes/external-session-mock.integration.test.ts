@@ -48,7 +48,7 @@ vi.mock('node:fs/promises', async (original) => {
     mkdir: (...args: Parameters<typeof actual.mkdir>) => {
       if (
         productBirthFault.deny &&
-        String(args[0]).endsWith(join('.myagents', 'sessions-v2'))
+        String(args[0]).endsWith(join('.agenteam', 'sessions-v2'))
       ) {
         return Promise.reject(
           Object.assign(new Error('product directory denied'), {
@@ -876,9 +876,9 @@ async function createHarness(
   vi.resetModules();
   ({ createSessionMetadata } = await import('../types/session'));
   const home = mkdtempSync(join(tmpdir(), 'myagents-external-mock-'));
-  mkdirSync(join(home, '.myagents'), { recursive: true });
+  mkdirSync(join(home, '.agenteam'), { recursive: true });
   for (const name of REQUIRED_SYSTEM_SKILLS) {
-    const skillDir = join(home, '.myagents', 'skills', name);
+    const skillDir = join(home, '.agenteam', 'skills', name);
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(
       join(skillDir, 'SKILL.md'),
@@ -887,7 +887,7 @@ async function createHarness(
   }
   if (options.config) {
     writeFileSync(
-      join(home, '.myagents', 'config.json'),
+      join(home, '.agenteam', 'config.json'),
       JSON.stringify(options.config),
     );
   }
@@ -1651,7 +1651,7 @@ describe('external SessionEngine with fake runtime', () => {
       const syncIo = vi
         .spyOn(fsUtils, 'ensureDirSync')
         .mockImplementation((...args) => {
-          if (String(args[0]).endsWith(join('.myagents', 'sessions')))
+          if (String(args[0]).endsWith(join('.agenteam', 'sessions')))
             throw Object.assign(new Error('product directory denied'), {
               code: 'EACCES',
             });
@@ -1761,7 +1761,7 @@ describe('external SessionEngine with fake runtime', () => {
     const syncIo = vi
       .spyOn(fsUtils, 'ensureDirSync')
       .mockImplementation((...args) => {
-        if (String(args[0]).endsWith(join('.myagents', 'sessions'))) {
+        if (String(args[0]).endsWith(join('.agenteam', 'sessions'))) {
           productTouches++;
           throw Object.assign(new Error('product directory denied'), {
             code: 'EACCES',
@@ -2543,7 +2543,7 @@ describe('external SessionEngine with fake runtime', () => {
     const workspacePath = join(harness.home, 'workspace');
     mkdirSync(workspacePath, { recursive: true });
     writeFileSync(
-      join(harness.home, '.myagents', 'config.json'),
+      join(harness.home, '.agenteam', 'config.json'),
       JSON.stringify({
         agents: [
           {
@@ -2564,7 +2564,7 @@ describe('external SessionEngine with fake runtime', () => {
       }),
     );
     writeFileSync(
-      join(harness.home, '.myagents', 'projects.json'),
+      join(harness.home, '.agenteam', 'projects.json'),
       JSON.stringify([
         {
           id: 'project-required-project-winners',
@@ -2793,7 +2793,7 @@ describe('external SessionEngine with fake runtime', () => {
     const workspacePath = join(harness.home, 'workspace');
     const globalSkill = join(
       harness.home,
-      '.myagents',
+      '.agenteam',
       'skills',
       'global-review',
     );
@@ -2846,7 +2846,7 @@ describe('external SessionEngine with fake runtime', () => {
     const workspacePath = join(harness.home, 'workspace');
     const globalSkill = join(
       harness.home,
-      '.myagents',
+      '.agenteam',
       'skills',
       'global-review',
     );
@@ -2900,13 +2900,13 @@ describe('external SessionEngine with fake runtime', () => {
     const workspacePath = join(harness.home, 'workspace');
     mkdirSync(workspacePath, { recursive: true });
     writeFileSync(
-      join(harness.home, '.myagents', 'config.json'),
+      join(harness.home, '.agenteam', 'config.json'),
       JSON.stringify({
         agents: [{ id: 'agent-managed-compact', path: workspacePath }],
       }),
     );
     writeFileSync(
-      join(harness.home, '.myagents', 'projects.json'),
+      join(harness.home, '.agenteam', 'projects.json'),
       JSON.stringify([
         {
           id: 'project-managed-compact',
@@ -2962,7 +2962,7 @@ describe('external SessionEngine with fake runtime', () => {
     const workspacePath = join(harness.home, 'workspace');
     const globalSkill = join(
       harness.home,
-      '.myagents',
+      '.agenteam',
       'skills',
       'optional-review',
     );
@@ -3013,7 +3013,7 @@ describe('external SessionEngine with fake runtime', () => {
     const workspacePath = join(harness.home, 'workspace');
     const globalSkill = join(
       harness.home,
-      '.myagents',
+      '.agenteam',
       'skills',
       'optional-warning',
     );
@@ -3480,7 +3480,7 @@ describe('external SessionEngine with fake runtime', () => {
     const workspacePath = join(harness.home, 'workspace');
     mkdirSync(workspacePath, { recursive: true });
     writeFileSync(
-      join(harness.home, '.myagents', 'config.json'),
+      join(harness.home, '.agenteam', 'config.json'),
       JSON.stringify({
         mcpEnabledServers: ['playwright'],
         agents: [
@@ -3493,7 +3493,7 @@ describe('external SessionEngine with fake runtime', () => {
       }),
     );
     writeFileSync(
-      join(harness.home, '.myagents', 'projects.json'),
+      join(harness.home, '.agenteam', 'projects.json'),
       JSON.stringify([
         {
           id: 'project-mcp-retry',
@@ -3513,7 +3513,7 @@ describe('external SessionEngine with fake runtime', () => {
       'MCP retry prewarm',
     );
     const configBefore = readFileSync(
-      join(harness.home, '.myagents', 'config.json'),
+      join(harness.home, '.agenteam', 'config.json'),
       'utf8',
     );
     const publishUnavailable = () => harness.runtime.emitForTest({
@@ -3601,7 +3601,7 @@ describe('external SessionEngine with fake runtime', () => {
       messages,
     );
     expect(
-      readFileSync(join(harness.home, '.myagents', 'config.json'), 'utf8'),
+      readFileSync(join(harness.home, '.agenteam', 'config.json'), 'utf8'),
     ).toBe(configBefore);
     expect(broadcastEvents).toContainEqual({
       event: 'chat:mcp-effective-snapshot',
@@ -4185,7 +4185,7 @@ describe('external SessionEngine with fake runtime', () => {
       readFileSync(
         join(
           harness.home,
-          '.myagents',
+          '.agenteam',
           'refs',
           nestedResultPayload.metadata?.largeValueRef?.id ?? '',
         ),
@@ -4206,7 +4206,7 @@ describe('external SessionEngine with fake runtime', () => {
       expect(
         JSON.parse(
           readFileSync(
-            join(harness.home, '.myagents', 'refs', refId!),
+            join(harness.home, '.agenteam', 'refs', refId!),
             'utf-8',
           ),
         ),
@@ -9571,7 +9571,7 @@ describe('external SessionEngine with fake runtime', () => {
     await harness.sessionStore.saveSessionMetadata(metadata);
     // A complete owned snapshot with a missing permission means the Runtime's
     // product default; it must not start following the Agent again.
-    writeFileSync(join(harness.home, '.myagents', 'config.json'), JSON.stringify({ agents: [{
+    writeFileSync(join(harness.home, '.agenteam', 'config.json'), JSON.stringify({ agents: [{
       id: 'changed-agent', name: 'Changed Agent', enabled: true, workspacePath,
       runtime: 'dsh', permissionMode: 'full-autonomous',
     }] }));
@@ -9749,7 +9749,7 @@ describe('external SessionEngine with fake runtime', () => {
     await harness.sessionStore.drainSessionTranscripts();
     const { readTranscriptFile } = await import('../session-transcript/file');
     const { transcriptMessages } = await import('../../shared/sessionTranscript');
-    const saved = await readTranscriptFile(join(harness.home, '.myagents', 'sessions-v2', `${sessionId}.jsonl`), sessionId);
+    const saved = await readTranscriptFile(join(harness.home, '.agenteam', 'sessions-v2', `${sessionId}.jsonl`), sessionId);
     assertImage(transcriptMessages(saved.projection));
   });
 
@@ -10398,7 +10398,7 @@ describe('external SessionEngine with fake runtime', () => {
       const sessionId = 'session-proxy-owner';
       const workspacePath = join(harness.home, 'workspace');
       writeFileSync(
-        join(harness.home, '.myagents', 'config.json'),
+        join(harness.home, '.agenteam', 'config.json'),
         JSON.stringify({
           agents: [
             {
@@ -10410,7 +10410,7 @@ describe('external SessionEngine with fake runtime', () => {
         }),
       );
       writeFileSync(
-        join(harness.home, '.myagents', 'projects.json'),
+        join(harness.home, '.agenteam', 'projects.json'),
         JSON.stringify([
           {
             id: 'proxy-owner-project',

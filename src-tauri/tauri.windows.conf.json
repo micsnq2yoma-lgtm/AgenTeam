@@ -1,5 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "mainBinaryName": "AgenTeam",
   "bundle": {
     "resources": {
       "../src-tauri/resources/cliproxy": "cliproxy",

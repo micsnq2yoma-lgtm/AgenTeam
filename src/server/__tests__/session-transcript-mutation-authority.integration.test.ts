@@ -23,11 +23,11 @@ function message(id: string, role: 'user' | 'assistant' = 'user'): SessionMessag
 }
 
 function transcriptPath(sessionId: string): string {
-  return join(testHome, '.myagents', 'sessions', `${sessionId}.jsonl`);
+  return join(testHome, '.agenteam', 'sessions', `${sessionId}.jsonl`);
 }
 
 function legacyTranscriptPath(sessionId: string): string {
-  return join(testHome, '.myagents', 'sessions', `${sessionId}.json`);
+  return join(testHome, '.agenteam', 'sessions', `${sessionId}.json`);
 }
 
 beforeAll(async () => {

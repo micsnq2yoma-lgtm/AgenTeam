@@ -3007,7 +3007,7 @@ async fn list_im_channels_handler() -> Json<serde_json::Value> {
     // Metadata reads must not run the startup reader's persistent migrations.
     let configured = dirs::home_dir()
         .and_then(|home| {
-            im::config_store::read_channel_discovery_configs(&home.join(".myagents/config.json"))
+            im::config_store::read_channel_discovery_configs(&home.join(".agenteam/config.json"))
                 .ok()
         })
         .unwrap_or_default();
@@ -3831,7 +3831,7 @@ async fn handle_bridge_message(
 // `actor` / `source` audit classification (PRD §10.2.1 caller-inference table):
 //
 // - `MYAGENTS_SESSION_ID` set in the CLI process → `actor=agent, source=cli`
-// - Otherwise (user terminal reading `~/.myagents/sidecar.port`) →
+// - Otherwise (user terminal reading `~/.agenteam/sidecar.port`) →
 //   `actor=user, source=cli`
 //
 // That classification happens in the CLI script itself (knows its own env)

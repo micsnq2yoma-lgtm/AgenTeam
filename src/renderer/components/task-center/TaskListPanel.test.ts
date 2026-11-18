@@ -5,11 +5,11 @@ import { shouldAddOrphanWorkspacePath } from './taskListPanelWorkspace';
 
 describe('TaskListPanel workspace orphan filter', () => {
   it('does not add orphan options for any registered project, including hidden projects', () => {
-    const hiddenMinoId = normalizeWorkspacePathIdentity('/Users/me/.myagents/projects/mino');
+    const hiddenMinoId = normalizeWorkspacePathIdentity('/Users/me/.agenteam/projects/mino');
     const knownProjectIds = new Set([hiddenMinoId]);
 
     expect(shouldAddOrphanWorkspacePath(
-      '/Users/me/.myagents/projects/mino',
+      '/Users/me/.agenteam/projects/mino',
       new Set(),
       knownProjectIds,
       new Set(),

@@ -37,7 +37,7 @@ function assertArtifactRoot(
   const output = canonicalizeExistingPrefix(
     resolve(
       workspace,
-      ".myagents",
+      ".agenteam",
       "browser-artifacts",
       safeSession || "session",
     ),

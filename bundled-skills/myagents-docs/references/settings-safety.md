@@ -46,7 +46,7 @@ Agent 运行环境选择已直接开放，不需要旧「更多 Agent Runtime」
 
 ## 本地数据边界
 
-MyAgents 的用户数据主要位于 `~/.myagents/`，包括配置、Session、Task、日志、附件、Skill、插件和云端本地状态。这个目录是应用数据库，不是普通 Workspace。
+MyAgents 的用户数据主要位于 `~/.agenteam/`，包括配置、Session、Task、日志、附件、Skill、插件和云端本地状态。这个目录是应用数据库，不是普通 Workspace。
 
 安全原则：
 

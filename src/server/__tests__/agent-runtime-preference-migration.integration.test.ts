@@ -24,7 +24,7 @@ beforeAll(async () => {
   previousUserProfile = process.env.USERPROFILE;
   process.env.HOME = testHome;
   process.env.USERPROFILE = testHome;
-  const myAgentsDir = join(testHome, ".myagents");
+  const myAgentsDir = join(testHome, ".agenteam");
   mkdirSync(myAgentsDir, { recursive: true });
   configPath = join(myAgentsDir, "config.json");
   writeFileSync(

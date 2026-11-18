@@ -22,13 +22,13 @@ describe('external runtime shell PATH fallback', () => {
     expect(paths).toContain(
       'C:\\Users\\tester\\AppData\\Local\\MyAgents\\nodejs',
     );
-    expect(paths).toContain('C:\\Users\\tester\\.myagents\\npm-global');
-    expect(paths).toContain('C:\\Users\\tester\\.myagents\\bin');
-    expect(paths.indexOf('C:\\Users\\tester\\.myagents\\bin')).toBeLessThan(
+    expect(paths).toContain('C:\\Users\\tester\\.agenteam\\npm-global');
+    expect(paths).toContain('C:\\Users\\tester\\.agenteam\\bin');
+    expect(paths.indexOf('C:\\Users\\tester\\.agenteam\\bin')).toBeLessThan(
       paths.indexOf('C:\\Users\\tester\\AppData\\Roaming\\npm'),
     );
-    expect(paths.indexOf('C:\\Users\\tester\\.myagents\\bin')).toBeLessThan(
-      paths.indexOf('C:\\Users\\tester\\.myagents\\npm-global'),
+    expect(paths.indexOf('C:\\Users\\tester\\.agenteam\\bin')).toBeLessThan(
+      paths.indexOf('C:\\Users\\tester\\.agenteam\\npm-global'),
     );
   });
 
@@ -57,11 +57,11 @@ describe('external runtime shell PATH fallback', () => {
       exists: () => false,
     });
 
-    expect(paths).toContain('/Users/tester/.myagents/npm-global/bin');
-    expect(paths).toContain('/Users/tester/.myagents/bin');
+    expect(paths).toContain('/Users/tester/.agenteam/npm-global/bin');
+    expect(paths).toContain('/Users/tester/.agenteam/bin');
     expect(
-      paths.indexOf('/Users/tester/.myagents/bin'),
-    ).toBeLessThan(paths.indexOf('/Users/tester/.myagents/npm-global/bin'));
+      paths.indexOf('/Users/tester/.agenteam/bin'),
+    ).toBeLessThan(paths.indexOf('/Users/tester/.agenteam/npm-global/bin'));
   });
 });
 

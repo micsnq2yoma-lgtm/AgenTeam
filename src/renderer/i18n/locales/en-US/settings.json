@@ -783,7 +783,7 @@
       "conflictMessage": "{{count}} Agent(s) already exist. Choose how to proceed:",
       "skipExisting": "Skip existing",
       "overwriteAll": "Overwrite all",
-      "storageHint": "User Agents are stored in ~/.myagents/agents/ and apply to all projects."
+      "storageHint": "User Agents are stored in ~/.agenteam/agents/ and apply to all projects."
     },
     "agentDetail": {
       "inheritModel": "Inherit main model (inherit)",
@@ -919,7 +919,7 @@
       "emptyUserSkills": "No user skills yet",
       "userCommandsTitle": "User Commands",
       "emptyUserCommands": "No user commands yet",
-      "userStorageHint": "User skills and commands are stored in ~/.myagents/ and apply to all projects."
+      "userStorageHint": "User skills and commands are stored in ~/.agenteam/ and apply to all projects."
     },
     "skillDialogs": {
       "namePlaceholder": "Example: my-skill",

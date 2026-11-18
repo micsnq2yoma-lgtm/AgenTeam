@@ -19,10 +19,7 @@
   myagents_node_runtime_removed:
 !macroend
 
-; Shared cleanup logic — kill all processes launched from our install directory,
-; plus orphan SDK/MCP processes that reference .myagents in their command line.
-; Uses ExecutablePath for install-dir processes (precise, matches the locked file)
-; and CommandLine for orphans (SDK/MCP may be system node, not our binary).
+; Stop processes backed by binaries inside this installation.
 !macro _MYAGENTS_KILL_PROCESSES
   DetailPrint "Cleaning up ${PRODUCTNAME} background processes..."
 
@@ -31,11 +28,6 @@
   ;    Uses ExecutablePath — the actual on-disk binary — so we won't false-positive
   ;    on processes that merely mention our path in their arguments.
   nsExec::ExecToLog 'powershell -NoProfile -Command "$ErrorActionPreference=\"SilentlyContinue\"; Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like \"$INSTDIR\*\" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"'
-
-  ; 2. Kill orphan SDK/MCP child processes that may use system node
-  ;    (their executable is NOT under $INSTDIR, but their CommandLine references .myagents)
-  nsExec::ExecToLog 'powershell -NoProfile -Command "$ErrorActionPreference=\"SilentlyContinue\"; Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like \"*claude-agent-sdk*\" -and $_.CommandLine -like \"*.myagents*\" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"'
-  nsExec::ExecToLog 'powershell -NoProfile -Command "$ErrorActionPreference=\"SilentlyContinue\"; Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like \"*.myagents\mcp\*\" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"'
 
   ; Brief wait for processes to fully terminate and release file locks
   Sleep 1500

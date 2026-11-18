@@ -1,5 +1,5 @@
 // ThoughtInput — compact freeform note input for Thought mode.
-// Writes through to ~/.myagents/thoughts/ via `cmd_thought_create`.
+// Writes through to ~/.agenteam/thoughts/ via `cmd_thought_create`.
 //
 // flomo-style inline tag editor: `#word ` as you type → `#word` renders
 // highlighted inline; typing `#` (or clicking the # toolbar button) opens

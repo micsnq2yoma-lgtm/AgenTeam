@@ -2841,7 +2841,7 @@ export async function handleReload(workspacePath?: string): Promise<AdminRespons
   // before mutating any in-memory state, so a scan failure doesn't leave the
   // caller with a half-applied reload (MCP pushed but agents stale).
   const home = getHomeDirOrNull();
-  const userAgentsBaseDir = home ? join(home, '.myagents', 'agents') : '';
+  const userAgentsBaseDir = home ? join(home, '.agenteam', 'agents') : '';
   const projAgentsDir = effectiveWorkspace
     ? join(effectiveWorkspace, '.claude', 'agents')
     : '';
@@ -3497,7 +3497,7 @@ Examples:
   myagents cc-plugin show my-plugin
   myagents cc-plugin uninstall my-plugin --purgeData
 
-Plugins land in ~/.myagents/plugins/<name>/ and are activated on next session
+Plugins land in ~/.agenteam/plugins/<name>/ and are activated on next session
 pre-warm (~1s). Different concept from OpenClaw channel plugins above —
 unrelated storage, unrelated semantics.`,
 
@@ -4179,7 +4179,7 @@ Published scripts may continue to use list/create. New Agent workflows use
 Use to render inline charts / SVG / dashboards in desktop Chat replies.
 IM bot sessions don't render widgets.`,
 
-  skill: `myagents skill — Manage MyAgents skills (user skills live under ~/.myagents/skills/)
+  skill: `myagents skill — Manage MyAgents skills (user skills live under ~/.agenteam/skills/)
 
 Commands:
   list [--verbose]           List skills; include normal admission details with --verbose [--workspace <path>]
@@ -4194,7 +4194,7 @@ Commands:
   disable <name>             Disable without uninstalling [--scope user|project] [--workspace <path>]
   sync [name ...]            Preview available Claude Code skills without writing
                              [--apply] imports all previewed or selected names into
-                             ~/.myagents/skills/; new imports are disabled until enabled.`,
+                             ~/.agenteam/skills/; new imports are disabled until enabled.`,
 
   'skill/list': `myagents skill list — Discover installed skills
 
@@ -4238,9 +4238,9 @@ all previewed candidates or the specified names into the user skill directory.
 New imports are disabled until skill enable. --json returns applied, synced or
 preview folders and failures in data. Preview again if a candidate disappeared.`,
 
-  tool: `myagents tool — CLI tool registry (user tools live under ~/.myagents/tools/)
+  tool: `myagents tool — CLI tool registry (user tools live under ~/.agenteam/tools/)
 
-Registered tools get a shim on ~/.myagents/bin (already on PATH in every agent
+Registered tools get a shim on ~/.agenteam/bin (already on PATH in every agent
 session and terminal) and their description is injected into every new
 session's context, so future AI sessions discover them automatically.
 Create standards-compliant tools with the tool-creator skill.
@@ -4248,7 +4248,7 @@ Create standards-compliant tools with the tool-creator skill.
 Commands:
   list                       List registered tools + enabled state [--json]
   add <dir>                  Register a tool dir (must contain tool.json + entry)
-                             [--dry-run]. Copies the dir into ~/.myagents/tools/
+                             [--dry-run]. Copies the dir into ~/.agenteam/tools/
                              unless it is already there.
   remove <name>              Unregister (keeps the tool dir; --purge deletes it)
   enable <name>              Show the tool in new sessions' context
@@ -4260,7 +4260,7 @@ Commands:
   env <name> delete KEY      Remove env keys
 
 Notes:
-  - Tool names must not shadow existing commands (~/.myagents/bin precedes
+  - Tool names must not shadow existing commands (~/.agenteam/bin precedes
     system paths on PATH) — add rejects collisions.
   - description in tool.json is capped at 800 chars (it goes into the system
     prompt of every session).
@@ -6043,7 +6043,7 @@ export async function handleTaskDelete(payload: {
 /**
  * Read a task's canonical `task.md` or a retained legacy markdown doc.
  * Missing legacy files return `{ ok: true, content: "" }` so
- * CLI scripting is idempotent. Task docs live under `~/.myagents/tasks/<id>/`
+ * CLI scripting is idempotent. Task docs live under `~/.agenteam/tasks/<id>/`
  * since v0.1.69 — this endpoint is the agent-facing read path because the
  * AI runs in the workspace cwd and can't know the user-profile dir.
  */
@@ -8900,7 +8900,7 @@ function deleteNestedValue(obj: AdminAppConfig, key: string): AdminAppConfig {
 // CLI tool registry (PRD 0.2.36 cli_first_tool_registry)
 //
 // `myagents tool …` + Settings 工具箱 both land here. Registry truth lives on
-// disk (~/.myagents/tools/), per-tool env lives in config.cliToolEnv (same
+// disk (~/.agenteam/tools/), per-tool env lives in config.cliToolEnv (same
 // shape as mcpServerEnv). Prompt injection reads the registry independently
 // (system-prompt-cli-tools.ts) — these handlers only mutate disk state, and
 // changes take effect for other sessions at their next start / pre-warm.
@@ -8978,7 +8978,7 @@ export async function handleToolAdd(payload: {
       error:
         'Missing required field: dir (path to the tool directory containing tool.json)',
       recoveryHint: {
-        recoveryCommand: 'myagents tool add ~/.myagents/tools/<name>',
+        recoveryCommand: 'myagents tool add ~/.agenteam/tools/<name>',
         message:
           'The dir must contain tool.json + the entry script (see the tool-creator skill).',
       },
@@ -9073,7 +9073,7 @@ export async function handleToolAdd(payload: {
     };
   }
 
-  // PATH shadow check: ~/.myagents/bin precedes system paths in agent sessions,
+  // PATH shadow check: ~/.agenteam/bin precedes system paths in agent sessions,
   // so a colliding name silently hijacks an existing command everywhere.
   // ensureShellPath(): the sidecar's own PATH is the launchd minimal set under
   // GUI launch — it misses /opt/homebrew/bin etc. and would let brew-installed
@@ -9278,7 +9278,7 @@ export async function handleToolRemove(payload: {
     return { ...c, cliToolEnv };
   });
   // Containment guard: only delete dirs at the canonical registry location.
-  // entry.dir is invariantly ~/.myagents/tools/<name> today, but a registry
+  // entry.dir is invariantly ~/.agenteam/tools/<name> today, but a registry
   // file edited by hand could point anywhere — never rm outside our dir.
   const canonicalDir = resolve(join(getCliToolsDir(), name));
   const purgeable = resolve(removed.dir) === canonicalDir;
@@ -9291,7 +9291,7 @@ export async function handleToolRemove(payload: {
     hint: purge
       ? purgeable
         ? undefined
-        : `Tool dir ${removed.dir} is outside ~/.myagents/tools — not deleted; remove it manually if intended.`
+        : `Tool dir ${removed.dir} is outside ~/.agenteam/tools — not deleted; remove it manually if intended.`
       : `Tool dir kept at ${removed.dir} (pass --purge to delete it too).`,
   };
 }

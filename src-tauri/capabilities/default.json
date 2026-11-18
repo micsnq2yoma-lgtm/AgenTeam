@@ -31,10 +31,10 @@
       "identifier": "fs:scope",
       "allow": [
         {
-          "path": "$HOME/.myagents"
+          "path": "$HOME/.agenteam"
         },
         {
-          "path": "$HOME/.myagents/**"
+          "path": "$HOME/.agenteam/**"
         }
       ]
     },
