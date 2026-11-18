@@ -638,7 +638,7 @@ export async function prepareSpeechInference(options, documentResult) {
       );
       const ortExtract = join(extractRoot, 'onnxruntime');
       mkdirSync(ortExtract, { recursive: true });
-      execFileSync('tar', ['-xf', ortArchive, '-C', ortExtract], {
+      execFileSync('tar', ['-xf', ortArchive, '-C', ortExtract, ...(targetLock.onnxRuntime.archiveMembers ?? [])], {
         stdio: 'inherit',
       });
       ortIncludeRoot = dirname(

@@ -191,7 +191,7 @@ async function extractArchive(entry, name) {
   );
   const destination = join(extractRoot, name);
   mkdirSync(destination, { recursive: true });
-  execFileSync('tar', ['-xf', archive, '-C', destination], {
+  execFileSync('tar', ['-xf', archive, '-C', destination, ...(entry.archiveMembers ?? [])], {
     stdio: 'inherit',
   });
   return destination;
