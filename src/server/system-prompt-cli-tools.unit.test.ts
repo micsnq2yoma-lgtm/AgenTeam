@@ -74,10 +74,6 @@ describe('buildCliToolsAppend', () => {
       { type: 'cron', taskId: 'task-1', intervalMinutes: 5, aiCanExit: true },
       { includeUserTools: false },
     );
-    const registeredAgentText = buildCliToolsAppend(
-      { type: 'registeredAgent', platform: 'space', spaceId: 'space-1', registeredAgentId: 'ra-1' },
-      { includeUserTools: false },
-    );
     const imGroupText = buildCliToolsAppend(
       { type: 'im', platform: 'feishu', sourceType: 'group' },
       { includeUserTools: false },
@@ -91,8 +87,6 @@ describe('buildCliToolsAppend', () => {
     expect(cronText).not.toContain('myagents goal create');
     expect(cronText).toContain('<myagents-cli-task-exit>');
     expect(cronText).toContain('myagents task exit');
-    expect(registeredAgentText).not.toContain('<myagents-cli-goal>');
-    expect(registeredAgentText).not.toContain('myagents goal create');
     expect(imGroupText).not.toContain('<myagents-cli-goal>');
     expect(imGroupText).not.toContain('myagents goal create');
     expect(agentChannelGroupText).not.toContain('<myagents-cli-goal>');
@@ -118,7 +112,6 @@ describe('buildCliToolsAppend', () => {
       { type: 'im', platform: 'feishu', sourceType: 'group' },
       { type: 'agent-channel', platform: 'dingtalk', sourceType: 'group' },
       { type: 'cron', taskId: 'task-1', intervalMinutes: 5, aiCanExit: true },
-      { type: 'registeredAgent', platform: 'space', spaceId: 'space-1', registeredAgentId: 'agent-1' },
     ];
     for (const scenario of scenarios) {
       const text = buildCliToolsAppend(scenario);

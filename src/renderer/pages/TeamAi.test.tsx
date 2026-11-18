@@ -151,7 +151,7 @@ describe('Team AI peer detail', () => {
     await selectPeer();
     await openConfig();
     fireEvent.click(within(row('teamAi.runtime')).getByRole('button'));
-    fireEvent.click(await screen.findByText('MyAgents (DeepSeek Harness)'));
+    fireEvent.click(await screen.findByText('AgenTeam (DeepSeek Harness)'));
     await waitFor(() => expect(mocks.action).toHaveBeenCalledWith('agent', 'bot-a', peer, { kind: 'updateConfig', change: { runtime: 'dsh' } }));
     expect(await screen.findByText('teamAi.config.needsNewMessage')).toBeInTheDocument();
     expect(mocks.action.mock.calls.some(call => call[3].kind === 'new')).toBe(false);
@@ -165,7 +165,7 @@ describe('Team AI peer detail', () => {
     await selectPeer();
     await openConfig();
     fireEvent.click(within(row('teamAi.runtime')).getByRole('button'));
-    fireEvent.click(await screen.findByText('MyAgents (DeepSeek Harness)'));
+    fireEvent.click(await screen.findByText('AgenTeam (DeepSeek Harness)'));
     await waitFor(() => expect(mocks.action).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mocks.channels.mock.calls.length).toBeGreaterThan(1));
     expect(screen.queryByText('teamAi.config.needsNewMessage')).not.toBeInTheDocument();

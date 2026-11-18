@@ -1,5 +1,6 @@
 import './myagents-default.css';
 import stylesheetText from './myagents-default.css?inline';
+import { brandSlogans, productName } from '../../assets/brand/brand';
 import { createPrismStyle } from '../prism-style';
 import type { ThemeDefinition, ThemeSchemeDefinition } from '../types';
 
@@ -215,15 +216,12 @@ const noHeroBackground = {
 
 export const myAgentsDefaultTheme: ThemeDefinition = {
   id: 'myagents-default',
-  displayName: 'MyAgents Classic',
-  description: 'MyAgents warm paper / warm night visual language',
+  displayName: 'AgenTeam Classic',
+  description: 'AgenTeam warm paper / warm night visual language',
   stylesheetText,
   hero: {
-    productName: 'MyAgents',
-    slogans: {
-      'zh-CN': '每个人都应享受智能的推背感，欢迎来到言出法随的世界',
-      'en-US': 'Your intent, amplified',
-    },
+    productName,
+    slogans: brandSlogans,
     backgrounds: { light: noHeroBackground, dark: noHeroBackground },
   },
   schemes: { light, dark },

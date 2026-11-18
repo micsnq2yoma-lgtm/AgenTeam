@@ -1,8 +1,8 @@
 # Agent 网络与 Session 协作诊断
 
-使用场景：同账号设备/Agent 不可见，跨设备调用、会话读取、结果回传或观察管理失败，`@` Agent 不完整或来源错误。
+使用场景：同一自建网络中的设备或 Agent 不可见，跨设备调用、会话读取、结果回传或观察管理失败，`@` Agent 不完整或来源错误。
 
-先读 `/myagents-docs/references/agent-network.md`。Space Issue/Delivery 异常转 `cloud-space.md`；本机 Runtime 执行异常转 `runtime.md` / `session-sidecar.md`。
+先读 `/myagents-docs/references/agent-network.md`。本机 Runtime 执行异常转 `runtime.md` / `session-sidecar.md`。
 
 ## 被动取证
 
@@ -22,7 +22,7 @@ rg -n 'agent-network|NETWORK_|WATCH_OWNER|admission_unconfirmed|requestId|watchI
 
 ## 分界判断
 
-- 设备已加入但 Agent 不可调用：检查目标在线/目录同步、Agent 是否开放、是否归档、账号是否相同；入网与 Agent enabled 不等于开放。
+- 设备已加入但 Agent 不可调用：检查目标在线/目录同步、Agent 是否开放、是否归档、双方是否加入同一实例；入网与 Agent enabled 不等于开放。
 - `@` 超时/不完整：两秒首屏上界、未完成来源提示与主动重试是正常行为。空搜索不列文件；打开面板期间目录变化不自动插入。稳定缺失本机项才沿本地 identity/Workspace 查。
 - `NETWORK_METADATA_INVALID` / 协议校验失败：核对双方客户端和协议，尤其是旧端不能识别的字段；不通过编辑包或 store 绕过校验。
 - start/send 接纳未知：可能已执行，保留 requestId/messageId/Session selector，先读历史和 activity，不自动重发。

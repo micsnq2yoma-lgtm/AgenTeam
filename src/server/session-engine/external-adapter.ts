@@ -92,7 +92,6 @@ import {
   resolveWorkspaceConfig,
 } from '../utils/admin-config';
 import {
-  ensureRegisteredAgentSessionOrigin,
   getPersistedSessionOrigin,
   getSessionData,
   getSessionMetadata,
@@ -118,7 +117,7 @@ import {
   injectedTurnChannelDelivery,
 } from '../session-core/channel-delivery';
 import type { AgentConfig } from '../../shared/types/agent';
-import { createMaterializedSessionMetadata, isLiveFollowScenario } from '../utils/session-materialization';
+import { createMaterializedSessionMetadata } from '../utils/session-materialization';
 import { isManagedCodexProviderReady } from '../utils/managed-codex-readiness';
 import { managedCodexNotReadyMessage } from '../utils/managed-codex-readiness';
 import {
@@ -272,9 +271,7 @@ function createExternalProductSessionMetadata(
   });
   return {
     metadata,
-    snapshotKind: agent
-      ? (isLiveFollowScenario(scenario) ? 'live-follow' : 'owned')
-      : `runtime:${runtime}`,
+    snapshotKind: agent ? 'owned' : `runtime:${runtime}`,
   };
 }
 
@@ -391,9 +388,6 @@ export function createExternalSessionEngine(): SessionEngine {
       return getPersistedSessionOrigin(sessionId);
     },
 
-    ensureRegisteredAgentSessionOrigin(sessionId, expected) {
-      return ensureRegisteredAgentSessionOrigin(sessionId, expected);
-    },
 
     getHeldImConfigSnapshot() {
       return {

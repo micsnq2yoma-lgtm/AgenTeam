@@ -35,13 +35,11 @@ const mocks = vi.hoisted(() => ({
   updateSession: vi.fn(),
   notificationSnapshot: {
     loadState: 'ready',
-    authState: 'signed_out',
     items: [] as Array<Record<string, unknown>>,
     hasUnread: false,
     hasMore: false,
     isLoadingMore: false,
     feedCutoff: null,
-    lastSyncedAt: null,
     errorCode: null,
   },
   notificationRefresh: vi.fn(),
@@ -55,13 +53,6 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@/features/account/useMyAgentsAccount', () => ({
-  useMyAgentsAccount: () => ({
-    scope: 'production', enabled: false, generation: 0, loadState: 'ready',
-    view: null, error: null,
-    avatarPresets: { people: [], agents: [], lastFetchedAt: 0, isLoading: false, error: null },
-  }),
-}));
 
 vi.mock('@/hooks/useConfig', () => ({
   useConfig: () => ({
@@ -181,11 +172,9 @@ function sidebar(overrides: Partial<SidebarProps> = {}) {
       tabs={[launcherTab]}
       activeTab={launcherTab}
       activeWorkspacePath={null}
-      teamSpaceAvailable
       onNewTab={vi.fn()}
       onOpenTaskCenter={vi.fn()}
       onCreateTask={vi.fn()}
-      onOpenSpace={vi.fn()}
       onOpenCapabilities={vi.fn()}
       onOpenSettings={vi.fn()}
       onOpenBugReport={vi.fn()}
@@ -295,24 +284,18 @@ describe('GlobalSidebar rail flyout', () => {
     fireEvent.pointerUp(window);
   });
 
-  it('keeps helper and settings above independent account and notification controls', () => {
+  it('keeps helper and settings above the local notification control', () => {
     mocks.forcedRail = false;
-    const onOpenSpace = vi.fn();
-    renderSidebar({ onOpenSpace });
+    renderSidebar();
     const footer = document.querySelector('[data-global-sidebar-footer-actions]')!;
     const row = document.querySelector('[data-global-sidebar-account-row]')!;
-    const account = screen.getByRole('button', { name: '登录 MyAgents' });
     const notification = screen.getByRole('button', { name: String(i18n.t('app:notificationCenter.bell')) });
     expect(footer.lastElementChild).toBe(row);
-    expect(row.contains(account)).toBe(true);
     expect(row.contains(notification)).toBe(true);
     expect(row.contains(screen.getByRole('button', { name: '设置' }))).toBe(false);
     expect(row.contains(screen.getByRole('button', { name: '小助理' }))).toBe(false);
-    fireEvent.click(account);
-    expect(onOpenSpace).toHaveBeenCalledOnce();
     expect(mocks.notificationRefresh).not.toHaveBeenCalled();
     fireEvent.click(notification);
-    expect(onOpenSpace).toHaveBeenCalledOnce();
     expect(mocks.notificationRefresh).toHaveBeenCalledOnce();
   });
 
@@ -1307,7 +1290,7 @@ describe('GlobalSidebar rail flyout', () => {
     expect(navigation.querySelector('[data-global-sidebar-workspace-rail]')).not.toBeInTheDocument();
     expect(navigation.querySelector('[data-global-sidebar-workspace-region]')).not.toHaveClass('border-t', 'border-[var(--line-subtle)]');
     expect(navigation.querySelector('[data-global-sidebar-footer-actions]')).not.toHaveClass('global-sidebar-rail-stack');
-    expect(brandName?.querySelector('[data-myagents-logotype]')).toHaveAccessibleName('MyAgents');
+    expect(within(brandName as HTMLElement).getByRole('img', { name: 'AgenTeam' })).toBeInTheDocument();
     expect(brandName).toHaveClass('theme-product-wordmark', 'text-sm', 'font-medium');
     expect(brandName).not.toHaveClass('font-semibold', 'tracking-wide', 'theme-launcher-hero-title');
     expect(brandName).toHaveAttribute('aria-hidden', 'false');
@@ -1526,16 +1509,6 @@ describe('GlobalSidebar rail flyout', () => {
     expect(onHistoryTagIntentConsumed).toHaveBeenCalledWith(41);
   });
 
-  it('hides the Team Space navigation entry when the feature is unavailable', () => {
-    const onOpenSpace = vi.fn();
-    renderSidebar({ teamSpaceAvailable: false, onOpenSpace });
-
-    expect(screen.queryByRole('button', { name: String(i18n.t('app:globalSidebar.team')) }))
-      .not.toBeInTheDocument();
-    expect(onOpenSpace).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.more')) })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.agentNetwork')) })).toBeInTheDocument();
-  });
 
   it('does not let an old Session completion close a newly reopened search overlay', async () => {
     mocks.isTauri = true;
@@ -1932,71 +1905,19 @@ describe('GlobalSidebar rail flyout', () => {
   });
 });
 
-describe('Agent network and Space navigation', () => {
-  beforeEach(() => { vi.useRealTimers(); vi.clearAllMocks(); mocks.projects = []; window.localStorage.clear(); });
-  it('opens the right menu by keyboard and restores focus on Escape', async () => {
-    const onOpenSpace = vi.fn();
-    renderSidebar({ onOpenSpace });
-    const more = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.more')) });
-    more.focus(); fireEvent.keyDown(more, { key: 'ArrowRight' });
-    const space = await screen.findByRole('menuitem', { name: String(i18n.t('app:globalSidebar.team')) });
-    expect(more).toHaveAttribute('aria-expanded', 'true');
-    await vi.waitFor(() => expect(space).toHaveFocus());
-    const bot = screen.getByRole('menuitem', { name: '聊天机器人 Bot' });
-    fireEvent.keyDown(space, { key: 'ArrowDown' });
-    expect(bot).toHaveFocus();
-    fireEvent.keyDown(bot, { key: 'ArrowUp' });
-    expect(space).toHaveFocus();
-    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
-    expect(more).toHaveFocus();
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-    fireEvent.click(more); fireEvent.click(await screen.findByRole('menuitem', { name: String(i18n.t('app:globalSidebar.team')) }));
-    expect(onOpenSpace).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-  });
-  it('exposes AgentNet in primary navigation and keeps Space and the Bot shortcut in the hover menu', async () => {
-    const onOpenAgentNetwork = vi.fn();
-    const networkTab: Tab = { id: 'network-tab', view: 'agentnetwork', title: 'AgentNet' };
-    const view = renderSidebar({ onOpenAgentNetwork, activeTab: networkTab });
-    const buttons = screen.getAllByRole('button').filter(button => button.hasAttribute('data-global-sidebar-nav-button'));
-    const labels = buttons.map(button => button.getAttribute('aria-label'));
-    expect(labels).toEqual(['新对话', '自动化任务', '技能与工具', 'AgentNet 多设备组网', '更多', '小助理', '设置']);
-    const network = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.agentNetwork')) });
-    const more = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.more')) });
-    expect(network).toHaveAttribute('aria-current', 'page');
-    expect(more).not.toHaveAttribute('aria-current');
-    fireEvent.click(network);
-    expect(onOpenAgentNetwork).toHaveBeenCalledOnce();
-    fireEvent.pointerEnter(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.more')) }));
-    expect(await screen.findByRole('menuitem', { name: String(i18n.t('app:globalSidebar.team')) })).toBeVisible();
-    expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([String(i18n.t('app:globalSidebar.team')), '聊天机器人 Bot']);
-    expect(screen.queryByRole('menuitem', { name: String(i18n.t('app:globalSidebar.agentNetwork')) })).not.toBeInTheDocument();
-    fireEvent.click(more);
-    expect(more).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('menuitem', { name: String(i18n.t('app:globalSidebar.team')) })).toBeVisible();
-    fireEvent.click(more);
-    expect(screen.getByRole('menu')).toBeVisible();
-    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-    const spaceTab: Tab = { id: 'space-tab', view: 'space', title: 'Space' };
-    view.rerender(sidebar({ onOpenAgentNetwork, activeTab: spaceTab }));
-    expect(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.more')) })).toHaveAttribute('aria-current', 'page');
-    expect(network).not.toHaveAttribute('aria-current');
-  });
-});
 describe('Bot settings shortcut', () => {
   beforeEach(() => { vi.useRealTimers(); vi.clearAllMocks(); mocks.projects = []; window.localStorage.clear(); });
-  it.each([true, false])('opens Bot with Space available=%s, closes the menu, and preserves Settings navigation', async available => {
+  it('opens Bot, closes the menu, and preserves Settings navigation', async () => {
     const onOpenSettings = vi.fn();
     const settingsTab: Tab = { id: 'settings-tab', view: 'settings', title: 'Settings' };
-    renderSidebar({ teamSpaceAvailable: available, onOpenSettings, activeTab: settingsTab });
+    renderSidebar({ onOpenSettings, tabs: [settingsTab], activeTab: settingsTab });
     const more = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.more')) });
     const settings = screen.getByRole('button', { name: '设置' });
     expect(settings).toHaveAttribute('aria-current', 'page');
     expect(more).not.toHaveAttribute('aria-current');
     fireEvent.pointerEnter(more);
     const bot = await screen.findByRole('menuitem', { name: '聊天机器人 Bot' });
-    expect(screen.queryByRole('menuitem', { name: String(i18n.t('app:globalSidebar.team')) }) !== null).toBe(available);
+    expect(screen.queryByRole('menuitem', { name: String(i18n.t('app:globalSidebar.team')) })).not.toBeInTheDocument();
     fireEvent.click(bot);
     expect(onOpenSettings).toHaveBeenCalledWith('agent');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();

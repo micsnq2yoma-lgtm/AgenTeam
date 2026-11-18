@@ -105,7 +105,6 @@ import { decideBuiltinInjectedTurnResult } from '../session-core/turn-result-pol
 import type { DispatchGuard, TurnTerminalOutcome } from '../session-core/turn-queue';
 import { resolveManualInputResponseMode } from '../session-core/turn-queue';
 import {
-  ensureRegisteredAgentSessionOrigin,
   getPersistedSessionOrigin,
   getSessionData,
   getActiveSessionTranscript,
@@ -361,9 +360,6 @@ export function createBuiltinSessionEngine(): SessionEngine {
       return getPersistedSessionOrigin(sessionId);
     },
 
-    ensureRegisteredAgentSessionOrigin(sessionId, expected) {
-      return ensureRegisteredAgentSessionOrigin(sessionId, expected);
-    },
 
     getHeldImConfigSnapshot() {
       return {

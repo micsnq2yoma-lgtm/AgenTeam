@@ -3,9 +3,7 @@
 // 由 Rust 端 `cmd_inbox_deliver` 在 push pending_inbox_messages 后调用,把同样
 // 的 message payload 直接 POST 过来。Drain handler 取出 messages → 包裹
 // MyAgents Session Event Protocol v1 prompt → 调用 enqueueUserMessage /
-// sendExternalMessage 注入。Space issue delivery is the exception: Rust
-// already renders the final <system-reminder> prompt so the UI can hide the
-// operational payload and show a Space issue badge.
+// sendExternalMessage 注入。
 //
 // 关键设计:
 //   - Request 类型携带 replyBack 标记;target turn-end 时根据这个标记决定是否
@@ -20,7 +18,6 @@ import { renderSessionEventPrompt } from './session-event';
 import { buildInReplyToSnippet } from './types';
 import type { PendingInboxMessage, DrainResponse, InboxTurnMeta } from './types';
 import type { SessionEvent } from './session-event';
-import type { InteractionScenario } from '../system-prompt';
 import type { DispatchGuard } from '../session-core/turn-queue';
 import type { InboxAdmissionResult } from '../session-engine/types';
 import { buildTaskCommentReminder } from '../../shared/systemReminder';
@@ -62,8 +59,8 @@ function legacySendResultEvent(msg: PendingInboxMessage): SessionEvent {
 }
 
 export function buildSessionEventPrompt(msg: PendingInboxMessage): string {
-  if (msg.kind === 'event' && msg.sessionEvent?.type === 'space.issue_delivery') {
-    return msg.text;
+  if (msg.sessionEvent?.type === 'space.issue_delivery') {
+    throw new Error('SPACE_DELIVERY_RETIRED');
   }
   if (msg.kind === 'event' && msg.sessionEvent?.type === 'task.comment') {
     return buildTaskCommentReminder({
@@ -134,29 +131,12 @@ export type InboxInjector = (
   inboxMeta?: InboxTurnMeta,
   options?: {
     allowLazySessionMaterialization?: boolean;
-    scenario?: InteractionScenario;
     queueId?: string;
     beforeDispatch?: DispatchGuard;
     taskNotification?: import('./session-event').TaskResultEvent;
     channelHandoff?: { eventId: string; targetSessionId: string; handoff: ChannelHandoff };
   },
 ) => Promise<InboxAdmissionResult>;
-
-function scenarioForInboxMessage(msg: PendingInboxMessage): InteractionScenario | undefined {
-  if (msg.kind === 'event' && msg.sessionEvent?.type === 'space.issue_delivery') {
-    if (!msg.sessionEvent.spaceId.trim() || !msg.sessionEvent.registeredAgentId.trim()) {
-      throw new Error('INVALID_REGISTERED_AGENT_ORIGIN: Space delivery requires exact spaceId and registeredAgentId.');
-    }
-    return {
-      type: 'registeredAgent',
-      platform: 'space',
-      spaceId: msg.sessionEvent.spaceId,
-      registeredAgentId: msg.sessionEvent.registeredAgentId,
-      sourceType: 'issue-delivery',
-    };
-  }
-  return undefined;
-}
 
 /// Drain handler entry — processes a batch of messages, returns aggregated response.
 ///
@@ -191,9 +171,8 @@ export async function handleInboxDrain(
       const meta = buildTurnMeta(msg);
       const allowLazySessionMaterialization =
         msg.kind === 'event'
-        && (msg.sessionEvent?.type === 'space.issue_delivery' || msg.sessionEvent?.type === 'task.comment');
-      const scenario = scenarioForInboxMessage(msg);
-      const result = await injector(prompt, meta, { allowLazySessionMaterialization, scenario, channelHandoff, taskNotification });
+        && msg.sessionEvent?.type === 'task.comment';
+      const result = await injector(prompt, meta, { allowLazySessionMaterialization, channelHandoff, taskNotification });
       // PRD 0.2.18 cross-review fix (Codex):
       // enqueueUserMessage's `queued` flag is "queued behind other turns" not
       // "accepted vs rejected". On the idle direct-send path it returns

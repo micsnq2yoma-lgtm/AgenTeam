@@ -202,7 +202,7 @@
   --global-sidebar-rail-width: 64px;
   --global-sidebar-toggle-left: 84px;
   --global-sidebar-tabbar-toggle-inset: 60px;
-  --global-sidebar-brand-icon-size: 20px;
+  --global-sidebar-brand-icon-size: 28px;
   --global-sidebar-brand-icon-left: 22px;
   --global-sidebar-rail-button-left: 12px;
   --global-sidebar-action-inset: 16px;
@@ -229,14 +229,12 @@
   --space-12: 48px;
 }
 
-/* Brand spark: the amber point in the MYAGENTS logotype. Deeper on paper for
-   contrast, brighter on dark surfaces. */
-:root {
-  --brand-spark: #c98a2e;
-}
-
-html[data-color-scheme='dark'] {
-  --brand-spark: #e2a548;
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('./assets/brand/CormorantGaramond-Variable-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
 }
 
 /* Agent identity hues for WorkspaceIcon. Each glyph owns one hue, so the hue is
@@ -477,21 +475,49 @@ html[data-color-scheme='dark'] {
   border-radius: 22%;
 }
 
-/* MYAGENTS logotype is outline art: size it by cap height (em-relative so each
-   surface keeps its own type scale) and let the width follow the viewBox. */
-.global-sidebar-brand-logotype {
-  display: block;
-  height: 0.8em;
-  width: auto;
+.agenteam-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: 'Tiempos Headline', 'Cormorant Garamond', serif;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  /* AgenTeam brand sheet: navy wordmark, coral T; light gray in dark skins. */
+  color: #0c151d;
+  -webkit-text-fill-color: currentColor;
 }
 
-.launcher-hero-logotype {
-  display: block;
-  height: 0.64em;
-  width: auto;
-  /* Outline art has no line-box leading below the baseline, so restore the
-     breathing room a text title would have had above the slogan. */
-  margin-bottom: 0.3em;
+html[data-color-scheme='dark'] .agenteam-wordmark {
+  color: #e8eaed;
+}
+
+/* Launcher hero: the wordmark is the brand anchor, so it renders larger than
+   the Theme's title size without touching Theme packages. */
+.theme-launcher-hero-title .agenteam-wordmark {
+  font-size: 1.4em;
+}
+
+.launcher-slogan-mark {
+  padding: 0 0.12em;
+  font-style: normal;
+  font-weight: 500;
+  color: var(--ink);
+  background: linear-gradient(transparent 62%, rgb(227 135 106 / 0.28) 62% 92%, transparent 92%);
+}
+
+.agenteam-wordmark-icon {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.agenteam-wordmark-accent {
+  color: #e3876a;
+  -webkit-text-fill-color: currentColor;
+}
+
+.global-sidebar-copy .agenteam-wordmark {
+  font-size: 1.625rem;
 }
 
 /* Sidebar disclosure reaches its final expanded/rail slot in one commit so Chat,

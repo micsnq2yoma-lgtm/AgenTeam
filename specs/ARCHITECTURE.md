@@ -6,7 +6,7 @@
 
 MyAgents 是基于 Tauri v2 的桌面 AI Agent 客户端。React Renderer 提供多 Tab 工作区；Rust/Tauri 拥有桌面生命周期、本地持久化与系统能力；Node.js Sidecar 通过 SessionEngine 接入 Claude Agent SDK、Integrated DSH 与外部 Agent Runtime。
 
-主要产品域包括对话与 Goal、Task 自动化、Agent Channel、Record/本地语音、文档转换、MCP/Skill/Plugin、内嵌终端与浏览器，以及 Cloud Space（协作空间）与 AgentNet（局域网络）。
+主要产品域包括对话与 Goal、Task 自动化、Agent Channel、Record/本地语音、文档转换、MCP/Skill/Plugin、内嵌终端与浏览器，以及 自建 AgentNet（跨设备网络）。
 
 ## 技术与进程边界
 
@@ -24,7 +24,7 @@ MyAgents 是基于 Tauri v2 的桌面 AI Agent 客户端。React Renderer 提供
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ React Renderer                                                              │
-│ App Shell / Tab Workspace / Chat / Settings / Task Center / Space / Record │
+│ App Shell / Tab Workspace / Chat / Settings / Task Center / Record │
 └──────────────────────┬───────────────────────────────────────────────────────┘
                        │ Tauri invoke + Tauri events
 ┌──────────────────────▼───────────────────────────────────────────────────────┐
@@ -100,7 +100,7 @@ Rewind、Fork、Retry 由 SessionEngine adapter 编排 native history 与产品�
 
 `App` 拥有顶部 Tab workspace、active identity、持久恢复和打开/关闭规划。`Tab` 是以 `view` 判别的闭合联合；各 feature 声明准确 variant、render binding、持久 codec 与关闭 lifecycle，builtin composition 只在一个 registry 中组合。
 
-Chat Tab 由 `TabProvider` 维护 Session projection，并使用 `useTabState()` / `useTabApi()` 提供的 Session-scoped API。Settings、Capabilities 和 Launcher 使用 Global Sidecar；Record Tab、Task Center、Space 等按各自 Rust Store 或 connector 工作，不能因复用某个组件而获得 Session owner。
+Chat Tab 由 `TabProvider` 维护 Session projection，并使用 `useTabState()` / `useTabApi()` 提供的 Session-scoped API。Settings、Capabilities 和 Launcher 使用 Global Sidecar；Record Tab 和 Task Center按各自 Rust Store  工作，不能因复用某个组件而获得 Session owner。
 
 Global Sidebar、搜索和通知只提交 typed navigation intent，由 App 聚焦或创建目标 Tab；它们不保存第二份“当前页面”或直接修改 Tab/Session 状态。
 
@@ -136,7 +136,6 @@ Node → Rust 的反向调用只经过 localhost Management API。应用级资�
 | Session Goal | SessionGoalManager |
 | Record、录音与转录结果 | RecordStore / RecordingManager / SpeechRecognitionManager |
 | 工作区文件 | Tauri `cmd_workspace_*` 与 `useWorkspaceFileService()`；[Markdown 编辑器与文件生命周期](tech_docs/workspace_markdown_editor.md) |
-| Cloud 登录与 Registered Agent 本地状态 | Rust Space connector |
 
 兼容旧格式的读取或迁移不构成第二个 writer。具体数据格式、锁序与恢复协议由各模块技术文档维护。
 
@@ -184,7 +183,7 @@ Record 的物理音轨与媒体时钟由 RecordingManager 持有；Media Worker 
 
 ### Agent 网络与跨仓库协议
 
-MyAgents 只包含客户端实现；`src/server/agent-network/` 是本机 Node Sidecar 适配层。Cloudflare 通用中转、网络设置和自部署身份属于 `MyAgents-Agenthub`；私有 `MyAgents_AgentNet` 固定版本组合官方服务，官方账号与签发仍属于 `MyAgents_space`。Rust App 的连接 registry 持有所有网络连接，页面选中项只决定展示；各连接复用原 actor，共享一个 App 字节预算。共享协议只定义通信契约，不拥有连接、登录状态或任务执行。
+AgenTeam 包含自建 AgentNet 的客户端。Node Sidecar 负责本机业务适配，Rust App 负责账号信任、设备身份和连接。中转和自建身份签发由 MyAgents-Agenthub 提供。
 
 协议源码由 `MyAgents-Agenthub/packages/agent-network-protocol/` 维护，客户端只提交 `vendor/agent-network-protocol/` 中的固定版本包与来源清单。TypeScript 通过锁定 npm 依赖消费；Rust 在构建时校验同一包的 SHA-256，将 Schema/fixtures 投影到 Cargo `OUT_DIR`，不保留第二份可编辑协议。普通安装、测试和构建不访问私有服务端仓库或平级 checkout。源码归属与产物更新见 [Agent 网络：公共协议与仓库分发](./tech_docs/agent_network.md#公共协议与仓库分发)。
 
@@ -218,7 +217,6 @@ MyAgents 只包含客户端实现；`src/server/agent-network/` 是本机 Node S
 | Terminal / BrowserPanel | Rust native resource manager；绑定 exact Tab/resource generation | [DESIGN](./DESIGN.md)、[Pit-of-Success](./tech_docs/pit_of_success.md) |
 | 托管浏览器工具 | Rust 持有 Chromium 资源、Session capability 与身份持久化；Global Sidecar Registry 持有浏览器/Context，MCP backend 借用 | [托管浏览器](./tech_docs/managed_browser.md) |
 | Floating Companion | Rust 独立窗口 + Renderer 轻量 WebView；以 `Companion` owner 复用 Product Session | [Session](./tech_docs/session_architecture.md) |
-| Cloud Space | Rust connector；登录、Cloud IO、Registered Agent 与 delivery | [Cloud Space](./tech_docs/space_cloud.md)、[Delivery protocol](./tech_docs/space_issue_delivery_protocol.md) |
 | Agent 网络 | Rust App identity/connector/TLS；Node 原 Inbox/SessionEngine；独立 AgentNet Worker/SQLite DO 中转 | [Agent 网络](./tech_docs/agent_network.md) |
 | Theme | Renderer app-global Theme owner；Appearance 只是明暗偏好 | [Theme](./tech_docs/theme_system.md) |
 | i18n | shared locale policy + Renderer resources + Rust native mirror | [i18n](./tech_docs/i18n_architecture.md) |

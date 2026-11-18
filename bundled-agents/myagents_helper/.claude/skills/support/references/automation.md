@@ -8,7 +8,7 @@
 
 - Rust `TaskStore` 是 Task 与 schedule 的持久化权威，`TaskSchedulerController` 从 Running Task 重建 timer。Cron 是兼容操作面，不是另一套 `CronTaskManager` 数据源。
 - Cron 命令默认按当前 Workspace 过滤；空结果不代表其它 Workspace 没有定时 Task。
-- Goal Mode 属于当前 Session，会复用该 Session 持续推进；它不是 Task Center Task，也不是 Cloud Space Goal。
+- Goal Mode 属于当前 Session，会复用该 Session 持续推进。Task Center 独立管理 Task 的调度和验收。
 - Goal、Task、Agent Channel、Tab 和 Background Completion 都可能持有同一个 Session Sidecar owner。没有可见 Tab 不等于执行一定应停止。
 - 长期记忆维护可由隐藏的系统 Task 触发，普通 Task 列表不一定展示这些内部维护行。
 - `cron run-now`、`task run` / `rerun` 会真实执行，属于 active probe。

@@ -164,27 +164,6 @@ function shouldSnapshotManagedCodexProvider(
     && agent.model.trim().length > 0;
 }
 
-/** Cloud registered Agents retain Runtime-only identity and their own live-follow policy. */
-export function snapshotForRegisteredAgentSession(
-  agent: AgentConfig,
-  options?: SessionSnapshotRuntimeOptions,
-): Partial<SessionMetadata> {
-  if (shouldSnapshotManagedCodexProvider(agent, options)) {
-    return {
-      runtime: 'codex',
-      runtimeSource: 'managed-provider',
-    };
-  }
-  const snapshotAgent = agentForSnapshotRuntime(agent, options);
-  const runtime = snapshotAgent.runtime ?? 'builtin';
-  return {
-    ...snapshotRuntimeIdentity(
-      runtime,
-      options?.runtimeSourceOverride ?? snapshotAgent.runtimeConfig?.source,
-    ),
-  };
-}
-
 /** IM uses the same complete snapshot as desktop, with unattended birth permissions. */
 export function snapshotForImSession(
   agent: AgentConfig,

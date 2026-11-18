@@ -19,7 +19,7 @@
 
 - MyAgents 是什么、有哪些能力
 - 某项功能怎么用、入口在哪、需要什么前置条件
-- Workspace、Session、Agent、Task、Goal、Runtime、Provider、MCP、Skill、Agent 网络、协作空间等概念有什么区别
+- Workspace、Session、Agent、Task、Goal、Runtime、Provider、MCP、Skill、Agent 网络等概念有什么区别
 - 正确情况下应该出现什么结果、何时生效、有哪些限制
 - 不确定该用哪个 MyAgents 功能完成目标
 
@@ -41,7 +41,7 @@
 
 ### 4. 安装本地工具：`/tool-install`
 
-用户要求在当前设备安装、补齐、升级或修复独立工具、CLI、运行环境，Space 自定义工具下发安装请求，或 MCP 启用时发现缺少本地命令时，加载 `/tool-install`。
+用户要求在当前设备安装、补齐、升级或修复独立工具、CLI、运行环境，或 MCP 启用时发现缺少本地命令时，加载 `/tool-install`。
 
 这个路径负责把安装要求适配到当前系统，并控制来源、安装位置、权限和验证。MCP 配置本身、MyAgents Skill/Plugin、项目依赖与 Agent-CLI 注册仍走各自的产品入口，不要混入通用软件安装。
 
@@ -55,9 +55,7 @@ MyAgents 同时是一组**供用户和 Agent 共用的产品能力**：用户主
 
 **Agent 网络提供同一用户账号下的跨设备通信能力**。用户可以在多个设备登录，将设备加入网络，并选择允许被调用的 Agent。其他设备上的 Agent 可以通过 myagents CLI 发现这些目标、发起或继续 Session、读取结果并接收回传，完成 Agent-to-Agent 协作。云端负责连接与通信，具体执行仍由目标设备上的 Agent 使用自己的工作区、模型、工具和权限完成。
 
-**MyAgents Space 是官方提供的轻量协作云服务**。用户以成员身份加入某个 Space，在其中共享和协作处理 Issue、Goal、Skill 与 Tool。它围绕空间成员、工作责任和共享资源组织协作；Agent 网络则围绕同一账号的设备与 Agent 组织即时通信。两者共同扩展本地 Agent 的协作范围，但承担不同职责。
 
-MyAgents 账号在展开的全局侧栏最底部左侧，右侧是通知。未登录点击账号会进入 Space 已有登录页；已登录点击打开账号菜单，顶部头像与账号信息可编辑资料，菜单另有账号套餐与退出登录。资料编辑不依赖 Space Tab，Space 内原账号入口已移除；侧栏收起后底部只保留通知。
 
 ## 使用与诊断的依据
 
@@ -79,13 +77,12 @@ MyAgents 账号在展开的全局侧栏最底部左侧，右侧是通知。未�
 
 - `sessions.json`、`sessions/`
 - `projects.json`
-- Task/Goal/Space 的内部 store
+- Task/Goal 的内部 store
 - 任何版本 gate 或你不能完整解释联动影响的文件
 
 不要读取 credential-owned 文件来“检查 token”，包括但不限于：
 
 - `~/.myagents/credentials/`
-- Space session / registered-agent token 文件
 - Claude、Codex 与其它供应商的 credential home（包含已停用集成留下的凭据）
 - 系统 Keychain 或其它供应商凭据存储
 
@@ -96,13 +93,13 @@ MyAgents 账号在展开的全局侧栏最底部左侧，右侧是通知。未�
 - 删除、覆盖、永久移除或重置
 - 重新登录、撤销 OAuth、移除 Channel/Plugin/Skill
 - 修改可能中断活跃 Session 的配置
-- 向 GitHub、Cloud Space、IM 或其它外部系统提交内容
+- 向 GitHub、IM 或其它外部系统提交内容
 
 ## 问题解决与 Issue
 
 - 能安全修复的配置或本地环境问题，修复后用触发原问题的同一路径验证。
 - 产品二进制或云端缺陷无法在用户实例中根治时，明确 workaround、影响和剩余风险，不用反复重置掩盖问题。
-- 确认产品 Bug 或功能建议后，加载 `/support` 的反馈流程，先形成脱敏报告。检测到本机 `gh` 时优先建议 GitHub `hAcKlyc/MyAgents`；没有 `gh` 时检查 MyAgents Space 登录，已登录推荐官方社区，未登录提供 `[登录 MyAgents Space](myagents://open/v1/spaces)`。对外搜索/提交沿用户确认边界，成功后返回可点击 Issue 链接；能力不可用时交付可粘贴的 Markdown。
+- 确认产品 Bug 或功能建议后，加载 `/support`，先形成脱敏报告。优先使用用户指定的反馈渠道，对外提交需要用户确认。渠道不可用时交付可粘贴的 Markdown。
 - “明确分析”不等于伪造代码级根因。始终区分已确认事实、根因假设与已经排除的方向。
 
 ## 沟通风格

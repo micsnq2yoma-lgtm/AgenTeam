@@ -75,18 +75,13 @@ export type NetworkRequest =
       expectedDescriptionRevision: number;
     }
   | { kind: "receipt"; mutationId: string };
-export function networkSnapshot(
-  connectionId = "official",
-): Promise<NetworkSnapshot> {
-  return invoke("cmd_agent_network_snapshot", { connectionId });
-}
 const directoryReads = new Map<string, Promise<unknown>>();
 const readScopes = new Map<string, string>();
 /** In-flight reuse only; no response or permission cache. A newly observed
  * revision/account/connection and every write fence the previous requests. */
 export function setNetworkReadScope(snapshot: NetworkSnapshot | null): void {
   if (snapshot === null) readScopes.clear();
-  const connectionId = snapshot?.connectionId ?? "official";
+  const connectionId = snapshot?.connectionId ?? "";
   const readScope = readScopes.get(connectionId) ?? "";
   const next =
     snapshot === null
@@ -131,7 +126,7 @@ function requestOnce(
 }
 export async function networkRequest(
   request: NetworkRequest,
-  connectionId = "official",
+  connectionId: string,
 ): Promise<unknown> {
   try {
     return await requestOnce(request, connectionId);
@@ -164,7 +159,7 @@ export async function networkRequest(
       directoryReads.clear();
   }
 }
-export async function allNetworkDevices(connectionId = "official"): Promise<{
+export async function allNetworkDevices(connectionId: string): Promise<{
   items: NetworkDevice[];
   complete: boolean;
 }> {
@@ -197,7 +192,7 @@ export async function allNetworkDevices(connectionId = "official"): Promise<{
 }
 export async function allDeviceAgents(
   deviceId: string,
-  connectionId = "official",
+  connectionId: string,
 ): Promise<{ items: NetworkAgent[]; complete: boolean }> {
   const items: NetworkAgent[] = [];
   let cursor: string | null = null;
@@ -273,7 +268,6 @@ export function networkErrorKey(
 export interface NetworkConnection {
   id: string;
   name: string;
-  official: boolean;
   url: string | null;
   removing: boolean;
   snapshot: NetworkSnapshot;

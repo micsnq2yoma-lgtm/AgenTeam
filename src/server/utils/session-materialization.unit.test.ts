@@ -4,7 +4,6 @@ import type { AgentConfig } from '../../shared/types/agent';
 import {
   bindOwnedSnapshotToRuntimeIdentity,
   createMaterializedSessionMetadata,
-  isLiveFollowScenario,
 } from './session-materialization';
 
 function makeAgent(overrides: Partial<AgentConfig> = {}): AgentConfig {
@@ -31,7 +30,7 @@ describe('createMaterializedSessionMetadata', () => {
   describe.each([
     ['darwin', 'arm64'], ['darwin', 'x64'], ['win32', 'x64'], ['linux', 'x64'],
   ] as const)('DSH on %s-%s', (platform, arch) => {
-    it.each(['desktop', 'cron', 'im', 'agent-channel', 'registeredAgent'] as const)(
+    it.each(['desktop', 'cron', 'im', 'agent-channel'] as const)(
       'freezes the accepted platform for %s births', (scenario) => {
         vi.spyOn(process, 'platform', 'get').mockReturnValue(platform);
         vi.spyOn(process, 'arch', 'get').mockReturnValue(arch);
@@ -43,7 +42,7 @@ describe('createMaterializedSessionMetadata', () => {
           family: 'integrated', id: 'dsh', platformTarget: `${platform}-${arch}`,
         });
         expect(meta.runtimeSource).toBe('integrated');
-        if (scenario !== 'registeredAgent') expect(meta.providerId).toBe('deepseek');
+        expect(meta.providerId).toBe('deepseek');
       },
     );
 
@@ -206,28 +205,5 @@ describe('createMaterializedSessionMetadata', () => {
     expect(meta.configSnapshotAt).toBeTruthy();
   });
 
-  it('only classifies registeredAgent as live-follow', () => {
-    expect(isLiveFollowScenario('im')).toBe(false);
-    expect(isLiveFollowScenario('agent-channel')).toBe(false);
-    expect(isLiveFollowScenario('registeredAgent')).toBe(true);
-    expect(isLiveFollowScenario('desktop')).toBe(false);
-    expect(isLiveFollowScenario('cron')).toBe(false);
-  });
 
-  it('materializes registeredAgent sessions as live-follow sessions', () => {
-    const meta = createMaterializedSessionMetadata({
-      agentDir: '/tmp/workspace',
-      sessionId: 'registered-agent-session-id',
-      scenario: 'registeredAgent',
-      agent: makeAgent(),
-      title: 'Issue title must not own this session',
-    });
-
-    expect(meta.id).toBe('registered-agent-session-id');
-    expect(meta.runtime).toBe('codex');
-    expect(meta.model).toBeUndefined();
-    expect(meta.permissionMode).toBeUndefined();
-    expect(meta.configSnapshotAt).toBeUndefined();
-    expect(meta.title).toBe('Agent');
-  });
 });

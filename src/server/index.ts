@@ -147,13 +147,13 @@ import {
 } from '../shared/systemSkills';
 import {
   resolveSkillUrl,
-  type ResolvedSkillSource,
+
 } from './skills/url-resolver';
-import { fetchSkillZip, TarballFetchError } from './skills/tarball-fetcher';
+
 import { loadSkillTree, SkillSourceLoadError } from './skills/source-loader';
 import {
   analyseTree,
-  buildInstallPayload,
+
   buildInstallPayloadForCandidate,
   pathEntryExistsNoFollow,
   publishSkillInstallPlan,
@@ -171,128 +171,6 @@ import {
 } from './plugins/store';
 import { handleQrCodeAssetRoute } from './routes/qr-code-asset';
 import { shouldLogHttpRequest } from './http-log-policy';
-
-type SpaceSkillExportPackage = {
-  tempId: string;
-  filePath: string;
-  suggestedFolderName: string;
-  name: string;
-  description: string;
-  hasDangerousTools: boolean;
-  rootPath: string;
-  fileCount: number;
-  packageSizeBytes: number;
-  source: SpaceSkillSourceMeta;
-};
-
-type SpaceSkillSourceMeta = {
-  type: 'github' | 'raw_zip' | 'url';
-  url: string;
-  resolvedUrl?: string | null;
-  owner?: string | null;
-  repo?: string | null;
-  ref?: string | null;
-  effectiveRef?: string | null;
-  rootPath?: string | null;
-  skillName?: string | null;
-};
-
-function encodeGithubPath(path: string): string {
-  return path
-    .split('/')
-    .filter(Boolean)
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
-}
-
-function buildSkillSourceMeta(
-  src: ResolvedSkillSource,
-  tree: Awaited<ReturnType<typeof fetchSkillZip>>,
-  cand: SkillCandidate,
-): SpaceSkillSourceMeta {
-  if (src.kind === 'github' && src.owner && src.repo) {
-    const effectiveRef = tree.effectiveRef ?? src.ref ?? null;
-    const rootPath = cand.rootPath || src.subPath || null;
-    const baseUrl = `https://github.com/${encodeURIComponent(src.owner)}/${encodeURIComponent(src.repo)}`;
-    const url = effectiveRef
-      ? `${baseUrl}/tree/${encodeURIComponent(effectiveRef)}${rootPath ? `/${encodeGithubPath(rootPath)}` : ''}`
-      : baseUrl;
-    return {
-      type: 'github',
-      url,
-      resolvedUrl: tree.sourceUrl,
-      owner: src.owner,
-      repo: src.repo,
-      ref: src.ref ?? null,
-      effectiveRef,
-      rootPath,
-      skillName: cand.suggestedFolderName,
-    };
-  }
-  return {
-    type: src.kind === 'raw-zip' ? 'raw_zip' : 'url',
-    url: src.kind === 'raw-zip' ? src.rawZipUrl : tree.sourceUrl,
-    resolvedUrl: tree.sourceUrl,
-    rootPath: cand.rootPath || null,
-    skillName: cand.suggestedFolderName,
-  };
-}
-
-async function writeSpaceSkillExportPackages(
-  tree: Awaited<ReturnType<typeof fetchSkillZip>>,
-  source: ResolvedSkillSource,
-  candidates: SkillCandidate[],
-): Promise<SpaceSkillExportPackage[]> {
-  const { default: AdmZip } = await import('adm-zip');
-  const exportId = randomUUID();
-  const exportDir = join(
-    homedir(),
-    '.myagents',
-    'tmp',
-    'skill-url-export',
-    exportId,
-  );
-  ensureDirSync(exportDir);
-
-  const usedFileNames = new Map<string, number>();
-  const packages: SpaceSkillExportPackage[] = [];
-
-  for (const [index, cand] of candidates.entries()) {
-    const files = buildInstallPayload(tree, [cand]).get(
-      cand.suggestedFolderName,
-    );
-    if (!files || files.size === 0) continue;
-
-    const baseName = sanitizeFolderName(cand.suggestedFolderName);
-    const count = usedFileNames.get(baseName) ?? 0;
-    usedFileNames.set(baseName, count + 1);
-    const fileStem = count === 0 ? baseName : `${baseName}-${count + 1}`;
-    const filePath = join(exportDir, `${fileStem}.zip`);
-
-    const zip = new AdmZip();
-    for (const [relativePath, buf] of [...files.entries()].sort(
-      ([left], [right]) => left.localeCompare(right),
-    )) {
-      zip.addFile(relativePath.replace(/\\/g, '/'), Buffer.from(buf));
-    }
-    zip.writeZip(filePath);
-
-    packages.push({
-      tempId: `${exportId}-${index}`,
-      filePath,
-      suggestedFolderName: baseName,
-      name: cand.name,
-      description: cand.description,
-      hasDangerousTools: cand.hasDangerousTools,
-      rootPath: cand.rootPath,
-      fileCount: files.size,
-      packageSizeBytes: statSync(filePath).size,
-      source: buildSkillSourceMeta(source, tree, cand),
-    });
-  }
-
-  return packages;
-}
 
 /**
  * Lazy bridge to agent-session.schedulePluginDeferredRestart — the latter
@@ -1860,8 +1738,6 @@ async function routeAdminApi(
     );
   if (route === 'task/create-direct')
     return await api.handleTaskCreateDirect(payload);
-  if (route === 'task/create-attached')
-    return await api.handleTaskCreateAttached(payload);
   if (route === 'task/run')
     return await api.handleTaskRun(
       payload as Parameters<typeof api.handleTaskRun>[0],
@@ -1940,85 +1816,6 @@ async function routeAdminApi(
   if (route === 'record/create')
     return await api.handleRecordCreate(
       payload as Parameters<typeof api.handleRecordCreate>[0],
-    );
-
-  // MyAgents Cloud Space — Registered Agent CLI bridge.
-  if (route === 'space/list') return await api.handleSpaceList();
-  if (route === 'space/whoami')
-    return await api.handleSpaceWhoami(
-      payload as Parameters<typeof api.handleSpaceWhoami>[0],
-    );
-  if (route === 'space/assignee-list')
-    return await api.handleSpaceAssigneeList(
-      payload as Parameters<typeof api.handleSpaceAssigneeList>[0],
-    );
-  if (route === 'space/goal-list')
-    return await api.handleSpaceGoalList(
-      payload as Parameters<typeof api.handleSpaceGoalList>[0],
-    );
-  if (route === 'space/issue-create')
-    return await api.handleSpaceIssueCreate(
-      payload as Parameters<typeof api.handleSpaceIssueCreate>[0],
-    );
-  if (route === 'space/issue-update')
-    return await api.handleSpaceIssueUpdate(
-      payload as Parameters<typeof api.handleSpaceIssueUpdate>[0],
-    );
-  if (route === 'space/issue-list')
-    return await api.handleSpaceIssueList(
-      payload as Parameters<typeof api.handleSpaceIssueList>[0],
-    );
-  if (route === 'space/issue-get')
-    return await api.handleSpaceIssueGet(
-      payload as Parameters<typeof api.handleSpaceIssueGet>[0],
-    );
-  if (route === 'space/issue-comment')
-    return await api.handleSpaceIssueComment(
-      payload as Parameters<typeof api.handleSpaceIssueComment>[0],
-    );
-  if (route === 'space/issue-comments')
-    return await api.handleSpaceIssueComments(
-      payload as Parameters<typeof api.handleSpaceIssueComments>[0],
-    );
-  if (route === 'space/issue-comment-get')
-    return await api.handleSpaceIssueCommentGet(
-      payload as Parameters<typeof api.handleSpaceIssueCommentGet>[0],
-    );
-  if (route === 'space/issue-status')
-    return await api.handleSpaceIssueStatus(
-      payload as Parameters<typeof api.handleSpaceIssueStatus>[0],
-    );
-  if (route === 'space/issue-claim')
-    return await api.handleSpaceIssueClaim(
-      payload as Parameters<typeof api.handleSpaceIssueClaim>[0],
-    );
-  if (route === 'space/issue-close')
-    return await api.handleSpaceIssueClose(
-      payload as Parameters<typeof api.handleSpaceIssueClose>[0],
-    );
-  if (route === 'space/issue-complete')
-    return await api.handleSpaceIssueComplete(
-      payload as Parameters<typeof api.handleSpaceIssueComplete>[0],
-    );
-  if (route === 'space/issue-cancel-claim')
-    return await api.handleSpaceIssueCancelClaim(
-      payload as Parameters<typeof api.handleSpaceIssueCancelClaim>[0],
-    );
-  if (route === 'space/claim-local-task')
-    return await api.handleSpaceClaimLocalTask(
-      payload as Parameters<typeof api.handleSpaceClaimLocalTask>[0],
-    );
-  if (route === 'space/attachment-download')
-    return await api.handleSpaceAttachmentDownload(
-      payload as Parameters<typeof api.handleSpaceAttachmentDownload>[0],
-    );
-  if (route === 'space/attachment-add')
-    return await api.handleSpaceAttachmentAdd(
-      payload as Parameters<typeof api.handleSpaceAttachmentAdd>[0],
-    );
-  if (route === 'space/attachment-inspect')
-    return await api.handleSpaceAttachmentInspect(
-      payload as Parameters<typeof api.handleSpaceAttachmentInspect>[0],
     );
 
   // Session Inbox (PRD 0.2.18) — `myagents session send`
@@ -8033,213 +7830,6 @@ async function main() {
         }
       }
 
-      // POST /api/skill/export-from-url - Resolve a GitHub/raw/npx skill source
-      // and stage one or more canonical zip packages for Space publishing.
-      //
-      // This deliberately does not write to ~/.myagents/skills or a workspace.
-      // The renderer still hands the staged zip path to the Rust Space command,
-      // so Space auth and cloud mutations remain owned by Tauri.
-      if (
-        pathname === '/api/skill/export-from-url' &&
-        request.method === 'POST'
-      ) {
-        try {
-          const payload = (await request.json()) as {
-            url: string;
-            confirmedSelection?: {
-              pluginName?: string;
-              folderNames?: string[];
-            };
-          };
-
-          if (!payload.url || typeof payload.url !== 'string') {
-            return jsonResponse({ success: false, error: 'url 参数必填' }, 400);
-          }
-
-          let resolved;
-          try {
-            resolved = resolveSkillUrl(payload.url);
-          } catch (err) {
-            return jsonResponse(
-              {
-                success: false,
-                error: err instanceof Error ? err.message : '链接解析失败',
-              },
-              400,
-            );
-          }
-
-          let tree;
-          if (resolved.kind === 'local') {
-            return jsonResponse(
-              {
-                success: false,
-                error: '本地 Skill 来源只支持安装，不能直接作为 Space 发布来源',
-              },
-              400,
-            );
-          }
-          try {
-            tree = await fetchSkillZip(resolved);
-          } catch (err) {
-            const statusCode =
-              err instanceof TarballFetchError ? err.statusCode : 500;
-            return jsonResponse(
-              {
-                success: false,
-                error: err instanceof Error ? err.message : '下载失败',
-              },
-              statusCode,
-            );
-          }
-
-          const analysis = analyseTree(tree, resolved);
-          if (analysis.mode === 'empty') {
-            return jsonResponse(
-              { success: false, error: analysis.reason },
-              422,
-            );
-          }
-
-          if (payload.confirmedSelection) {
-            let chosen: SkillCandidate[];
-            if (analysis.mode === 'marketplace') {
-              const plugin = analysis.plugins.find(
-                (p) => p.name === payload.confirmedSelection!.pluginName,
-              );
-              if (!plugin) {
-                return jsonResponse(
-                  { success: false, error: '指定的插件不存在' },
-                  400,
-                );
-              }
-              const wanted = new Set(
-                (payload.confirmedSelection.folderNames ?? []).map((n) =>
-                  sanitizeFolderName(n),
-                ),
-              );
-              chosen =
-                wanted.size > 0
-                  ? plugin.skills.filter((s) =>
-                      wanted.has(sanitizeFolderName(s.suggestedFolderName)),
-                    )
-                  : plugin.skills;
-            } else if (analysis.mode === 'multi') {
-              const wanted = new Set(
-                (payload.confirmedSelection.folderNames ?? []).map((n) =>
-                  sanitizeFolderName(n),
-                ),
-              );
-              chosen = analysis.candidates.filter((s) =>
-                wanted.has(sanitizeFolderName(s.suggestedFolderName)),
-              );
-            } else {
-              chosen = [analysis.skill];
-            }
-
-            if (chosen.length === 0) {
-              return jsonResponse(
-                { success: false, error: '未选择任何 skill' },
-                400,
-              );
-            }
-
-            const packages = await writeSpaceSkillExportPackages(
-              tree,
-              resolved,
-              chosen,
-            );
-            if (packages.length === 0) {
-              return jsonResponse(
-                { success: false, error: '未找到可发布的文件' },
-                500,
-              );
-            }
-
-            return jsonResponse({
-              success: true,
-              mode: 'exported',
-              packages,
-              sourceUrl: tree.sourceUrl,
-              effectiveRef: tree.effectiveRef,
-            });
-          }
-
-          if (analysis.mode === 'marketplace') {
-            return jsonResponse({
-              success: true,
-              mode: 'marketplace',
-              preview: {
-                marketplaceName: analysis.marketplaceName,
-                marketplaceDescription: analysis.marketplaceDescription,
-                plugins: analysis.plugins.map((p) => ({
-                  name: p.name,
-                  description: p.description,
-                  skills: p.skills.map((s) => ({
-                    suggestedFolderName: sanitizeFolderName(
-                      s.suggestedFolderName,
-                    ),
-                    name: s.name,
-                    description: s.description,
-                    hasDangerousTools: s.hasDangerousTools,
-                    rootPath: s.rootPath,
-                  })),
-                })),
-              },
-              sourceUrl: tree.sourceUrl,
-              effectiveRef: tree.effectiveRef,
-            });
-          }
-
-          if (analysis.mode === 'multi') {
-            return jsonResponse({
-              success: true,
-              mode: 'multi',
-              preview: {
-                candidates: analysis.candidates.map((s) => ({
-                  suggestedFolderName: sanitizeFolderName(
-                    s.suggestedFolderName,
-                  ),
-                  name: s.name,
-                  description: s.description,
-                  hasDangerousTools: s.hasDangerousTools,
-                  rootPath: s.rootPath,
-                })),
-              },
-              sourceUrl: tree.sourceUrl,
-              effectiveRef: tree.effectiveRef,
-            });
-          }
-
-          const packages = await writeSpaceSkillExportPackages(tree, resolved, [
-            analysis.skill,
-          ]);
-          if (packages.length === 0) {
-            return jsonResponse(
-              { success: false, error: '未找到可发布的文件' },
-              500,
-            );
-          }
-
-          return jsonResponse({
-            success: true,
-            mode: 'exported',
-            packages,
-            sourceUrl: tree.sourceUrl,
-            effectiveRef: tree.effectiveRef,
-          });
-        } catch (error) {
-          console.error('[api/skill/export-from-url] Error:', error);
-          return jsonResponse(
-            {
-              success: false,
-              error: error instanceof Error ? error.message : 'Export failed',
-            },
-            500,
-          );
-        }
-      }
-
       // POST /api/skill/install-from-url - Install from GitHub, HTTPS zip, or a local source.
       // Two-step flow: first call analyses and may return a preview for the user to confirm;
       // second call (with confirmedSelection) re-fetches and writes the chosen skills.
@@ -11725,27 +11315,7 @@ description: >
             async (text, inboxMeta, options) => {
               const sessionId = getRuntimeSessionIdForRequest();
               const sessionMeta = getSessionMetadata(sessionId);
-              const inboxOrigin: SessionOrigin =
-                options?.scenario?.type === 'registeredAgent'
-                  ? {
-                      kind: 'registered-agent',
-                      surface: 'space_issue_delivery',
-                      context: {
-                        spaceId: options.scenario.spaceId,
-                        registeredAgentId: options.scenario.registeredAgentId,
-                      },
-                    }
-                  : { kind: 'session-inbox', surface: 'session_send' };
-              if (inboxOrigin.kind === 'registered-agent') {
-                const originBinding =
-                  await engine.ensureRegisteredAgentSessionOrigin(
-                    sessionId,
-                    inboxOrigin,
-                  );
-                if (!originBinding.success) {
-                  return { queued: false, error: originBinding.error };
-                }
-              }
+              const inboxOrigin: SessionOrigin = { kind: 'session-inbox', surface: 'session_send' };
               if (options?.taskNotification) {
                 const { admitTaskNotification } = await import('./session-engine/task-notification');
                 return admitTaskNotification(engine, options.taskNotification, text, sessionMeta?.agentDir ?? currentAgentDir ?? process.cwd());
@@ -11768,7 +11338,6 @@ description: >
                 sessionId,
                 workspacePath:
                   sessionMeta?.agentDir ?? currentAgentDir ?? process.cwd(),
-                scenario: options?.scenario,
                 inboxMeta,
                 allowLazySessionMaterialization:
                   options?.allowLazySessionMaterialization,

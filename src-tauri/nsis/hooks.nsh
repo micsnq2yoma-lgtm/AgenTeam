@@ -24,7 +24,7 @@
 ; Uses ExecutablePath for install-dir processes (precise, matches the locked file)
 ; and CommandLine for orphans (SDK/MCP may be system node, not our binary).
 !macro _MYAGENTS_KILL_PROCESSES
-  DetailPrint "Cleaning up MyAgents background processes..."
+  DetailPrint "Cleaning up ${PRODUCTNAME} background processes..."
 
   ; 1. Kill ALL processes whose executable lives under our install directory.
   ;    Covers node.exe (sidecar / MCP via bundled npx), claude.exe (SDK), and any future binaries.

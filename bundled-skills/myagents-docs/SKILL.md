@@ -4,7 +4,7 @@ description: >-
   MyAgents 产品使用知识库与用户可见行为说明。用户或 Agent 只要需要了解 MyAgents 是什么、能做什么、某项功能怎么用、
   功能入口或前置条件、功能之间的区别与关系、正确情况下应该出现什么结果、有哪些限制或常见误解，就使用这个 skill；
   也适用于在任意工作区规划怎样借助 MyAgents 的 Workspace、Session、Task、Goal、Provider、Runtime、MCP、Skill、Agent Channel、
-  Agent 网络、协作空间等能力完成工作。它面向软件使用而非源码开发。需要查询或修改当前实例状态时再加载 `/myagents-cli`；
+  自建 Agent 网络等能力完成工作。它面向软件使用而非源码开发。需要查询或修改当前实例状态时再加载 `/myagents-cli`；
   已经出现报错、崩溃或实际行为偏离预期时，在内置小助理中转入 `/support`。
 metadata:
   author: MyAgents
@@ -37,9 +37,8 @@ metadata:
 | Provider、Model、订阅、Runtime、权限模式、代理、Codex/Claude Code | `references/models-providers-runtimes.md` |
 | MCP、Skills、官方/自定义 CLI 工具、Claude Plugin、OpenClaw Plugin、读图与 Widget | `references/tools-skills-plugins.md` |
 | 自定义 Agent、IM Channel、Telegram/钉钉/飞书/微信、heartbeat、长期记忆、小助理与悬浮窗 | `references/agents-channels.md` |
-| 同账号跨设备 Agent 网络、本机/远端 Session 协作、@ Agent、会话读取/观察与结果回传 | `references/agent-network.md` |
+| 自建跨设备 Agent 网络、本机/远端 Session 协作、@ Agent、会话读取/观察与结果回传 | `references/agent-network.md` |
 | Record、Task、定时/Cron、Goal Mode、状态与执行关系 | `references/automation.md` |
-| 协作空间 / Team Space、Space Goal、Issue、Registered Agent、Delivery、共享 Skill/Tool、官方工具市场 | `references/cloud-space.md` |
 | 实验室门控、生效时机、本地数据、安全、语言、更新与功能可用性 | `references/settings-safety.md` |
 
 ## 五组最容易混淆的概念
@@ -50,7 +49,6 @@ metadata:
 | Provider / Model / Runtime | Provider 提供模型与认证；Model 是具体模型；Runtime 是实际驱动 Agent 回合的执行引擎 |
 | Record / Task / Cron / Goal | Record 保存文字或音频记录；Task 承载可追踪工作；Cron 是定时 Task 的兼容操作面；Goal 让当前 Session 围绕一个目标持续推进 |
 | MCP / Skill / Plugin / CLI Tool | MCP 接入可调用工具；Skill 教 Agent 怎样完成流程；Plugin 扩展成组能力；CLI Tool 是可执行命令能力 |
-| Session Goal / Space Goal | Session Goal 是本地当前会话的持续执行模式；Space Goal 是团队空间内组织 Issue 的层级，两者不是同一资源 |
 
 ## 回答产品问题的方法
 

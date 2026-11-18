@@ -37,12 +37,11 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 import { track } from '@/analytics';
-import myAgentsLogo from '@/assets/runtime-icons/myagents.png';
+import brandMark from '@/assets/brand/agenteam-mark.svg';
 import { updateSession, type SessionMetadata } from '@/api/sessionClient';
-import { MyAgentsLogotype } from '@/components/brand/MyAgentsLogotype';
+import { ProductWordmark } from '@/components/brand/ProductWordmark';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import FeedbackPopover from '@/components/FeedbackPopover';
-import AccountEntry from '@/features/account/AccountEntry';
 import { SidebarResizeHandle } from './SidebarResizeHandle';
 import { APP_SHELL_POPOVER_CHROME } from '@/components/global-sidebar/appShellPopoverChrome';
 import OverlayBackdrop from '@/components/OverlayBackdrop';
@@ -65,7 +64,6 @@ import {
   SettingsIcon,
   SidebarIcon,
   TasksIcon,
-  TeamIcon,
   FolderIcon,
 } from '@/components/icons';
 import UnreadNotificationIndicator from '@/components/UnreadNotificationIndicator';
@@ -178,11 +176,9 @@ interface GlobalSidebarProps {
   activeTab: Tab | undefined;
   activeWorkspacePath: string | null;
   sessionNotificationBadgeCounts?: ReadonlyMap<string, number>;
-  teamSpaceAvailable: boolean;
   onNewTab: () => void;
   onOpenTaskCenter: () => void;
   onCreateTask: () => void;
-  onOpenSpace: () => void;
   onOpenAgentNetwork?: () => void;
   onOpenTeamAi?: () => void;
   newAgentPurpose?: Project['purpose'];
@@ -328,8 +324,8 @@ function SidebarNavButton({
   );
 }
 
-function SidebarMore({ expanded, activeView, teamSpaceAvailable, onTeam, onBot, onTeamAi }: {
-  expanded: boolean; activeView: string | undefined; teamSpaceAvailable: boolean; onTeam: () => void; onBot: () => void; onTeamAi?: () => void;
+function SidebarMore({ expanded, activeView, onBot, onTeamAi }: {
+  expanded: boolean; activeView: string | undefined; onBot: () => void; onTeamAi?: () => void;
 }) {
   const { t } = useTranslation(['app', 'settings']);
   const [open, setOpen] = useState(false);
@@ -351,7 +347,7 @@ function SidebarMore({ expanded, activeView, teamSpaceAvailable, onTeam, onBot, 
   const close = () => { cancel(); setOpen(false); };
   return <div ref={anchor} className="relative" onPointerEnter={show} onPointerLeave={hide}
     onKeyDown={event => { if (event.key === 'ArrowRight') { event.preventDefault(); enter(); } }}>
-    <SidebarNavButton expanded={expanded} active={activeView === 'space'}
+    <SidebarNavButton expanded={expanded} active={activeView === 'teamai'}
       icon={<MoreIcon className="h-4 w-4" />} label={t('globalSidebar.more')} tooltipDisabled={open} hasPopup="menu" ariaExpanded={open}
       onClick={enter} />
     <Popover open={open} onClose={close} anchorRef={anchor} placement="right-start" className="min-w-40 p-1">
@@ -367,10 +363,6 @@ function SidebarMore({ expanded, activeView, teamSpaceAvailable, onTeam, onBot, 
             event.preventDefault(); event.stopPropagation(); close(); anchor.current?.querySelector<HTMLButtonElement>('button')?.focus();
           }
         }}>
-        {teamSpaceAvailable && <button type="button" role="menuitem" onClick={() => { close(); onTeam(); }}
-          className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm text-[var(--ink)] hover:bg-[var(--hover-bg)] focus:bg-[var(--hover-bg)]">
-          <TeamIcon className="h-4 w-4 text-[var(--ink-muted)]" /><span className="global-sidebar-label">{t('globalSidebar.team')}</span>
-        </button>}
         <button type="button" role="menuitem" onClick={() => { close(); onBot(); }}
           className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm text-[var(--ink)] hover:bg-[var(--hover-bg)] focus:bg-[var(--hover-bg)]">
           <MessageIcon className="h-4 w-4 text-[var(--ink-muted)]" /><span className="global-sidebar-label">{t('sidebar.nav.bots', { ns: 'settings' })}</span>
@@ -474,11 +466,9 @@ export default memo(function GlobalSidebar({
   activeTab,
   activeWorkspacePath,
   sessionNotificationBadgeCounts,
-  teamSpaceAvailable,
   onNewTab,
   onOpenTaskCenter,
   onCreateTask,
-  onOpenSpace,
   onOpenAgentNetwork,
   onOpenTeamAi,
   newAgentPurpose,
@@ -1172,7 +1162,7 @@ export default memo(function GlobalSidebar({
         </div>
 
         <div
-          className="global-sidebar-brand-row relative flex h-10 shrink-0 items-center"
+          className="global-sidebar-brand-row relative flex h-12 shrink-0 items-center"
           data-global-sidebar-brand-row
         >
           <button
@@ -1181,13 +1171,13 @@ export default memo(function GlobalSidebar({
             aria-label={t('globalSidebar.openWebsite')}
             aria-hidden={!expanded && searchAvailable}
             inert={!expanded && searchAvailable}
-            className={`global-sidebar-brand-link flex h-8 items-center pr-1 text-left cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+            className={`global-sidebar-brand-link flex h-10 items-center pr-1 text-left cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
               expanded ? 'min-w-0' : 'w-10 overflow-hidden'
             }`}
             data-global-sidebar-brand-link
           >
             <img
-              src={myAgentsLogo}
+              src={brandMark}
               alt=""
               aria-hidden="true"
               className="global-sidebar-brand-icon shrink-0"
@@ -1198,7 +1188,7 @@ export default memo(function GlobalSidebar({
               aria-hidden={!expanded}
               data-global-sidebar-brand-name
             >
-              <MyAgentsLogotype variant="compact" className="global-sidebar-brand-logotype" title="MyAgents" />
+              <ProductWordmark showMark={false} />
             </span>
           </button>
           {searchAvailable && (
@@ -1224,8 +1214,10 @@ export default memo(function GlobalSidebar({
           )}
         </div>
 
+        {expanded && <div className="mx-3 mb-3 mt-1 h-px shrink-0 bg-[var(--line)] opacity-70" aria-hidden="true" data-global-sidebar-divider />}
+
         <nav
-          className={`shrink-0 ${expanded ? 'px-3 pb-1 pt-0' : 'global-sidebar-rail-stack pb-1 pt-0'}`}
+          className={`shrink-0 ${expanded ? 'flex flex-col gap-1 px-3 pb-1 pt-0' : 'global-sidebar-rail-stack pb-1 pt-0'}`}
           data-global-sidebar-primary-nav
         >
           <SidebarNavButton
@@ -1280,9 +1272,10 @@ export default memo(function GlobalSidebar({
             onClick={() => onOpenAgentNetwork?.()}
           />
           <SidebarMore onTeamAi={config.teamAiPanelEnabled === true ? onOpenTeamAi : undefined} key={activeView ?? 'launcher'} expanded={expanded} activeView={activeView}
-            teamSpaceAvailable={teamSpaceAvailable} onTeam={onOpenSpace} onBot={() => onOpenSettings('agent')} />
+            onBot={() => onOpenSettings('agent')} />
         </nav>
 
+        {expanded && <div className="mx-3 mb-3 mt-4 h-px shrink-0 bg-[var(--line)]" aria-hidden="true" data-global-sidebar-divider />}
         <div className="relative min-h-0 flex-1" data-global-sidebar-workspace-shell>
           {expandedWorkspaceMounted && (
             <div
@@ -1380,9 +1373,7 @@ export default memo(function GlobalSidebar({
             onClick={() => onOpenSettings()}
           />
           <div className="global-sidebar-account-row grid grid-cols-[minmax(0,1fr)_var(--global-sidebar-action-size)]" data-global-sidebar-account-row>
-            <AccountEntry expanded={expanded} available={teamSpaceAvailable}
-              environment={config.spaceEnvironment ?? 'production'} onOpenSpace={onOpenSpace} />
-            <span className="global-sidebar-notification-slot">
+            <span className="global-sidebar-notification-slot col-start-2">
               <button
                 ref={notificationTriggerRef}
                 type="button"
@@ -1800,7 +1791,7 @@ function WorkspaceTree({
   return (
     <section className="relative flex h-full min-h-0 flex-col" aria-label={t('globalSidebar.workspaces')}>
       <div className="flex h-8 shrink-0 items-center gap-1 pl-6 pr-[var(--global-sidebar-action-inset)]">
-        <h2 className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)]">
+        <h2 className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wider text-[var(--ink)]">
           {t('globalSidebar.workspaceSection')}
         </h2>
         <Tip label={tLauncher('workspaceCard.more')} position="bottom" align="end" disabled={viewMenuOpen}>
@@ -1889,13 +1880,13 @@ function WorkspaceTree({
             </div>
           </div>
         ) : projects.length === 0 && archivedProjects.length === 0 ? (
-          <div className="px-3 py-8 text-center">
+          <div className="px-3 py-6 text-left pl-6">
             <p className="text-sm font-medium text-[var(--ink)]">{tLauncher('rightRail.emptyWorkspaceTitle')}</p>
             <p className="mt-1 text-xs text-[var(--ink-muted)]">{tLauncher('rightRail.emptyWorkspaceDescription')}</p>
             <button
               type="button"
               onClick={(event) => onCreateAgent(event.currentTarget)}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-[var(--button-primary-bg)] px-3 py-2 text-sm font-medium text-[var(--button-primary-text)] hover:bg-[var(--button-primary-bg-hover)]"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-[10px] bg-[var(--button-primary-bg)] px-3 py-2 text-sm font-medium text-[var(--button-primary-text)] hover:bg-[var(--button-primary-bg-hover)]"
             >
               <PlusIcon className="h-3.5 w-3.5" />
               <span className="global-sidebar-label">{tLauncher('rightRail.addFolder')}</span>

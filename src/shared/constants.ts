@@ -87,7 +87,6 @@ export const CUSTOM_EVENTS = {
     /** Fired to open App's singleton Task creation overlay. */
     OPEN_TASK_CREATE: 'open-task-create',
     /** Fired to open the Team Space singleton tab when the build/runtime gates allow it. */
-    OPEN_SPACE: 'open-space',
     /** App-owned navigation intent from a validated content link. Payload: AppRoute. */
     OPEN_APP_ROUTE: 'open-app-route',
     /**

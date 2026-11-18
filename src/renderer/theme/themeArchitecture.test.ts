@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -11,7 +11,7 @@ import {
 const root = resolve(import.meta.dirname, '../../..');
 
 function source(relativePath: string): string {
-  return readFileSync(resolve(root, relativePath), 'utf8');
+  return readFileSync(resolve(root, relativePath), 'utf8').replace(/\r\n/g, '\n');
 }
 
 function rendererSourceFiles(directory = resolve(root, 'src/renderer')): string[] {
@@ -90,9 +90,10 @@ describe('Theme architecture guardrails', () => {
   it('keeps the global sidebar structural surface scoped to App Shell chrome', () => {
     const consumers = rendererSourceFiles()
       // Theme definitions may alias message surfaces; UI consumers stay scoped.
-      .filter(file => !file.startsWith(`${root}/src/renderer/theme/themes/`))
-      .filter(file => source(file.slice(root.length + 1)).includes('var(--global-sidebar-bg)'))
-      .map(file => file.slice(root.length + 1));
+      .map(file => relative(root, file).replaceAll('\\', '/'))
+      .filter(file => !file.startsWith('src/renderer/theme/themes/'))
+      .filter(file => source(file).includes('var(--global-sidebar-bg)'))
+      .sort();
 
     expect(consumers).toEqual([
       'src/renderer/components/CustomTitleBar.tsx',
@@ -143,7 +144,7 @@ describe('Theme architecture guardrails', () => {
     }
   });
 
-  it('keeps MyAgents Light equal to Claude except its light primary button pair', () => {
+  it('keeps AgenTeam Light equal to Claude except its light primary button pair', () => {
     const claudeStylesheet = parseThemeStylesheet(
       source('src/renderer/theme/themes/absolutely.css'),
     );
@@ -159,7 +160,7 @@ describe('Theme architecture guardrails', () => {
       stylesheet.topLevelBlocks,
       selector,
       [[selector]],
-      `MyAgents Light equality selector ${selector}`,
+      `AgenTeam Light equality selector ${selector}`,
     ));
 
     expect(collect(lightStylesheet, lightRoot)).toEqual(collect(claudeStylesheet, claudeRoot));
@@ -192,18 +193,6 @@ describe('Theme architecture guardrails', () => {
     expect(settings).not.toContain('className="brand-title');
   });
 
-  it('keeps Space inside the app-level Theme scope', () => {
-    for (const file of [
-      'src/renderer/index.css',
-      'src/renderer/pages/Space.tsx',
-      'src/renderer/pages/space/SpaceChrome.tsx',
-      'src/renderer/components/ui/Popover.tsx',
-    ]) {
-      const contents = source(file);
-      expect(contents).not.toContain('data-ui-theme');
-      expect(contents).not.toContain('space-mono');
-    }
-  });
 
   it('keeps a complete default visual fallback for unknown pre-React Theme IDs', () => {
     const css = source('src/renderer/theme/themes/myagents-default.css');

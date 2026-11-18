@@ -16,7 +16,7 @@ use std::sync::{
 use tauri::{Emitter, Listener};
 use tokio::sync::Notify;
 use zeroize::Zeroizing;
-const OFFICIAL: &str = "official";
+const NO_SELECTION: &str = "";
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct StoredConnection {
@@ -34,7 +34,6 @@ pub(crate) struct StoredConnection {
 pub(crate) struct ConnectionView {
     pub id: String,
     pub name: String,
-    pub official: bool,
     pub url: Option<String>,
     pub removing: bool,
     pub snapshot: NetworkSnapshot,
@@ -76,12 +75,12 @@ fn persist(stored: Vec<StoredConnection>, selected: String) -> Result<(), Networ
     Ok(())
 }
 fn self_account(c: &StoredConnection, key: Option<Zeroizing<String>>) -> NetworkAccountSession {
-    NetworkAccountSession::Selfhost(Arc::new(SelfhostAccount {
+    Arc::new(SelfhostAccount {
         connection_id: c.id.clone(),
         descriptor: c.descriptor.clone(),
         active: Arc::new(AtomicBool::new(true)),
         enrollment_key: key,
-    }))
+    })
 }
 fn join_enrollment_key(
     existing: bool,
@@ -97,16 +96,11 @@ fn join_enrollment_key(
 impl NetworkRegistry {
     pub(crate) fn new() -> ManagedAgentNetwork {
         let memory = MemoryBudget::default();
-        let mut connections = HashMap::new();
-        connections.insert(
-            OFFICIAL.into(),
-            AgentNetwork::new(OFFICIAL.into(), None, memory.clone()),
-        );
         Arc::new(Self {
             memory,
-            connections: Mutex::new(connections),
+            connections: Mutex::new(HashMap::new()),
             stored: Mutex::new(Vec::new()),
-            selected: Mutex::new(OFFICIAL.into()),
+            selected: Mutex::new(NO_SELECTION.into()),
             revision: AtomicU64::new(0),
             stopped: AtomicBool::new(false),
             selfhost_enabled: AtomicBool::new(false),
@@ -122,8 +116,12 @@ impl NetworkRegistry {
             .cloned()
             .collect()
     }
+    pub(crate) fn selected_connection(&self) -> Result<ManagedConnection, NetworkError> {
+        let id = self.selected.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        self.connection(&id)
+    }
     pub(crate) fn connection(&self, id: &str) -> Result<ManagedConnection, NetworkError> {
-        if id != OFFICIAL && !self.selfhost_enabled.load(Ordering::Acquire) {
+        if !self.selfhost_enabled.load(Ordering::Acquire) {
             return Err(NetworkError::new("NETWORK_FEATURE_DISABLED"));
         }
         self.connections
@@ -152,31 +150,13 @@ impl NetworkRegistry {
         if let Some(id) = id {
             return self.connection(&id);
         }
-        let official = self.official();
-        if official.snapshot().network_id.as_deref() == Some(&reference.network_id)
-            && NetworkAccountSession::capture()
-                .and_then(|a| a.service_id().map(str::to_owned))
-                .is_ok_and(|service| service == reference.service_id)
-        {
-            return Ok(official);
-        }
         Err(NetworkError::new("NETWORK_SCOPE_MISMATCH"))
-    }
-    pub(crate) fn official(&self) -> ManagedConnection {
-        self.connection(OFFICIAL)
-            .expect("official connector remains")
-    }
-    pub(crate) fn snapshot(&self) -> NetworkSnapshot {
-        self.official().snapshot()
     }
     pub(crate) fn memory_budget(&self) -> MemoryBudget {
         self.memory.clone()
     }
     pub(crate) fn current_generation(&self, id: &str) -> Option<u64> {
         self.connection(id).ok().map(|c| c.generation())
-    }
-    pub(crate) fn auth_boundary<R: tauri::Runtime>(&self, app: &tauri::AppHandle<R>) {
-        self.official().auth_boundary(app);
     }
     pub(crate) fn power_boundary(&self, app: &tauri::AppHandle, suspended: bool) {
         for c in self.all() {
@@ -193,14 +173,7 @@ impl NetworkRegistry {
     pub(crate) fn view(&self) -> RegistryView {
         let enabled = self.selfhost_enabled.load(Ordering::Acquire);
         let stored = self.stored.lock().unwrap_or_else(|e| e.into_inner());
-        let mut views = vec![ConnectionView {
-            id: OFFICIAL.into(),
-            name: "MyAgents".into(),
-            official: true,
-            url: None,
-            removing: false,
-            snapshot: self.snapshot(),
-        }];
+        let mut views = Vec::new();
         for c in stored.iter().filter(|_| enabled) {
             let snapshot = self
                 .connection(&c.id)
@@ -218,7 +191,6 @@ impl NetworkRegistry {
             views.push(ConnectionView {
                 id: c.id.clone(),
                 name: c.descriptor.name.clone(),
-                official: false,
                 url: Some(c.descriptor.issuer.clone()),
                 removing: c.removing,
                 snapshot,
@@ -233,7 +205,7 @@ impl NetworkRegistry {
                     .unwrap_or_else(|e| e.into_inner())
                     .clone()
             } else {
-                OFFICIAL.into()
+                NO_SELECTION.into()
             },
             connections: views,
         }
@@ -244,11 +216,10 @@ impl NetworkRegistry {
         id: String,
     ) -> Result<RegistryView, NetworkError> {
         let _lock = self.mutation.lock().await;
-        if id != OFFICIAL && !self.selfhost_enabled.load(Ordering::Acquire) {
+        if !self.selfhost_enabled.load(Ordering::Acquire) {
             return Err(NetworkError::new("NETWORK_FEATURE_DISABLED"));
         }
-        if id != OFFICIAL
-            && !self
+        if !self
                 .stored
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
@@ -443,9 +414,6 @@ impl NetworkRegistry {
         id: String,
     ) -> Result<RegistryView, NetworkError> {
         let _lock = self.mutation.lock().await;
-        if id == OFFICIAL {
-            return Err(NetworkError::new("OFFICIAL_NETWORK_CANNOT_REMOVE"));
-        }
         if !self.selfhost_enabled.load(Ordering::Acquire) {
             return Err(NetworkError::new("NETWORK_FEATURE_DISABLED"));
         }
@@ -497,7 +465,7 @@ impl NetworkRegistry {
                 .map_err(|_| NetworkError::new("DEVICE_ID_UNAVAILABLE"))?;
             let value = account
                 .request(
-                    crate::space_cloud::agent_network::AccountOperation::IdentityState(
+                    super::account::AccountOperation::IdentityState(
                         device.device_id.clone(),
                     ),
                     None,
@@ -533,7 +501,7 @@ impl NetworkRegistry {
             }
             let request =
                 async |operation: &str,
-                       route: crate::space_cloud::agent_network::AccountOperation| {
+                       route: super::account::AccountOperation| {
                     let proof =
                         super::identity::proof(&account, &scope, &key, operation, &fingerprint)
                             .await?;
@@ -541,14 +509,14 @@ impl NetworkRegistry {
                 };
             let revoke = request(
                 "revoke",
-                crate::space_cloud::agent_network::AccountOperation::Revoke,
+                super::account::AccountOperation::Revoke,
             )
             .await;
             let confirmed = match revoke {
                 Ok(value) => value["revoked"] == true,
                 Err(_) => request(
                     "revoke-query",
-                    crate::space_cloud::agent_network::AccountOperation::RevokeState,
+                    super::account::AccountOperation::RevokeState,
                 )
                 .await
                 .is_ok_and(|v| v["revoked"] == true),
@@ -571,7 +539,7 @@ impl NetworkRegistry {
         let checkpoint_selected = selected.clone();
         next.retain(|c| c.id != id);
         let selected = if selected == id {
-            OFFICIAL.into()
+            next.first().map(|c| c.id.clone()).unwrap_or_default()
         } else {
             selected
         };
@@ -641,10 +609,7 @@ impl NetworkRegistry {
                 changed = true;
             }
         } else {
-            connections.retain(|id, actor| {
-                if id == OFFICIAL {
-                    return true;
-                }
+            connections.retain(|_, actor| {
                 self.revision
                     .fetch_max(actor.generation().saturating_add(1), Ordering::AcqRel);
                 actor.deactivate();
@@ -768,7 +733,6 @@ pub(crate) fn start(
     }
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     let monitor = super::power::install(app.clone(), owner.clone());
-    super::actor::start(app.clone(), owner.official(), manager.clone());
     tauri::async_runtime::spawn(async move {
         let initialization = owner.mutation.lock().await;
         if let Ok(path) = config_path() {
@@ -786,15 +750,13 @@ pub(crate) fn start(
                         Ok(stored) if validate_stored(&stored).is_ok() => {
                             let selected = config["agentNetworkSelectedConnection"]
                                 .as_str()
-                                .unwrap_or(OFFICIAL)
+                                .unwrap_or(NO_SELECTION)
                                 .to_string();
-                            *owner.selected.lock().unwrap_or_else(|e| e.into_inner()) = if selected
-                                == OFFICIAL
-                                || stored.iter().any(|c| c.id == selected)
+                            *owner.selected.lock().unwrap_or_else(|e| e.into_inner()) = if stored.iter().any(|c| c.id == selected)
                             {
                                 selected
                             } else {
-                                OFFICIAL.into()
+                                stored.first().map(|c| c.id.clone()).unwrap_or_default()
                             };
                             *owner.stored.lock().unwrap_or_else(|e| e.into_inner()) = stored;
                             if let Some(started) =
@@ -871,8 +833,8 @@ mod tests {
         };
         *owner.stored.lock().unwrap() = vec![stored];
         owner.set_selfhost_enabled(true).unwrap();
-        // The UI is showing official, but the selector owns request routing.
-        assert_eq!(owner.view().selected, OFFICIAL);
+        // A remote selector resolves without a UI selection.
+        assert_eq!(owner.view().selected, NO_SELECTION);
         (owner, reference)
     }
 
@@ -1033,7 +995,6 @@ mod tests {
     #[test]
     fn developer_gate_pauses_only_selfhost_and_reactivation_rejects_retired_generations() {
         let owner = NetworkRegistry::new();
-        let official = owner.official();
         let stored: StoredConnection = serde_json::from_value(json!({
             "id":"00000000-0000-0000-0000-000000000001",
             "descriptor":{"serviceId":"00000000-0000-0000-0000-000000000002","environment":"development",
@@ -1046,8 +1007,8 @@ mod tests {
         *owner.selected.lock().unwrap() = id.clone();
         let original = serde_json::to_value(owner.stored.lock().unwrap().clone()).unwrap();
         assert!(!owner.view().selfhost_enabled);
-        assert_eq!(owner.view().selected, OFFICIAL);
-        assert_eq!(owner.view().connections.len(), 1);
+        assert_eq!(owner.view().selected, NO_SELECTION);
+        assert!(owner.view().connections.is_empty());
         assert_eq!(
             owner.connection(&id).err().unwrap().code,
             "NETWORK_FEATURE_DISABLED"
@@ -1060,10 +1021,7 @@ mod tests {
         // The existing with_generation seed must still exceed that old actor.
         started[0].deactivate();
         let account = self_account(&owner.stored.lock().unwrap()[0], None);
-        let NetworkAccountSession::Selfhost(authority) = &account else {
-            panic!("fixture must be selfhost");
-        };
-        let authority = authority.clone();
+        let authority = account.clone();
         let retired =
             AgentNetwork::with_generation(id.clone(), Some(account), owner.memory.clone(), 100);
         assert!(retired.generation() > owner.revision.load(Ordering::Acquire));
@@ -1075,8 +1033,8 @@ mod tests {
         assert!(owner.set_selfhost_enabled(false).unwrap().is_empty());
         assert!(!authority.active.load(Ordering::Acquire));
         assert_eq!(owner.current_generation(&id), None);
-        assert_eq!(owner.view().selected, OFFICIAL);
-        assert_eq!(owner.view().connections.len(), 1);
+        assert_eq!(owner.view().selected, NO_SELECTION);
+        assert!(owner.view().connections.is_empty());
         let restored = owner.set_selfhost_enabled(true).unwrap();
         assert!(restored[0].generation() > retired.generation());
         assert_eq!(owner.view().selected, id);
@@ -1084,7 +1042,6 @@ mod tests {
             serde_json::to_value(owner.stored.lock().unwrap().clone()).unwrap(),
             original
         );
-        assert!(Arc::ptr_eq(&owner.official(), &official));
     }
     #[test]
     fn gate_event_before_startup_reconciles_loaded_connections_without_replacing_live_actors() {
@@ -1242,7 +1199,7 @@ mod tests {
         assert!(!credential.get());
     }
     #[tokio::test]
-    async fn three_connectors_share_capacity_and_selection_has_no_transport_authority() {
+    async fn connectors_share_capacity_and_selection_has_no_transport_authority() {
         let owner = NetworkRegistry::new();
         let a = AgentNetwork::new("a".into(), None, owner.memory_budget());
         let b = AgentNetwork::new("b".into(), None, owner.memory_budget());
@@ -1256,12 +1213,11 @@ mod tests {
             .lock()
             .unwrap()
             .insert("b".into(), b.clone());
-        let official = owner.official();
         let payload = "x".repeat(1024 * 1024);
         let mut leases = Vec::new();
-        let connectors = [official.clone(), a.clone(), b.clone()];
+        let connectors = [a.clone(), b.clone()];
         loop {
-            let connection = &connectors[leases.len() % 3];
+            let connection = &connectors[leases.len() % connectors.len()];
             match connection.reserve_payload(&payload) {
                 Ok(lease) => leases.push(lease),
                 Err(error) => {
@@ -1273,11 +1229,9 @@ mod tests {
         assert!(!leases.is_empty());
         *owner.selected.lock().unwrap() = "b".into();
         assert_eq!(a.generation(), 0);
-        assert_eq!(official.generation(), 0);
         a.deactivate();
         assert_ne!(a.generation(), 0);
         assert_eq!(b.generation(), 0);
-        assert_eq!(official.generation(), 0);
         drop(leases);
         assert!(b.reserve_payload(&payload).is_ok());
     }

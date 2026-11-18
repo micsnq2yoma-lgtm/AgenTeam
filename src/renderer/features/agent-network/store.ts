@@ -13,21 +13,12 @@ const initialSnapshot: NetworkSnapshot = {
   error: null,
   revision: 0,
   authGeneration: 0,
-  connectionId: "official",
+  connectionId: "",
 };
 const initial: NetworkRegistry = {
   selfhostEnabled: false,
-  selected: "official",
-  connections: [
-    {
-      id: "official",
-      name: "MyAgents",
-      official: true,
-      url: null,
-      removing: false,
-      snapshot: initialSnapshot,
-    },
-  ],
+  selected: "",
+  connections: [],
 };
 let registry = initial;
 const listeners = new Set<() => void>();
@@ -44,7 +35,7 @@ function clearScope(snapshot: NetworkSnapshot) {
   }
 }
 function accept(next: NetworkSnapshot) {
-  const id = next.connectionId ?? "official",
+  const id = next.connectionId ?? "",
     old =
       pending.get(id) ??
       registry.connections.find((c) => c.id === id)?.snapshot;
@@ -159,7 +150,7 @@ export function useAgentNetworkDirectoryVersion(): string {
     ]),
   );
 }
-export const currentNetworkGeneration = (connectionId = "official") =>
+export const currentNetworkGeneration = (connectionId = registry.selected) =>
   registry.connections.find((c) => c.id === connectionId)?.snapshot
     .authGeneration ?? -1;
 export function descriptionDraftKey(

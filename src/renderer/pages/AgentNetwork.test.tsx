@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
   agents: vi.fn(),
   login: vi.fn(),
   openExternal: vi.fn(),
-  selected: "official",
+  selected: "selfhost",
   snapshot: {
     state: "ready",
     principalId: "account",
@@ -26,23 +26,11 @@ const mocks = vi.hoisted(() => ({
     error: null,
   } as NetworkSnapshot,
 }));
-vi.mock("@/api/spaceCloud", async (original) => ({
-  ...(await original<typeof import("@/api/spaceCloud")>()),
-  spaceGetSession: mocks.session,
-  spaceLogout: mocks.logout,
-}));
 vi.mock("@/api/agentNetwork", async (original) => ({
   ...(await original<typeof import("@/api/agentNetwork")>()),
   networkRequest: mocks.request,
   allNetworkDevices: mocks.devices,
   allDeviceAgents: mocks.agents,
-}));
-vi.mock("@/hooks/useMyAgentsLogin", () => ({
-  useMyAgentsLogin: () => ({
-    authBusy: false,
-    authFlow: null,
-    startLogin: mocks.login,
-  }),
 }));
 vi.mock("@/features/agent-network/store", async (original) => ({
   ...(await original<typeof import("@/features/agent-network/store")>()),
@@ -53,8 +41,8 @@ vi.mock("@/features/agent-network/store", async (original) => ({
     connections: [
       {
         id: mocks.selected,
-        name: mocks.selected === "official" ? "MyAgents" : "Team A",
-        official: mocks.selected === "official",
+        name: "Team A",
+
         url: null,
         removing: false,
         snapshot: mocks.snapshot,
@@ -99,7 +87,7 @@ const membership = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.selected = "official";
+  mocks.selected = "selfhost";
   mocks.snapshot = {
     state: "ready",
     principalId: "account",
@@ -180,7 +168,7 @@ describe("Agent network account and device management", () => {
           expectedName: "Fixture PC",
           name: "家里 Windows",
         }),
-        "official",
+        "selfhost",
       );
       expect(
         screen.queryByRole("dialog", { name: "设备重命名" }),
@@ -273,7 +261,7 @@ describe("Agent network account and device management", () => {
           expectedName: "另一台设备修改的名字",
           name: "我的设备名称",
         }),
-        "official",
+        "selfhost",
       ),
     );
   });
@@ -305,7 +293,7 @@ describe("Agent network account and device management", () => {
     };
     mocks.session.mockResolvedValue(null);
     view.rerender(<AgentNetwork />);
-    await screen.findByRole("button", { name: "继续使用 Google" });
+    await screen.findByRole("status");
     await act(async () => {
       finish({
         networkId: device.networkId,
@@ -317,21 +305,10 @@ describe("Agent network account and device management", () => {
     expect(screen.queryByText("旧账号的昵称")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
-  it("opens the published blog from the unjoined-device banner", async () => {
-    render(<AgentNetwork />);
-    const banner = await screen.findByRole("button", {
-      name: "了解 Agent 组网（在浏览器中打开）",
-    });
-    expect(screen.getByText("让设备加入网络")).toBeInTheDocument();
-    fireEvent.click(banner);
-    expect(mocks.openExternal).toHaveBeenCalledWith(
-      "https://myagents.io/blog/private-agent-network",
-    );
-  });
-  it("hides both onboarding elements after joining, even with no open Agents", async () => {
+  it("hides the setup guide after joining, even with no open Agents", async () => {
     render(<AgentNetwork />);
     expect(
-      await screen.findByRole("button", { name: /了解 Agent 组网/ }),
+      await screen.findByText("让设备加入网络"),
     ).toBeInTheDocument();
     mocks.devices.mockResolvedValue({
       items: [{ ...device, joined: true, catalogSyncedAt: 1 }],
@@ -346,7 +323,7 @@ describe("Agent network account and device management", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
     expect(
-      screen.queryByRole("button", { name: /了解 Agent 组网/ }),
+      screen.queryByRole("list"),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("让设备加入网络")).not.toBeInTheDocument();
     expect(screen.queryByText("开放 Agent 工作区")).not.toBeInTheDocument();
@@ -365,7 +342,7 @@ describe("Agent network account and device management", () => {
     render(<AgentNetwork />);
     await screen.findByRole("button", { name: "查看 Fixture PC 的设备详情" });
     expect(
-      screen.queryByRole("button", { name: /了解 Agent 组网/ }),
+      screen.queryByRole("list"),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("让设备加入网络")).not.toBeInTheDocument();
   });
@@ -382,7 +359,7 @@ describe("Agent network account and device management", () => {
     expect(screen.queryByText(/尚未确认保存结果/)).not.toBeInTheDocument();
     expect(mocks.request).not.toHaveBeenCalled();
     expect(
-      screen.queryByRole("button", { name: /了解 Agent 组网/ }),
+      screen.queryByRole("list"),
     ).not.toBeInTheDocument();
   });
   it("offers read retry without claiming an uncertain save", async () => {
@@ -390,7 +367,7 @@ describe("Agent network account and device management", () => {
     render(<AgentNetwork />);
     expect(await screen.findByRole("alert")).not.toHaveTextContent("保存结果");
     expect(
-      screen.queryByRole("button", { name: /了解 Agent 组网/ }),
+      screen.queryByRole("list"),
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
     expect(
@@ -423,25 +400,12 @@ describe("Agent network account and device management", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "重试" }));
     await waitFor(() => expect(mocks.agents).toHaveBeenCalledTimes(2));
   });
-  it("uses the shared account login screen without querying network metadata while signed out", async () => {
-    mocks.snapshot = { ...mocks.snapshot, state: "signedOut" };
-    mocks.session.mockResolvedValue(null);
-    render(<AgentNetwork />);
-    const login = await screen.findByRole("button", {
-      name: "继续使用 Google",
-    });
-    expect(login).toHaveClass("h-10");
-    fireEvent.click(login);
-    expect(mocks.login).toHaveBeenCalledOnce();
-    expect(mocks.devices).not.toHaveBeenCalled();
-    expect(mocks.request).not.toHaveBeenCalled();
-  });
   it("groups an unjoined device apart and keeps membership separate from the whole-card details action", async () => {
     render(<AgentNetwork />);
     const details = await screen.findByRole("button", {
       name: "查看 Fixture Mac 的设备详情",
     });
-    expect(screen.getByText("同账号下未加入的设备")).toBeInTheDocument();
+    expect(screen.getByText("尚未加入网络的设备")).toBeInTheDocument();
     expect(screen.queryByText("网络中的设备")).not.toBeInTheDocument();
     expect(screen.getByText("macOS · 未加入网络")).toBeInTheDocument();
     fireEvent.click(details);
@@ -457,7 +421,7 @@ describe("Agent network account and device management", () => {
           joined: true,
           expectedMembershipRevision: 0,
         }),
-        "official",
+        "selfhost",
       ),
     );
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
@@ -466,7 +430,7 @@ describe("Agent network account and device management", () => {
     render(<AgentNetwork />);
     const button = await screen.findByRole("button", { name: "网络说明" });
     const hint =
-      "设备之间的 Agent 通信内容都在设备端加密，MyAgents 服务器只转发密文。";
+      "设备间的 Agent 通信在设备端加密，中转服务只转发密文。";
     expect(screen.queryByText(hint)).not.toBeInTheDocument();
     fireEvent.click(button);
     expect(await screen.findByText(hint)).toBeInTheDocument();
@@ -501,7 +465,7 @@ describe("Agent network account and device management", () => {
     await waitFor(() =>
       expect(mocks.request).toHaveBeenCalledWith(
         expect.objectContaining({ kind: "membership", joined: true }),
-        "official",
+        "selfhost",
       ),
     );
   });
@@ -555,7 +519,7 @@ describe("Agent network account and device management", () => {
     };
     mocks.session.mockResolvedValue(null);
     view.rerender(<AgentNetwork />);
-    await screen.findByRole("button", { name: "继续使用 Google" });
+    await screen.findByRole("status");
     await act(async () => {
       finish({ ...membership, joined: false });
     });
@@ -610,9 +574,6 @@ describe("Agent network account and device management", () => {
     // An unknown remote icon falls back to the neutral glyph, never raw text.
     expect(within(card).queryByText("not-a-glyph")).not.toBeInTheDocument();
     // This device has not joined, so the guide points at step one.
-    expect(
-      screen.getByRole("button", { name: /了解 Agent 组网/ }),
-    ).toBeInTheDocument();
     const guide = screen.getByRole("list");
     expect(
       within(guide).getByText("让设备加入网络").closest("li"),
@@ -664,7 +625,7 @@ describe("Agent network account and device management", () => {
     expect(screen.queryByText("让设备加入网络")).not.toBeInTheDocument();
     expect(screen.queryByText("开放 Agent 工作区")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /了解 Agent 组网/ }),
+      screen.queryByRole("list"),
     ).not.toBeInTheDocument();
   });
 });
@@ -716,26 +677,6 @@ describe("Network header across asynchronous boundaries", () => {
     ).toHaveTextContent(agents);
   }
 
-  it("retains header controls and unknown statistics while authenticating", async () => {
-    let finish!: (value: unknown) => void;
-    mocks.session.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          finish = resolve;
-        }),
-    );
-    render(<AgentNetwork />);
-    expectHeader("—", "—");
-    const selector = screen.getByRole("button", { name: "选择网络" });
-    const info = screen.getByRole("button", { name: "网络说明" });
-    await act(async () => {
-      finish({ state: "authenticated", session: { user: { id: "account" } } });
-    });
-    await screen.findByRole("button", { name: "查看 Fixture Mac 的设备详情" });
-    expectHeader("0", "0");
-    expect(screen.getByRole("button", { name: "选择网络" })).toBe(selector);
-    expect(screen.getByRole("button", { name: "网络说明" })).toBe(info);
-  });
 
   it("clears previous statistics immediately on network switch, then shows confirmed empty counts", async () => {
     mocks.devices.mockResolvedValue({
@@ -765,15 +706,4 @@ describe("Network header across asynchronous boundaries", () => {
     expectHeader("0", "0");
   });
 
-  it("retains the same header in signed-out and account-error states", async () => {
-    mocks.session.mockResolvedValue(null);
-    const view = render(<AgentNetwork />);
-    await screen.findByRole("button", { name: "继续使用 Google" });
-    expectHeader("—", "—");
-    mocks.session.mockRejectedValue(new Error("account unavailable"));
-    mocks.snapshot = { ...mocks.snapshot, authGeneration: 2 };
-    view.rerender(<AgentNetwork />);
-    await screen.findByRole("alert");
-    expectHeader("—", "—");
-  });
 });

@@ -114,14 +114,6 @@ vi.mock("@/api/apiFetch", () => ({
   apiPostJson: settingsMocks.apiPostJson,
 }));
 
-vi.mock("@/hooks/useSpaceBuildCapability", () => ({
-  useSpaceBuildCapability: () => ({
-    available: settingsMocks.spaceAvailable,
-    isLoading: false,
-    activeEnvironment: "production",
-    environments: ["production"],
-  }),
-}));
 
 vi.mock("@/hooks/useAutostart", () => ({
   useAutostart: () => ({
@@ -218,7 +210,7 @@ describe('Ubuntu settings availability', () => {
     settingsMocks.linux = false;
     render(<ToastProvider><Settings mode="settings" initialSection="developer" isActive /></ToastProvider>);
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'MyAgents' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'AgenTeam' })).toBeInTheDocument());
     expect(within(screen.getByRole('navigation')).queryByRole('button', { name: String(i18n.t('sidebar.nav.developer', { ns: 'settings' })) })).not.toBeInTheDocument();
     expect(screen.queryByText(String(i18n.t('general.defaultRuntimeTitle', { ns: 'settings' })))).not.toBeInTheDocument();
   });
@@ -233,7 +225,7 @@ describe('Ubuntu settings availability', () => {
     expect(within(navigation).queryByRole('button', { name: developerLabel })).not.toBeInTheDocument();
     expect(screen.queryByText(runtimeLabel)).not.toBeInTheDocument();
 
-    const wordmark = screen.getByRole('heading', { name: 'MyAgents' });
+    const wordmark = screen.getByRole('heading', { name: 'AgenTeam' });
     for (let i = 0; i < 5; i += 1) fireEvent.click(wordmark);
 
     const developerTab = within(navigation).getByRole('button', { name: developerLabel });
@@ -247,52 +239,10 @@ describe('Ubuntu settings availability', () => {
     fireEvent.click(developerTab);
     expect(screen.getByText(String(i18n.t('about.developer.devModeTitle', { ns: 'settings' })))).toBeInTheDocument();
     expect(screen.getByText(String(i18n.t('about.developer.cronTaskTitle', { ns: 'settings' })))).toBeInTheDocument();
-    const spaceLabel = String(i18n.t('about.teamSpaceTitle', { ns: 'settings' }));
-    const spaceToggle = screen.getByRole('button', { name: spaceLabel });
-    expect(spaceToggle).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(spaceToggle);
-    expect(settingsMocks.updateConfig).toHaveBeenCalledWith({ teamSpaceDevGate: false });
-    fireEvent.click(within(navigation).getByRole('button', { name: String(i18n.t('sidebar.nav.about', { ns: 'settings' })) }));
-    expect(screen.queryByText(spaceLabel)).not.toBeInTheDocument();
 
   });
-  it.each([false, true])('keeps the Developer Space switch functional (build available: %s)', async (available) => {
-    const { unlockDeveloperSection } = await import('@/utils/developerMode');
-    unlockDeveloperSection();
-    settingsMocks.spaceAvailable = available;
-    settingsMocks.config.teamSpaceDevGate = false;
-    render(<ToastProvider><Settings mode="settings" initialSection="developer" isActive /></ToastProvider>);
-    const toggle = await screen.findByRole('button', { name: 'Team Space' });
-    expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    if (available) {
-      expect(toggle).toBeEnabled();
-      fireEvent.click(toggle);
-      expect(settingsMocks.updateConfig).toHaveBeenCalledWith({ teamSpaceDevGate: true });
-    } else {
-      expect(toggle).toBeDisabled();
-      fireEvent.click(toggle);
-      expect(settingsMocks.updateConfig).not.toHaveBeenCalled();
-    }
-  });
 
-  it.each(['zh-CN', 'en-US'])('shows the bundled B2 market banner in Capabilities for %s', async (locale) => {
-    await i18n.changeLanguage(locale);
-    const open = vi.fn();
-    render(<ToastProvider><Settings mode="capabilities" initialSection="plugins" onOpenToolMarket={open} isActive /></ToastProvider>);
-    const label = String(i18n.t('capabilities.toolMarketOpen', { ns: 'settings' }));
-    const button = screen.getByRole('button', { name: label });
-    const image = within(button).getByRole('img');
-    expect(image).toHaveAttribute('src', expect.stringContaining(`tool-market-${locale}.png`));
-    fireEvent.click(button);
-    expect(open).toHaveBeenCalledOnce();
-  });
 
-  it.each(['build', 'developer'])('hides the market banner when unavailable via %s', (gate) => {
-    settingsMocks.spaceAvailable = gate !== 'build';
-    settingsMocks.config.teamSpaceDevGate = gate !== 'developer';
-    render(<ToastProvider><Settings mode="capabilities" initialSection="plugins" onOpenToolMarket={vi.fn()} isActive /></ToastProvider>);
-    expect(document.querySelector('[data-tool-market-entry]')).not.toBeInTheDocument();
-  });
 
   it('keeps the targeted capabilities section when the host consumes navigation', async () => {
     const consumed = vi.fn();
@@ -314,7 +264,7 @@ describe('Ubuntu settings availability', () => {
     unlockDeveloperSection();
     settingsMocks.config.agentNetworkSelfhostDevGate = enabled;
     render(<ToastProvider><Settings mode="settings" initialSection="developer" isActive /></ToastProvider>);
-    const toggle = await screen.findByRole('button', { name: 'AgentNet multiple networks (experimental)' });
+    const toggle = await screen.findByRole('button', { name: 'Self-hosted AgentNet' });
     expect(toggle).toHaveAttribute('aria-pressed', String(enabled === true));
     fireEvent.click(toggle);
     expect(settingsMocks.updateConfig).toHaveBeenCalledWith({ agentNetworkSelfhostDevGate: enabled !== true });

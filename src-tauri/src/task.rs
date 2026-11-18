@@ -1005,6 +1005,7 @@ fn sort_and_bound_comment_locators(items: &mut Vec<TaskAgentCommentLocator>) {
 
 fn spawn_comment_notification_rebuild(
     index_handle: Arc<StdRwLock<TaskCommentNotificationIndex>>,
+    index_rebuilt: tokio::sync::watch::Sender<()>,
     artifacts_root: PathBuf,
     tasks: Vec<Task>,
 ) {
@@ -1059,6 +1060,8 @@ fn spawn_comment_notification_rebuild(
         index.items = items;
         index.partial_error = partial_error;
         index.ready = true;
+        drop(index);
+        index_rebuilt.send_replace(());
     });
 }
 
@@ -1220,12 +1223,14 @@ pub struct TaskCreateDirectInput {
     pub notification: Option<NotificationConfig>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 pub enum TaskCreateAttachedSource {
     #[serde(rename = "space-issue")]
     SpaceIssue,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskCreateAttachedInput {
@@ -1598,6 +1603,7 @@ pub struct TaskStore {
     /// store data dir keeps tests and alternate app data roots isolated.
     task_artifacts_root: PathBuf,
     comment_notification_index: Arc<StdRwLock<TaskCommentNotificationIndex>>,
+    comment_notification_index_rebuilt: tokio::sync::watch::Sender<()>,
     /// Persisted `sending` receipts become `unknown` only once per Task after
     /// process start. Ordinary reads must never reinterpret a live admission
     /// as a restart recovery.
@@ -1641,16 +1647,17 @@ impl TaskStore {
         ));
         let comment_notification_index =
             Arc::new(StdRwLock::new(TaskCommentNotificationIndex::default()));
+        let (comment_notification_index_rebuilt, _) = tokio::sync::watch::channel(());
         let rebuild_tasks = initial
             .values()
             .filter(|task| !task.deleted && !is_managed_task(task))
             .cloned()
             .collect::<Vec<_>>();
         // The comment source is rebuilt away from the startup/UI thread. Until
-        // it completes, notification snapshots report the local source as
-        // loading while Cloud notifications remain usable.
+        // it completes, notification snapshots report the local source as loading.
         spawn_comment_notification_rebuild(
             comment_notification_index.clone(),
+            comment_notification_index_rebuilt.clone(),
             task_artifacts_root.clone(),
             rebuild_tasks,
         );
@@ -1660,6 +1667,7 @@ impl TaskStore {
             load_error,
             task_artifacts_root,
             comment_notification_index,
+            comment_notification_index_rebuilt,
             comments_needing_recovery,
             #[cfg(test)]
             fail_next_acceptance_comment_persist: std::sync::atomic::AtomicBool::new(false),
@@ -1687,6 +1695,20 @@ impl TaskStore {
             ready: index.ready,
             partial_error: index.partial_error,
             items,
+        }
+    }
+
+    pub(crate) async fn wait_for_comment_notification_index(&self) {
+        let mut rebuilt = self.comment_notification_index_rebuilt.subscribe();
+        loop {
+            let ready = self
+                .comment_notification_index
+                .read()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .ready;
+            if ready || rebuilt.changed().await.is_err() {
+                break;
+            }
         }
     }
 
@@ -1742,6 +1764,7 @@ impl TaskStore {
             .collect::<Vec<_>>();
         spawn_comment_notification_rebuild(
             self.comment_notification_index.clone(),
+            self.comment_notification_index_rebuilt.clone(),
             self.task_artifacts_root.clone(),
             tasks,
         );
@@ -2905,11 +2928,8 @@ impl TaskStore {
         Ok(t)
     }
 
-    pub async fn create_attached(&self, input: TaskCreateAttachedInput) -> Result<Task, String> {
-        self.create_attached_with_session_probe(input, session_metadata_exists)
-            .await
-    }
-
+    // Construct legacy rows for compatibility tests of existing attached Tasks.
+    #[cfg(test)]
     async fn create_attached_with_session_probe<F>(
         &self,
         input: TaskCreateAttachedInput,
@@ -4957,17 +4977,6 @@ pub async fn cmd_task_create_direct(
     .create_direct(input)
     .await
     .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub async fn cmd_task_create_attached(
-    task_state: tauri::State<'_, ManagedTaskStore>,
-    input: TaskCreateAttachedInput,
-) -> Result<Task, String> {
-    crate::task_application::TaskApplication::new(task_state.inner().as_ref(), None)
-        .create_attached(input)
-        .await
-        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

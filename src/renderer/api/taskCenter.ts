@@ -18,7 +18,6 @@ import type {
 } from '@/../shared/types/record';
 import type {
   Task,
-  TaskCreateAttachedInput,
   TaskCreateDirectInput,
   TaskListFilter,
   TaskRunStats,
@@ -189,12 +188,6 @@ export function taskCreateDirect(
   input: TaskCreateDirectInput & { taskMdContent: string },
 ): Promise<Task> {
   return inv('cmd_task_create_direct', { input });
-}
-
-export function taskCreateAttached(
-  input: TaskCreateAttachedInput,
-): Promise<Task> {
-  return inv('cmd_task_create_attached', { input });
 }
 
 export function taskList(filter?: TaskListFilter): Promise<Task[]> {

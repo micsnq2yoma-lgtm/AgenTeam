@@ -24,12 +24,12 @@ import {
 import { agentIconId } from "./deviceDisplay";
 
 export function AgentRow({
-  connectionId = "official",
+  connectionId,
   agent,
   device,
   onChanged,
 }: {
-  connectionId?: string;
+  connectionId: string;
   agent: NetworkAgent;
   device: NetworkDevice;
   onChanged: () => void;

@@ -478,15 +478,12 @@ try {
 
         $targetDir = "src-tauri\target\x86_64-pc-windows-msvc\release"
         $nsisDir = "$targetDir\bundle\nsis"
-        # Cargo package name is `myagents` (lowercase), so Tauri's main binary is
-        # myagents.exe — NOT MyAgents.exe (that's only the productName / shortcut).
-        # The old MyAgents.exe path worked by luck on case-insensitive NTFS; use the
-        # real name so this stays correct on case-sensitive filesystems too.
+        # Cargo supplies the executable name; Tauri uses AgenTeam for the installer and shortcut.
         $exePath = "$targetDir\myagents.exe"
 
         if (Test-Path $exePath) {
             $portableDir = Join-Path $targetDir "portable"
-            $zipName = "MyAgents_${Version}_x86_64-portable.zip"
+            $zipName = "AgenTeam_${Version}_x86_64-portable.zip"
             $zipPath = Join-Path $nsisDir $zipName
 
             if (Test-Path $portableDir) {

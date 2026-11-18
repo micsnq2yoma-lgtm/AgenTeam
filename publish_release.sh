@@ -40,8 +40,8 @@ get_arch_suffix() {
 }
 
 # 获取带架构后缀的 tar.gz 文件名
-# 用法: get_tar_upload_name "MyAgents.app.tar.gz" "aarch64-apple-darwin"
-# 输出: MyAgents_aarch64.app.tar.gz
+# 用法: get_tar_upload_name "AgenTeam.app.tar.gz" "aarch64-apple-darwin"
+# 输出: AgenTeam_aarch64.app.tar.gz
 get_tar_upload_name() {
     local base="$1"
     local target="$2"
@@ -180,7 +180,7 @@ validate_macos_artifacts() {
     local bundle_dir="$1"
     local dmg="$2"
     local updater_tar="$3"
-    local app_path="${bundle_dir}/macos/MyAgents.app"
+    local app_path="${bundle_dir}/macos/AgenTeam.app"
     local embedded_version
 
     assert_single_artifact "${bundle_dir}/dmg" "*.dmg" "DMG"
@@ -209,9 +209,9 @@ validate_macos_artifacts() {
         fi
         DMG_MOUNT=$(mktemp -d)
         hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$DMG_MOUNT" -quiet
-        local dmg_app="${DMG_MOUNT}/MyAgents.app"
+        local dmg_app="${DMG_MOUNT}/AgenTeam.app"
         if [ ! -d "$dmg_app" ]; then
-            echo -e "${RED}错误: DMG 内缺少 MyAgents.app${NC}"
+            echo -e "${RED}错误: DMG 内缺少 AgenTeam.app${NC}"
             exit 1
         fi
         local dmg_version
@@ -232,7 +232,7 @@ validate_macos_artifacts() {
     fi
     if [ -n "$updater_tar" ]; then
         local updater_version
-        updater_version=$(tar -xOf "$updater_tar" "MyAgents.app/Contents/Info.plist" \
+        updater_version=$(tar -xOf "$updater_tar" "AgenTeam.app/Contents/Info.plist" \
             | plutil -extract CFBundleShortVersionString raw -o - -)
         if [ "$updater_version" != "$VERSION" ]; then
             echo -e "${RED}错误: updater 包内版本 ${updater_version} 与待发布版本 ${VERSION} 不一致${NC}"
@@ -454,7 +454,7 @@ for TARGET in "${FOUND_TARGETS[@]}"; do
     TAR_FILENAME=$(basename "$TAR_GZ" 2>/dev/null || echo "")
 
     # 为 tar.gz 文件名添加架构标识，避免 ARM 和 Intel 互相覆盖
-    # MyAgents.app.tar.gz -> MyAgents_aarch64.app.tar.gz 或 MyAgents_x86_64.app.tar.gz
+    # AgenTeam.app.tar.gz -> AgenTeam_aarch64.app.tar.gz 或 AgenTeam_x86_64.app.tar.gz
     if [ -n "$TAR_FILENAME" ]; then
         TAR_UPLOAD_NAME=$(get_tar_upload_name "$TAR_FILENAME" "$TARGET")
     fi

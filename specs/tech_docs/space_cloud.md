@@ -1,5 +1,7 @@
 # MyAgents Cloud Space 架构
 
+> 历史文档。AgenTeam 已移除协作空间及 Issue 投递，下文记录上游原实现。
+
 > 本文只描述 Desktop 侧的 Cloud Space owner、身份、Connector、Session 注入与安全边界。Cloud API、D1/R2/KV、配额与运营逻辑以平级仓库 `../MyAgents_space/specs/ARCHITECTURE.md` 为准；逐字 IssueDelivery prompt 见 [`space_issue_delivery_protocol.md`](space_issue_delivery_protocol.md)。
 
 ## 1. 定位与权威边界

@@ -23,7 +23,8 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { MyAgentsLogotype } from '@/components/brand/MyAgentsLogotype';
+import { resolveSupportedLocale } from '../../../shared/i18n';
+import { ProductWordmark } from '@/components/brand/ProductWordmark';
 import DropZoneOverlay from '@/components/DropZoneOverlay';
 import SimpleChatInput, {
   type ImageAttachment,
@@ -154,6 +155,23 @@ interface BrandSectionProps {
 
 const LAUNCHER_INPUT_DROP_ZONE_ID = 'launcher-input';
 
+// AgenTeam brand: the slogan's key phrase carries a coral marker, echoing the
+// coral T in the wordmark. Themes with custom slogans simply render plain text.
+const SLOGAN_HIGHLIGHTS = ['真正有价值', 'Valuable Things'];
+
+function HighlightedSlogan({ text }: { text: string }) {
+  const phrase = SLOGAN_HIGHLIGHTS.find((p) => text.includes(p));
+  if (!phrase) return <>{text}</>;
+  const at = text.indexOf(phrase);
+  return (
+    <>
+      {text.slice(0, at)}
+      <em className="launcher-slogan-mark">{phrase}</em>
+      {text.slice(at + phrase.length)}
+    </>
+  );
+}
+
 export default memo(function BrandSection({
   projects,
   selectedProject,
@@ -204,9 +222,7 @@ export default memo(function BrandSection({
 }: BrandSectionProps) {
   const { t, i18n } = useTranslation('launcher');
   const resolvedTheme = useResolvedTheme();
-  const sloganLocale = i18n.resolvedLanguage?.toLowerCase().startsWith('zh')
-    ? 'zh-CN'
-    : 'en-US';
+  const sloganLocale = resolveSupportedLocale(i18n.resolvedLanguage);
   const heroBackground = resolvedTheme.hero.background;
   const heroAssetCssUrl = heroBackground.assetUrl
     ? JSON.stringify(heroBackground.assetUrl)
@@ -614,7 +630,7 @@ export default memo(function BrandSection({
   }, [providers, apiKeys, providerVerifyStatus]);
 
   const providerSettingsPrompt = !hasAnyProvider ? (
-    <p className="text-center text-sm text-[var(--ink-muted)]">
+    <p className="pl-3 text-left text-sm text-[var(--ink-muted)]">
       {t('brand.providerPrompt.prefix')}
       <button
         type="button"
@@ -649,15 +665,12 @@ export default memo(function BrandSection({
           separates "who we are" from the input below. */}
       <div className="flex min-h-0 flex-col items-center justify-end pb-8">
         <h1 className="theme-product-wordmark theme-launcher-hero-title">
-          <MyAgentsLogotype
-            className="launcher-hero-logotype"
-            title={resolvedTheme.hero.productName}
-          />
+          <ProductWordmark name={resolvedTheme.hero.productName} showMark={false} />
         </h1>
         {/* 品牌 slogan 的 15px/17px 是 DESIGN.md §3.3 立档的展示型字号（display 用途），
                     不属于正文 Type Scale；这是全仓唯一豁免点（PRD 0.2.34）。 */}
         <p className="theme-launcher-hero-slogan">
-          {resolvedTheme.hero.slogans[sloganLocale]}
+          <HighlightedSlogan text={resolvedTheme.hero.slogans[sloganLocale]} />
         </p>
       </div>
 

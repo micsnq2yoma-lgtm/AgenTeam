@@ -302,7 +302,8 @@ html[data-theme-id='default-black'] .theme-launcher-hero-slogan {
   font-size: 15px;
   font-weight: 300;
   letter-spacing: 0.06em;
-  color: var(--ink-muted);
+  /* AgenTeam brand sheet: slate-gray slogan (light) / soft gray (dark). */
+  color: #6b7280;
   text-align: center;
 }
 

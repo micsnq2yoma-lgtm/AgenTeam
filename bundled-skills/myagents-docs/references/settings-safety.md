@@ -18,10 +18,6 @@ Agent 运行环境选择已直接开放，不需要旧「更多 Agent Runtime」
 
 允许注册用户自己的 Agent-CLI 工具，默认关闭。关闭时不会显示/管理用户工具，也不会把它们注入新 Session；官方 `myagents` CLI 与官方工具不受影响。该开关不能由通用 config 命令绕过，需要用户在可见 UI 中主动开启。
 
-### 协作空间 / Team Space
-
-包含云端能力的构建默认开放，入口为侧栏「更多 → 协作空间」。隐藏开发者设置可以显式关闭；旧实验室选择不再控制入口。入口等配置加载完成后显示，数据操作还需登录、网络与相应权限。关闭时本地 Chat、Task、Agent、MCP 等仍正常。
-
 ### 外部调用
 
 设置 → 外部调用允许用户授权本机其他 AI 或终端调用公开 MyAgents CLI 能力，默认关闭。启用后通过受保护设置界面提供的连接指引配置 `MYAGENTS_API_TOKEN`；不要把 token 贴进对话或日志。旧外部脚本也需授权，只设置端口或伪造 Session 环境不能替代认证。
@@ -69,7 +65,7 @@ Permission mode 决定 Agent 在工具调用和文件修改时的自主程度，
 
 ## 网络代理
 
-MyAgents 支持系统/自定义代理和按 Provider 范围应用。Provider 请求、远程 MCP、Plugin 安装、外部 Runtime、Cloud Space 可能使用不同的代理路径，不应只凭一个“proxy=true”结论混为一谈。
+MyAgents 支持系统/自定义代理和按 Provider 范围应用。Provider 请求、远程 MCP、Plugin 安装、外部 Runtime和自建 AgentNet 可能使用不同的代理路径，不应只凭一个“proxy=true”结论混为一谈。
 
 本地 Sidecar 通信会绕过代理。出现 localhost 502、终端能访问但 Runtime 不行、某个 Provider 不跟随代理时，应进入 support 按链路诊断。
 

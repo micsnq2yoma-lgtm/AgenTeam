@@ -41,7 +41,7 @@ MyAgents 是以长时间阅读、持续协作和多任务切换为核心的桌�
 
 `Theme` 是一套完整视觉语言；`system / light / dark` 是 `AppearanceMode`。每套 Theme 必须同时交付 light 和 dark，system 只解析当前系统明暗，不产生第三套 Theme。
 
-当前生产目录包含 MyAgents Light、MyAgents Classic、MyAgents Classic2、Sage、Claude、Linear、Proof、Codex、Raycast 九套 Theme。产品顺序、默认值、fallback、完整 Token 与 embedded adapters 由 `src/renderer/theme/registry.ts` 和 [`tech_docs/theme_system.md`](tech_docs/theme_system.md) 负责，本文不复制注册表。
+当前生产目录包含 AgenTeam Light、AgenTeam Classic、AgenTeam Classic2、Sage、Claude、Linear、Proof、Codex、Raycast 九套 Theme。产品顺序、默认值、fallback、完整 Token 与 embedded adapters 由 `src/renderer/theme/registry.ts` 和 [`tech_docs/theme_system.md`](tech_docs/theme_system.md) 负责，本文不复制注册表。
 
 组件必须消费语义 Token 或 `useResolvedTheme()`，不得：
 

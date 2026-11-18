@@ -1,4 +1,3 @@
-import { DEFAULT_SPACE_ID } from '@/api/spaceCloud';
 import { startAgentNetworkStore } from '@/features/agent-network/store';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { flushSync } from 'react-dom';
@@ -63,7 +62,6 @@ import { useUpdater } from '@/hooks/useUpdater';
 import { useTrayEvents } from '@/hooks/useTrayEvents';
 import { useHelperAgentModelDefaults } from '@/hooks/useHelperAgentModelDefaults';
 import { useConfig } from '@/hooks/useConfig';
-import { useSpaceBuildCapability } from '@/hooks/useSpaceBuildCapability';
 import { useTabSwipeGesture } from '@/hooks/useTabSwipeGesture';
 import { actions as taskCenterActions } from '@/hooks/taskCenterStore';
 import { isProjectVisibleToUser, type Project } from '@/config/types';
@@ -232,11 +230,6 @@ import {
   reduceMainWindowPresentation,
 } from '@/utils/mainWindowPresentation';
 import {
-  nowForSpaceMetric,
-  trackSpaceToolMutation,
-} from '@/pages/space/spaceMetrics';
-import {
-  createSpaceToolsAppRoute,
   serializeAppRoute,
   type AppRoute,
   type PendingAppRoute,
@@ -401,11 +394,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     addProject: configAddProject,
     patchProject: configPatchProject,
   } = useConfig();
-  const spaceBuildCapability = useSpaceBuildCapability(config.spaceEnvironment);
-  const teamSpaceAvailable =
-    !configLoading &&
-    spaceBuildCapability.available &&
-    config.teamSpaceDevGate !== false;
   const [windowPresentation, setWindowPresentation] = useState(() =>
     createInitialMainWindowPresentation(
       typeof document === 'undefined' || document.visibilityState === 'visible',
@@ -491,9 +479,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
   const handleHistoryTagIntentConsumed = useCallback((id: number) => {
     setHistoryTagIntent((current) => (current?.id === id ? null : current));
   }, []);
-  const pendingSpaceRouteRef = useRef<PendingAppRoute | null>(null);
   const appRouteGenerationRef = useRef(0);
-  const spaceRouteTabIdRef = useRef<string | null>(null);
 
   // Candidate is persisted separately from the current live layout until
   // accepted or dismissed. A Launcher commit cannot consume it.
@@ -550,39 +536,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     },
     [tabWorkspaceController],
   );
-
-  useEffect(() => {
-    if (configLoading || spaceBuildCapability.isLoading) return;
-    const currentTabs = tabWorkspaceController.getSnapshot().tabs;
-    const routeTabId = spaceRouteTabIdRef.current;
-    if (
-      routeTabId &&
-      !currentTabs.some((tab) => tab.id === routeTabId && tab.view === 'space')
-    ) {
-      spaceRouteTabIdRef.current = null;
-    }
-    if (
-      spaceBuildCapability.available &&
-      (teamSpaceAvailable ||
-        currentTabs.some(
-          (tab) => tab.id === routeTabId && tab.view === 'space',
-        ))
-    )
-      return;
-
-    if (!currentTabs.some((tab) => tab.view === 'space')) return;
-
-    const plans = currentTabs
-      .filter((tab) => tab.view === 'space')
-      .map((tab) => ({ captured: tabWorkspaceController.capture(tab.id)! }));
-    tabWorkspaceController.removeMany(plans, createNewTab);
-  }, [
-    configLoading,
-    spaceBuildCapability.available,
-    spaceBuildCapability.isLoading,
-    teamSpaceAvailable,
-    tabWorkspaceController,
-  ]);
 
   // Persist open Chat / Record tabs after every structural change (Issue #232).
   // a POST-COMMIT effect — it flushes shortly after each tabs/activeTabId change
@@ -3764,31 +3717,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
   }, [handleOpenTaskCreate]);
 
   const lastNativeAppRouteGenerationRef = useRef(0);
-  const openedSpaceRouteGenerationRef = useRef(0);
-  const openSpaceRoute = useCallback(
-    (pending: PendingAppRoute): boolean => {
-      if (openedSpaceRouteGenerationRef.current >= pending.generation) {
-        return true;
-      }
-      const result = tabWorkspaceController.open('space', {
-        title: t('tabs.team'),
-        navigationIntent: pending,
-      });
-      if (result.kind === 'rejected') {
-        if (pendingSpaceRouteRef.current?.generation === pending.generation) {
-          pendingSpaceRouteRef.current = null;
-        }
-        return false;
-      }
-      openedSpaceRouteGenerationRef.current = pending.generation;
-      spaceRouteTabIdRef.current = result.tab.id;
-      if (pendingSpaceRouteRef.current?.generation === pending.generation) {
-        pendingSpaceRouteRef.current = null;
-      }
-      return true;
-    },
-    [t, tabWorkspaceController],
-  );
   const handleOpenAppRoute = useCallback(
     (route: AppRoute, nativeGeneration?: number): boolean => {
       try {
@@ -3803,44 +3731,9 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       ) {
         return true;
       }
-      if (route.name === 'task.comment') {
-        const currentTabs = tabWorkspaceController.getSnapshot().tabs;
-        const existing = currentTabs.find((tab) => tab.view === 'taskcenter');
-        if (!existing && currentTabs.length >= MAX_TABS) {
-          toastRef.current.info(t('appChrome.maxTabsReached'));
-          return false;
-        }
-        if (nativeGeneration !== undefined) {
-          lastNativeAppRouteGenerationRef.current = nativeGeneration;
-        }
-        appRouteGenerationRef.current += 1;
-        const opened = handleOpenTaskCenter({
-          clearSearchIntent: true,
-          routeIntent: {
-            generation: appRouteGenerationRef.current,
-            route,
-          },
-        });
-        if (!opened) return false;
-        return true;
-      }
-      if (!configLoading && config.teamSpaceDevGate === false) {
-        toastRef.current.info(t('titlebar.teamUnavailable'));
-        return false;
-      }
-      if (!spaceBuildCapability.isLoading && !spaceBuildCapability.available) {
-        toastRef.current.info(
-          spaceBuildCapability.reason ?? t('titlebar.teamBuildUnavailable'),
-        );
-        return false;
-      }
-      const existing = tabWorkspaceController
-        .getSnapshot()
-        .tabs.find((tab) => tab.view === 'space');
-      if (
-        !existing &&
-        tabWorkspaceController.getSnapshot().tabs.length >= MAX_TABS
-      ) {
+      const currentTabs = tabWorkspaceController.getSnapshot().tabs;
+      const existing = currentTabs.find((tab) => tab.view === 'taskcenter');
+      if (!existing && currentTabs.length >= MAX_TABS) {
         toastRef.current.info(t('appChrome.maxTabsReached'));
         return false;
       }
@@ -3848,61 +3741,17 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
         lastNativeAppRouteGenerationRef.current = nativeGeneration;
       }
       appRouteGenerationRef.current += 1;
-      const pending = {
-        generation: appRouteGenerationRef.current,
-        route,
-      } satisfies PendingAppRoute;
-      pendingSpaceRouteRef.current = pending;
-      return configLoading || spaceBuildCapability.isLoading ? true : openSpaceRoute(pending);
+      const opened = handleOpenTaskCenter({
+        clearSearchIntent: true,
+        routeIntent: {
+          generation: appRouteGenerationRef.current,
+          route,
+        },
+      });
+      if (!opened) return false;
+      return true;
     },
-    [
-      handleOpenTaskCenter,
-      configLoading,
-      config.teamSpaceDevGate,
-      openSpaceRoute,
-      spaceBuildCapability.available,
-      spaceBuildCapability.isLoading,
-      spaceBuildCapability.reason,
-      t,
-      tabWorkspaceController,
-    ],
-  );
-
-  useEffect(() => {
-    const pending = pendingSpaceRouteRef.current;
-    if (!pending || configLoading || spaceBuildCapability.isLoading) return;
-    if (!spaceBuildCapability.available || config.teamSpaceDevGate === false) {
-      if (openedSpaceRouteGenerationRef.current < pending.generation) {
-        openedSpaceRouteGenerationRef.current = pending.generation;
-        toastRef.current.info(
-          config.teamSpaceDevGate === false ? t('titlebar.teamUnavailable') : spaceBuildCapability.reason ?? t('titlebar.teamBuildUnavailable'),
-        );
-      }
-      if (pendingSpaceRouteRef.current?.generation === pending.generation) {
-        pendingSpaceRouteRef.current = null;
-      }
-      return;
-    }
-    openSpaceRoute(pending);
-  }, [
-    openSpaceRoute,
-    configLoading,
-    config.teamSpaceDevGate,
-    spaceBuildCapability.available,
-    spaceBuildCapability.isLoading,
-    spaceBuildCapability.reason,
-    t,
-  ]);
-
-  const handleSpaceRouteConsumed = useCallback(
-    (tabId: string, generation: number) => {
-      tabWorkspaceController.update(tabId, 'space', (tab) =>
-        tab.navigationIntent?.generation === generation
-          ? { ...tab, navigationIntent: undefined }
-          : tab,
-      );
-    },
-    [tabWorkspaceController],
+    [handleOpenTaskCenter, t, tabWorkspaceController],
   );
 
   useEffect(() => {
@@ -3949,48 +3798,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     );
     return () => ac.abort();
   }, [handleOpenAppRoute]);
-
-  const handleOpenSpace = useCallback(() => {
-    if (configLoading || spaceBuildCapability.isLoading) {
-      toastRef.current.info(t('titlebar.teamLoading'));
-      return;
-    }
-    if (!spaceBuildCapability.available) {
-      toastRef.current.info(
-        spaceBuildCapability.reason ?? t('titlebar.teamBuildUnavailable'),
-      );
-      return;
-    }
-    if (!teamSpaceAvailable) {
-      toastRef.current.info(t('titlebar.teamUnavailable'));
-      return;
-    }
-    tabWorkspaceController.open('space', {
-      title: t('tabs.team'),
-    });
-  }, [
-    configLoading,
-    spaceBuildCapability.isLoading,
-    spaceBuildCapability.available,
-    spaceBuildCapability.reason,
-    teamSpaceAvailable,
-    tabWorkspaceController,
-    t,
-  ]);
-
-  const handleOpenToolMarket = useCallback(() => {
-    if (!teamSpaceAvailable) {
-      handleOpenSpace();
-      return;
-    }
-    handleOpenAppRoute(createSpaceToolsAppRoute(DEFAULT_SPACE_ID));
-  }, [handleOpenAppRoute, handleOpenSpace, teamSpaceAvailable]);
-
-  useEffect(() => {
-    window.addEventListener(CUSTOM_EVENTS.OPEN_SPACE, handleOpenSpace);
-    return () =>
-      window.removeEventListener(CUSTOM_EVENTS.OPEN_SPACE, handleOpenSpace);
-  }, [handleOpenSpace]);
 
   // All Task discussion entry points converge here. The visible user text is
   // carried after a hidden product reminder, while the exact app-owned Skill
@@ -4316,9 +4123,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
         model,
         resumeSessionId,
         assistantEntry,
-        scenario = 'support',
       } = event.detail;
-      const helperLaunchStartedAt = nowForSpaceMetric();
       try {
         // Existing helper Sessions use the same new/jump/revive owner as every
         // other history surface. The canonical path applies the tab limit only
@@ -4346,18 +4151,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
           console.warn(
             `[App] Max tabs (${MAX_TABS}) reached, cannot open bug report`,
           );
-          if (scenario === 'space_tool_install') {
-            trackSpaceToolMutation({
-              operation: 'helper_launch',
-              toolKind: 'custom_install_prompt',
-              result: 'failure',
-              ok: false,
-              durationMs: Math.round(
-                nowForSpaceMetric() - helperLaunchStartedAt,
-              ),
-              error: new Error('Maximum tab count reached'),
-            });
-          }
           toastRef.current.info(t('appChrome.maxTabsReached'));
           return;
         }
@@ -4371,19 +4164,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
         );
         if (!project) {
           console.error('[App] ensureSelfAwarenessWorkspace returned null');
-          if (scenario === 'space_tool_install') {
-            trackSpaceToolMutation({
-              operation: 'helper_launch',
-              toolKind: 'custom_install_prompt',
-              result: 'failure',
-              ok: false,
-              durationMs: Math.round(
-                nowForSpaceMetric() - helperLaunchStartedAt,
-              ),
-              error: new Error('Helper workspace unavailable'),
-            });
-            toastRef.current?.error(t('space.tools.helperLaunchFailed'));
-          }
           return;
         }
 
@@ -4475,10 +4255,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
         });
 
         const initialMessage: InitialMessage = {
-          text:
-            scenario === 'space_tool_install'
-              ? description
-              : buildSupportPrompt(description, appVersion ?? ''),
+          text: buildSupportPrompt(description, appVersion ?? ''),
           ...(helperPermissionMode
             ? { permissionMode: helperPermissionMode }
             : {}),
@@ -4499,13 +4276,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
           const launched = await handleLaunchProject(
             project,
             initialMessage,
-            scenario === 'space_tool_install'
-              ? {
-                  surface: 'space_tools',
-                  entryIntent: 'tool_install',
-                  assistantEntry: 'space_tool_install',
-                }
-              : {
+            {
                   surface: 'bug_report',
                   entryIntent: 'support_diagnostics',
                   assistantEntry: assistantEntry ?? 'other',
@@ -4514,41 +4285,16 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
           if (!launched) {
             throw new Error('Helper Session failed to start');
           }
-          if (scenario === 'space_tool_install') {
-            trackSpaceToolMutation({
-              operation: 'helper_launch',
-              toolKind: 'custom_install_prompt',
-              result: 'success',
-              ok: true,
-              durationMs: Math.round(
-                nowForSpaceMetric() - helperLaunchStartedAt,
-              ),
-            });
-          }
 
           // Override tab title
           tabWorkspaceController.update(newTab.id, 'chat', (tab) => ({
             ...tab,
-            title:
-              scenario === 'space_tool_install'
-                ? t('space.tools.installSessionTitle')
-                : t('appChrome.diagnosticsTabTitle'),
+            title: t('appChrome.diagnosticsTabTitle'),
           }));
         } finally {
           removeUnusedPrecreatedLaunchTab(newTab.id);
         }
       } catch (err) {
-        if (scenario === 'space_tool_install') {
-          trackSpaceToolMutation({
-            operation: 'helper_launch',
-            toolKind: 'custom_install_prompt',
-            result: 'failure',
-            ok: false,
-            durationMs: Math.round(nowForSpaceMetric() - helperLaunchStartedAt),
-            error: err,
-          });
-          toastRef.current?.error(t('space.tools.helperLaunchFailed'));
-        }
         console.error('[App] Failed to launch bug report:', err);
       }
     };
@@ -4920,9 +4666,8 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     () => ({
       ...settingsUpdaterBinding,
       onNavigationConsumed: handleCapabilitySectionChange,
-      onOpenToolMarket: handleOpenToolMarket,
     }),
-    [handleCapabilitySectionChange, handleOpenToolMarket, settingsUpdaterBinding],
+    [handleCapabilitySectionChange, settingsUpdaterBinding],
   );
   const taskCenterBinding = useMemo<BuiltinTabBindings['taskcenter']>(
     () => ({
@@ -4940,10 +4685,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       handleTaskRouteConsumed,
       handleTaskSearchIntentConsumed,
     ],
-  );
-  const spaceBinding = useMemo<BuiltinTabBindings['space']>(
-    () => ({ onRouteConsumed: handleSpaceRouteConsumed }),
-    [handleSpaceRouteConsumed],
   );
   const recordBinding = useMemo<BuiltinTabBindings['record']>(
     () => ({
@@ -4966,7 +4707,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       settings: settingsBinding,
       capabilities: capabilitiesBinding,
       taskcenter: taskCenterBinding,
-      space: spaceBinding,
       agentnetwork: null,
       teamai: { onCreate: () => { setNewAgentPurpose('team-ai'); setNewAgentPanelOpen(true); }, onOpenSession: handleOpenSidebarSession,
         onSelectProject: (tabId, projectId) => tabWorkspaceController.update(tabId, 'teamai', tab => ({ ...tab, projectId })) },
@@ -4979,7 +4719,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       launcherBinding,
       recordBinding,
       settingsBinding,
-      spaceBinding,
       tabWorkspaceController,
       taskCenterBinding,
     ],
@@ -4998,11 +4737,9 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
             activeTab={activeTab}
             activeWorkspacePath={activeWorkspacePath}
             sessionNotificationBadgeCounts={sessionNotificationBadgeCounts}
-            teamSpaceAvailable={teamSpaceAvailable}
             onNewTab={handleSidebarNewChat}
             onOpenTaskCenter={handleOpenTaskCenter}
             onCreateTask={handleSidebarCreateTask}
-            onOpenSpace={handleOpenSpace}
             onOpenTeamAi={() => tabWorkspaceController.open('teamai', { title: t('tabs.teamAi') })}
             onOpenAgentNetwork={() => tabWorkspaceController.open('agentnetwork', { title: t('tabs.agentNetwork') })}
             onOpenAppRoute={handleOpenAppRoute}

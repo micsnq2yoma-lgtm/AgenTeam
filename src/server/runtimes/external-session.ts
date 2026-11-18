@@ -2428,8 +2428,7 @@ async function ensureExternalSessionMetadataForRealUserTurn(params: {
   const hasOwnedFreshStartAuthority =
     turnPath === 'fresh-start' &&
     scenario.type !== 'im' &&
-    scenario.type !== 'agent-channel' &&
-    scenario.type !== 'registeredAgent';
+    scenario.type !== 'agent-channel';
   const hasMaterializationBirth =
     Boolean(pendingBirth) ||
     params.metadataBirthPending === true ||

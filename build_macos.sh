@@ -102,7 +102,7 @@ echo ""
 echo -e "${BLUE}[准备] 清理残留进程...${NC}"
 pkill -f "node.*src/server/index.ts" 2>/dev/null || true
 pkill -f "node.*server-dist.js" 2>/dev/null || true
-pkill -f "MyAgents.app" 2>/dev/null || true
+pkill -f "AgenTeam.app" 2>/dev/null || true
 sleep 1
 echo -e "${GREEN}✓ 进程已清理${NC}"
 echo ""
@@ -517,7 +517,7 @@ for TARGET in "${BUILD_TARGETS[@]}"; do
 
     # Tauri 2.11.4 does not check stapler's exit status. Confirm the actual ticket
     # before reporting this target as complete (also catches skipped notarization).
-    TARGET_APP="${PROJECT_DIR}/src-tauri/target/${TARGET}/release/bundle/macos/MyAgents.app"
+    TARGET_APP="${PROJECT_DIR}/src-tauri/target/${TARGET}/release/bundle/macos/AgenTeam.app"
     codesign --verify --deep --strict "$TARGET_APP"
     xcrun stapler validate "$TARGET_APP"
     spctl --assess --type exec "$TARGET_APP"

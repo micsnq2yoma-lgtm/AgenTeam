@@ -150,36 +150,34 @@ fn persist_to_disk(value: UiLanguage) -> Result<(), String> {
 
 pub fn t<'a>(key: &'a str, locale: SupportedLocale) -> &'a str {
     match (locale, key) {
-        (SupportedLocale::ZhCn, "tray.open") => "打开 MyAgents",
+        (SupportedLocale::ZhCn, "tray.open") => "打开 AgenTeam",
         (SupportedLocale::ZhCn, "tray.recording") => "正在录音…",
         (SupportedLocale::ZhCn, "tray.settings") => "设置",
         (SupportedLocale::ZhCn, "tray.forceWakeLock") => "阻止电脑睡眠",
         (SupportedLocale::ZhCn, "tray.exit") => "退出",
-        (SupportedLocale::ZhCn, "notification.sessionCompleteTitle") => "MyAgents - 任务完成",
+        (SupportedLocale::ZhCn, "notification.sessionCompleteTitle") => "AgenTeam - 任务完成",
         (SupportedLocale::ZhCn, "notification.sessionCompleteBody") => "请您查看结果",
-        (SupportedLocale::ZhCn, "notification.sessionStoppedTitle") => "MyAgents - 任务已停止",
+        (SupportedLocale::ZhCn, "notification.sessionStoppedTitle") => "AgenTeam - 任务已停止",
         (SupportedLocale::ZhCn, "notification.sessionStoppedBody") => "请您查看当前结果",
-        (SupportedLocale::ZhCn, "notification.sessionErrorTitle") => "MyAgents - 任务失败",
+        (SupportedLocale::ZhCn, "notification.sessionErrorTitle") => "AgenTeam - 任务失败",
         (SupportedLocale::ZhCn, "notification.sessionErrorBody") => "请您查看错误详情",
-        (SupportedLocale::ZhCn, "notification.centerAnnouncementTitle") => "MyAgents 公告",
-        (SupportedLocale::ZhCn, "notification.centerCommentTitle") => "Issue 有新评论",
-        (SupportedLocale::EnUs, "tray.open") => "Open MyAgents",
+        (SupportedLocale::ZhCn, "notification.taskCommentTitle") => "任务有新评论",
+        (SupportedLocale::EnUs, "tray.open") => "Open AgenTeam",
         (SupportedLocale::EnUs, "tray.recording") => "Recording…",
         (SupportedLocale::EnUs, "tray.settings") => "Settings",
         (SupportedLocale::EnUs, "tray.forceWakeLock") => "Prevent computer sleep",
         (SupportedLocale::EnUs, "tray.exit") => "Quit",
-        (SupportedLocale::EnUs, "notification.sessionCompleteTitle") => "MyAgents - Task complete",
+        (SupportedLocale::EnUs, "notification.sessionCompleteTitle") => "AgenTeam - Task complete",
         (SupportedLocale::EnUs, "notification.sessionCompleteBody") => "Please review the result",
-        (SupportedLocale::EnUs, "notification.sessionStoppedTitle") => "MyAgents - Task stopped",
+        (SupportedLocale::EnUs, "notification.sessionStoppedTitle") => "AgenTeam - Task stopped",
         (SupportedLocale::EnUs, "notification.sessionStoppedBody") => {
             "Please review the current result"
         }
-        (SupportedLocale::EnUs, "notification.sessionErrorTitle") => "MyAgents - Task failed",
+        (SupportedLocale::EnUs, "notification.sessionErrorTitle") => "AgenTeam - Task failed",
         (SupportedLocale::EnUs, "notification.sessionErrorBody") => {
             "Please review the error details"
         }
-        (SupportedLocale::EnUs, "notification.centerAnnouncementTitle") => "MyAgents announcement",
-        (SupportedLocale::EnUs, "notification.centerCommentTitle") => "New Issue comment",
+        (SupportedLocale::EnUs, "notification.taskCommentTitle") => "New task comment",
         _ => key,
     }
 }
@@ -277,7 +275,7 @@ mod tests {
     fn translates_native_session_completion_notifications() {
         assert_eq!(
             t("notification.sessionCompleteTitle", SupportedLocale::ZhCn),
-            "MyAgents - 任务完成"
+            "AgenTeam - 任务完成"
         );
         assert_eq!(
             t("notification.sessionErrorBody", SupportedLocale::EnUs),

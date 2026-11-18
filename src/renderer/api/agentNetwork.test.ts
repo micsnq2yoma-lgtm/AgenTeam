@@ -7,6 +7,8 @@ import {
   setNetworkReadScope,
   type NetworkRequest,
 } from "./agentNetwork";
+const connectionId = "selfhost-fixture";
+
 beforeEach(() => {
   invoke.mockReset();
   setNetworkReadScope(null);
@@ -37,11 +39,11 @@ describe("network read and settings outcome", () => {
       mutationId: "mutation",
       expectedMembershipRevision: 1,
       expectedDescriptionRevision: 0,
-    });
-    const during = networkRequest({ kind: "network" });
+    }, connectionId);
+    const during = networkRequest({ kind: "network" }, connectionId);
     finishWrite({ saved: true });
     await saving;
-    await expect(networkRequest({ kind: "network" })).resolves.toEqual({
+    await expect(networkRequest({ kind: "network" }, connectionId)).resolves.toEqual({
       revision: 2,
     });
     finishRead({ revision: 1 });
@@ -56,15 +58,15 @@ describe("network read and settings outcome", () => {
           resolve = r;
         }),
     );
-    const first = networkRequest({ kind: "network" }),
-      second = networkRequest({ kind: "network" });
+    const first = networkRequest({ kind: "network" }, connectionId),
+      second = networkRequest({ kind: "network" }, connectionId);
     expect(invoke).toHaveBeenCalledOnce();
     resolve({ revision: 1 });
     const [a, b] = await Promise.all([first, second]);
     expect(a).toEqual(b);
     expect(a).not.toBe(b);
     invoke.mockResolvedValueOnce({ revision: 2 });
-    await expect(networkRequest({ kind: "network" })).resolves.toEqual({
+    await expect(networkRequest({ kind: "network" }, connectionId)).resolves.toEqual({
       revision: 2,
     });
     expect(invoke).toHaveBeenCalledTimes(2);
@@ -79,8 +81,9 @@ describe("network read and settings outcome", () => {
           }),
       )
       .mockResolvedValue({ revision: 2 });
-    const old = networkRequest({ kind: "network" });
+    const old = networkRequest({ kind: "network" }, connectionId);
     setNetworkReadScope({
+      connectionId,
       state: "ready",
       principalId: "user",
       networkId: "net",
@@ -88,10 +91,11 @@ describe("network read and settings outcome", () => {
       revision: 1,
       error: null,
     });
-    await expect(networkRequest({ kind: "network" })).resolves.toEqual({
+    await expect(networkRequest({ kind: "network" }, connectionId)).resolves.toEqual({
       revision: 2,
     });
     setNetworkReadScope({
+      connectionId,
       state: "ready",
       principalId: "user2",
       networkId: "net",
@@ -99,7 +103,7 @@ describe("network read and settings outcome", () => {
       revision: 2,
       error: null,
     });
-    await networkRequest({ kind: "network" });
+    await networkRequest({ kind: "network" }, connectionId);
     resolve({ revision: 0 });
     await old;
     expect(invoke).toHaveBeenCalledTimes(3);
@@ -108,10 +112,10 @@ describe("network read and settings outcome", () => {
     invoke
       .mockRejectedValueOnce({ code: "NETWORK_TRANSPORT_FAILED" })
       .mockResolvedValue({ revision: 2 });
-    await expect(networkRequest({ kind: "network" })).rejects.toMatchObject({
+    await expect(networkRequest({ kind: "network" }, connectionId)).rejects.toMatchObject({
       code: "NETWORK_TRANSPORT_FAILED",
     });
-    await networkRequest({ kind: "network" });
+    await networkRequest({ kind: "network" }, connectionId);
     expect(invoke).toHaveBeenCalledTimes(2);
     const request: NetworkRequest = {
       kind: "enabled",
@@ -122,7 +126,7 @@ describe("network read and settings outcome", () => {
       expectedMembershipRevision: 1,
       expectedEnableRevision: 1,
     };
-    await Promise.all([networkRequest(request), networkRequest(request)]);
+    await Promise.all([networkRequest(request, connectionId), networkRequest(request, connectionId)]);
     expect(invoke).toHaveBeenCalledTimes(4);
   });
   it("a write and late old read cannot remove or reuse the fresh in-flight read", async () => {
@@ -142,7 +146,7 @@ describe("network read and settings outcome", () => {
             resolveNew = r;
           }),
       );
-    const old = networkRequest({ kind: "network" });
+    const old = networkRequest({ kind: "network" }, connectionId);
     await networkRequest({
       kind: "description",
       networkId: "net",
@@ -151,11 +155,11 @@ describe("network read and settings outcome", () => {
       mutationId: "mutation",
       expectedMembershipRevision: 1,
       expectedDescriptionRevision: 0,
-    });
-    const fresh = networkRequest({ kind: "network" });
+    }, connectionId);
+    const fresh = networkRequest({ kind: "network" }, connectionId);
     resolveOld({ revision: 0 });
     await old;
-    const duplicate = networkRequest({ kind: "network" });
+    const duplicate = networkRequest({ kind: "network" }, connectionId);
     expect(invoke).toHaveBeenCalledTimes(3);
     resolveNew({ revision: 1 });
     expect(await fresh).toEqual(await duplicate);
@@ -171,7 +175,7 @@ describe("network read and settings outcome", () => {
   it("never checks a mutation receipt for a failed read", async () => {
     const error = { code: "NETWORK_TRANSPORT_FAILED" };
     invoke.mockRejectedValueOnce(error);
-    await expect(networkRequest({ kind: "network" })).rejects.toBe(error);
+    await expect(networkRequest({ kind: "network" }, connectionId)).rejects.toBe(error);
     expect(invoke).toHaveBeenCalledOnce();
   });
   const mutations: NetworkRequest[] = [
@@ -217,10 +221,10 @@ describe("network read and settings outcome", () => {
       invoke
         .mockRejectedValueOnce({ code: "NETWORK_REQUEST_UNCONFIRMED" })
         .mockResolvedValueOnce(receipt);
-      await expect(networkRequest(request)).resolves.toBe(receipt);
+      await expect(networkRequest(request, connectionId)).resolves.toBe(receipt);
       expect(invoke).toHaveBeenCalledTimes(2);
       expect(invoke).toHaveBeenLastCalledWith("cmd_agent_network_request", {
-        connectionId: "official",
+        connectionId,
         request: { kind: "receipt", mutationId: "mutation" },
       });
     },
@@ -232,14 +236,14 @@ describe("network read and settings outcome", () => {
       invoke
         .mockRejectedValueOnce(error)
         .mockRejectedValueOnce({ code: "CONNECTOR_NOT_READY" });
-      await expect(networkRequest(request)).rejects.toBe(error);
+      await expect(networkRequest(request, connectionId)).rejects.toBe(error);
       expect(invoke).toHaveBeenCalledTimes(2);
     },
   );
   it("does not probe or retry a definite conflict", async () => {
     const error = { code: "REVISION_CONFLICT" };
     invoke.mockRejectedValueOnce(error);
-    await expect(networkRequest(mutations[0])).rejects.toBe(error);
+    await expect(networkRequest(mutations[0], connectionId)).rejects.toBe(error);
     expect(invoke).toHaveBeenCalledOnce();
     expect(networkErrorKey(error, "mutation")).toBe("conflict");
   });

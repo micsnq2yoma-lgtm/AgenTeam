@@ -9,7 +9,6 @@ import { chatTabModule } from '@/features/chat/tabModule';
 import { settingsTabModule } from '@/features/settings/tabModule';
 import { capabilitiesTabModule } from '@/features/capabilities/tabModule';
 import { taskCenterTabModule } from '@/features/task-center/tabModule';
-import { spaceTabModule } from '@/features/space/tabModule';
 import { recordTabModule } from '@/features/record/tabModule';
 import type { RecordTabCloseReason } from '@/features/record/useRecordTabLifecycle';
 
@@ -20,7 +19,6 @@ export const builtinTabModules = defineTabModules<Tab>()({
   settings: settingsTabModule,
   capabilities: capabilitiesTabModule,
   taskcenter: taskCenterTabModule,
-  space: spaceTabModule,
   agentnetwork: agentNetworkTabModule,
   teamai: teamAiTabModule,
   record: recordTabModule,

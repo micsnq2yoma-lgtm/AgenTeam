@@ -1,19 +1,15 @@
 import {
   BellIcon,
   CheckCheckIcon,
-  CopyIcon,
-  ExternalIcon,
   LoaderIcon,
   RefreshIcon,
 } from '@/components/icons';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { copyPlainText } from '@/utils/clipboard';
 import type { AppRoute } from '../../shared/appRoute';
 import {
   markNotificationRead,
-  openNotificationExternal,
   type NotificationItem,
   type NotificationSnapshot,
 } from './notificationCenter';
@@ -31,12 +27,6 @@ function formatNotificationTime(value: string, locale: string, now = Date.now())
   const deltaDays = Math.round(deltaHours / 24);
   if (Math.abs(deltaDays) < 7) return relative.format(deltaDays, 'day');
   return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(timestamp);
-}
-
-function localizedAnnouncement(item: Extract<NotificationItem, { kind: 'announcement' }>, language: string) {
-  return language.toLowerCase().startsWith('zh')
-    ? item.summaryZh
-    : (item.summaryOther?.trim() || item.summaryZh);
 }
 
 interface NotificationCenterFlyoutProps {
@@ -61,7 +51,6 @@ export default function NotificationCenterFlyout({
   const [markingAll, setMarkingAll] = useState(false);
   const [activationError, setActivationError] = useState<{
     id: string;
-    url?: string;
   } | null>(null);
   const hasUnreadItems = useMemo(
     () => snapshot.hasUnread || snapshot.items.some((item) => !item.isRead),
@@ -74,23 +63,11 @@ export default function NotificationCenterFlyout({
     setActivationError(null);
     try {
       const activation = await markNotificationRead(item.id);
-      if (activation.target.kind === 'external_url') {
-        try {
-          await openNotificationExternal(activation.target.url);
-          onClose();
-        } catch {
-          setActivationError({ id: item.id, url: activation.target.url });
-        }
-        return;
-      }
       const opened = await onOpenAppRoute(activation.target.route);
       if (opened) onClose();
       else setActivationError({ id: item.id });
     } catch {
-      setActivationError({
-        id: item.id,
-        url: item.target.kind === 'external_url' ? item.target.url : undefined,
-      });
+      setActivationError({ id: item.id });
     } finally {
       setActivatingId(null);
     }
@@ -144,9 +121,7 @@ export default function NotificationCenterFlyout({
           <div className="flex h-60 flex-col items-center justify-center px-8 text-center">
             <p className="text-sm font-medium text-[var(--ink)]">{t('notificationCenter.loadFailed')}</p>
             <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
-              {snapshot.authState === 'reauth_required'
-                ? t('notificationCenter.reauthHint')
-                : t('notificationCenter.loadFailedHint')}
+              {t('notificationCenter.loadFailedHint')}
             </p>
             <button
               type="button"
@@ -162,22 +137,11 @@ export default function NotificationCenterFlyout({
             {snapshot.items.map((item) => {
               const isActivating = activatingId === item.id;
               const failed = activationError?.id === item.id;
-              const headline = item.kind === 'announcement'
-                ? localizedAnnouncement(item, i18n.language)
-                : item.kind === 'task_agent_comment'
-                  ? t('notificationCenter.taskCommentHeadline', {
-                    actor: item.agent.displayName,
-                    task: item.taskName,
-                  })
-                  : t('notificationCenter.commentHeadline', {
-                    actor: item.actor.displayName,
-                    issue: item.issue.number ? `#${item.issue.number} ${item.issue.title}` : item.issue.title,
-                  });
-              const detail = item.kind === 'space_issue_comment'
-                ? (item.excerpt?.trim() || t('notificationCenter.attachmentOnly'))
-                : item.kind === 'task_agent_comment'
-                  ? item.excerpt
-                  : null;
+              const headline = t('notificationCenter.taskCommentHeadline', {
+                actor: item.agent.displayName,
+                task: item.taskName,
+              });
+              const detail = item.excerpt;
               return (
                 <article key={item.id} aria-label={item.isRead ? t('notificationCenter.read') : t('notificationCenter.unread')}>
                   <button
@@ -196,9 +160,7 @@ export default function NotificationCenterFlyout({
                         </span>
                         {isActivating
                           ? <LoaderIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-[var(--ink-muted)]" />
-                          : item.target.kind === 'external_url'
-                            ? <ExternalIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--ink-faint)] opacity-0 transition-opacity group-hover:opacity-100" />
-                            : null}
+                          : null}
                       </span>
                       {detail && (
                         <span
@@ -215,17 +177,7 @@ export default function NotificationCenterFlyout({
                   </button>
                   {failed && (
                     <div className="flex items-center justify-between gap-3 bg-[var(--hover-bg)] px-4 py-2 text-xs text-[var(--ink-muted)]">
-                      <span>{activationError.url ? t('notificationCenter.openFailed') : t('notificationCenter.routeFailed')}</span>
-                      {activationError.url && (
-                        <button
-                          type="button"
-                          onClick={() => void copyPlainText(activationError.url ?? '')}
-                          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 font-medium text-[var(--ink)] hover:bg-[var(--paper)]"
-                        >
-                          <CopyIcon className="h-3.5 w-3.5" />
-                          {t('notificationCenter.copyLink')}
-                        </button>
-                      )}
+                      <span>{t('notificationCenter.routeFailed')}</span>
                     </div>
                   )}
                 </article>
@@ -252,4 +204,4 @@ export default function NotificationCenterFlyout({
   );
 }
 
-export { formatNotificationTime, localizedAnnouncement };
+export { formatNotificationTime };

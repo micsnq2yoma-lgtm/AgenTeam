@@ -61,8 +61,8 @@ describe('useTabWorkspaceController', () => {
     const before = hook.result.current.controller.getSnapshot();
     let outcome = '';
     act(() => {
-      outcome = hook.result.current.controller.open('space', {
-        title: 'Space',
+      outcome = hook.result.current.controller.open('agentnetwork', {
+        title: 'AgentNet',
       }).kind;
     });
     expect(outcome).toBe('rejected');
@@ -172,14 +172,14 @@ describe('useTabWorkspaceController', () => {
         { mount: 'deferred-content', activate: false },
       );
       hook.result.current.controller.append(
-        { id: 'space-1', view: 'space', title: 'Space' },
+        { id: 'network-1', view: 'agentnetwork', title: 'AgentNet' },
         { mount: 'immediate', activate: false },
       );
-      hook.result.current.controller.reorder('space-1', 'launcher-1');
+      hook.result.current.controller.reorder('network-1', 'launcher-1');
     });
 
     expect(hook.result.current.state.tabs.map((tab) => tab.id)).toEqual([
-      'space-1',
+      'network-1',
       'launcher-1',
       'settings-1',
     ]);
@@ -188,9 +188,9 @@ describe('useTabWorkspaceController', () => {
 
     act(() => {
       hook.result.current.controller.reveal('settings-1');
-      hook.result.current.controller.focus('space-1');
+      hook.result.current.controller.focus('network-1');
     });
-    const spaceCapture = hook.result.current.controller.capture('space-1')!;
+    const spaceCapture = hook.result.current.controller.capture('network-1')!;
     const settingsCapture = hook.result.current.controller.capture('settings-1')!;
     act(() => {
       expect(

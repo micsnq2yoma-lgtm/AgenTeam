@@ -1,5 +1,7 @@
 # MyAgents Space Issue Delivery Protocol
 
+> 历史文档。AgenTeam 已移除协作空间及 Issue 投递，下文记录上游原实现。
+
 > 本文是当前 Desktop Protocol v2 的 Prompt 与拼接权威。Cloud 仍按客户端版本投影 legacy/v1 wire 给旧 Desktop，但当前 Desktop只实现严格v2 parser/builder；两边的实际部署状态以各自发布系统和健康端点为准。
 
 ## 1. 文档目的

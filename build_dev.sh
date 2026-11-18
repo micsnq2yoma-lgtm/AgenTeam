@@ -109,7 +109,7 @@ if [ -f "$LOCK_FILE" ]; then
     rm -f "$LOCK_FILE"
 fi
 # Fallback: 杀死任何漏网的 MyAgents 进程（lock file 可能不存在或 PID 已过期）
-pkill -9 -f "MyAgents.app" 2>/dev/null || true
+pkill -9 -f "AgenTeam.app" 2>/dev/null || true
 pkill -9 -f "node.*src/server/index.ts" 2>/dev/null || true
 pkill -9 -f "node.*server-dist.js" 2>/dev/null || true
 sleep 1  # 等待进程完全退出
@@ -172,7 +172,7 @@ fi
 
 # 清理 debug 构建产物（确保 resources 被重新复制）
 rm -rf "${PROJECT_DIR}/src-tauri/target/debug/bundle"
-rm -rf "${PROJECT_DIR}/src-tauri/target/debug/MyAgents.app"
+rm -rf "${PROJECT_DIR}/src-tauri/target/debug/AgenTeam.app"
 rm -rf "${PROJECT_DIR}/src-tauri/target/debug/resources"
 echo -e "${GREEN}✓ 已清理并创建占位符${NC}"
 echo ""

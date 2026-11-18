@@ -46,7 +46,6 @@ Skill 是给 Agent 的可复用工作方法，核心是 `SKILL.md`，还可以�
 - 用户级 Skill：在所有工作区可用
 - 项目级 Skill：只在当前 Workspace 可用
 - Claude Plugin 内的 Skill：随该 Plugin 启用
-- Cloud Space 共享 Skill：从 Space 发布或安装到本地
 
 Skill 可从 GitHub 仓库、支持的压缩包或本地来源安装。安装成功不必然代表当前 Session 已重新加载它；新 Session 或下一次合适的 Session 重启后最可靠。
 
@@ -56,7 +55,7 @@ Skill 可从 GitHub 仓库、支持的压缩包或本地来源安装。安装成
 
 ### MyAgents 官方 CLI
 
-`myagents` 是产品管理入口，用于查询和操作 Provider、MCP、Task、Agent、Space 等能力。它不是用户 CLI Tool 注册表的一部分。
+`myagents` 是产品管理入口，用于查询和操作 Provider、MCP、Task、Agent 等能力。它不是用户 CLI Tool 注册表的一部分。
 
 ### 官方图片理解
 

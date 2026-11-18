@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "MyAgents",
+  "productName": "AgenTeam",
   "version": "0.5.13",
   "identifier": "com.myagents.app",
   "build": {
@@ -64,6 +64,8 @@
       "../LICENSING.md": "legal/LICENSING.md",
       "../COMMERCIAL-LICENSING.md": "legal/COMMERCIAL-LICENSING.md",
       "../TRADEMARKS.md": "legal/TRADEMARKS.md",
+      "../src/renderer/assets/brand/AgenTeam-LICENSE.txt": "legal/AgenTeam-LICENSE.txt",
+      "../src/renderer/assets/brand/CormorantGaramond-OFL.txt": "legal/CormorantGaramond-OFL.txt",
       "../THIRD_PARTY_NOTICES.md": "legal/THIRD_PARTY_NOTICES.md",
       "infoplist/en.lproj/InfoPlist.strings": "en.lproj/InfoPlist.strings",
       "infoplist/zh-Hans.lproj/InfoPlist.strings": "zh-Hans.lproj/InfoPlist.strings"

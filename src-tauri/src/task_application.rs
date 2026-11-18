@@ -11,7 +11,7 @@ use tauri::{AppHandle, Manager};
 use crate::record::RecordStore;
 use crate::task::{
     StatusTransition, Task, TaskComment, TaskCommentAdmissionState, TaskCommentAuthor,
-    TaskCreateAttachedInput, TaskCreateDirectInput, TaskStatus, TaskStore, TaskUpdateInput,
+    TaskCreateDirectInput, TaskStatus, TaskStore, TaskUpdateInput,
     TaskUpdateStatusInput,
 };
 use crate::task_scheduler::TaskControlGuard;
@@ -257,16 +257,6 @@ impl<'a> TaskApplication<'a> {
     ) -> Result<Task, TaskApplicationError> {
         self.tasks
             .create_system_managed_direct(input)
-            .await
-            .map_err(TaskApplicationError::mutation)
-    }
-
-    pub async fn create_attached(
-        &self,
-        input: TaskCreateAttachedInput,
-    ) -> Result<Task, TaskApplicationError> {
-        self.tasks
-            .create_attached(input)
             .await
             .map_err(TaskApplicationError::mutation)
     }
@@ -550,9 +540,9 @@ impl<'a> TaskApplication<'a> {
             .map_err(TaskApplicationError::mutation)?;
         if let Some(app) = crate::logger::get_app_handle() {
             if let Some(center) =
-                app.try_state::<crate::space_cloud::notifications::ManagedNotificationCenter>()
+                app.try_state::<crate::notification_center::ManagedNotificationCenter>()
             {
-                crate::space_cloud::notifications::agent_comment_appended(
+                crate::notification_center::agent_comment_appended(
                     app,
                     center.inner(),
                     &format!("task-comment:{}", comment.id),

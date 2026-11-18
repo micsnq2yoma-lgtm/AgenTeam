@@ -205,9 +205,11 @@ pub(crate) fn cmd_agent_network_snapshot(
     state: tauri::State<'_, super::actor::ManagedAgentNetwork>,
     connection_id: Option<String>,
 ) -> Result<super::actor::NetworkSnapshot, NetworkError> {
-    Ok(state
-        .connection(connection_id.as_deref().unwrap_or("official"))?
-        .snapshot())
+    let connection = match connection_id.as_deref() {
+        Some(id) => state.connection(id),
+        None => state.selected_connection(),
+    }?;
+    Ok(connection.snapshot())
 }
 #[tauri::command]
 pub(crate) async fn cmd_agent_network_request(
@@ -215,10 +217,11 @@ pub(crate) async fn cmd_agent_network_request(
     request: MetadataRequest,
     connection_id: Option<String>,
 ) -> Result<Value, NetworkError> {
-    state
-        .connection(connection_id.as_deref().unwrap_or("official"))?
-        .request(request)
-        .await
+    let connection = match connection_id.as_deref() {
+        Some(id) => state.connection(id),
+        None => state.selected_connection(),
+    }?;
+    connection.request(request).await
 }
 
 #[tauri::command]

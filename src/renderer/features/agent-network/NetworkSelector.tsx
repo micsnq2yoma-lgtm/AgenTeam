@@ -33,9 +33,6 @@ function NetworkSwitcher({ registry }: { registry: NetworkRegistry }) {
   const current =
     registry.connections.find((c) => c.id === registry.selected) ??
     registry.connections[0];
-  const name = current?.official
-    ? t("agentNetwork.networkName")
-    : current?.name;
   const error = (failure: unknown) =>
     t(`agentNetwork.errors.${networkErrorKey(failure)}`);
   async function select(id: string) {
@@ -75,7 +72,7 @@ function NetworkSwitcher({ registry }: { registry: NetworkRegistry }) {
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
         >
-          <span className="truncate">{name}</span>
+          <span className="truncate">{current?.name ?? t("agentNetwork.networkName")}</span>
           <ChevronDownIcon className="h-4 w-4 shrink-0" />
         </button>
       </h1>
@@ -100,7 +97,7 @@ function NetworkSwitcher({ registry }: { registry: NetworkRegistry }) {
                 className={`h-2 w-2 shrink-0 rounded-full ${c.snapshot.state === "ready" && !c.removing ? "bg-emerald-600" : "bg-[var(--ink-subtle)]"}`}
               />
               <span className="min-w-0 flex-1 truncate">
-                {c.official ? t("agentNetwork.officialNetwork") : c.name}
+                {c.name}
               </span>
               <span className="shrink-0 text-xs text-[var(--ink-muted)]">
                 {t(
@@ -127,7 +124,7 @@ function NetworkSwitcher({ registry }: { registry: NetworkRegistry }) {
             <PlusIcon className="h-4 w-4" />
             {t("agentNetwork.joinSelfhost")}
           </button>
-          {current && !current.official && (
+          {current && (
             <button
               role="menuitem"
               className="w-full rounded-md px-3 py-2.5 text-left text-sm text-[var(--error)] hover:bg-[var(--hover-bg)]"

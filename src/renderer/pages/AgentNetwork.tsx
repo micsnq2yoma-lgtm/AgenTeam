@@ -8,11 +8,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { metadataSchemas } from "@myagents/agent-network-protocol";
 import {
-  spaceGetSession,
-  spaceLogout,
-  type SpaceSessionView,
-} from "@/api/spaceCloud";
-import {
   allDeviceAgents,
   allNetworkDevices,
   networkErrorKey,
@@ -21,14 +16,10 @@ import {
   type NetworkDevice,
   type NetworkSnapshot,
 } from "@/api/agentNetwork";
-import { useMyAgentsLogin } from "@/hooks/useMyAgentsLogin";
-import { SpaceLogin } from "@/pages/space/SpaceChrome";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { getDeviceId, preloadDeviceId } from "@/identity/deviceIdentity";
 import { useToastOptional } from "@/components/Toast";
 import { copyPlainText } from "@/utils/clipboard";
-import { openExternal } from "@/utils/openExternal";
-import agentNetworkBanner from "@/assets/onboarding/agent-network-banner.jpg";
 import { DeviceCard } from "@/features/agent-network/DeviceCard";
 import { DeviceDetails } from "@/features/agent-network/DeviceDetails";
 import { DeviceRenameDialog } from "@/features/agent-network/DeviceRenameDialog";
@@ -48,19 +39,29 @@ export default function AgentNetwork({
   isActive?: boolean;
 }) {
   const registry = useAgentNetworkRegistry();
-  const selected = registry.selfhostEnabled === true ? registry.selected : "official";
+  const { selected } = registry;
   const connection =
     registry.connections.find((c) => c.id === selected) ??
     registry.connections[0];
   const snapshot = useAgentNetworkSnapshot(connection?.id);
+  const { t } = useTranslation("app");
+  const selector = <NetworkSelector registry={registry} />;
+  if (!connection) {
+    return (
+      <NetworkPage selector={selector} gated>
+        <p className="px-6 py-8 text-center text-sm text-[var(--ink-muted)]">
+          {t(registry.selfhostEnabled ? "agentNetwork.noConnections" : "agentNetwork.selfhostDisabled")}
+        </p>
+      </NetworkPage>
+    );
+  }
   // An account boundary creates a fresh UI scope immediately, including dialogs
   // and mutations; old completions only hold the discarded component instance.
   return (
     <AgentNetworkContent
       key={`${connection?.id}:${snapshot.authGeneration}`}
-      connectionId={connection?.id ?? "official"}
-      official={connection?.official ?? true}
-      selector={<NetworkSelector registry={registry} />}
+      connectionId={connection.id}
+      selector={selector}
       isActive={isActive}
       snapshot={snapshot}
     />
@@ -70,13 +71,11 @@ function AgentNetworkContent({
   isActive,
   snapshot,
   connectionId,
-  official,
   selector,
 }: {
   isActive: boolean;
   snapshot: NetworkSnapshot;
   connectionId: string;
-  official: boolean;
   selector: ReactNode;
 }) {
   const { t } = useTranslation("app");
@@ -84,9 +83,6 @@ function AgentNetworkContent({
     (request: NetworkRequest) => requestNetwork(request, connectionId),
     [connectionId],
   );
-  const [session, setSession] = useState<SpaceSessionView | null>(null),
-    [authLoading, setAuthLoading] = useState(true);
-  const [accountError, setAccountError] = useState<string | null>(null);
   const [devices, setDevices] = useState<NetworkDevice[]>([]),
     [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null),
@@ -115,51 +111,18 @@ function AgentNetworkContent({
     },
     [t, connectionId],
   );
-  const reloadAccount = useCallback(async () => {
-    const generation = networkGeneration(connectionId);
-    if (!official) {
-      await preloadDeviceId();
-      setAuthLoading(false);
-      return;
-    }
-    setAuthLoading(true);
-    setAccountError(null);
-    try {
-      const result = await spaceGetSession();
-      if (generation !== networkGeneration(connectionId)) return;
-      setSession(result);
-      await preloadDeviceId();
-    } catch (failure) {
-      if (generation === networkGeneration(connectionId))
-        setAccountError(t(`agentNetwork.errors.${networkErrorKey(failure)}`));
-    } finally {
-      if (generation === networkGeneration(connectionId)) setAuthLoading(false);
-    }
-  }, [t, connectionId, official]);
-  const { authBusy, authFlow, startLogin } = useMyAgentsLogin(
-    isActive,
-    reloadAccount,
-  );
   useEffect(() => {
-    void reloadAccount();
-  }, [reloadAccount, snapshot.authGeneration]);
-  useEffect(() => {
-    if (
-      !isActive ||
-      snapshot.state !== "ready" ||
-      (official && session?.state !== "authenticated")
-    )
-      return;
+    if (!isActive || snapshot.state !== "ready") return;
     let cancelled = false;
     const generation = networkGeneration(connectionId);
     const current = () =>
       !cancelled && generation === networkGeneration(connectionId);
     setLoading(true);
     setLoadError(null);
-    void Promise.all([
+    void preloadDeviceId().then(() => Promise.all([
       networkRequest({ kind: "network" }),
       allNetworkDevices(connectionId),
-    ])
+    ]))
       .then(async ([info, page]) => {
         if (!current()) return;
         metadataSchemas.network.parse(info);
@@ -196,11 +159,9 @@ function AgentNetworkContent({
     isActive,
     snapshot.state,
     snapshot.revision,
-    session?.state,
     refresh,
     readCatalog,
     t,
-    official,
     connectionId,
     networkRequest,
   ]);
@@ -317,58 +278,6 @@ function AgentNetworkContent({
       setBusy((current) => ({ ...current, [device.deviceId]: false }));
     }
   }
-  if (authLoading)
-    return (
-      <NetworkPage selector={selector} gated>
-        <div
-          className="flex h-full items-center justify-center bg-[var(--paper)] text-sm text-[var(--ink-muted)]"
-          aria-busy="true"
-        >
-          {t("agentNetwork.loading")}
-        </div>
-      </NetworkPage>
-    );
-  if (accountError)
-    return (
-      <NetworkPage selector={selector} gated>
-        <div className="flex h-full items-center justify-center bg-[var(--paper)] text-sm text-[var(--ink-muted)]">
-          <p role="alert">
-            {accountError}{" "}
-            <button
-              type="button"
-              className="ml-2 underline"
-              onClick={() => {
-                void reloadAccount();
-              }}
-            >
-              {t("agentNetwork.retry")}
-            </button>
-          </p>
-        </div>
-      </NetworkPage>
-    );
-  if (official && (!session || session.state === "reauth_required")) {
-    const accountName =
-      session?.state === "reauth_required"
-        ? (session.account.user.name ?? session.account.user.email)
-        : null;
-    return (
-      <NetworkPage selector={selector} gated>
-        <SpaceLogin
-          authBusy={authBusy}
-          authFlow={authFlow}
-          onLogin={() => {
-            void startLogin();
-          }}
-          reauthRequired={session?.state === "reauth_required"}
-          accountName={accountName}
-          onForgetAccount={() => {
-            void spaceLogout().then(reloadAccount);
-          }}
-        />
-      </NetworkPage>
-    );
-  }
   const localId = getDeviceId();
   const joinedDevices = devices.filter((device) => device.joined);
   const pendingDevices = devices.filter((device) => !device.joined);
@@ -420,15 +329,14 @@ function AgentNetworkContent({
       agentCount={directoryKnown && catalogsKnown ? openAgents : null}
     >
       <>
-        {(loadError || accountError) && (
+        {(loadError) && (
           <p role="alert" className="mb-4 text-sm text-[var(--error)]">
-            {loadError || accountError}{" "}
+            {loadError}{" "}
             <button
               type="button"
               className="underline"
               onClick={() => {
                 setRefresh((value) => value + 1);
-                if (accountError) void reloadAccount();
               }}
             >
               {t("agentNetwork.retry")}
@@ -448,29 +356,7 @@ function AgentNetworkContent({
             )}
           </p>
         )}
-        {showSetup && (
-          <>
-            <button
-              type="button"
-              aria-label={t("agentNetwork.learnMore")}
-              onClick={() => {
-                void openExternal(
-                  "https://myagents.io/blog/private-agent-network",
-                );
-              }}
-              className="mb-4 block w-full overflow-hidden rounded-xl transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--paper)]"
-            >
-              <img
-                src={agentNetworkBanner}
-                width={1980}
-                height={396}
-                alt=""
-                className="block h-auto w-full"
-              />
-            </button>
-            <SetupGuide />
-          </>
-        )}
+        {showSetup && <SetupGuide />}
         {loading && devices.length === 0 && snapshot.state === "ready" ? (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {[0, 1].map((index) => (

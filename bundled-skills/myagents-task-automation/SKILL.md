@@ -199,7 +199,7 @@ myagents task comment <taskId> --body-file result.md --json
 
 在 Task 自身触发的执行 turn 内可省略 `<taskId>`；在用户评论注入的后续 turn 中，必须使用隐藏提醒提供的显式 Task ID。
 
-回复某条评论时增加 `--reply-to <commentId>`。长文本始终先写文件，不把多行正文拼进 shell。普通 assistant 回复不会自动登记为 Task 评论；从本地 Task 评论收到的 query 应服从该轮 `TASK_COMMENT` reminder，而从 Space Issue Delivery 收到的 query 继续使用 Cloud Issue 的回复命令，二者不得默认双写。
+回复某条评论时增加 `--reply-to <commentId>`。长文本始终先写文件，不把多行正文拼进 shell。普通 assistant 回复不会自动登记为 Task 评论；从本地 Task 评论收到的 query 应服从该轮 `TASK_COMMENT` reminder。
 
 ## 给用户的部署回执
 

@@ -898,7 +898,6 @@ export interface ProxySettings {
 export const DEFAULT_CLAUDE_TRANSCRIPT_CLEANUP_PERIOD_DAYS = 365;
 
 export type ChatQueueResponseMode = 'realtime' | 'turn';
-export type SpaceEnvironment = 'production' | 'dev';
 
 export function normalizeChatQueueResponseMode(
   value: unknown,
@@ -999,13 +998,8 @@ export interface AppConfig {
   teamAiPanelEnabled?: boolean;
   /** 隐藏开发者开关：桌面宠物功能门控。默认开；普通用户不可见。 */
   floatingBallDevGate?: boolean;
-  /** 隐藏开发者开关：协作空间（MyAgents Space / Cloud Space）。默认开。
-   *  关闭时隐藏入口/普通 Space tab 并暂停 Connector；旧 teamSpaceEnabled 不再生效。 */
-  teamSpaceDevGate?: boolean;
   /** 开发者：AgentNet 多网络/自部署。默认关闭；关闭保留配置与凭据并暂停自部署连接。 */
   agentNetworkSelfhostDevGate?: boolean;
-  /** 开发者：Cloud Space 服务环境。release 构建没有 Dev origin 时会被 Rust 忽略。 */
-  spaceEnvironment?: SpaceEnvironment;
   /** 悬浮球本体显隐开关；由桌面宠物设置页顶部开关控制。默认关。 */
   floatingBallEnabled?: boolean;
   /** 悬浮球本体外观。缺省视同 'pet'（PRD 0.2.34 floating_ball_pet_mode Phase 1）。 */
@@ -2875,9 +2869,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   showChatHistoryEntry: false,
   cliToolRegistryEnabled: false, // 默认关闭用户注册 CLI 工具注册表（实验室）
   teamAiPanelEnabled: false,
-  teamSpaceDevGate: true, // 默认开放协作空间；开发者可关闭
   agentNetworkSelfhostDevGate: false,
-  spaceEnvironment: 'production',
   managedCodexProviderDevGate: true, // 默认开放 Codex 订阅 Provider；只有显式 true 才启用
   floatingBallDevGate: true,
   floatingBallEnabled: false,

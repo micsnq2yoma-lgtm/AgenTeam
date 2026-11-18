@@ -183,9 +183,7 @@ export function originFromMaterializationScenario(scenario: string | undefined |
       return { kind: 'agent-channel', surface: 'channel_message' };
     case 'registeredAgent':
     case 'registered-agent':
-      // A scenario label does not contain the stable Space + Registered Agent
-      // identity required for authority. The delivery ingress supplies the
-      // exact origin explicitly; never invent an identity here.
+      // Legacy attribution without an exact historical origin.
       return UNKNOWN_SESSION_ORIGIN;
     case 'desktop':
       return { kind: 'desktop', surface: 'unknown' };

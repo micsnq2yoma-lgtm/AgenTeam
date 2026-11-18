@@ -4184,8 +4184,7 @@ export class CodexRuntime implements AgentRuntime {
       const isHeadlessAutomation =
         options.scenario.type === 'im'
         || options.scenario.type === 'agent-channel'
-        || options.scenario.type === 'cron'
-        || options.scenario.type === 'registeredAgent';
+        || options.scenario.type === 'cron';
       const defaultPermissionMode = isHeadlessAutomation ? 'no-restrictions' : 'full-auto';
       const permMode = options.permissionMode || defaultPermissionMode;
       const { approval, sandbox, reviewer } = mapPermissionMode(permMode, runtimeSource);

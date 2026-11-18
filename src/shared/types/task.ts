@@ -437,24 +437,6 @@ export interface TaskCreateDirectInput {
   notification?: NotificationConfig;
 }
 
-/** Payload for `cmd_task_create_attached` / `myagents task create-attached`. */
-export interface TaskCreateAttachedInput {
-  name: string;
-  executor?: TaskExecutor;
-  description?: string;
-  workspaceId: string;
-  workspacePath: string;
-  taskMdContent: string;
-  currentSessionId: string;
-  source: 'space-issue';
-  sourceSpaceId?: string;
-  sourceIssueId: string;
-  sourceClaimId?: string;
-  sourceDeliveryId?: string;
-  tags?: string[];
-  notification?: NotificationConfig;
-}
-
 /** Payload for `cmd_task_update`. */
 export interface TaskUpdateInput {
   id: string;

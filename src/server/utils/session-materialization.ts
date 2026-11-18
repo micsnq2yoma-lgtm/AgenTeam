@@ -3,20 +3,15 @@ import type { RuntimeSource, RuntimeType } from '../../shared/types/runtime';
 import { originFromMaterializationScenario } from '../../shared/session-origin';
 import type { SessionOrigin } from '../../shared/session-origin';
 import { createSessionMetadata, type SessionMetadata } from '../types/session';
-import { snapshotForImSession, snapshotForOwnedSession, snapshotForRegisteredAgentSession, snapshotRuntimeIdentity } from './session-snapshot';
+import { snapshotForImSession, snapshotForOwnedSession, snapshotRuntimeIdentity } from './session-snapshot';
 
-export type SessionMaterializationScenario = 'desktop' | 'cron' | 'im' | 'agent-channel' | 'registeredAgent';
-
-export function isLiveFollowScenario(scenario: SessionMaterializationScenario): boolean {
-  return scenario === 'registeredAgent';
-}
+export type SessionMaterializationScenario = 'desktop' | 'cron' | 'im' | 'agent-channel';
 
 export function snapshotForMaterializedSession(
   agent: AgentConfig,
   scenario: SessionMaterializationScenario,
   options?: { runtimeOverride?: RuntimeType; runtimeSourceOverride?: RuntimeSource; managedCodexProviderReady?: boolean },
 ): Partial<SessionMetadata> {
-  if (scenario === 'registeredAgent') return snapshotForRegisteredAgentSession(agent, options);
   if (scenario === 'im' || scenario === 'agent-channel') return snapshotForImSession(agent, options);
   return snapshotForOwnedSession(agent, options);
 }
@@ -56,9 +51,7 @@ export function createMaterializedSessionMetadata(params: {
     : undefined;
   const meta = createSessionMetadata(params.agentDir, snapshot ?? fallbackSnapshot);
   meta.id = params.sessionId;
-  meta.title = params.scenario === 'registeredAgent'
-    ? (params.agent?.name.trim() || 'New Chat')
-    : (params.title ?? 'New Chat');
+  meta.title = params.title ?? 'New Chat';
   meta.origin = params.origin ?? originFromMaterializationScenario(params.scenario);
   return meta;
 }

@@ -124,7 +124,7 @@ pub(crate) async fn remote(
             .iter()
             .find(|v| v.id == connection.connection_id)
             .map(|v| v.name.clone())
-            .unwrap_or_else(|| "MyAgents".into());
+            .unwrap_or_else(|| connection.connection_id.clone());
         reads.push(async move {
             let response = remote_connection(&connection, local_only, &name).await;
             (
@@ -140,14 +140,10 @@ pub(crate) async fn remote(
     let mut complete = true;
     let mut bytes = 0;
     let mut leases = Vec::new();
-    let mut context = Value::Null;
     let mut ready = false;
     while let Some((id, name, snapshot, response)) = reads.next().await {
         match response {
             Ok((mut value, allocation)) => {
-                if id == "official" {
-                    context = value["context"].clone();
-                }
                 ready |= snapshot.state == "ready";
                 complete &= value["complete"] == true;
                 networks.push(json!({"connectionId":id,"networkName":name,"complete":value["complete"],"networkStatus":value["networkStatus"],"context":value["context"]}));
@@ -172,6 +168,12 @@ pub(crate) async fn remote(
             }
         }
     }
+    networks.sort_by(|left, right| left["connectionId"].as_str().cmp(&right["connectionId"].as_str()));
+    let context = networks
+        .iter()
+        .map(|network| &network["context"])
+        .find(|context| !context.is_null())
+        .unwrap_or(&Value::Null);
     Ok(
         json!({"items":items,"complete":complete,"networkStatus":if ready{"ready"}else if complete{"signedOut"}else{"incomplete"},"context":context,"networks":networks}),
     )

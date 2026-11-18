@@ -21,7 +21,7 @@ import type { InboxTurnMeta } from '../inbox/types';
 import type { ProviderRoute } from '../../shared/providerRoute';
 import type { RuntimeBackedProviderIdentity } from '../../shared/providerExecution';
 import type { OfficialToolId } from '../../shared/official-tools';
-import type { RegisteredAgentSessionOrigin, SessionOrigin } from '../../shared/session-origin';
+import type { SessionOrigin } from '../../shared/session-origin';
 import type { SessionCompletionTerminal } from '../../shared/sessionCompletion';
 import type { RequiredSystemSkill } from '../../shared/systemSkills';
 import type { ProductSystemSkillRequirement } from '../../shared/systemSkills';
@@ -406,10 +406,6 @@ export interface SessionEngine {
   inspectRuntime?(runtime: RuntimeType): Promise<import('../../shared/types/runtime').RuntimeInspection | null>;
   getCurrentSessionContext(): SessionEngineCurrentContext;
   getSessionOrigin(sessionId: string): SessionOrigin | undefined;
-  ensureRegisteredAgentSessionOrigin(
-    sessionId: string,
-    expected: RegisteredAgentSessionOrigin,
-  ): Promise<{ success: boolean; metadataExists?: boolean; adoptedLegacyOrigin?: boolean; error?: string }>;
   getCurrentTurnIdentity(): TurnIdentity | null;
   recordNotificationEvent(id: string, text: string): Promise<void>;
   getExecutionTurnId(): string | null;

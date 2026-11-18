@@ -1,10 +1,7 @@
-//! Identity issuer context: official login or a pinned standalone instance.
+//! Identity issuer context: a pinned standalone instance.
 //! Credentials and validity remain App-owned; no selected UI state controls this context.
 use super::NetworkError;
-use crate::network_diagnostics::RequestDiagnostic;
-use crate::space_cloud::agent_network::{
-    read_account_response_body, AccountOperation, OfficialAccountSession,
-};
+use crate::network_diagnostics::{error_category, RequestDiagnostic};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::{
@@ -13,6 +10,109 @@ use std::sync::{
 };
 use std::time::Duration;
 use zeroize::Zeroizing;
+
+pub(crate) enum AccountOperation {
+    IdentityState(String),
+    Identity,
+    Certificate,
+    Rotate,
+    Challenge,
+    Current,
+    Jwks,
+    Revoke,
+    RevokeState,
+}
+impl AccountOperation {
+    pub(crate) fn request(&self) -> Result<(reqwest::Method, String), NetworkError> {
+        let (method, path) = match self {
+            Self::IdentityState(device_id) => {
+                let canonical = uuid::Uuid::parse_str(device_id)
+                    .map_err(|_| NetworkError::new("DEVICE_ID_INVALID"))?;
+                if canonical.to_string() != *device_id {
+                    return Err(NetworkError::new("DEVICE_ID_INVALID"));
+                }
+                (
+                    reqwest::Method::GET,
+                    format!("/api/agent-network/identity/state?deviceId={device_id}"),
+                )
+            }
+            Self::Identity => (
+                reqwest::Method::POST,
+                "/api/agent-network/identity".into(),
+            ),
+            Self::Certificate => (
+                reqwest::Method::POST,
+                "/api/agent-network/certificate".into(),
+            ),
+            Self::Rotate => (
+                reqwest::Method::POST,
+                "/api/agent-network/identity/rotate".into(),
+            ),
+            Self::Challenge => (
+                reqwest::Method::POST,
+                "/api/agent-network/challenge".into(),
+            ),
+            Self::Current => (
+                reqwest::Method::POST,
+                "/api/agent-network/identity/current".into(),
+            ),
+            Self::Revoke => (
+                reqwest::Method::POST,
+                "/api/agent-network/revoke".into(),
+            ),
+            Self::RevokeState => (
+                reqwest::Method::POST,
+                "/api/agent-network/revoke-state".into(),
+            ),
+            Self::Jwks => (
+                reqwest::Method::GET,
+                "/api/agent-network/jwks".into(),
+            ),
+        };
+        Ok((method, path))
+    }
+}
+
+fn account_body_failure(
+    status: reqwest::StatusCode,
+    retry_after: Option<Duration>,
+    successful_response_error: NetworkError,
+) -> NetworkError {
+    let mut error = if status.is_success() {
+        successful_response_error
+    } else {
+        NetworkError::cloud("NETWORK_ACCOUNT_UNAVAILABLE", status.as_u16())
+    };
+    error.retry_after = retry_after;
+    error
+}
+pub(crate) async fn read_account_response_body(
+    response: &mut reqwest::Response,
+    diagnostic: &RequestDiagnostic,
+) -> Result<Vec<u8>, NetworkError> {
+    let status = response.status();
+    let retry_after = crate::agent_network::reconnect::retry_after(response);
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        diagnostic.failure("body", error_category(&error), Some(status.as_u16()), None);
+        account_body_failure(
+            status,
+            retry_after,
+            NetworkError::cloud("NETWORK_ACCOUNT_UNAVAILABLE", 503),
+        )
+    })? {
+        if bytes.len() + chunk.len() > 65_536 {
+            diagnostic.failure("body", "size", Some(status.as_u16()), None);
+            return Err(account_body_failure(
+                status,
+                retry_after,
+                NetworkError::new("NETWORK_ACCOUNT_RESPONSE_INVALID"),
+            ));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
+}
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -84,61 +184,32 @@ pub(crate) struct SelfhostAccount {
     pub active: Arc<AtomicBool>,
     pub enrollment_key: Option<Zeroizing<String>>,
 }
-#[derive(Clone)]
-pub(crate) enum NetworkAccountSession {
-    Official(OfficialAccountSession),
-    Selfhost(Arc<SelfhostAccount>),
-}
-impl NetworkAccountSession {
-    pub(crate) fn capture() -> Result<Self, NetworkError> {
-        OfficialAccountSession::capture().map(Self::Official)
-    }
+pub(crate) type NetworkAccountSession = Arc<SelfhostAccount>;
+
+impl SelfhostAccount {
     pub(crate) fn binding_id(&self) -> &str {
-        match self {
-            Self::Official(a) => a.binding_id(),
-            Self::Selfhost(a) => &a.connection_id,
-        }
+        &self.connection_id
     }
     pub(crate) fn issuer(&self) -> &str {
-        match self {
-            Self::Official(a) => a.issuer(),
-            Self::Selfhost(a) => &a.descriptor.issuer,
-        }
+        &self.descriptor.issuer
     }
     pub(crate) fn principal_id(&self) -> Result<&str, NetworkError> {
-        match self {
-            Self::Official(a) => a.principal_id(),
-            Self::Selfhost(a) => Ok(&a.descriptor.principal_id),
-        }
+        Ok(&self.descriptor.principal_id)
     }
     pub(crate) fn environment(&self) -> &str {
-        match self {
-            Self::Official(a) => a.environment(),
-            Self::Selfhost(a) => &a.descriptor.environment,
-        }
+        &self.descriptor.environment
     }
     pub(crate) fn service_id(&self) -> Result<&str, NetworkError> {
-        match self {
-            Self::Official(a) => a.service_id(),
-            Self::Selfhost(a) => Ok(&a.descriptor.service_id),
-        }
-    }
-    pub(crate) fn is_selfhost(&self) -> bool {
-        matches!(self, Self::Selfhost(_))
+        Ok(&self.descriptor.service_id)
     }
     pub(crate) fn has_enrollment_key(&self) -> bool {
-        matches!(self,Self::Selfhost(a) if a.enrollment_key.is_some())
+        self.enrollment_key.is_some()
     }
     pub(crate) fn ensure_current(&self) -> Result<(), NetworkError> {
-        match self {
-            Self::Official(a) => a.ensure_current(),
-            Self::Selfhost(a) => {
-                if a.active.load(Ordering::Acquire) {
-                    Ok(())
-                } else {
-                    Err(NetworkError::new("ACCOUNT_BINDING_CHANGED"))
-                }
-            }
+        if self.active.load(Ordering::Acquire) {
+            Ok(())
+        } else {
+            Err(NetworkError::new("ACCOUNT_BINDING_CHANGED"))
         }
     }
     pub(crate) async fn request(
@@ -147,31 +218,23 @@ impl NetworkAccountSession {
         body: Option<Value>,
     ) -> Result<Value, NetworkError> {
         self.ensure_current()?;
-        match self {
-            Self::Official(a) => a.request(operation, body).await,
-            Self::Selfhost(a) => {
-                let (method, path, _) = operation.request()?;
-                let key = if matches!(operation, AccountOperation::Identity) {
-                    a.enrollment_key.as_deref().map(|s| s.as_str())
-                } else {
-                    None
-                };
-                let value = request_json(&a.descriptor.issuer, method, &path, body, key).await?;
-                if matches!(operation, AccountOperation::Jwks) && value != a.descriptor.jwks {
-                    return Err(NetworkError::new("NETWORK_TRUST_CHANGED"));
-                }
-                self.ensure_current()?;
-                Ok(value)
-            }
+        let (method, path) = operation.request()?;
+        let key = if matches!(operation, AccountOperation::Identity) {
+            self.enrollment_key.as_deref().map(String::as_str)
+        } else {
+            None
+        };
+        let value = request_json(&self.descriptor.issuer, method, &path, body, key).await?;
+        if matches!(operation, AccountOperation::Jwks) && value != self.descriptor.jwks {
+            return Err(NetworkError::new("NETWORK_TRUST_CHANGED"));
         }
+        self.ensure_current()?;
+        Ok(value)
     }
+
     pub(crate) async fn validate_instance(&self) -> Result<(), NetworkError> {
-        if let Self::Selfhost(a) = self {
-            let current = descriptor(&a.descriptor.issuer).await?;
-            // Presentation name may change; stable instance and pinned trust may not.
-            a.descriptor.ensure_same_trust(&current)?;
-        }
-        Ok(())
+        let current = descriptor(&self.descriptor.issuer).await?;
+        self.descriptor.ensure_same_trust(&current)
     }
 }
 pub(crate) fn origin(value: &str) -> Result<String, NetworkError> {

@@ -25,11 +25,11 @@ function renderMarkdown(markdown: string): string {
 
 describe('markdownPipeline sanitization', () => {
   it.each([
-    'myagents://open/v1/spaces',
-    'myagents://open/v1/spaces/official/issues',
-    'myagents://open/v1/spaces/myagents/issues/iss_123',
+    'myagents://open/v1/tasks/task_1/comments/comment-2',
+    'myagents://open/v1/tasks/abcd-1234/comments/123',
+    'myagents://open/v1/tasks/old_task/comments/task_comment-456',
   ])('preserves validated app links only as anchors: %s', href => {
-    for (const source of [`[Space](${href})\n\n![bad image](${href})`, `<a href="${href}">Space</a><img src="${href}">`]) {
+    for (const source of [`[Task comment](${href})\n\n![bad image](${href})`, `<a href="${href}">Task comment</a><img src="${href}">`]) {
       const html = renderMarkdown(source);
       expect(html).toContain(`href="${href}"`);
       expect(html).not.toContain(`src="${href}"`);
@@ -37,7 +37,10 @@ describe('markdownPipeline sanitization', () => {
   });
 
   it.each([
-    'myagents://open/v1/spaces?prompt=run',
+    'myagents://open/v1/spaces',
+    'myagents://open/v1/spaces/official/issues',
+    'myagents://open/v1/spaces/myagents/issues/iss_123',
+    'myagents://open/v1/tasks/task_1/comments/comment-2?prompt=run',
     'myagents://open/v1/spaces/a/issues/123#x',
     'myagents://attachment/session/file.png',
     'myagents://open/v1/spaces/a%2Fb/issues',
@@ -45,7 +48,7 @@ describe('markdownPipeline sanitization', () => {
     'myagents://open/v1/spaces/a/../official/issues',
     'myagents://open/v1/spaces/%2e%2e/spaces',
   ])('removes unsupported app URLs: %s', href => {
-    const html = renderMarkdown(`<a href="${href}">Space</a>`);
+    const html = renderMarkdown(`<a href="${href}">Task comment</a>`);
     expect(html).not.toMatch(/href="[^"]+/);
   });
 

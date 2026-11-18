@@ -75,7 +75,7 @@ kill_existing() {
         fi
         rm -f "$LOCK_FILE"
     fi
-    pkill -9 -f "MyAgents.app" 2>/dev/null || true
+    pkill -9 -f "AgenTeam.app" 2>/dev/null || true
     pkill -f "node.*src/server/index.ts" 2>/dev/null || true
     pkill -f "node.*server-dist.js" 2>/dev/null || true
     pkill -f "vite" 2>/dev/null || true

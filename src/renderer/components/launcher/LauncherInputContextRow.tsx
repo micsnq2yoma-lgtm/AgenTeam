@@ -51,7 +51,7 @@ interface LauncherInputContextRowProps {
 // icon-height-driven (16px). Fix the bordered outer chips at the workspace
 // chip's existing 34px height and fill each chip with its trigger button.
 const CHIP_WRAPPER_CLASS =
-  'inline-flex h-[34px] items-center rounded-lg border border-[var(--line)] bg-[var(--paper-elevated)] shadow-xs transition-[background-color,border-color,box-shadow] duration-150 hover:border-[var(--line-strong)] hover:bg-[var(--hover-bg)] hover:shadow-sm focus-within:border-[var(--line-strong)] focus-within:bg-[var(--paper-inset)] focus-within:shadow-sm [&>button]:h-full [&_button:hover]:!bg-transparent';
+  'inline-flex h-[34px] items-center rounded-[10px] border border-[var(--line)] bg-[var(--paper-elevated)] shadow-xs transition-[background-color,border-color,box-shadow] duration-150 hover:border-[var(--line-strong)] hover:bg-[var(--hover-bg)] hover:shadow-sm focus-within:border-[var(--line-strong)] focus-within:bg-[var(--paper-inset)] focus-within:shadow-sm [&>button]:h-full [&_button:hover]:!bg-transparent';
 
 export default memo(function LauncherInputContextRow({
   projects,

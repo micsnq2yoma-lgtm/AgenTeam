@@ -272,16 +272,10 @@ pub struct NotificationNavigation {
     pub session_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cloud_notification_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cloud_target: Option<crate::space_cloud::notifications::NotificationTarget>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cloud_is_announcement: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cloud_origin_key: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cloud_origin_account_key: Option<String>,
+    #[serde(default, alias = "cloudNotificationId", skip_serializing_if = "Option::is_none")]
+    pub comment_notification_id: Option<String>,
+    #[serde(default, alias = "cloudTarget", skip_serializing_if = "Option::is_none")]
+    pub comment_target: Option<crate::notification_center::NotificationTarget>,
 }
 
 impl NotificationNavigation {
@@ -295,11 +289,8 @@ impl NotificationNavigation {
             tab_id: clean_optional_string(tab_id),
             session_id: clean_optional_string(session_id),
             workspace_path: clean_optional_string(workspace_path),
-            cloud_notification_id: None,
-            cloud_target: None,
-            cloud_is_announcement: None,
-            cloud_origin_key: None,
-            cloud_origin_account_key: None,
+            comment_notification_id: None,
+            comment_target: None,
         };
         if navigation.tab_id.is_none()
             && (navigation.session_id.is_none() || navigation.workspace_path.is_none())
@@ -323,36 +314,20 @@ impl NotificationNavigation {
     }
 
     pub fn for_task(task_id: String) -> Self {
-        Self { task_id: Some(task_id), tab_id: None, session_id: None, workspace_path: None,
-            cloud_notification_id: None, cloud_target: None, cloud_is_announcement: None,
-            cloud_origin_key: None, cloud_origin_account_key: None }
-    }
-
-    pub fn for_cloud(
-        notification_id: String,
-        target: crate::space_cloud::notifications::NotificationTarget,
-        is_announcement: bool,
-        origin_key: Option<String>,
-        origin_account_key: Option<String>,
-    ) -> Option<Self> {
-        let notification_id = clean_optional_string(Some(notification_id))?;
-        Some(Self {
-            task_id: None,
+        Self {
+            task_id: Some(task_id),
             tab_id: None,
             session_id: None,
             workspace_path: None,
-            cloud_notification_id: Some(notification_id),
-            cloud_target: Some(target),
-            cloud_is_announcement: Some(is_announcement),
-            cloud_origin_key: clean_optional_string(origin_key),
-            cloud_origin_account_key: clean_optional_string(origin_account_key),
-        })
+            comment_notification_id: None,
+            comment_target: None,
+        }
     }
 
     fn describe(&self) -> String {
         format!(
-            "tab_id={:?} session_id={:?} workspace_path={:?} cloud_notification_id={:?}",
-            self.tab_id, self.session_id, self.workspace_path, self.cloud_notification_id
+            "tab_id={:?} session_id={:?} workspace_path={:?} comment_notification_id={:?}",
+            self.tab_id, self.session_id, self.workspace_path, self.comment_notification_id
         )
     }
 }
@@ -379,10 +354,6 @@ pub struct NotificationClickPayload {
     pub session_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cloud_notification_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cloud_target: Option<crate::space_cloud::notifications::NotificationTarget>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -566,28 +537,22 @@ pub fn show_with_navigation_target<R: Runtime>(
     show_with_navigation_target_inner(app, title, body, navigation, None);
 }
 
-pub fn show_cloud_notification<R: Runtime>(
+pub fn show_task_comment<R: Runtime>(
     app: &AppHandle<R>,
     title: &str,
     body: &str,
-    notification_id: String,
-    target: crate::space_cloud::notifications::NotificationTarget,
-    is_announcement: bool,
-    origin_key: Option<String>,
-    origin_account_key: Option<String>,
+    id: String,
+    target: crate::notification_center::NotificationTarget,
 ) {
-    show_with_navigation_target(
-        app,
-        title,
-        body,
-        NotificationNavigation::for_cloud(
-            notification_id,
-            target,
-            is_announcement,
-            origin_key,
-            origin_account_key,
-        ),
-    );
+    let navigation = NotificationNavigation {
+        task_id: None,
+        tab_id: None,
+        session_id: None,
+        workspace_path: None,
+        comment_notification_id: Some(id),
+        comment_target: Some(target),
+    };
+    show_with_navigation_target(app, title, body, Some(navigation));
 }
 
 pub fn show_with_navigation_target_and_badge<R: Runtime>(
@@ -675,7 +640,7 @@ fn show_linux_toast<R: Runtime>(
 
     let mut notification = Notification::new();
     notification
-        .appname("MyAgents")
+        .appname("AgenTeam")
         .summary(title)
         .body(body)
         .timeout(Timeout::Milliseconds(10_000))
@@ -884,16 +849,13 @@ fn emit_click<R: Runtime>(app: &AppHandle<R>, navigation: Option<NotificationNav
         return;
     };
     if let (Some(notification_id), Some(target)) = (
-        navigation.cloud_notification_id.clone(),
-        navigation.cloud_target.clone(),
+        navigation.comment_notification_id.clone(),
+        navigation.comment_target.clone(),
     ) {
-        crate::space_cloud::notifications::activate_from_toast(
+        crate::notification_center::activate_from_toast(
             app.clone(),
             notification_id,
             target,
-            navigation.cloud_is_announcement.unwrap_or(false),
-            navigation.cloud_origin_key.clone(),
-            navigation.cloud_origin_account_key.clone(),
         );
         return;
     }
@@ -904,8 +866,6 @@ fn emit_click<R: Runtime>(app: &AppHandle<R>, navigation: Option<NotificationNav
             tab_id: navigation.tab_id,
             session_id: navigation.session_id,
             workspace_path: navigation.workspace_path,
-            cloud_notification_id: navigation.cloud_notification_id,
-            cloud_target: navigation.cloud_target,
         },
     ) {
         ulog_warn!("[Notification] Failed to emit notification:click: {}", e);
@@ -955,31 +915,6 @@ mod tests {
     #[test]
     fn mac_registry_correlates_stacked_toasts_by_exact_identifier() {
         macos_notifications::test_registry_round_trip();
-    }
-}
-
-#[cfg(test)]
-mod notification_navigation_tests {
-    use super::*;
-
-    #[test]
-    fn cloud_navigation_captures_origin_and_account_identity() {
-        let navigation = NotificationNavigation::for_cloud(
-            "notification-1".to_string(),
-            crate::space_cloud::notifications::NotificationTarget::ExternalUrl {
-                url: "https://example.com/notice".to_string(),
-            },
-            true,
-            Some("origin-a".to_string()),
-            Some("account-a".to_string()),
-        )
-        .expect("cloud navigation");
-
-        assert_eq!(navigation.cloud_origin_key.as_deref(), Some("origin-a"));
-        assert_eq!(
-            navigation.cloud_origin_account_key.as_deref(),
-            Some("account-a")
-        );
     }
 }
 

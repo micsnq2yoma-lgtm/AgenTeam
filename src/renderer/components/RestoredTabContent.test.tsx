@@ -112,7 +112,7 @@ function bindings(overrides: Partial<BuiltinTabBindings> = {}): BuiltinTabBindin
       onFilePreviewIntentConsumed: vi.fn(),
     },
     settings: { ...updater, onNavigationConsumed: vi.fn() },
-    capabilities: { ...updater, onNavigationConsumed: vi.fn(), onOpenToolMarket: vi.fn() },
+    capabilities: { ...updater, onNavigationConsumed: vi.fn()},
     taskcenter: {
       activeRecordingSnapshot: null,
       onStartRecording: startRecordingSpy,
@@ -120,7 +120,6 @@ function bindings(overrides: Partial<BuiltinTabBindings> = {}): BuiltinTabBindin
       onSearchIntentConsumed: vi.fn(),
       onRouteConsumed: vi.fn(),
     },
-    space: { onRouteConsumed: vi.fn() },
     agentnetwork: null,
     teamai: { onSelectProject: vi.fn(), onCreate: vi.fn(), onOpenSession: vi.fn() },
     record: {

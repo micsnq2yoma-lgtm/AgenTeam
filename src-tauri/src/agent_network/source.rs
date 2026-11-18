@@ -178,14 +178,13 @@ pub(crate) async fn return_event(
     if input.event["sourceSessionId"] != source.product_session_id {
         return Err(NetworkError::new("RETURN_SESSION_SCOPE_MISMATCH"));
     }
+    let connection_id = input
+        .reference
+        .connection_id
+        .as_deref()
+        .ok_or_else(|| NetworkError::new("NETWORK_SCOPE_MISMATCH"))?;
     owner
-        .connection(
-            input
-                .reference
-                .connection_id
-                .as_deref()
-                .unwrap_or("official"),
-        )?
+        .connection(connection_id)?
         .return_event(source.product_session_id, input.reference, input.event)
         .await
 }

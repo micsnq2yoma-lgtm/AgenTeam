@@ -23,16 +23,16 @@ describe('Markdown web links', () => {
   });
 
   it.each([
-    'myagents://open/v1/spaces',
-    'myagents://open/v1/spaces/official/issues',
-    'myagents://open/v1/spaces/myagents/issues/iss_123',
+    'myagents://open/v1/tasks/task_1/comments/comment-2',
+    'myagents://open/v1/tasks/abcd-1234/comments/123',
+    'myagents://open/v1/tasks/old_task/comments/task_comment-456',
   ])('sends a validated app intent for %s', href => {
     const received: unknown[] = [];
     const handler = (event: Event) => received.push((event as CustomEvent).detail);
     window.addEventListener(CUSTOM_EVENTS.OPEN_APP_ROUTE, handler);
     try {
-      render(<BrowserPanelContext.Provider value={{ openUrl: mocks.openUrl }}><Markdown>{`[Space](${href})`}</Markdown></BrowserPanelContext.Provider>);
-      const link = screen.getByRole('link', { name: 'Space' });
+      render(<BrowserPanelContext.Provider value={{ openUrl: mocks.openUrl }}><Markdown>{`[Task comment](${href})`}</Markdown></BrowserPanelContext.Provider>);
+      const link = screen.getByRole('link', { name: 'Task comment' });
       expect(link).toHaveAttribute('href', href);
       fireEvent.click(link, { ctrlKey: true });
       expect(received).toEqual([parseAppRouteUrl(href)]);

@@ -954,7 +954,7 @@ pub fn cmd_copy_folder_to_templates(
 
 // ============= Admin Agent Sync =============
 
-const ADMIN_AGENT_VERSION: &str = "29";
+const ADMIN_AGENT_VERSION: &str = "30";
 
 /// Helper-bundled paths (relative to `~/.myagents/`) that previous versions
 /// shipped but that have since been retired.
@@ -971,6 +971,7 @@ const ADMIN_AGENT_VERSION: &str = "29";
 const RETIRED_ADMIN_PATHS: &[&str] = &[
     // v16: /self-config promoted to global system skill /myagents-cli
     ".claude/skills/self-config",
+    ".claude/skills/support/references/cloud-space.md",
 ];
 
 /// Merge bundled admin agent files into ~/.myagents/
@@ -1071,7 +1072,7 @@ fn sync_admin_agent_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<boo
 // matching exclusion list in src/server/index.ts::seedBundledSkills
 // MUST be kept in sync (comment there points back here).
 
-const SYSTEM_SKILLS_VERSION: &str = "63";
+const SYSTEM_SKILLS_VERSION: &str = "64";
 
 /// One process-wide transaction owner for the versioned system-skill
 /// snapshot. Startup automation and ConfigProvider may request convergence at
@@ -1603,7 +1604,7 @@ mod system_skills_tests {
 
     #[test]
     fn system_skill_version_keeps_cuse_and_product_skills_aligned() {
-        assert_eq!(SYSTEM_SKILLS_VERSION, "63");
+        assert_eq!(SYSTEM_SKILLS_VERSION, "64");
         assert!(SYSTEM_SKILLS.contains(&"cuse"));
         assert!(!REQUIRED_SYSTEM_SKILLS.contains(&"cuse"));
         assert!(SYSTEM_SKILLS.contains(&"myagents-task-alignment"));
@@ -1625,13 +1626,9 @@ mod system_skills_tests {
         assert!(bundled.contains("/myagents-speech-recognition"));
         assert!(speech.contains("myagents speech transcribe --file <input>"));
         assert!(!speech.contains("--session-id"));
-        assert!(bundled.contains("myagents space list --json"));
-        assert!(bundled.contains("myagents space whoami --space <slug> --json"));
-        assert!(bundled.contains("myagents space goal list --space <slug> --json"));
-        assert!(bundled.contains("myagents space issue update <issueId>"));
-        assert!(bundled.contains("--clear-goal"));
+        assert!(!bundled.contains("myagents space"));
+        assert!(bundled.contains("myagents agent network-diagnose"));
         assert!(bundled.contains("只有精确 leaf help 明确声明支持的命令才使用 `--dry-run`"));
-        assert!(bundled.contains("所有 Space 业务命令都必须带 `--space <slug>`"));
         assert!(bundled.contains("myagents goal create --objective-file goal-objective.txt"));
         assert!(bundled.contains("workspace 或系统 temp 均可"));
         assert!(bundled.contains("--max-executions <正整数>"));
@@ -1798,7 +1795,7 @@ mod system_skills_tests {
 
     #[test]
     fn helper_routes_product_knowledge_diagnosis_and_tool_install() {
-        assert_eq!(ADMIN_AGENT_VERSION, "29");
+        assert_eq!(ADMIN_AGENT_VERSION, "30");
         let helper = include_str!("../../bundled-agents/myagents_helper/CLAUDE.md");
         let support =
             include_str!("../../bundled-agents/myagents_helper/.claude/skills/support/SKILL.md");
@@ -1811,6 +1808,7 @@ mod system_skills_tests {
         assert!(helper.contains("`/tool-install`"));
         assert!(support.contains("先用 `/myagents-docs` 确认正确产品预期"));
         assert!(support.contains("不读取 `~/.myagents/credentials/`"));
+        assert!(!support.contains("myagents space"));
         assert!(tool_install.contains("MYAGENTS_NPM_GLOBAL_PREFIX"));
         assert!(tool_install.contains("不写 Agent-CLI Registry"));
     }

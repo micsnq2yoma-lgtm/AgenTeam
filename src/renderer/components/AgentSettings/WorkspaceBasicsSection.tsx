@@ -141,7 +141,7 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
       const label = runtime === 'claude-code' ? 'Claude Code'
         : runtime === 'dsh' ? 'DSH'
         : runtime === 'codex' ? 'Codex'
-        : 'MyAgents';
+        : 'AgenTeam';
       toast.success(t('agentSettings.basics.runtimeChanged', { label }));
     } catch (err) {
       console.error('[runtime] Failed to save runtime:', err);

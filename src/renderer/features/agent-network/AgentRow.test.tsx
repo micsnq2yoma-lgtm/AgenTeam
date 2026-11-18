@@ -18,6 +18,7 @@ vi.mock("@/api/agentNetwork", async (original) => ({
   ...(await original<typeof import("@/api/agentNetwork")>()),
   networkRequest: mocks.request,
 }));
+const connectionId = "selfhost-fixture";
 const principalId = "account-fixture";
 const networkId = "11111111-1111-4111-8111-111111111111",
   deviceId = "22222222-2222-4222-8222-222222222222";
@@ -84,7 +85,7 @@ describe("network Agent inline description and independent field CAS", () => {
         }),
     );
     const changed = vi.fn();
-    render(<AgentRow agent={agent} device={device} onChanged={changed} />);
+    render(<AgentRow connectionId={connectionId} agent={agent} device={device} onChanged={changed} />);
     fireEvent.click(
       screen.getByRole("button", { name: "为 Research 添加简介" }),
     );
@@ -104,7 +105,7 @@ describe("network Agent inline description and independent field CAS", () => {
         networkId,
         mountId,
       }),
-      "official",
+      connectionId,
     );
     expect(mocks.request.mock.calls[0][0]).not.toHaveProperty(
       "expectedEnableRevision",
@@ -122,7 +123,7 @@ describe("network Agent inline description and independent field CAS", () => {
     });
     const changed = vi.fn();
     const first = render(
-      <AgentRow agent={agent} device={device} onChanged={changed} />,
+      <AgentRow connectionId={connectionId} agent={agent} device={device} onChanged={changed} />,
     );
     fireEvent.click(
       screen.getByRole("button", { name: "为 Research 添加简介" }),
@@ -140,6 +141,7 @@ describe("network Agent inline description and independent field CAS", () => {
     first.unmount();
     render(
       <AgentRow
+        connectionId={connectionId}
         agent={{ ...agent, description: "New server value" }}
         device={device}
         onChanged={changed}
@@ -154,6 +156,7 @@ describe("network Agent inline description and independent field CAS", () => {
   it("unjoined devices cannot enable Agents; multibyte descriptions are bounded by bytes", async () => {
     render(
       <AgentRow
+        connectionId={connectionId}
         agent={agent}
         device={{ ...device, joined: false }}
         onChanged={vi.fn()}
@@ -179,6 +182,7 @@ describe("network Agent inline description and independent field CAS", () => {
   it("Shift+Enter keeps editing, and an open Agent without a description asks for one", () => {
     render(
       <AgentRow
+        connectionId={connectionId}
         agent={{ ...agent, enabled: true, path: "/Users/fixture/research" }}
         device={device}
         onChanged={vi.fn()}

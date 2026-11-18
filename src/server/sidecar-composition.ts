@@ -169,7 +169,6 @@ const SESSION_ADMIN_ROUTES = new Set([
   'im/send-media',
   'im/wake',
   'reload',
-  'task/create-attached',
 ]);
 
 const SESSION_ADMIN_PREFIXES = ['goal/', 'session/'] as const;
@@ -190,7 +189,6 @@ const COMMON_ADMIN_PREFIXES = [
   'runtime/',
   'skill/',
   'speech/',
-  'space/',
   'task/',
   'thought/',
   'tool/',

@@ -1,12 +1,12 @@
 # Agent 网络
 
-客户端实现位于 `src-tauri/src/agent_network/`、`src/server/agent-network/` 和 `src/renderer/features/agent-network/`。通用云端核心、协议源码及自部署属于 `hAcKlyc/MyAgents-Agenthub`（Apache-2.0）；官方部署由私有 `hAcKlyc/MyAgents_AgentNet` 固定产物组合，官方账号扩展仍属于 `MyAgents_space`。本文件说明当前代码边界，不代表云端已部署或跨设备验收已完成。
+客户端位于 `src-tauri/src/agent_network/`、`src/server/agent-network/` 和 `src/renderer/features/agent-network/`。部署中转和签发服务使用 MyAgents-Agenthub，设备凭据来自自建网络。
 
 ## Owner 与状态
 
 | 事实                                                     | 权威入口                                                               |
 | -------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 官方登录与 sessionBindingId；自部署账号 scope           | 官方沿原 Rust Space connector 与 Space 账号服务；自部署由固定 descriptor 与 Rust 连接生命周期裁决 |
+| 自建账号作用域 | 固定 descriptor 与 Rust 连接生命周期 |
 | 设备身份代次                                            | 当前网络的身份签发方；Rust 按连接验证与投影                              |
 | 稳定设备 ID、OS/默认主机名称                             | 原 `device_identity`                                                   |
 | 用户指定的网络设备显示名称                               | 既有网络 SQLite DO 的设备记录；Rust 当前连接只读投影                  |
@@ -24,19 +24,19 @@
 
 ## 多网络连接与自部署身份
 
-设置 → 开发者模式的「AgentNet 多网络（实验性）」由原 `config.json` 的 `agentNetworkSelfhostDevGate` 控制，缺省/非 `true` 均关闭。`NetworkRegistry` 在既有 mutation 锁内读取最新配置，裁决有效连接并通过本地 `selfhostEnabled` 投影 UI；不是网络协议字段。关闭只保留官方 actor 与官方页面，停止自部署 actor、阻止自部署加入/选择/移除及直接调用，保留已加入配置、原查看选择与 OS 凭据，不执行远端撤销。开启重建非 removing 连接并恢复原选择；重建代次必须高于停用前的 actor（包括电源 boundary），使迟到交接失效。官方登录、连接与管理保持原行为。
+开发者设置中的「自建 AgentNet」由 `agentNetworkSelfhostDevGate` 控制。启用后可以加入和切换自建网络。关闭会停止连接并保留配置与设备凭据。
 
-`registry.rs` 是 App 连接 owner：官方入口恒在，自部署连接/查看选择写入原 `config.json` 的 `agentNetworkConnections` / `agentNetworkSelectedConnection`，锁内重新读盘合并。所有已加入网络同时维持连接；标题下拉只选择展示。`account.rs` 分流原官方登录 adapter 与自部署 pinned descriptor，不改变 Space 登录/成员关系。每个自部署实例是一共同信任域；同一本地 Agent 与 Session/history 跨网络保持原实体，只逐网络配置开放。
+`registry.rs` 是 App 连接 owner：自部署连接和当前查看选择写入原 `config.json` 的 `agentNetworkConnections` / `agentNetworkSelectedConnection`，锁内重新读盘合并。所有已加入网络同时维持连接；标题下拉只选择展示。`account.rs` 使用入网时固定的自部署实例描述符和设备凭据。每个自部署实例是一共同信任域；同一本地 Agent 与 Session/history 跨网络保持原实体，只逐网络配置开放。
 
-加入时读取 HTTPS origin 的 descriptor，校验并固定 service/environment/principal/network/root/JWKS；身份兑换与 bootstrap 也必须匹配该信任。重定向不携带密钥，实例/信任变化明确拒绝。设备 key 只参与首次登记，不写 config、不保存在 Node/Renderer；私钥沿原 OS KeyScope 存储。已有活跃身份不能凭新 key 覆盖；被管理员撤销后可用新 key 递增设备代次重入。丢私钥须先撤销；官方凭据行为保留。
+加入时读取 HTTPS origin 的 descriptor，校验并固定 service/environment/principal/network/root/JWKS；身份兑换与 bootstrap 也必须匹配该信任。重定向不携带密钥，实例/信任变化明确拒绝。设备 key 只参与首次登记，不写 config、不保存在 Node/Renderer；私钥沿原 OS KeyScope 存储。已有活跃身份不能凭新 key 覆盖；被管理员撤销后可用新 key 递增设备代次重入。丢私钥须先撤销。
 
 移除先持久化 `removing` 并停止该 actor，通过原私钥证明撤销/受限结果查询。未知保留人工重试且重启不连接。确认撤销后先把非秘密 `revokedScope` 保存进同一连接状态，再删 OS 凭据与连接配置；本地清理失败可继续，删除凭据后不再依赖远端证明。没有后台撤销队列。移除恢复使用同一连接记录的 `revokedScope`（已确认撤销的 generation）和 `reenrolling` 阶段；重新登记前先持久化该阶段。新 generation 已提交而 ACK/配置写入失败时，重试加入仅凭新 generation 私钥证明恢复；重试移除必须重新核实并撤销当前 generation，不能把旧 generation 的 checkpoint 当成整体已撤销。未尝试重新登记的已确认移除仍可离线重试本地清理。已接纳的本地执行与其他连接独立。
 
-Registry 的递增 revision 隔离迟到拓扑/选择投影；每连接 snapshot 的 authGeneration/revision 隔离页面设置、目录读和草稿。替换同一连接 actor 从更高代次开始，旧交接 guard 不会命中新连接。连接共用 MemoryBudget 和一个 App 电源 monitor；官方登出只打断官方，睡眠唤醒通知所有连接。
+Registry 的递增 revision 隔离迟到拓扑/选择投影；每连接 snapshot 的 authGeneration/revision 隔离页面设置、目录读和草稿。替换同一连接 actor 从更高代次开始，旧交接 guard 不会命中新连接。连接共用 MemoryBudget 和一个 App 电源 monitor；睡眠唤醒通知所有连接。
 
 @ 与 `agent list` 并行发现所有活跃网络，返回 `networks[]` 的各自 context/完整性，以及带 `connectionId` / `networkName` 的候选。健康结果保留；本地 alias 只按真实本机/localAgentId 折叠，远端不同网络 selector 不合并。查询快照按其所属网络检查，不按当前页面选择。`agent list --network NAME_OR_CONNECTION_ID` 筛选；`agent network-diagnose` 逐网络报告，分页 cursor 须同时指定 `--network`。完整 selector 决定 source routing，失败无跨网 fallback。
 
-本地返回引用在原 opId/returnRouteId 上附带可选 `connectionId`；旧缺省仅指官方，新网络必须带自己的连接。Node watch registry 的关联比较含该字段，Rust 回程进入准确 actor；watch 取消使用读取时的 generation，避免迟到取消命中新权限。
+本地返回引用在原 opId/returnRouteId 上附带可选 `connectionId`；自建网络必须带自己的连接 ID。Node watch registry 的关联比较含该字段，Rust 回程进入准确 actor；watch 取消使用读取时的 generation，避免迟到取消命中新权限。
 
 ## 调用与回程
 
@@ -64,9 +64,9 @@ Session label 继续表示会话标题/原摘要。来源回执和异步事件�
 
 ### 设备身份与凭据
 
-Rust App 在本机生成 P-256 身份密钥，以 ECDSA/SHA-256 签名证明持有私钥；私钥只持久化到系统凭据库（macOS Keychain、Windows Credential Manager、Linux Secret Service），使用时加载到 Rust 进程，不上传云端或交给 Renderer/Node，没有文件或明文降级。当前网络的身份签发方（官方 Space / 自部署实例）验证包含公钥及签名的 CSR，签发设备 leaf 与 signed binding，将账号、设备、密钥代次绑定到证书指纹、SAN 和有效期。
+Rust App 在本机生成 P-256 身份密钥，以 ECDSA/SHA-256 签名证明持有私钥；私钥只持久化到系统凭据库（macOS Keychain、Windows Credential Manager、Linux Secret Service），使用时加载到 Rust 进程，不上传云端或交给 Renderer/Node，没有文件或明文降级。自部署实例的身份签发方验证包含公钥及签名的 CSR，签发设备 leaf 与 signed binding，将账号、设备、密钥代次绑定到证书指纹、SAN 和有效期。
 
-外层是设备到云端的 HTTPS/WSS，接入以稳定设备公钥绑定的 DPoP 证明持有凭据对应的私钥。官方接入凭据不超过原 Space 登录剩余有效期与 30 天；自部署凭据由固定实例签发，客户端按协议最大有效期验证，不依赖 Space 登录。设备 leaf 有效 7 天，在到期前 48 小时窗口按需续签。活跃回程使用一项带 jitter 的约 6 小时检查，空闲不轮询凭据或证书。暂时签发不可用且现有 leaf 尚有效时保留当前关联，真实撤销与过期不能忽略。
+外层是设备到云端的 HTTPS/WSS，接入以稳定设备公钥绑定的 DPoP 证明持有凭据对应的私钥。自部署凭据由固定实例签发，客户端按协议最大有效期验证。设备 leaf 有效 7 天，在到期前 48 小时窗口按需续签。活跃回程使用一项带 jitter 的约 6 小时检查，空闲不轮询凭据或证书。暂时签发不可用且现有 leaf 尚有效时保留当前关联，真实撤销与过期不能忽略。
 
 ### 端到端通道与消息路径
 
@@ -80,7 +80,7 @@ Rust App 在本机生成 P-256 身份密钥，以 ECDSA/SHA-256 签名证明持�
 
 设备目录、设置和有界路由元数据不要求 E2EE，云端可见设备/通道关系及流量大小、时间；完整 invocation、response、event/history 才属于内层加密范围。Worker 不组装或保存业务正文、密文和离线消息。该保护覆盖设备间传输，不代替端点本机存储或端点调用模型 Provider 时的安全边界。
 
-官方设备身份信任 Space；自部署身份信任加入时固定的实例证书与签名体系。签发密钥不能直接解密既有通信，但签发体系若被控制，可通过伪造设备身份攻击后续连接；当前没有独立于网络签发方的人工对端指纹确认。实现入口见 [identity.rs](../../src-tauri/src/agent_network/identity.rs)、[crypto.rs](../../src-tauri/src/agent_network/crypto.rs)、[channel.rs](../../src-tauri/src/agent_network/channel.rs)。
+自部署设备身份信任加入时固定的实例证书与签名体系。签发密钥不能直接解密既有通信，但签发体系若被控制，可通过伪造设备身份攻击后续连接；当前没有独立于网络签发方的人工对端指纹确认。实现入口见 [identity.rs](../../src-tauri/src/agent_network/identity.rs)、[crypto.rs](../../src-tauri/src/agent_network/crypto.rs)、[channel.rs](../../src-tauri/src/agent_network/channel.rs)。
 
 ### 协议与资源
 
@@ -124,17 +124,13 @@ Renderer 只合并同一账号/连接投影 revision 下完全相同的在途目
 
 具体打包、tag 发布与显式导入命令由 Agenthub 的 `specs/RELEASE.md` 维护（`npm run release:import -- --target ../MyAgents --release v<version>`）；普通构建不执行跨仓库打包或拉取源码。包随公开客户端提交，使新的贡献者无需私有 AgentNet 权限即可构建。源码迁移不代表自部署认证、多网络 UI 或完整产品验收已经完成。
 
-## Dev 环境
-
-客户端沿现有开发者设置选择 Space dev；`build.rs` 注入对应公开 AgentNet service ID，release 不携带可切换的 dev origin。服务端先部署 Space dev additive API/issuer/named `AgentNetworkEntrypoint`，再部署 AgentNet dev，最后验证客户端 dev 构建。记录 exact Git SHA、Worker Version ID 与 100% traffic；产品完成仍需 PRD/RFC 的完整矩阵。
-
 设备详情的 `lastNetworkSeenAt` 来自网络 DO 的 ready/连接关闭与 Hibernation auto-response 在线事实，不能用账号 roster 的 `lastAccountSeenAt` 代替。Project 的 `agentNetworkExposureRevision` 由原归档配置入口持久化，UI/CLI 共用 `nextAgentNetworkExposureRevision`；unarchive 保留该代次。catalog `exposureRevision` 比旧代次增加时原 DO 事务关闭 mount，解决离线 archive→unarchive 被最终 snapshot 合并的问题；rename 不增加代次，简介仍由网络设置 owner 保留。
 
 同 pair 连续完整对象在原 rustls writer 中有序写入，受 `receiveBytes` 和 App `MemoryBudget` 限制；信用窗口只控制 TLS 帧发出，不能把正常第二对象视为连接故障。终止性 pair 写入/加密错误只关闭该 pair，清理它的 pending 调用，保留其他 pair/有效逻辑回程；不重放原业务请求；已协商的 terminal 结果按上述有界恢复规则补投。
 
 ### Metadata failure outcomes
 
-Rust 原 connector 拥有连续连接失败退避：首次恢复仍为 5 秒，连续失败按 10/20/40/60 秒基线与最多 20% jitter 限速；成功 ready、账号/电源 boundary 重置。有效 429/503 `Retry-After`（秒或 HTTP date，最多一小时）仅作为后台重连等待下限，不改变业务读写的错误投影、不保存/重放请求。boundary 继续立即打断等待；Space IssueDelivery 的 60/180/300 秒轮询不变。
+Rust 原 connector 拥有连续连接失败退避：首次恢复仍为 5 秒，连续失败按 10/20/40/60 秒基线与最多 20% jitter 限速；成功 ready、账号/电源 boundary 重置。有效 429/503 `Retry-After`（秒或 HTTP date，最多一小时）仅作为后台重连等待下限，不改变业务读写的错误投影、不保存/重放请求。boundary 继续立即打断等待。
 
 Metadata reads and connection snapshots do not assert a user save. After metadata queue handoff, timeout or a dropped connection future yields uncertain outcome only for metadata mutations; receipt inspection remains read-only and no write is replayed. Actual auth-generation changes fence discarded account scope; transport or power-generation changes alone are not evidence of account change. The existing actor reconnect loop owns recovery; Renderer describes that state and keeps its read retry separate from write receipt recovery.
 

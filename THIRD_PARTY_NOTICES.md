@@ -1,5 +1,7 @@
 # Third-Party Notices / 第三方声明
 
+The AgenTeam brand artwork is © 2026 AgenTeam contributors ([MIT license](src/renderer/assets/brand/AgenTeam-LICENSE.txt)). The bundled Cormorant Garamond wordmark font is © 2015 The Cormorant Project Authors ([SIL Open Font License 1.1](src/renderer/assets/brand/CormorantGaramond-OFL.txt)). Both notices are included in the desktop bundle’s legal directory.
+
 ## English
 
 MyAgents includes, distributes, or integrates with third-party software, SDKs,

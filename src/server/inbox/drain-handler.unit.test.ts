@@ -22,7 +22,7 @@ describe('handleInboxDrain scenario routing', () => {
     expect(injector.mock.calls[0][1]?.fromLabel).toBe(replyBack ? fromLabel : undefined);
   });
 
-  it('routes Space issue delivery events as registeredAgent scenario', async () => {
+  it('rejects queued Space issue deliveries without starting an Agent', async () => {
     const seen: Parameters<InboxInjector>[] = [];
     const injector: InboxInjector = async (...args) => {
       seen.push(args);
@@ -63,21 +63,8 @@ describe('handleInboxDrain scenario routing', () => {
 
     const result = await handleInboxDrain([message], injector);
 
-    expect(result.accepted).toBe(true);
-    expect(seen).toHaveLength(1);
-    expect(seen[0][0]).toBe(message.text);
-    expect(seen[0][0]).toContain('<system-reminder>');
-    expect(seen[0][0]).not.toContain('<myagents-session-event');
-    expect(seen[0][2]).toMatchObject({
-      allowLazySessionMaterialization: true,
-      scenario: {
-        type: 'registeredAgent',
-        platform: 'space',
-        sourceType: 'issue-delivery',
-        spaceId: 'space-1',
-        registeredAgentId: 'agent-1',
-      },
-    });
+    expect(result).toMatchObject({ accepted: false, reason: expect.stringContaining('SPACE_DELIVERY_RETIRED') });
+    expect(seen).toHaveLength(0);
   });
 
   it('keeps ordinary inbox requests on the default scenario path', async () => {
@@ -98,7 +85,7 @@ describe('handleInboxDrain scenario routing', () => {
     }], injector);
 
     expect(result.accepted).toBe(true);
-    expect(seen[0][2]?.scenario).toBeUndefined();
+    expect(seen[0][2]?.allowLazySessionMaterialization).toBe(false);
   });
 
   it('rejects a Space delivery without exact Registered Agent identity before injection', async () => {
@@ -128,7 +115,7 @@ describe('handleInboxDrain scenario routing', () => {
     const result = await handleInboxDrain([malformed], injector);
 
     expect(result).toMatchObject({ accepted: false });
-    expect(result.reason).toContain('INVALID_REGISTERED_AGENT_ORIGIN');
+    expect(result.reason).toContain('SPACE_DELIVERY_RETIRED');
     expect(injector).not.toHaveBeenCalled();
   });
 });

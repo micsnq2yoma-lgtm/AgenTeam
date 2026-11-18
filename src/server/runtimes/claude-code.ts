@@ -344,8 +344,7 @@ export class ClaudeCodeRuntime implements AgentRuntime {
     // System Prompt injection
     const isImOrChannel = options.scenario.type === 'im' || options.scenario.type === 'agent-channel';
     const isHeadlessAutomation = isImOrChannel
-      || options.scenario.type === 'cron'
-      || options.scenario.type === 'registeredAgent';
+      || options.scenario.type === 'cron';
 
     // NOTE: we used to pass `--bare` here for IM/agent-channel sessions,
     // intending to give the bot a clean slate without CC's default preset.
@@ -424,7 +423,7 @@ export class ClaudeCodeRuntime implements AgentRuntime {
     }
 
     // Tool control. Channel sessions receive their host-interaction overlay
-    // from external-session; cron/registered-agent remain headless and cannot
+    // from external-session; cron remains headless and cannot
     // render AskUserQuestion.
     const disallowedTools = new Set(options.disallowedTools ?? []);
     if (isHeadlessAutomation && !isImOrChannel) {

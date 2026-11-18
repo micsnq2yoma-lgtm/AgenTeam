@@ -26,6 +26,7 @@ export function useNotificationCenter(): NotificationCenterController {
     let cancelled = false;
     const ac = new AbortController();
     void getNotificationSnapshot()
+      .then((next) => next.loadState === 'loading' ? requestNotificationRefresh() : next)
       .then((next) => {
         if (!cancelled) setSnapshot(next);
       })
@@ -46,23 +47,25 @@ export function useNotificationCenter(): NotificationCenterController {
       ac.signal,
     );
 
-    const wake = () => { void requestNotificationRefresh(); };
+    const wake = () => {
+      void requestNotificationRefresh()
+        .then((next) => { if (!cancelled) setSnapshot(next); })
+        .catch(() => undefined);
+    };
     const wakeWhenVisible = () => {
       if (document.visibilityState === 'visible') wake();
     };
-    window.addEventListener('online', wake);
     document.addEventListener('visibilitychange', wakeWhenVisible);
     return () => {
       cancelled = true;
       ac.abort();
-      window.removeEventListener('online', wake);
       document.removeEventListener('visibilitychange', wakeWhenVisible);
     };
   }, []);
 
   const refresh = useCallback(() => {
     if (!isTauriEnvironment()) return;
-    void requestNotificationRefresh();
+    void requestNotificationRefresh().then(setSnapshot).catch(() => undefined);
   }, []);
 
   const loadMore = useCallback(async () => {

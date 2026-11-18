@@ -46,7 +46,6 @@ import {
 } from '../shared/session-user-tags';
 import {
     normalizeSessionOrigin,
-    type RegisteredAgentSessionOrigin,
     type SessionOrigin,
 } from '../shared/session-origin';
 import { stripBom } from '../shared/utils';
@@ -1211,59 +1210,6 @@ export function getSessionMetadata(sessionId: string): SessionMetadata | null {
 
 export function getPersistedSessionOrigin(sessionId: string): SessionOrigin | undefined {
     return normalizeSessionOrigin(getSessionMetadata(sessionId)?.origin);
-}
-
-export type EnsureRegisteredAgentSessionOriginResult =
-    | { success: true; metadataExists: boolean; adoptedLegacyOrigin?: boolean }
-    | { success: false; error: string };
-
-/**
- * Bind a delivery Session to one exact Registered Agent identity.
- *
- * Existing context-free registered-agent origins are upgraded in place for
- * compatibility. Any other existing origin is an authority conflict and is
- * rejected. Missing metadata is safe: the caller must pass the same exact
- * origin as the birth origin when it materializes the Session.
- */
-function checkRegisteredAgentSessionOrigin(current: SessionMetadata | undefined, expected: RegisteredAgentSessionOrigin): EnsureRegisteredAgentSessionOriginResult {
-    if (!current) return { success: true, metadataExists: false };
-    const normalized = normalizeSessionOrigin(current.origin);
-    if (normalized?.kind === 'registered-agent' && normalized.surface === 'space_issue_delivery'
-        && normalized.context.spaceId === expected.context.spaceId
-        && normalized.context.registeredAgentId === expected.context.registeredAgentId) {
-        return { success: true, metadataExists: true };
-    }
-    const raw = current.origin as { kind?: unknown; surface?: unknown; context?: unknown } | undefined;
-    if (raw?.kind === 'registered-agent' && raw.surface === 'space_issue_delivery'
-        && !Object.prototype.hasOwnProperty.call(raw, 'context')) {
-        return { success: true, metadataExists: true, adoptedLegacyOrigin: true };
-    }
-    return { success: false, error: 'SESSION_ORIGIN_CONFLICT: This Session is already bound to a different origin.' };
-}
-
-export async function ensureRegisteredAgentSessionOrigin(
-    sessionId: string,
-    expected: RegisteredAgentSessionOrigin,
-): Promise<EnsureRegisteredAgentSessionOriginResult> {
-    const active = activeTranscripts.get(sessionId);
-    if (active && !active.isRevoked) {
-        // The legitimate birth/claim already exists even if its index write is
-        // pending. An absent disk row cannot relax this exact origin check.
-        const result = checkRegisteredAgentSessionOrigin(active.metadata, expected);
-        if (result.success && result.adoptedLegacyOrigin) active.patchMetadata({ origin: expected });
-        return result;
-    }
-    ensureStorageDir();
-    return withSessionsLock(async () => {
-        const all = readSessionsIndexForWrite();
-        const index = all.findIndex(session => session.id === sessionId);
-        const result = checkRegisteredAgentSessionOrigin(all[index], expected);
-        if (result.success && result.adoptedLegacyOrigin) {
-            all[index] = { ...all[index], origin: expected };
-            atomicWriteSessionsFile(JSON.stringify(all, null, 2));
-        }
-        return result;
-    });
 }
 
 /**

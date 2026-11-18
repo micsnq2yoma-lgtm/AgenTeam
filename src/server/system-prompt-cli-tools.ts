@@ -273,7 +273,7 @@ export function buildCliToolsAppend(
   parts.push(SECTION_TASK_AUTOMATION);
 
   // Goal Mode — user-facing private channels only. Do not expose it in headless
-  // cron or semi-open registered-agent issue workflows.
+  // cron or group conversations.
   const isPrivateUserChannel =
     (scenario.type === 'im' || scenario.type === 'agent-channel') &&
     scenario.sourceType === 'private';

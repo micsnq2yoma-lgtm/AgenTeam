@@ -420,7 +420,7 @@ describe('admin-api help registry', () => {
     for (const path of [
       ['session', 'get', 'session-id'], ['skill', 'info', 'skill-name'],
       ['record', 'get', 'record-id'], ['task', 'comments', 'task-id'],
-      ['agent', 'show', 'agent-id'], ['space', 'issue', 'view', 'issue-id'],
+      ['agent', 'show', 'agent-id'],
     ]) {
       const text = String((handleHelp({ path }).data as { text: string }).text);
       expect(text).not.toContain('shared "myagents');
@@ -436,7 +436,6 @@ describe('admin-api help registry', () => {
       ['task', 'list'],
       ['task', 'get'],
       ['task', 'create-direct'],
-      ['task', 'create-attached'],
       ['task', 'update'],
       ['task', 'run'],
       ['task', 'rerun'],
@@ -593,93 +592,19 @@ describe('admin-api help registry', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('Unknown command group "issue"');
-    expect(result.suggestion).toContain('space');
+    expect(result.suggestion).not.toMatch(/\bspace\b/);
     expect(text).not.toContain('Legacy read-only alias');
   });
 
-  it('uses the longest Space command path so leaf help is an executable Agent contract', async () => {
+
+
+  it('rejects retired collaboration commands in CLI help', async () => {
     const { handleHelp } = await import('./admin-api');
-
-    const result = handleHelp({ path: ['space', 'issue', 'attachment', 'add'] });
-    const text = (result.data as { text?: string } | undefined)?.text ?? '';
-
-    expect(result.success).toBe(true);
-    expect(text).toContain('myagents space issue attachment add');
-    expect(text).toContain('WHEN TO CALL');
-    expect(text).toContain('ACTOR AND PERMISSIONS');
-    expect(text).toContain('FILE SAFETY');
-    expect(text).toContain('--space <slug>');
-    expect(text).not.toContain('myagents space — Work with');
-  });
-
-  it('provides an independent Agent contract for every Space Issue leaf', async () => {
-    const { handleHelp } = await import('./admin-api');
-    const leaves = [
-      ['space', 'issue', 'list'],
-      ['space', 'issue', 'view'],
-      ['space', 'issue', 'comments'],
-      ['space', 'issue', 'status'],
-      ['space', 'issue', 'claim'],
-      ['space', 'issue', 'close'],
-      ['space', 'issue', 'cancel-claim'],
-    ];
-    for (const path of leaves) {
-      const result = handleHelp({ path });
-      const text = (result.data as { text?: string } | undefined)?.text ?? '';
-      expect(text, path.join(' ')).toContain('WHEN TO CALL');
-      expect(text, path.join(' ')).toContain('RECOVERY');
-      expect(text, path.join(' ')).not.toContain('myagents space — Work with');
+    for (const path of [['space'], ['space', 'issue', 'list']]) {
+      expect(handleHelp({ path })).toMatchObject({ success: false });
     }
   });
 
-  it('provides exact nine-section contracts for Goal discovery and Issue metadata update', async () => {
-    const { handleHelp } = await import('./admin-api');
-    const sections = [
-      'WHEN TO CALL',
-      'EFFECT',
-      'REQUIRED CONTEXT',
-      'OPTIONS',
-      'ACTOR AND PERMISSIONS',
-      'FILE SAFETY',
-      'OUTPUT',
-      'EXAMPLES',
-      'RECOVERY',
-    ];
-
-    const goalText = String((handleHelp({ path: ['space', 'goal', 'list'] }).data as { text?: string })?.text ?? '');
-    const updateText = String((handleHelp({ path: ['space', 'issue', 'update'] }).data as { text?: string })?.text ?? '');
-    for (const section of sections) {
-      expect(goalText).toContain(section);
-      expect(updateText).toContain(section);
-    }
-    expect(goalText).toContain('data.items[].id');
-    expect(goalText).toContain('archived IDs cannot be assigned');
-    expect(goalText).toContain('Session Goal Mode');
-    expect(updateText).toContain('--clear-goal');
-    expect(updateText).toContain('does not change workflow state, assignee, claim');
-    expect(updateText).toContain('does not support --dry-run');
-    expect(goalText).not.toContain('myagents space — Discover');
-    expect(updateText).not.toContain('myagents space — Discover');
-  });
-
-  it('keeps Space group and related Issue help aligned on discovery, Inbox, and Goal output', async () => {
-    const { handleHelp } = await import('./admin-api');
-    const spaceText = String((handleHelp({ path: ['space'] }).data as { text?: string })?.text ?? '');
-    const issueText = String((handleHelp({ path: ['space', 'issue'] }).data as { text?: string })?.text ?? '');
-    const createText = String((handleHelp({ path: ['space', 'issue', 'create'] }).data as { text?: string })?.text ?? '');
-    const listText = String((handleHelp({ path: ['space', 'issue', 'list'] }).data as { text?: string })?.text ?? '');
-    const viewText = String((handleHelp({ path: ['space', 'issue', 'view'] }).data as { text?: string })?.text ?? '');
-
-    expect(spaceText).toContain('DISCOVERY FLOW FOR AGENTS');
-    expect(spaceText).toContain('GOAL NAMESPACES');
-    expect(issueText).toContain('update <issueId>');
-    expect(createText).toContain('Without --goal it enters Inbox');
-    expect(createText).toContain('goalId, goalPathLabel');
-    expect(listText).toContain('--goal <goalId>|inbox');
-    expect(listText).toContain('--include-subtree <true|false>');
-    expect(viewText).toContain('issue.goalId');
-    expect(viewText).toContain('issue.goalPathLabel');
-  });
 });
 
 describe('external CLI private config envelope', () => {
@@ -990,111 +915,6 @@ describe('admin-api speech forwarding', () => {
   });
 });
 
-describe('admin-api Space workspace identity', () => {
-  it('forwards Goal discovery and Issue update through the existing Space management bridge', async () => {
-    managementApiMocks.managementApi
-      .mockResolvedValueOnce({ ok: true, data: { items: [] } })
-      .mockResolvedValueOnce({ ok: true, data: { issue: { id: 'iss_1' } } });
-    const { handleSpaceGoalList, handleSpaceIssueUpdate } = await import('./admin-api');
-
-    const goalResult = await handleSpaceGoalList({ spaceSlug: 'official', includeArchived: true });
-    const updateResult = await handleSpaceIssueUpdate({
-      spaceSlug: 'official',
-      issueId: 'iss_1',
-      goalUpdate: { action: 'clear' },
-    });
-
-    expect(managementApiMocks.managementApi).toHaveBeenNthCalledWith(1, '/api/space/goal-list', 'POST', {
-      spaceSlug: 'official',
-      includeArchived: true,
-    });
-    expect(managementApiMocks.managementApi).toHaveBeenNthCalledWith(2, '/api/space/issue-update', 'POST', {
-      spaceSlug: 'official',
-      issueId: 'iss_1',
-      goalUpdate: { action: 'clear' },
-    });
-    expect(goalResult).toMatchObject({ success: true, hint: expect.stringContaining('data.items[].id') });
-    expect(updateResult).toMatchObject({ success: true, hint: expect.stringContaining('Re-read') });
-  });
-
-  it('enriches Space commands with the stable project id for the requested workspace', async () => {
-    const workspace = join(scratch, 'workspace');
-    mkdirSync(workspace);
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
-      id: 'project-stable-id',
-      name: 'Workspace',
-      path: workspace,
-    }]);
-    agentSessionMocks.agentDir = workspace;
-    managementApiMocks.managementApi.mockResolvedValueOnce({ ok: true, data: { actor: {} } });
-    const { handleSpaceWhoami } = await import('./admin-api');
-
-    await handleSpaceWhoami({ spaceSlug: 'official', workspacePath: workspace });
-
-    expect(managementApiMocks.managementApi).toHaveBeenCalledWith('/api/space/whoami', 'POST', {
-      spaceSlug: 'official',
-      workspacePath: workspace,
-      workspaceId: 'project-stable-id',
-    });
-  });
-
-  it('preserves an explicit workspace id so identity mismatches fail closed downstream', async () => {
-    const workspace = join(scratch, 'workspace-explicit');
-    mkdirSync(workspace);
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
-      id: 'project-stable-id',
-      name: 'Workspace',
-      path: workspace,
-    }]);
-    agentSessionMocks.agentDir = workspace;
-    managementApiMocks.managementApi.mockResolvedValueOnce({ ok: true, data: { actor: {} } });
-    const { handleSpaceWhoami } = await import('./admin-api');
-
-    await handleSpaceWhoami({
-      spaceSlug: 'official',
-      workspacePath: workspace,
-      workspaceId: 'explicit-mismatching-id',
-    });
-
-    expect(managementApiMocks.managementApi).toHaveBeenCalledWith('/api/space/whoami', 'POST', {
-      spaceSlug: 'official',
-      workspacePath: workspace,
-      workspaceId: 'explicit-mismatching-id',
-    });
-  });
-
-  it('forwards only the exact persisted Registered Agent Session origin as actor authority', async () => {
-    const workspace = join(scratch, 'workspace-origin');
-    mkdirSync(workspace);
-    writeJson(join(scratch, '.myagents', 'projects.json'), [{
-      id: 'project-origin',
-      name: 'Origin Workspace',
-      path: workspace,
-    }]);
-    sessionEngineMocks.state.origins.set('session-agent-a', {
-      kind: 'registered-agent',
-      surface: 'space_issue_delivery',
-      context: { spaceId: 'space-a', registeredAgentId: 'agent-a' },
-    });
-    managementApiMocks.managementApi.mockResolvedValueOnce({ ok: true, data: { actor: {} } });
-    const { handleSpaceWhoami } = await import('./admin-api');
-
-    await handleSpaceWhoami({
-      spaceSlug: 'official',
-      workspacePath: workspace,
-      workspaceId: 'project-origin',
-      sessionId: 'session-agent-a',
-    });
-
-    expect(managementApiMocks.managementApi).toHaveBeenCalledWith('/api/space/whoami', 'POST', {
-      spaceSlug: 'official',
-      workspacePath: workspace,
-      workspaceId: 'project-origin',
-      sessionId: 'session-agent-a',
-      sessionOrigin: { spaceId: 'space-a', registeredAgentId: 'agent-a' },
-    });
-  });
-});
 
 describe('admin-api goal', () => {
   it('creates a current-session Goal without Cron delivery ownership', async () => {
@@ -1427,38 +1247,7 @@ describe('admin-api accepted task attempt analytics', () => {
     } } } });
   });
 
-  it('describes Attached Task results as staying in the bound Session', async () => {
-    managementApiMocks.managementApi.mockResolvedValueOnce({
-      ok: true,
-      task: {
-        id: 'task-attached-receipt',
-        status: 'running',
-        dispatchOrigin: 'attached-session',
-        runMode: null,
-        sessionIds: ['space-session'],
-      },
-    });
-    const { handleTaskCreateAttached } = await import('./admin-api');
 
-    const result = await handleTaskCreateAttached({
-      name: 'Attached receipt',
-      currentSessionId: 'space-session',
-      workspacePath: '/tmp/myagents-space-attached',
-    });
-
-    expect(result).toMatchObject({
-      success: true,
-      data: {
-        receipt: {
-          taskId: 'task-attached-receipt',
-          resultAccess: {
-            mode: 'bound-session',
-            summary: expect.stringContaining('bound Session'),
-          },
-        },
-      },
-    });
-  });
 
   it('reports the run ordinal returned by the accepted mutation without a task prefetch', async () => {
     managementApiMocks.managementApi.mockResolvedValueOnce({

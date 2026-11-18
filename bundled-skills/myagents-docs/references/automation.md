@@ -133,13 +133,6 @@ Goal 是当前 Session 的长程工作状态。用户在 Chat/Launcher 使用 `/
 
 不要为了“定时触发一次 Goal”而假设产品会自动把二者绑定；需要时应明确设计触发和会话归属。
 
-## Session Goal 与 Space Goal
-
-- Session Goal：本地执行模式，有 active/paused/complete/blocked/canceled 等状态。
-- Space Goal：团队空间里的层级分类，用来组织 Issue，可以归档；不驱动本地 Session 自动续跑。
-
-命令和 ID 也不同：`myagents goal` 与 `myagents space goal` 不能混用。
-
 ## 正确预期与常见误解
 
 - “Cron list 空就是系统没有任务”：列表通常有 Workspace scope，应确认作用域。

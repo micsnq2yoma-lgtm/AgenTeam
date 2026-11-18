@@ -4,6 +4,7 @@ import type {
   WidgetThemeAdapter,
 } from '../types';
 import { createPrismStyle } from '../prism-style';
+import { brandSlogans, productName } from '../../assets/brand/brand';
 import {
   collectContractBlocks,
   collectDeclaredTokens,
@@ -268,11 +269,8 @@ export function createPresetTheme(manifest: PresetThemeManifest): ThemeDefinitio
   return {
     ...manifest,
     hero: {
-      productName: 'MyAgents',
-      slogans: {
-        'zh-CN': '每个人都应享受智能的推背感，欢迎来到言出法随的世界',
-        'en-US': 'Your intent, amplified',
-      },
+      productName,
+      slogans: brandSlogans,
       backgrounds: { light: noHeroBackground, dark: noHeroBackground },
     },
     schemes,

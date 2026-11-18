@@ -49,7 +49,7 @@ function Harness({ kind, initialIntent = true }: { kind: 'settings' | 'capabilit
     <output data-testid="intent">{tab.navigationIntent ? 'pending' : 'none'}</output>
     {tab.view === 'settings'
       ? <SettingsRenderer tab={tab} isActive isDeferred={false} binding={{ ...updater, onNavigationConsumed }} />
-      : <CapabilitiesRenderer tab={tab} isActive isDeferred={false} binding={{ ...updater, onNavigationConsumed, onOpenToolMarket: () => {} }} />}
+      : <CapabilitiesRenderer tab={tab} isActive isDeferred={false} binding={{ ...updater, onNavigationConsumed }} />}
   </>;
 }
 

@@ -33,6 +33,14 @@ const buildVersions = getBuildVersions();
 export default defineConfig({
   root: resolve(__dirname, 'src/renderer'),
   plugins: [react(), tailwindcss()],
+  // Widgets embed these bundles as source text. Prebundling them as JS breaks
+  // their ?raw imports in the development server.
+  optimizeDeps: {
+    exclude: [
+      'chartjs-umd-source', 'd3-umd-source', 'lucide-umd-source',
+      'chartjs-umd-source?raw', 'd3-umd-source?raw', 'lucide-umd-source?raw',
+    ],
+  },
   resolve: {
     alias: [
       { find: '@', replacement: resolve(__dirname, 'src/renderer') },
@@ -66,7 +74,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // All API endpoints under /api/ (excludes source files like /api/*.ts)
-      '^/api/(?!.*\\.(ts|tsx|js|jsx)$)': {
+      '^/api/(?![^?]*\\.(?:ts|tsx|js|jsx)(?:\\?|$))': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         rewrite: (path) => path, // Keep path as-is

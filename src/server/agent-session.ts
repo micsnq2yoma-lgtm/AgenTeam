@@ -164,7 +164,6 @@ import { extractAssistantTextFromStoredContent } from './inbox/latest-result';
 import { resolveVisibleUserTurnText } from './utils/session-message-preview';
 import {
   createMaterializedSessionMetadata,
-  isLiveFollowScenario,
   type SessionMaterializationScenario,
 } from './utils/session-materialization';
 import { isManagedCodexProviderReady } from './utils/managed-codex-readiness';
@@ -5449,7 +5448,7 @@ function createMetadataForSessionId(
   });
   return {
     meta,
-    snapshotKind: agent ? (isLiveFollowScenario(scenario) ? 'live-follow' : 'owned') : `runtime:${meta.runtime ?? 'none'}`,
+    snapshotKind: agent ? 'owned' : `runtime:${meta.runtime ?? 'none'}`,
   };
 }
 
@@ -5493,9 +5492,7 @@ async function persistSessionMetadataForAdmittedMessage(
       params.scenario,
       params.origin,
     );
-    if (!isLiveFollowScenario(params.scenario)) {
-      Object.assign(sessionMeta, buildOwnedFreezeSnapshotPatch());
-    }
+    Object.assign(sessionMeta, buildOwnedFreezeSnapshotPatch());
     try {
       await saveSessionMetadata(sessionMeta);
     } catch (error) {
@@ -5587,7 +5584,7 @@ export async function ensureSessionMetadataForSdkSystemInit(
           'New Chat',
           currentScenario.type,
         ).meta;
-    if (!previousMeta && !isLiveFollowScenario(currentScenario.type)) {
+    if (!previousMeta) {
       Object.assign(metadata, buildOwnedFreezeSnapshotPatch());
     }
     metadata.sdkSessionId = sdkSessionId;
@@ -5858,7 +5855,7 @@ export async function materializeCurrentSessionMetadataForPublishedReset(scenari
       'New Chat',
       scenario,
     );
-    if (!isLiveFollowScenario(scenario)) Object.assign(meta, buildOwnedFreezeSnapshotPatch());
+    Object.assign(meta, buildOwnedFreezeSnapshotPatch());
     return { metadata: meta, snapshotKind };
   });
   console.log(`[agent] session ${result.sessionId} persisted to SessionStore (published reset, snapshot=${result.snapshotKind})`);

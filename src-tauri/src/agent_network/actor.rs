@@ -226,7 +226,7 @@ impl AgentNetwork {
         let _ = app.emit("agent-network:changed", snapshot);
     }
     pub(crate) fn deactivate(&self) {
-        if let Some(NetworkAccountSession::Selfhost(account)) = &self.account {
+        if let Some(account) = &self.account {
             account.active.store(false, Ordering::Release);
         }
         self.stop();
@@ -409,11 +409,6 @@ impl AgentNetwork {
             })
     }
 }
-pub(crate) fn auth_boundary_changed<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    if let Some(owner) = app.try_state::<ManagedAgentNetwork>() {
-        owner.auth_boundary(app);
-    }
-}
 /// Logical return state belongs to this App identity, across socket attempts.
 struct ReturnState {
     source: SourceReturns,
@@ -503,8 +498,7 @@ pub(crate) fn start(
             match owner
                 .account
                 .clone()
-                .map(Ok)
-                .unwrap_or_else(NetworkAccountSession::capture)
+                .ok_or_else(|| NetworkError::new("NETWORK_CONNECTION_NOT_FOUND"))
             {
                 Ok(account) => {
                     let principal = account.principal_id().ok().map(str::to_owned);
@@ -776,7 +770,7 @@ impl Drop for ConnectionLifetime {
 }
 fn identity_check_delay() -> Duration {
     // One task per active device context, 5.5–6h jitter. Idle connections do
-    // not poll Space or renew certificates; offers still renew on demand.
+    // not poll the identity service or renew certificates; offers renew on demand.
     let random = uuid::Uuid::new_v4();
     let jitter = u16::from_le_bytes([random.as_bytes()[0], random.as_bytes()[1]]) as u64 % 1801;
     Duration::from_secs(5 * 3600 + 1800 + jitter)

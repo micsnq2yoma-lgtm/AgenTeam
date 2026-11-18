@@ -74,8 +74,7 @@ pub mod session_tags;
 pub mod session_transcript;
 pub mod session_visibility;
 mod sidecar;
-pub mod space_cloud;
-mod space_cloud_mock;
+pub mod notification_center;
 #[path = "../media-worker/src/model_pack_source.rs"]
 pub mod speech_model_pack;
 mod speech_model_pack_manager;
@@ -365,8 +364,7 @@ pub fn run() {
     let proxy_spill_state = Arc::new(proxy_spill::ProxySpillManager::new(data_dir.join("refs")));
     let app_route_queue = app_route::create_queue();
     let app_route_queue_for_single_instance = app_route_queue.clone();
-    let notification_center = space_cloud::notifications::create_state(task_state.clone());
-    let notification_center_for_window_events = notification_center.clone();
+    let notification_center = notification_center::create_state(task_state.clone());
 
     // Build the app first, then run with event handler
     // This allows us to handle RunEvent::ExitRequested for Cmd+Q and Dock quit
@@ -642,12 +640,12 @@ pub fn run() {
             notification::cmd_request_notification_permission,
             notification_badge::cmd_set_notification_badge,
             app_route::cmd_take_pending_app_route,
-            space_cloud::notifications::cmd_notification_get_snapshot,
-            space_cloud::notifications::cmd_notification_refresh,
-            space_cloud::notifications::cmd_notification_load_more,
-            space_cloud::notifications::cmd_notification_mark_read,
-            space_cloud::notifications::cmd_notification_mark_all_read,
-            space_cloud::notifications::cmd_notification_open_external,
+            notification_center::cmd_notification_get_snapshot,
+            notification_center::cmd_notification_refresh,
+            notification_center::cmd_notification_load_more,
+            notification_center::cmd_notification_mark_read,
+            notification_center::cmd_notification_mark_all_read,
+
             // IM Bot commands (non-deprecated survivors)
             im::commands::cmd_im_conversations,
             // Group permission commands (v0.1.28)
@@ -821,7 +819,6 @@ pub fn run() {
             thought::cmd_thought_set_archived,
             // Task Center — Task commands (v0.1.69)
             task::cmd_task_create_direct,
-            task::cmd_task_create_attached,
             task::cmd_task_list,
             task::cmd_task_get,
             task::cmd_task_notification_operate,
@@ -853,44 +850,7 @@ pub fn run() {
             agent_network::commands::cmd_agent_network_remove,
             agent_network::commands::cmd_agent_discovery,
             agent_network::commands::cmd_agent_network_request,
-            // MyAgents Cloud Space
-            space_cloud::cmd_space_get_capability,
-            space_cloud::cmd_space_get_session,
-            space_cloud::cmd_space_set_active_space,
-            space_cloud::cmd_space_auth_start,
-            space_cloud::cmd_space_auth_poll,
-            space_cloud::cmd_space_auth_ack,
-            space_cloud::cmd_space_logout,
-            space_cloud::cmd_space_update_profile,
-            space_cloud::cmd_space_get_avatar_presets,
-            space_cloud::cmd_space_update_space,
-            space_cloud::cmd_space_api_request,
-            space_cloud::cmd_space_register_agent,
-            space_cloud::cmd_space_update_registered_agent,
-            space_cloud::cmd_space_update_registered_agent_avatar,
-            space_cloud::registered_agents::cmd_space_revoke_registered_agent,
-            space_cloud::registered_agents::cmd_space_list_local_agents,
-            space_cloud::delivery::cmd_space_poll_dispatches,
-            space_cloud::delivery::cmd_space_mark_dispatch_delivered,
-            space_cloud::delivery::cmd_space_poll_deliveries,
-            space_cloud::delivery::cmd_space_mark_delivery_delivered,
-            space_cloud::delivery::cmd_space_wake_connector,
-            space_cloud::delivery::cmd_space_process_deliveries_once,
-            space_cloud::delivery::cmd_space_process_dispatches_once,
-            space_cloud::skills::cmd_space_install_skill,
-            space_cloud::skills::cmd_space_cleanup_skill_export_packages,
-            space_cloud::skills::cmd_space_export_skill_from_url,
-            space_cloud::skills::cmd_space_inspect_skill_source,
-            space_cloud::skills::cmd_space_list_local_skills,
-            space_cloud::skills::cmd_space_upload_skill,
-            space_cloud::tools::cmd_space_publish_tool,
-            space_cloud::tools::cmd_space_update_tool,
-            space_cloud::attachments::cmd_space_upload_issue_attachments,
-            space_cloud::attachments::cmd_space_inspect_attachment_drafts,
-            space_cloud::attachments::cmd_space_create_issue_with_attachments,
-            space_cloud::attachments::cmd_space_comment_issue_with_attachments,
-            space_cloud::cmd_space_download_attachment,
-            space_cloud::skills::cmd_space_download_skill_zip,
+
             // PRD 0.2.35 — global "always-on" wake-lock toggle
             wake_lock::cmd_set_force_wake_lock,
         ])
@@ -1013,11 +973,6 @@ pub fn run() {
                     error
                 );
             }
-            let notification_center = app
-                .state::<space_cloud::notifications::ManagedNotificationCenter>()
-                .inner()
-                .clone();
-            space_cloud::notifications::start(app.handle().clone(), notification_center);
             let deep_link_queue = app.state::<app_route::ManagedAppRouteQueue>().inner().clone();
             let deep_link_handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
@@ -1065,17 +1020,12 @@ pub fn run() {
             // sweep handles upgrade backlog without requiring any Sidecar.
             crash_artifact_retention::start_crash_artifact_retention_owner();
             tauri::async_runtime::spawn(grok_auth::reconcile_provider_projection());
-            let space_sidecar_state = app.state::<sidecar::ManagedSidecarManager>().inner().clone();
+            let network_sidecar_state = app.state::<sidecar::ManagedSidecarManager>().inner().clone();
             agent_network::registry::start(
                 app.handle().clone(),
                 app.state::<agent_network::actor::ManagedAgentNetwork>().inner().clone(),
-                space_sidecar_state.clone(),
+                network_sidecar_state.clone(),
             );
-            space_cloud::delivery::start_space_connector(
-                app.handle().clone(),
-                space_sidecar_state,
-            );
-
             // Main window: programmatic creation so we can attach
             // `on_navigation` to block external top-frame navigation. The
             // native WKWebView context menu's "Open Link" entry triggers a
@@ -1114,7 +1064,7 @@ pub fn run() {
                 WebviewUrl::default(),
             )
             .scroll_bar_style(crate::webview_policy::scroll_bar_style())
-            .title("MyAgents")
+            .title("AgenTeam")
             .inner_size(1200.0, 800.0)
             .min_inner_size(800.0, 600.0)
             .resizable(true)
@@ -1801,11 +1751,6 @@ pub fn run() {
                                     "focused": focused,
                                     "visible": visible,
                                 }),
-                            );
-                        }
-                        if label == "main" && *focused {
-                            space_cloud::notifications::wake(
-                                &notification_center_for_window_events,
                             );
                         }
                     }

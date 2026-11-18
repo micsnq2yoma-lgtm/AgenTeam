@@ -38,37 +38,25 @@ interface HelperRequestBase {
     assistantEntry?: AssistantEntry;
 }
 
-type SupportHelperRequest = HelperRequestBase & {
+export type HelperRequestInput = HelperRequestBase & {
     scenario?: 'support';
     /** App version, surfaced in the support conversation context. */
     appVersion: string;
 };
 
-type SpaceToolInstallHelperRequest = HelperRequestBase & {
-    scenario: 'space_tool_install';
-    appVersion?: never;
-};
-
-export type HelperRequestInput =
-    | SupportHelperRequest
-    | SpaceToolInstallHelperRequest;
-
-export type HelperRequestDetail =
-    | (Omit<SupportHelperRequest, 'scenario'> & { scenario: 'support' })
-    | SpaceToolInstallHelperRequest;
+export type HelperRequestDetail = Omit<HelperRequestInput, 'scenario'> & { scenario: 'support' };
 
 export function dispatchHelperRequest(input: HelperRequestInput): void {
-    const common = {
+    const detail: HelperRequestDetail = {
         description: input.description.trim(),
         providerId: input.providerId,
         model: input.model,
         images: input.images,
         resumeSessionId: input.resumeSessionId,
         assistantEntry: input.assistantEntry,
+        scenario: 'support',
+        appVersion: input.appVersion,
     };
-    const detail: HelperRequestDetail = input.scenario === 'space_tool_install'
-        ? { ...common, scenario: 'space_tool_install' }
-        : { ...common, scenario: 'support', appVersion: input.appVersion };
     window.dispatchEvent(
         new CustomEvent(CUSTOM_EVENTS.LAUNCH_BUG_REPORT, {
             detail,

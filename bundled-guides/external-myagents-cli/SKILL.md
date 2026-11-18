@@ -3,7 +3,7 @@ name: external-myagents-cli
 description: >-
   为不了解 MyAgents 的本机外部 AI 补充产品背景、能力模型和公开 CLI 使用方式。
   收到 MyAgents 设置页的交接 Prompt 后读取；使用其中给出的绝对 CLI 路径和
-  MYAGENTS_API_TOKEN 发现本地与同账号跨设备 Agent、委托和读取 Session，
+  MYAGENTS_API_TOKEN 发现本地 Agent 与自建网络中的远端 Agent、委托和读取 Session，
   以及操作本机 Task、Record 与 Runtime 发现。
 metadata:
   author: MyAgents
@@ -23,7 +23,7 @@ MyAgents 是一个在用户电脑上运行的桌面 Agent 产品。它把本地�
 
 MyAgents App 是这些状态和执行生命周期的本机 Host；CLI 只是调用入口。你是运行在 MyAgents 之外的 AI，能够通过公开 CLI 委托和观察工作，但不会因此获得 MyAgents 内部 Session 身份、全部管理能力或隐藏 API 权限。
 
-MyAgents 产品内部还可以管理模型 Provider、MCP/工具、Skill/Plugin、IM Channel、Cloud Space、Goal、文档与语音等能力；它们帮助 Agent 接入模型、工具、外部沟通渠道和更丰富的工作流。但当前外部 token 契约只开放本文后面介绍的 Agent、Runtime discovery、Session、Task、Record 和状态查询。知道某项产品能力存在，不等于可以从外部 CLI 调用它。
+MyAgents 产品内部还可以管理模型 Provider、MCP/工具、Skill/Plugin、IM Channel、Goal、文档与语音等能力；它们帮助 Agent 接入模型、工具、外部沟通渠道和更丰富的工作流。但当前外部 token 契约只开放本文后面介绍的 Agent、Runtime discovery、Session、Task、Record 和状态查询。知道某项产品能力存在，不等于可以从外部 CLI 调用它。
 
 ## 2. MyAgents 能解决什么任务
 
@@ -33,7 +33,7 @@ MyAgents 产品内部还可以管理模型 Provider、MCP/工具、Skill/Plugin�
 | --- | --- | --- |
 | 让一个本地项目拥有可持续对话的 AI | 注册目录为 Workspace Agent → 新建 Session → 后续 send/get | 获得稳定 Agent ID 和可继续的独立上下文 |
 | 把一件工作交给另一个 Agent 完成 | 找到目标 Agent → start 新 Session → 保存 Session ID → get 结果 | 当前 AI 不需要自己进入目标工作区 |
-| 委托同账号另一台设备上的 Agent | agent list 发现在线目标 → 使用完整跨设备 ID → start/send/get | 由目标设备的 MyAgents 执行，并可主动读取结果 |
+| 委托同一自建网络中的另一台设备上的 Agent | agent list 发现在线目标 → 使用完整跨设备 ID → start/send/get | 由目标设备的 MyAgents 执行，并可主动读取结果 |
 | 创建待办、定时任务或条件自动化 | 明确 Workspace → 创建 Task → 配置/启动 → get/runs 查看状态 | 工作进入 MyAgents 的持久 Task 生命周期 |
 | 先记下来，稍后再处理 | 创建 Record → 后续查看并整理为 Task | 信息不会只停留在当前对话里 |
 | 在创建 Task 前选择执行环境 | runtime list/describe → 使用返回的合法值 | 避免猜测 Runtime、模型或权限模式 |
@@ -117,9 +117,9 @@ $env:MYAGENTS_API_TOKEN = "<token>"
 
 `agent create` 不会创建目录、初始化 Git、复制模板或自动启动 Session。同一未归档、正常可见的 workspace 重复注册会返回同一个 Agent。保存成功响应中的 `agentId`；不要用显示名称或路径猜 ID。
 
-### 同账号跨设备 Agent
+### 同一自建网络中的远端 Agent
 
-`agent list` 合并本地 Agent 与同账号其它设备上在线、已开放调用的 Agent；`--archived` 只列本地归档对象。JSON 中 `isLocal` 区分归属，`deviceName` 帮助选择目标，`agentId` / `selector` 才是调用地址。`networkStatus` 和 `complete` 表示网络发现状态与目录是否完整；网络异常时本地结果仍可返回，不能把不完整目录当作没有远端 Agent。
+`agent list` 合并本地 Agent 与同一自建网络中的其它设备上在线、已开放调用的 Agent；`--archived` 只列本地归档对象。JSON 中 `isLocal` 区分归属，`deviceName` 帮助选择目标，`agentId` / `selector` 才是调用地址。`networkStatus` 和 `complete` 表示网络发现状态与目录是否完整；网络异常时本地结果仍可返回，不能把不完整目录当作没有远端 Agent。
 
 - 本地 Agent 使用返回的普通 ID；跨设备 Agent 使用完整的 `ma-agent:1:...` ID，跨设备 Session 使用完整的 `ma-session:1:...` ID。原样保存和传递，不截短、解码或按名称拼接。
 - `agent show`、`session list/start` 接受 Agent ID；`session send/get/state` 接受 Session ID。本地和跨设备使用相同命令，无需额外网络参数。
@@ -238,4 +238,4 @@ Agent 的注册、Task、Record 与 Runtime discovery 仍操作本机 Host；跨
 - 开关关闭或 token 失效时，请用户在「设置 → 外部调用」重新开启或注入当前 token，不要尝试绕过。
 - 参数、路径或 lifecycle 冲突时，根据 JSON `code`、错误说明和 suggestion 修正输入。mutation 响应丢失时先用只读命令核实，不自动重放。
 
-外部 token 只用于本机 CLI 访问本机 Host；CLI 可借助 MyAgents Agent 网络委托同账号其它设备上的已开放 Agent。这不提供远程直连 Host 的 HTTP/OpenAPI/SDK/MCP 接口。当前公开面不提供自动结果回调、exactly-once、Provider/MCP/Plugin/Skill/Tool/Channel/Space/Goal/Speech 管理，也不自动创建目录、初始化 Workspace 模板或 Git。目标超出公开帮助时，明确告诉用户需要在 MyAgents App 或 MyAgents 内部 Agent 中完成。
+外部 token 只用于本机 CLI 访问本机 Host；CLI 可借助 MyAgents Agent 网络委托同一自建网络中的其它设备上的已开放 Agent。这不提供远程直连 Host 的 HTTP/OpenAPI/SDK/MCP 接口。当前公开面不提供自动结果回调、exactly-once、Provider/MCP/Plugin/Skill/Tool/Channel/Goal/Speech 管理，也不自动创建目录、初始化 Workspace 模板或 Git。目标超出公开帮助时，明确告诉用户需要在 MyAgents App 或 MyAgents 内部 Agent 中完成。

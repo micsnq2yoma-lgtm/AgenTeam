@@ -23,7 +23,7 @@ import {
 } from "./deviceDisplay";
 
 export function DeviceDetails({
-  connectionId = "official",
+  connectionId,
   device,
   catalog,
   isLocal,
@@ -37,7 +37,7 @@ export function DeviceDetails({
   membershipBusy,
   membershipError,
 }: {
-  connectionId?: string;
+  connectionId: string;
   device: NetworkDevice;
   /** `undefined` while the page is still reading this device's catalog. */
   catalog: DeviceCatalog | undefined;

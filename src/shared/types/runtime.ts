@@ -92,7 +92,7 @@ export const _exhaustiveRuntimeCheck: _AssertRuntimeExhaustive = true;
 /** Human-readable display names keyed by runtime type. */
 export const RUNTIME_DISPLAY_NAMES: Record<RuntimeType, string> = {
   builtin: 'Built-in (Claude Agent SDK)',
-  dsh: 'MyAgents (DeepSeek Harness)',
+  dsh: 'AgenTeam (DeepSeek Harness)',
   'claude-code': 'Claude Code CLI',
   codex: 'OpenAI Codex CLI',
 };
@@ -305,7 +305,7 @@ export interface RuntimePermissionMode {
  *
  * - `myagents` (default, legacy) — MyAgents unconditionally injects its own
  *    `proxySettings` into the runtime's env, overriding whatever the parent
- *    shell or system has configured. Best for "MyAgents proxy is THE proxy"
+ *    shell or system has configured. Best for "AgenTeam proxy is THE proxy"
  *    setups.
  * - `terminal` — Drop MyAgents-injected proxy vars; restore whatever proxy
  *    the user's interactive shell would export (HTTP_PROXY / HTTPS_PROXY /
@@ -330,7 +330,7 @@ export type RuntimeProxyPolicy = 'myagents' | 'terminal';
  * `terminal` mode = no proxy injected = same result). Disk values of
  * `'direct'` on existing installs fall through `resolveAgentEnvPolicy`'s
  * validator and default to `'myagents'`; users who relied on stripping
- * MyAgents proxy can pick `terminal` from the UI.
+ * AgenTeam proxy can pick `terminal` from the UI.
  */
 export interface RuntimeEnvPolicy {
   proxy?: RuntimeProxyPolicy;
