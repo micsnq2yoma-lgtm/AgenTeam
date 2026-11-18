@@ -169,7 +169,6 @@ function renderBrandSection(
   overrides: Partial<ComponentProps<typeof BrandSection>> = {},
   themeId?: string,
 ) {
-  const onGoToSettings = vi.fn();
   const content = (
     <BrandSection
       projects={[project]}
@@ -183,7 +182,6 @@ function renderBrandSection(
       providers={[]}
       apiKeys={{}}
       providerVerifyStatus={{}}
-      onGoToSettings={onGoToSettings}
       {...overrides}
     />
   );
@@ -198,7 +196,7 @@ function renderBrandSection(
       {content}
     </ThemeRuntimeProvider>,
   );
-  return { ...view, onGoToSettings };
+  return view;
 }
 
 describe('BrandSection', () => {
@@ -273,28 +271,17 @@ describe('BrandSection', () => {
     expect(simpleInputHandle.processDroppedFiles).not.toHaveBeenCalled();
   });
 
-  it('keeps the no-provider settings CTA in the same below-input stack as the launcher context row', () => {
+  it('keeps the launcher context row in the below-input stack without a provider CTA', () => {
     const { container } = renderBrandSection();
 
     const stack = container.querySelector('.launcher-below-input-stack');
 
     expect(stack).not.toBeNull();
     expect(stack).toHaveClass('mt-2');
-    expect(screen.getByTestId('launcher-context-row')).toBeInTheDocument();
     expect(stack as HTMLElement).toContainElement(
       screen.getByTestId('launcher-context-row'),
     );
-    expect(stack as HTMLElement).toContainElement(
-      screen.getByRole('button', { name: /配置模型供应商/ }),
-    );
-  });
-
-  it('opens provider settings from the no-provider CTA', () => {
-    const { onGoToSettings } = renderBrandSection();
-
-    fireEvent.click(screen.getByRole('button', { name: /配置模型供应商/ }));
-
-    expect(onGoToSettings).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /配置模型供应商/ })).not.toBeInTheDocument();
   });
 
   it('opens the Goal preset from the launcher slash action', () => {
@@ -345,17 +332,13 @@ describe('BrandSection', () => {
     );
   });
 
-  it('renders the no-provider CTA in English when the UI language is English', async () => {
+  it('shows no provider CTA in English either', async () => {
     await i18n.changeLanguage('en-US');
 
     renderBrandSection();
 
-    expect(
-      screen.getByText(/One step to start your AI journey/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Configure a model provider/ }),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/One step to start your AI journey/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Configure a model provider/ })).not.toBeInTheDocument();
   });
 
   it('renders product name and localized slogan from the resolved Theme Hero', () => {

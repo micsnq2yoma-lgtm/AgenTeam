@@ -1,10 +1,4 @@
 {
-  "brand": {
-    "providerPrompt": {
-      "prefix": "✨ One step to start your AI journey —",
-      "configure": "Configure a model provider →"
-    }
-  },
   "toasts": {
     "workspaceAttachmentsCleared": "Workspace switched. Attachment drafts from the previous workspace were cleared.",
     "thoughtSaved": "Record saved. You can find it in Task Center.",

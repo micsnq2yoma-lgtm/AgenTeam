@@ -1,10 +1,4 @@
 {
-  "brand": {
-    "providerPrompt": {
-      "prefix": "✨ 只需一步，即刻开启 AI 之旅 —",
-      "configure": "配置模型供应商 →"
-    }
-  },
   "toasts": {
     "workspaceAttachmentsCleared": "已切换工作区，已清理上一工作区的附件草稿",
     "thoughtSaved": "记录已保存，可在任务中心查看",
