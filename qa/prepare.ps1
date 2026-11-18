@@ -6,6 +6,7 @@ $oldFile = Join-Path $root 'original/AgenTeam_0.6.0_x64-setup.exe'
 if ((Get-FileHash -LiteralPath $oldFile).Hash -ne 'D89876323C392CAF338FA40B067EC9F47863A84642E9F9821AE723B3EB4A34C3') { throw 'Original candidate digest mismatch' }
 $installer = Start-Process -FilePath $oldFile -ArgumentList '/S' -PassThru -Wait -WindowStyle Hidden
 if ($installer.ExitCode -ne 0) { throw "0.6.0 installer failed: $($installer.ExitCode)" }
+Write-Host 'Original 0.6.0 installer finished'
 $desktop = Get-Item -LiteralPath (Join-Path $env:LOCALAPPDATA 'AgenTeam/AgenTeam.exe')
 if ($desktop.VersionInfo.ProductVersion -notmatch '^0\.6\.0(?:\.0)?$') {throw "Unexpected original desktop version: $($desktop.VersionInfo.ProductVersion)"}
 $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=19222 --remote-debugging-address=127.0.0.1'
@@ -19,10 +20,11 @@ $env:QA_BASELINE_SHELL = ($shells | Sort-Object @{Expression={$_.Name -eq 'AgenT
 Write-Host "Testing shell $([IO.Path]::GetFileName($env:QA_BASELINE_SHELL))"
 $cert = Join-Path $root 'localhost.crt'
 $key = Join-Path $root 'localhost.key'
-& openssl req -x509 -newkey rsa:2048 -noenc -days 1 -keyout $key -out $cert -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1' -addext 'basicConstraints=critical,CA:FALSE' -addext 'extendedKeyUsage=serverAuth'
+& openssl req -batch -x509 -newkey rsa:2048 -noenc -days 1 -keyout $key -out $cert -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1' -addext 'basicConstraints=critical,CA:FALSE' -addext 'extendedKeyUsage=serverAuth'
 if ($LASTEXITCODE -ne 0) { throw 'Localhost test certificate generation failed' }
-certutil -user -addstore Root $cert | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'Could not trust this localhost leaf certificate on this one-off runner' }
+$trusted = Import-Certificate -FilePath $cert -CertStoreLocation Cert:\LocalMachine\Root
+if (!$trusted.Thumbprint -or $trusted.Subject -ne 'CN=localhost') { throw 'Unexpected localhost trust fixture' }
+Write-Host 'Disposable runner trusts the localhost leaf'
 if ($Preflight) { & node './qa/upgrade.cjs' --preflight; exit $LASTEXITCODE }
 & node './qa/upgrade.cjs'
 $driverExit = $LASTEXITCODE
