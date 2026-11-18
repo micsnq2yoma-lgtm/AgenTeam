@@ -34,12 +34,12 @@
     "remove": "Remove"
   },
   "rightRail": {
-    "workspaceTitle": "Agent Workspaces",
+    "workspaceTitle": "Agent Team",
     "logsTitle": "View Rust logs",
     "loading": "Loading...",
-    "emptyWorkspaceTitle": "No workspaces yet",
-    "emptyWorkspaceDescription": "Add a local project folder or create one from a template",
-    "addFolder": "Add folder",
+    "emptyWorkspaceTitle": "No teams yet",
+    "emptyWorkspaceDescription": "Create a team: pick where its folder lives and turn on assistant mode if you like",
+    "addFolder": "New team",
     "createFromTemplate": "Create from template",
     "collapse": "Collapse",
     "expandMore": "Show {{count}} more",
@@ -103,14 +103,14 @@
     "emptyThought": "(empty record)"
   },
   "newAgentPanel": {
-    "title": "New Agent",
+    "title": "New Agent Team",
     "close": "Close",
     "back": "Back",
     "recommended": "Recommended",
     "myTemplates": "My templates",
     "noDescription": "No description",
     "addTemplate": "Add template",
-    "addTemplateDescription": "Save a local folder as a template and reuse it to create Agents",
+    "addTemplateDescription": "Save a local folder as a template and reuse it to create teams",
     "pickTemplateDirTitle": "Choose a folder to save as a template (it will be copied to the template library)",
     "pickParentDirTitle": "Choose where to save",
     "local": {
@@ -161,11 +161,11 @@
     "capChannelsTitle": "Lives in your chat apps",
     "capChannelsDescription": "Connect Feishu, WeChat and other IM in Agent settings after creation",
     "capabilitiesTitle": "What it can do",
-    "nameLabel": "Agent name",
-    "namePlaceholder": "Name your Agent",
+    "nameLabel": "Team name",
+    "namePlaceholder": "Name your team",
     "changeIcon": "Change icon",
     "changePath": "Change",
-    "create": "Create Agent",
+    "create": "Create team",
     "errors": {
       "exists": "This folder already exists",
       "archived": "This folder is archived. Restore it from the archive",
@@ -174,15 +174,30 @@
       "addTemplateFailed": "Failed to add template: {{message}}",
       "updateTemplateFailed": "Failed to save template: {{message}}",
       "deleteTemplateFailed": "Failed to delete template: {{message}}"
+    },
+    "team": {
+      "title": "New team",
+      "description": "Pick where its folder lives and turn on assistant mode if you like",
+      "detailTitle": "New Agent Team",
+      "locationLabel": "Location",
+      "locationDefault": "Default location",
+      "locationNew": "New folder",
+      "locationExisting": "Existing folder",
+      "assistantTitle": "Assistant mode",
+      "assistantDescription": "Give the team a resident assistant with a name, a personality and memory",
+      "assistantIntro": "The team gets a resident assistant. In your first chat you'll spend about 5 minutes shaping its name and personality together; after that it keeps getting to know you better.",
+      "plainIntro": "The team works directly in this folder, without the assistant persona or memory. Whatever you ask, it gives its all.",
+      "capKeepFilesTitle": "Keeps your files",
+      "capKeepFilesDescription": "Assistant persona and memory files are only added; files already in the folder are never overwritten"
     }
   },
   "workspaceSelector": {
-    "selectWorkspace": "Select workspace",
-    "title": "Agent Workspaces",
+    "selectWorkspace": "Select team",
+    "title": "Agent Team",
     "defaultBadge": "Default",
     "setDefault": "Set default",
-    "setDefaultTitle": "Set as default workspace",
-    "setDefaultAria": "Set as default workspace: {{name}}"
+    "setDefaultTitle": "Set as default team",
+    "setDefaultAria": "Set as default team: {{name}}"
   },
   "workspaceEdit": {
     "title": "Edit Workspace",

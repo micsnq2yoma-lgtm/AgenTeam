@@ -34,12 +34,12 @@
     "remove": "移除"
   },
   "rightRail": {
-    "workspaceTitle": "Agent 工作区",
+    "workspaceTitle": "智能体团队",
     "logsTitle": "查看 Rust 日志",
     "loading": "加载中...",
-    "emptyWorkspaceTitle": "还没有工作区",
-    "emptyWorkspaceDescription": "添加本地项目文件夹，或从模板快速创建",
-    "addFolder": "添加文件夹",
+    "emptyWorkspaceTitle": "还没有团队",
+    "emptyWorkspaceDescription": "新建一个团队：选择文件夹位置，按需开启助理模式",
+    "addFolder": "新建团队",
     "createFromTemplate": "从模板创建",
     "collapse": "收起",
     "expandMore": "展开更多 {{count}} 个",
@@ -103,14 +103,14 @@
     "emptyThought": "（空记录）"
   },
   "newAgentPanel": {
-    "title": "新建 Agent",
+    "title": "新建智能体团队",
     "close": "关闭",
     "back": "返回",
     "recommended": "推荐",
     "myTemplates": "我的模板",
     "noDescription": "暂无描述",
     "addTemplate": "添加模板",
-    "addTemplateDescription": "把一个本地文件夹保存为模板，之后可以反复用它创建 Agent",
+    "addTemplateDescription": "把一个本地文件夹保存为模板，之后可以反复用它创建团队",
     "pickTemplateDirTitle": "选择文件夹作为模板（将复制到模板库）",
     "pickParentDirTitle": "选择保存位置",
     "local": {
@@ -161,11 +161,11 @@
     "capChannelsTitle": "住进你的聊天工具",
     "capChannelsDescription": "创建后可在 Agent 设置里接入飞书、微信等 IM",
     "capabilitiesTitle": "它能做什么",
-    "nameLabel": "Agent 名称",
-    "namePlaceholder": "给 Agent 起个名字",
+    "nameLabel": "团队名称",
+    "namePlaceholder": "给团队起个名字",
     "changeIcon": "更换图标",
     "changePath": "更改",
-    "create": "创建 Agent",
+    "create": "创建团队",
     "errors": {
       "exists": "该文件夹已经存在",
       "archived": "该文件夹已在归档中，可以从归档恢复",
@@ -174,15 +174,30 @@
       "addTemplateFailed": "添加模板失败：{{message}}",
       "updateTemplateFailed": "保存模板失败：{{message}}",
       "deleteTemplateFailed": "删除模板失败：{{message}}"
+    },
+    "team": {
+      "title": "新建团队",
+      "description": "选择文件夹位置，按需开启助理模式",
+      "detailTitle": "新建智能体团队",
+      "locationLabel": "位置",
+      "locationDefault": "默认位置",
+      "locationNew": "新建文件夹",
+      "locationExisting": "已有文件夹",
+      "assistantTitle": "助理模式",
+      "assistantDescription": "为团队配一位常驻助理：有名字、性格和记忆",
+      "assistantIntro": "团队会有一位常驻助理。第一次对话时，你们会花大约 5 分钟一起确定它的名字和性格，之后它会越来越懂你。",
+      "plainIntro": "团队直接在这个文件夹里工作，不启用助理的角色与记忆。你提的每个要求，它都会全力完成。",
+      "capKeepFilesTitle": "保留已有文件",
+      "capKeepFilesDescription": "助理的人格与记忆文件只会补充进来，不会覆盖文件夹里已有的同名文件"
     }
   },
   "workspaceSelector": {
-    "selectWorkspace": "选择工作区",
-    "title": "Agent 工作区",
+    "selectWorkspace": "选择团队",
+    "title": "智能体团队",
     "defaultBadge": "默认",
     "setDefault": "设为默认",
-    "setDefaultTitle": "设为默认工作区",
-    "setDefaultAria": "设为默认工作区：{{name}}"
+    "setDefaultTitle": "设为默认团队",
+    "setDefaultAria": "设为默认团队：{{name}}"
   },
   "workspaceEdit": {
     "title": "编辑工作区",

@@ -174,7 +174,7 @@ describe('Ubuntu settings availability', () => {
     render(<ToastProvider><Settings mode="settings" initialSection="general" isActive /></ToastProvider>);
     const trigger = await screen.findByRole('button', { name: 'Agent Alpha' });
     fireEvent.click(trigger);
-    expect(screen.getByText('Agent Workspaces')).toBeInTheDocument();
+    expect(screen.getByText(String(i18n.t('workspaceSelector.title', { ns: 'launcher' })))).toBeInTheDocument();
     expect(screen.queryByText('Hidden Agent')).not.toBeInTheDocument();
     expect(screen.queryByText('Archived Agent')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Agent Beta/ }));

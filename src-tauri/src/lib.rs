@@ -549,6 +549,7 @@ pub fn run() {
             // Workspace template commands
             commands::cmd_create_workspace_from_template,
             commands::cmd_create_workspace_from_bundled_template,
+            commands::cmd_prepare_team_folder,
             commands::cmd_template_apply_preview,
             commands::cmd_apply_template_to_workspace,
             commands::cmd_copy_folder_to_templates,

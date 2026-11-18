@@ -906,6 +906,62 @@ pub fn cmd_apply_template_to_workspace<R: Runtime>(
     Ok(())
 }
 
+/// Command: Prepare the folder behind a new Agent Team — the single creation
+/// entry for every team, whatever its location or assistant mode.
+///
+/// - `adopt_existing = false`: `dest_path` must not exist yet; it is created.
+/// - `adopt_existing = true`: `dest_path` must be an existing directory.
+/// - `assistant_template_id`: when set, the bundled assistant files are laid
+///   down without overwriting anything already in the folder.
+#[tauri::command]
+pub fn cmd_prepare_team_folder<R: Runtime>(
+    app_handle: AppHandle<R>,
+    dest_path: String,
+    adopt_existing: bool,
+    assistant_template_id: Option<String>,
+) -> Result<(), String> {
+    let assistant_src = match assistant_template_id.as_deref() {
+        Some(id) => Some(resolve_bundled_workspace_template(&app_handle, id)?),
+        None => None,
+    };
+    let home = dirs::home_dir().ok_or("Failed to get home dir")?;
+    ulog_info!(
+        "[team] Preparing team folder {:?} (adopt_existing={}, assistant={:?})",
+        dest_path,
+        adopt_existing,
+        assistant_template_id
+    );
+    prepare_team_folder_with_home(
+        &dest_path,
+        adopt_existing,
+        assistant_src.as_deref(),
+        &home,
+    )
+}
+
+fn prepare_team_folder_with_home(
+    dest_path: &str,
+    adopt_existing: bool,
+    assistant_src: Option<&Path>,
+    home: &Path,
+) -> Result<(), String> {
+    let dst = validate_file_path_with_home(dest_path, home)?;
+    if adopt_existing {
+        if !dst.is_dir() {
+            return Err(format!("Folder does not exist: {}", dest_path));
+        }
+    } else {
+        if dst.exists() {
+            return Err(format!("Destination already exists: {}", dest_path));
+        }
+        fs::create_dir_all(&dst).map_err(|e| format!("Failed to create team folder: {e}"))?;
+    }
+    if let Some(src) = assistant_src {
+        merge_dir_validated_with_home(src, &dst, home, false)?;
+    }
+    Ok(())
+}
+
 /// Command: Copy a local folder into the templates library (~/.myagents/templates/<name>/).
 /// Returns the destination path.
 #[tauri::command]
@@ -1507,6 +1563,18 @@ fn merge_dir_recursive_validated_with_home(
     dst: &Path,
     home: &Path,
 ) -> Result<(), String> {
+    merge_dir_validated_with_home(src, dst, home, true)
+}
+
+/// Shared walker for template merges. `overwrite = false` keeps every file the
+/// destination already has, so adopting an existing folder never clobbers the
+/// user's own `CLAUDE.md` or project files.
+fn merge_dir_validated_with_home(
+    src: &Path,
+    dst: &Path,
+    home: &Path,
+    overwrite: bool,
+) -> Result<(), String> {
     fs::create_dir_all(dst).map_err(|e| format!("Failed to create template directory: {e}"))?;
     for entry in fs::read_dir(src).map_err(|e| format!("Failed to read template: {e}"))? {
         let entry = entry.map_err(|e| format!("Failed to read template entry: {e}"))?;
@@ -1523,8 +1591,8 @@ fn merge_dir_recursive_validated_with_home(
         let target = dst.join(&name);
         validate_template_target_with_home(&target, home)?;
         if ft.is_dir() {
-            merge_dir_recursive_validated_with_home(&entry.path(), &target, home)?;
-        } else {
+            merge_dir_validated_with_home(&entry.path(), &target, home, overwrite)?;
+        } else if overwrite || !target.exists() {
             fs::copy(entry.path(), &target)
                 .map_err(|e| format!("Failed to copy template file: {e}"))?;
         }
@@ -3907,5 +3975,63 @@ mod runtime_detection_cache_tests {
             }
             _ => panic!("expected cache hit"),
         }
+    }
+}
+
+#[cfg(test)]
+mod team_folder_tests {
+    use super::prepare_team_folder_with_home;
+    use std::fs;
+
+    fn assistant_src(root: &std::path::Path) -> std::path::PathBuf {
+        let src = root.join("tpl");
+        fs::create_dir_all(src.join(".claude/rules")).unwrap();
+        fs::write(src.join("CLAUDE.md"), "assistant").unwrap();
+        fs::write(src.join(".claude/rules/01-IDENTITY.md"), "id").unwrap();
+        src
+    }
+
+    #[test]
+    fn new_folder_is_created_and_receives_assistant_files() {
+        let root = tempfile::tempdir().unwrap();
+        let src = assistant_src(root.path());
+        let dest = root.path().join("teams/alpha");
+        let path = dest.to_string_lossy().to_string();
+        prepare_team_folder_with_home(&path, false, Some(&src), root.path()).unwrap();
+        assert_eq!(fs::read_to_string(dest.join("CLAUDE.md")).unwrap(), "assistant");
+        assert!(dest.join(".claude/rules/01-IDENTITY.md").is_file());
+    }
+
+    #[test]
+    fn new_folder_rejects_an_existing_destination() {
+        let root = tempfile::tempdir().unwrap();
+        let dest = root.path().join("taken");
+        fs::create_dir_all(&dest).unwrap();
+        let path = dest.to_string_lossy().to_string();
+        let err = prepare_team_folder_with_home(&path, false, None, root.path()).unwrap_err();
+        assert!(err.contains("already exists"));
+    }
+
+    #[test]
+    fn adopting_a_folder_keeps_existing_files() {
+        let root = tempfile::tempdir().unwrap();
+        let src = assistant_src(root.path());
+        let dest = root.path().join("project");
+        fs::create_dir_all(&dest).unwrap();
+        fs::write(dest.join("CLAUDE.md"), "mine").unwrap();
+        let path = dest.to_string_lossy().to_string();
+        prepare_team_folder_with_home(&path, true, Some(&src), root.path()).unwrap();
+        assert_eq!(fs::read_to_string(dest.join("CLAUDE.md")).unwrap(), "mine");
+        assert!(dest.join(".claude/rules/01-IDENTITY.md").is_file());
+    }
+
+    #[test]
+    fn adopting_requires_an_existing_folder() {
+        let root = tempfile::tempdir().unwrap();
+        let dest = root.path().join("missing");
+        let path = dest.to_string_lossy().to_string();
+        let err = prepare_team_folder_with_home(&path, true, None, root.path()).unwrap_err();
+        assert!(err.contains("does not exist"));
+        assert!(!dest.exists());
     }
 }

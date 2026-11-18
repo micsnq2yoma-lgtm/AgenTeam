@@ -1,10 +1,11 @@
 /**
- * NewAgentPanel — the single "New Agent" surface (list → detail in one dialog).
+ * NewAgentPanel — the single "New Agent Team" surface (list → detail in one dialog).
  *
- * Every "add workspace" entry opens this one instance. The list shows official
- * Agent kinds (local project, then built-in templates) and the user's own
- * templates; a detail page explains what the Agent can do and confirms name,
- * icon and location before creating. Workspace registration always goes through
+ * Every "add workspace" entry opens this one instance. The list offers one
+ * "New team" entry plus the user's own templates. A team is one folder: the
+ * user picks its location (default / new folder / existing folder) and whether
+ * assistant mode is on; `cmd_prepare_team_folder` prepares the folder for every
+ * combination, so there is one creation path instead of one per card. Workspace registration always goes through
  * `ConfigProvider.addProject` with the create-only policy, so an already
  * registered folder is reported instead of silently re-labelled.
  */
@@ -30,6 +31,7 @@ import {
   MoreIcon,
   PackageIcon,
   PlusIcon,
+  TeamIcon,
   TerminalIcon,
   TrashIcon,
   WrenchIcon,
@@ -69,8 +71,23 @@ import {
 // Above the sidebar flyout (z-240/245) and below Popover (260) / ConfirmDialog (300).
 const PANEL_Z = 250;
 
+type TeamLocation = 'default' | 'new' | 'existing';
+
+interface TeamDraft {
+  kind: 'team';
+  location: TeamLocation;
+  /** Chosen folder when `location === 'existing'`. */
+  folderPath: string;
+  /** Parent picked for `location === 'new'`. */
+  parentDir: string;
+  defaultParentDir: string;
+  name: string;
+  icon: string;
+  assistant: boolean;
+}
+
 type Draft =
-  | { kind: 'local'; folderPath: string; name: string; icon: string }
+  | TeamDraft
   | { kind: 'template'; templateId: string; name: string; icon: string; parentDir: string };
 
 type Page = { view: 'list' } | { view: 'detail'; draft: Draft };
@@ -111,6 +128,14 @@ async function resolveDefaultParentDir(): Promise<string> {
   } catch {
     return '';
   }
+}
+
+const ASSISTANT_TEMPLATE = PRESET_TEMPLATES.find((tpl) => tpl.id === DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID);
+
+/** Parent directory a new team folder is created under (null when adopting an existing folder). */
+function teamParentDir(draft: TeamDraft): string | null {
+  if (draft.location === 'existing') return null;
+  return draft.location === 'new' ? draft.parentDir : draft.defaultParentDir;
 }
 
 async function folderLeaf(path: string): Promise<string> {
@@ -249,40 +274,52 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
     return path;
   }, [pickFolder, t]);
 
-  const handleOpenLocal = useCallback(async () => {
+  const handleOpenTeam = useCallback(async () => {
     if (busy) return;
-    setBusy('picking');
-    try {
-      const path = await pickLocalFolder();
-      if (!path || !mountedRef.current) return;
-      openDetail({ kind: 'local', folderPath: path, name: await folderLeaf(path), icon: '' });
-    } catch (err) {
-      toastRef.current.error(t('newAgentPanel.errors.pickFailed', { message: errorMessage(err) }));
-    } finally {
-      if (mountedRef.current) setBusy(null);
-    }
-  }, [busy, openDetail, pickLocalFolder, t]);
+    const defaultParentDir = await resolveDefaultParentDir();
+    if (!mountedRef.current) return;
+    openDetail({
+      kind: 'team',
+      location: 'default',
+      folderPath: '',
+      parentDir: defaultParentDir,
+      defaultParentDir,
+      name: '',
+      icon: '',
+      assistant: true,
+    });
+  }, [busy, openDetail]);
 
-  const handleRepickLocal = useCallback(async () => {
-    if (busy || draft?.kind !== 'local') return;
-    const previous = draft;
+  /** Switch (or re-pick) the team location; a cancelled picker keeps the previous choice. */
+  const handleSelectLocation = useCallback(async (location: TeamLocation) => {
+    if (busy || draft?.kind !== 'team') return;
+    if (location === 'default') {
+      updateDraft({ location });
+      return;
+    }
     setBusy('picking');
     try {
-      const path = await pickLocalFolder();
-      if (!path || !mountedRef.current) return;
-      const [previousLeaf, nextLeaf] = await Promise.all([folderLeaf(previous.folderPath), folderLeaf(path)]);
-      // Keep a name the user typed; follow the folder when it was still the default.
-      setPage((current) => {
-        if (current.view !== 'detail' || current.draft.kind !== 'local') return current;
-        const name = current.draft.name === previousLeaf ? nextLeaf : current.draft.name;
-        return { view: 'detail', draft: { ...current.draft, folderPath: path, name } };
-      });
+      if (location === 'existing') {
+        const path = await pickLocalFolder();
+        if (!path || !mountedRef.current) return;
+        const leaf = await folderLeaf(path);
+        setPage((current) => {
+          if (current.view !== 'detail' || current.draft.kind !== 'team') return current;
+          // Keep a name the user typed; otherwise follow the folder.
+          const name = current.draft.name.trim() ? current.draft.name : leaf;
+          return { view: 'detail', draft: { ...current.draft, location, folderPath: path, name } };
+        });
+      } else {
+        const parent = await pickFolder(t('newAgentPanel.pickParentDirTitle'));
+        if (!parent || !mountedRef.current) return;
+        updateDraft({ location, parentDir: parent });
+      }
     } catch (err) {
       toastRef.current.error(t('newAgentPanel.errors.pickFailed', { message: errorMessage(err) }));
     } finally {
       if (mountedRef.current) setBusy(null);
     }
-  }, [busy, draft, pickLocalFolder, t]);
+  }, [busy, draft, pickFolder, pickLocalFolder, t, updateDraft]);
 
   const handleOpenTemplate = useCallback(async (tpl: WorkspaceTemplate) => {
     if (busy) return;
@@ -309,10 +346,11 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
 
   // ---------- detection & path preview ----------
 
-  const detectionRoot = draft?.kind === 'local'
+  const adoptingFolder = draft?.kind === 'team' && draft.location === 'existing' && !!draft.folderPath;
+  const detectionRoot = adoptingFolder && draft?.kind === 'team'
     ? draft.folderPath
     : template && !template.isBuiltin && template.path ? template.path : null;
-  const detectionKind = draft?.kind ?? null;
+  const detectionKind = adoptingFolder ? 'local' : draft?.kind === 'template' ? 'template' : null;
   const fileService = useWorkspaceFileService(detectionRoot);
   const { checkPaths, openPathExternal } = fileService;
 
@@ -337,8 +375,10 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
 
   const detected = detection && detection.root === detectionRoot ? detection.results : null;
 
-  const templateParentDir = draft?.kind === 'template' ? draft.parentDir : '';
-  const templateFolderName = draft?.kind === 'template' ? deriveWorkspaceFolderName(draft.name) : '';
+  const templateParentDir = draft?.kind === 'template'
+    ? draft.parentDir
+    : draft?.kind === 'team' ? teamParentDir(draft) ?? '' : '';
+  const templateFolderName = templateParentDir && draft ? deriveWorkspaceFolderName(draft.name) : '';
 
   useEffect(() => {
     if (!templateParentDir || !templateFolderName) return;
@@ -363,7 +403,9 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
 
   const canCreate = !!draft
     && draft.name.trim().length > 0
-    && (draft.kind === 'local' || (templateFolderName.length > 0 && templateParentDir.length > 0 && !!template));
+    && (draft.kind === 'team'
+      ? (draft.location === 'existing' ? !!draft.folderPath : templateFolderName.length > 0 && templateParentDir.length > 0)
+      : (templateFolderName.length > 0 && templateParentDir.length > 0 && !!template));
 
   const handleCreate = useCallback(async () => {
     if (!draft || busy || !canCreate) return;
@@ -372,15 +414,32 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
     setError(null);
     try {
       let project: Project;
-      if (draft.kind === 'local') {
-        project = await addProject(draft.folderPath, {
+      if (draft.kind === 'team') {
+        const adopt = draft.location === 'existing';
+        const parentDir = teamParentDir(draft);
+        const destPath = adopt || !parentDir
+          ? draft.folderPath
+          : await findAvailablePath(parentDir, deriveWorkspaceFolderName(displayName));
+        const assistant = draft.assistant && ASSISTANT_TEMPLATE ? ASSISTANT_TEMPLATE : null;
+        // Adopting a folder without assistant mode needs no file work.
+        if (!adopt || assistant) {
+          await invoke('cmd_prepare_team_folder', {
+            destPath,
+            adoptExisting: adopt,
+            assistantTemplateId: assistant?.id ?? null,
+          });
+        }
+        project = await addProject(destPath, {
           purpose,
           displayName,
           icon: draft.icon || undefined,
+          ...(assistant
+            ? { templateId: assistant.id, templateSource: 'builtin' as const, agentDefaults: assistant.agentDefaults }
+            : {}),
           onExisting: 'reject',
         });
-        track('workspace_create', { source: 'local' });
-        if (isBrowserDevMode()) {
+        track('workspace_create', { source: 'team', location: draft.location, assistant: !!assistant });
+        if (adopt && isBrowserDevMode()) {
           // Browser dev mode remembers the parent for its next path suggestion.
           const { parent } = splitPathForDisplay(draft.folderPath.replace(/\\/g, '/'));
           if (parent) window.localStorage.setItem('myagents:lastProjectDir', parent.replace(/\/$/, ''));
@@ -529,9 +588,10 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
   // ---------- render ----------
 
   const creating = busy === 'creating';
+  const teamDraft = page.view === 'detail' && page.draft.kind === 'team' ? page.draft : null;
   const editingTemplate = templateEdit && template && !template.isBuiltin ? template : null;
   const pageKey = page.view === 'detail'
-    ? `detail:${page.draft.kind}:${page.draft.kind === 'local' ? 'local' : page.draft.templateId}${editingTemplate ? ':edit' : ''}`
+    ? `detail:${page.draft.kind}:${page.draft.kind === 'team' ? 'team' : page.draft.templateId}${editingTemplate ? ':edit' : ''}`
     : 'list';
 
   return (
@@ -549,7 +609,7 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
               userTemplates={userTemplates}
               busy={busy}
               onClose={onClose}
-              onOpenLocal={handleOpenLocal}
+              onOpenTeam={handleOpenTeam}
               onOpenTemplate={handleOpenTemplate}
               onAddTemplate={handleAddTemplate}
             />
@@ -579,8 +639,8 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
                   <ChevronLeftIcon className="h-4 w-4" />
                 </button>
                 <h2 className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--ink-muted)]">
-                  {page.draft.kind === 'local'
-                    ? t('newAgentPanel.local.detailTitle')
+                  {page.draft.kind === 'team'
+                    ? t('newAgentPanel.team.detailTitle')
                     : template?.isBuiltin
                       ? builtinTitle(template, t)
                       : t('newAgentPanel.template.detailTitle', { name: template?.name ?? '' })}
@@ -695,10 +755,21 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
                         ? resolvedFolder.leaf
                         : templateFolderName}
                       disabled={!!busy}
-                      onChange={page.draft.kind === 'local' ? handleRepickLocal : handleChangeParentDir}
+                      onChange={teamDraft
+                        ? (teamDraft.location === 'default' ? undefined : () => void handleSelectLocation(teamDraft.location))
+                        : handleChangeParentDir}
                     />
                   </div>
                 </div>
+
+                {teamDraft && (
+                  <TeamOptions
+                    draft={teamDraft}
+                    disabled={!!busy}
+                    onSelectLocation={(location) => void handleSelectLocation(location)}
+                    onAssistantChange={(assistant) => updateDraft({ assistant })}
+                  />
+                )}
 
                 <DetailIntro
                   draft={page.draft}
@@ -714,7 +785,9 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
               )}
               <div className="flex shrink-0 items-center gap-3 border-t border-[var(--line)] px-6 py-4">
                 <span className="min-w-0 flex-1 text-xs text-[var(--ink-subtle)]">
-                  {page.draft.kind === 'template' && template
+                  {teamDraft
+                    ? (teamDraft.assistant ? t('newAgentPanel.mino.hint') : null)
+                    : page.draft.kind === 'template' && template
                     ? template.isBuiltin
                       ? t('newAgentPanel.mino.hint')
                       : t('newAgentPanel.template.hint')
@@ -765,24 +838,20 @@ function builtinTitle(tpl: WorkspaceTemplate, t: TFn): string {
   return tpl.id === DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID ? t('newAgentPanel.mino.title') : tpl.name;
 }
 
-function builtinDescription(tpl: WorkspaceTemplate, t: TFn): string {
-  return tpl.id === DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID ? t('newAgentPanel.mino.description') : tpl.description;
-}
-
 // ---------- list page ----------
 
 function ListPage({
   userTemplates,
   busy,
   onClose,
-  onOpenLocal,
+  onOpenTeam,
   onOpenTemplate,
   onAddTemplate,
 }: {
   userTemplates: WorkspaceTemplate[];
   busy: Busy;
   onClose: () => void;
-  onOpenLocal: () => void;
+  onOpenTeam: () => void;
   onOpenTemplate: (tpl: WorkspaceTemplate) => void;
   onAddTemplate: () => void;
 }) {
@@ -805,27 +874,15 @@ function ListPage({
         <PanelRow
           autoFocus
           disabled={disabled}
-          busy={busy === 'picking'}
-          onClick={onOpenLocal}
+          onClick={onOpenTeam}
           icon={(
             <span className="flex h-[42px] w-[42px] items-center justify-center rounded-xl bg-[var(--accent-warm-subtle)] text-[var(--accent)]">
-              <FolderIcon className="h-5 w-5" />
+              <TeamIcon className="h-5 w-5" />
             </span>
           )}
-          title={t('newAgentPanel.local.title')}
-          description={t('newAgentPanel.local.description')}
+          title={t('newAgentPanel.team.title')}
+          description={t('newAgentPanel.team.description')}
         />
-        {PRESET_TEMPLATES.map((tpl) => (
-          <PanelRow
-            key={tpl.id}
-            disabled={disabled}
-            onClick={() => onOpenTemplate(tpl)}
-            icon={<TemplateGlyph icon={tpl.icon} />}
-            title={builtinTitle(tpl, t)}
-            badge={tpl.id === DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID ? t('newAgentPanel.recommended') : undefined}
-            description={builtinDescription(tpl, t)}
-          />
-        ))}
 
         <div className="px-3 pb-1 pt-4 text-xs font-medium text-[var(--ink-subtle)]">{t('newAgentPanel.myTemplates')}</div>
         {userTemplates.map((tpl) => (
@@ -924,33 +981,114 @@ function PathLine({
   draft: Draft;
   previewLeaf: string;
   disabled: boolean;
-  onChange: () => void;
+  /** Omitted when the location has nothing to change (the default location). */
+  onChange?: () => void;
 }) {
   const { t } = useTranslation('launcher');
   let parent: string;
   let leaf: string;
-  if (draft.kind === 'local') {
-    ({ parent, leaf } = splitPathForDisplay(shortenPathForDisplay(draft.folderPath)));
+  const fixedFolder = draft.kind === 'team' && draft.location === 'existing' ? draft.folderPath : null;
+  const parentDir = draft.kind === 'team' ? teamParentDir(draft) ?? '' : draft.parentDir;
+  if (fixedFolder !== null) {
+    ({ parent, leaf } = splitPathForDisplay(shortenPathForDisplay(fixedFolder)));
   } else {
-    const shortParent = shortenPathForDisplay(draft.parentDir);
+    const shortParent = shortenPathForDisplay(parentDir);
     parent = shortParent ? `${shortParent.replace(/[\\/]+$/, '')}${displaySeparator(shortParent)}` : '';
     leaf = previewLeaf || '…';
   }
   return (
     <div className="mt-2 flex min-w-0 items-center gap-1.5 pl-0.5 text-sm text-[var(--ink-muted)]" data-new-agent-panel-path>
       <FolderIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ink-subtle)]" />
-      <span className="min-w-0 flex-1 truncate" title={draft.kind === 'local' ? draft.folderPath : `${draft.parentDir}${displaySeparator(draft.parentDir)}${leaf}`}>
+      <span className="min-w-0 flex-1 truncate" title={fixedFolder ?? `${parentDir}${displaySeparator(parentDir)}${leaf}`}>
         {parent}
         <span className="font-medium text-[var(--ink)]">{leaf}</span>
       </span>
-      <button
-        type="button"
-        onClick={onChange}
-        disabled={disabled}
-        className="shrink-0 rounded-md bg-[var(--button-secondary-bg)] px-2.5 py-1 text-xs font-medium text-[var(--button-secondary-text)] transition-colors hover:bg-[var(--button-secondary-bg-hover)] disabled:opacity-50"
-      >
-        {t('newAgentPanel.changePath')}
-      </button>
+      {onChange && (
+        <button
+          type="button"
+          onClick={onChange}
+          disabled={disabled}
+          className="shrink-0 rounded-md bg-[var(--button-secondary-bg)] px-2.5 py-1 text-xs font-medium text-[var(--button-secondary-text)] transition-colors hover:bg-[var(--button-secondary-bg-hover)] disabled:opacity-50"
+        >
+          {t('newAgentPanel.changePath')}
+        </button>
+      )}
+    </div>
+  );
+}
+
+const TEAM_LOCATIONS: readonly TeamLocation[] = ['default', 'new', 'existing'];
+const TEAM_LOCATION_LABEL_KEYS = {
+  default: 'newAgentPanel.team.locationDefault',
+  new: 'newAgentPanel.team.locationNew',
+  existing: 'newAgentPanel.team.locationExisting',
+} as const;
+
+function TeamOptions({
+  draft,
+  disabled,
+  onSelectLocation,
+  onAssistantChange,
+}: {
+  draft: TeamDraft;
+  disabled: boolean;
+  onSelectLocation: (location: TeamLocation) => void;
+  onAssistantChange: (assistant: boolean) => void;
+}) {
+  const { t } = useTranslation('launcher');
+  return (
+    <div className="mt-5 flex flex-col gap-4" data-new-agent-panel-team-options>
+      <div>
+        <div className="mb-2 text-xs font-medium text-[var(--ink-muted)]" id="new-team-location-label">{t('newAgentPanel.team.locationLabel')}</div>
+        <div role="radiogroup" aria-labelledby="new-team-location-label" className="grid grid-cols-3 gap-1 rounded-[10px] bg-[var(--paper-inset)] p-1">
+          {TEAM_LOCATIONS.map((location) => {
+            const selected = draft.location === location;
+            return (
+              <button
+                key={location}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={disabled}
+                onClick={() => onSelectLocation(location)}
+                className={`h-8 rounded-[8px] px-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-60 ${
+                  selected
+                    ? 'bg-[var(--paper-elevated)] font-medium text-[var(--ink)] shadow-xs'
+                    : 'text-[var(--ink-muted)] hover:text-[var(--ink)]'
+                }`}
+              >
+                {t(TEAM_LOCATION_LABEL_KEYS[location])}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] px-3.5 py-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-warm-subtle)] text-[var(--accent)]">
+          <BrainIcon className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-[var(--ink)]" id="new-team-assistant-label">{t('newAgentPanel.team.assistantTitle')}</div>
+          <div className="text-xs text-[var(--ink-muted)]">{t('newAgentPanel.team.assistantDescription')}</div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={draft.assistant}
+          aria-labelledby="new-team-assistant-label"
+          disabled={disabled}
+          onClick={() => onAssistantChange(!draft.assistant)}
+          className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-60 ${
+            draft.assistant ? 'bg-[var(--accent)]' : 'bg-[var(--line-strong)]'
+          }`}
+        >
+          <span
+            className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-[var(--toggle-thumb)] shadow transition-transform ${
+              draft.assistant ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
     </div>
   );
 }
@@ -986,9 +1124,35 @@ function DetailIntro({
 
   let intro: ReactNode;
   let capabilities: Capability[];
-  if (draft.kind === 'local') {
-    const instructionFile = detected ? detectProjectInstructionFile(detected) : null;
-    intro = t('newAgentPanel.local.intro', { name: splitPathForDisplay(draft.folderPath).leaf });
+  if (draft.kind === 'team' && draft.assistant) {
+    intro = t('newAgentPanel.team.assistantIntro');
+    capabilities = [
+      {
+        key: 'evolve',
+        icon: <BrainIcon className={iconClass} />,
+        title: t('newAgentPanel.mino.capEvolveTitle'),
+        description: t('newAgentPanel.mino.capEvolveDescription'),
+      },
+      {
+        key: 'skills',
+        icon: <WrenchIcon className={iconClass} />,
+        title: t('newAgentPanel.mino.capSkillsTitle'),
+        description: t('newAgentPanel.mino.capSkillsDescription'),
+      },
+      ...(draft.location === 'existing'
+        ? [{
+          key: 'keep-files',
+          icon: <FileCheckIcon className={iconClass} />,
+          title: t('newAgentPanel.team.capKeepFilesTitle'),
+          description: t('newAgentPanel.team.capKeepFilesDescription'),
+        }]
+        : []),
+      channels,
+    ];
+  } else if (draft.kind === 'team') {
+    const adopting = draft.location === 'existing' && !!draft.folderPath;
+    const instructionFile = adopting && detected ? detectProjectInstructionFile(detected) : null;
+    intro = t('newAgentPanel.team.plainIntro');
     capabilities = [
       {
         key: 'files',
@@ -996,7 +1160,7 @@ function DetailIntro({
         title: t('newAgentPanel.local.capFilesTitle'),
         description: t('newAgentPanel.local.capFilesDescription'),
       },
-      detected === null
+      ...(!adopting ? [] : [detected === null
         ? { key: 'instructions', icon: <FileCheckIcon className={iconClass} />, title: ' ', description: ' ', placeholder: true }
         : instructionFile
           ? {
@@ -1010,7 +1174,7 @@ function DetailIntro({
             icon: <FileCheckIcon className={iconClass} />,
             title: t('newAgentPanel.local.capInstructionsMissingTitle'),
             description: t('newAgentPanel.local.capInstructionsMissingDescription'),
-          },
+          }]),
       channels,
     ];
   } else if (template?.isBuiltin) {
