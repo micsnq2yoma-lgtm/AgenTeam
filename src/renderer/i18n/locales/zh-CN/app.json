@@ -25,7 +25,7 @@
     "openWebsite": "打开上游 MyAgents 官网",
     "collapse": "收起侧边栏",
     "expand": "展开侧边栏",
-    "newChat": "新对话",
+    "newChat": "创建新对话",
     "search": "搜索",
     "tasks": "自动化任务",
     "createTask": "创建任务",
@@ -43,8 +43,7 @@
     "newChatHere": "在此工作区新建对话",
     "emptyWorkspaceSessions": "还没有会话",
     "loadMore": "展开更多",
-    "agentNetwork": "AgentNet 多设备组网",
-    "more": "更多"
+    "agentNetwork": "多设备组网"
   },
   "titlebar": {
     "helper": "小助理",

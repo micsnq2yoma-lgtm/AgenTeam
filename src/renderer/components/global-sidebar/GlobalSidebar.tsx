@@ -324,58 +324,6 @@ function SidebarNavButton({
   );
 }
 
-function SidebarMore({ expanded, activeView, onBot, onTeamAi }: {
-  expanded: boolean; activeView: string | undefined; onBot: () => void; onTeamAi?: () => void;
-}) {
-  const { t } = useTranslation(['app', 'settings']);
-  const [open, setOpen] = useState(false);
-  const anchor = useRef<HTMLDivElement>(null), menu = useRef<HTMLDivElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const keyboard = useRef(false);
-  const cancel = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; };
-  const show = () => { cancel(); setOpen(true); };
-  const hide = () => { cancel(); timer.current = setTimeout(() => setOpen(false), 150); };
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-  const setMenuRef = useCallback((node: HTMLDivElement | null) => {
-    menu.current = node;
-    if (node && keyboard.current) { node.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus(); keyboard.current = false; }
-  }, []);
-  const enter = () => {
-    keyboard.current = true; show();
-    if (menu.current) { menu.current.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus(); keyboard.current = false; }
-  };
-  const close = () => { cancel(); setOpen(false); };
-  return <div ref={anchor} className="relative" onPointerEnter={show} onPointerLeave={hide}
-    onKeyDown={event => { if (event.key === 'ArrowRight') { event.preventDefault(); enter(); } }}>
-    <SidebarNavButton expanded={expanded} active={activeView === 'teamai'}
-      icon={<MoreIcon className="h-4 w-4" />} label={t('globalSidebar.more')} tooltipDisabled={open} hasPopup="menu" ariaExpanded={open}
-      onClick={enter} />
-    <Popover open={open} onClose={close} anchorRef={anchor} placement="right-start" className="min-w-40 p-1">
-      <div ref={setMenuRef} role="menu" aria-label={t('globalSidebar.more')} onPointerEnter={cancel} onPointerLeave={hide}
-        onKeyDown={event => {
-          if (isImeComposingEvent(event)) return;
-          const buttons = [...(menu.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])];
-          const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            event.preventDefault(); buttons[(index + (event.key === 'ArrowDown' ? 1 : buttons.length - 1)) % buttons.length]?.focus();
-          }
-          if (event.key === 'ArrowLeft' || event.key === 'Escape') {
-            event.preventDefault(); event.stopPropagation(); close(); anchor.current?.querySelector<HTMLButtonElement>('button')?.focus();
-          }
-        }}>
-        <button type="button" role="menuitem" onClick={() => { close(); onBot(); }}
-          className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm text-[var(--ink)] hover:bg-[var(--hover-bg)] focus:bg-[var(--hover-bg)]">
-          <MessageIcon className="h-4 w-4 text-[var(--ink-muted)]" /><span className="global-sidebar-label">{t('sidebar.nav.bots', { ns: 'settings' })}</span>
-        </button>
-        {onTeamAi && <button type="button" role="menuitem" onClick={() => { close(); onTeamAi(); }}
-          className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm text-[var(--ink)] hover:bg-[var(--hover-bg)] focus:bg-[var(--hover-bg)]">
-          <AtIcon className="h-4 w-4 text-[var(--ink-muted)]" /><span className="global-sidebar-label">{t('tabs.teamAi')}</span>
-        </button>}
-      </div>
-    </Popover>
-  </div>;
-}
-
 /**
  * Own one visual shell from the opening click through lazy-content readiness.
  * Suspense only swaps the interior, so the cold path cannot replay the
@@ -1271,8 +1219,21 @@ export default memo(function GlobalSidebar({
             label={t('globalSidebar.agentNetwork')}
             onClick={() => onOpenAgentNetwork?.()}
           />
-          <SidebarMore onTeamAi={config.teamAiPanelEnabled === true ? onOpenTeamAi : undefined} key={activeView ?? 'launcher'} expanded={expanded} activeView={activeView}
-            onBot={() => onOpenSettings('agent')} />
+          <SidebarNavButton
+            expanded={expanded}
+            icon={<MessageIcon className="h-4 w-4" />}
+            label={t('sidebar.nav.bots', { ns: 'settings' })}
+            onClick={() => onOpenSettings('agent')}
+          />
+          {config.teamAiPanelEnabled === true && onOpenTeamAi && (
+            <SidebarNavButton
+              expanded={expanded}
+              active={activeView === 'teamai'}
+              icon={<AtIcon className="h-4 w-4" />}
+              label={t('tabs.teamAi')}
+              onClick={() => onOpenTeamAi()}
+            />
+          )}
         </nav>
 
         {expanded && <div className="mx-3 mb-3 mt-4 h-px shrink-0 bg-[var(--line)]" aria-hidden="true" data-global-sidebar-divider />}

@@ -666,7 +666,7 @@ describe('GlobalSidebar rail flyout', () => {
     for (const [button, label] of [
       [addButton, String(i18n.t('launcher:newAgentPanel.title'))],
       [viewOptionsButton, '更多'],
-      [newChatButton, '新对话'],
+      [newChatButton, String(i18n.t('app:globalSidebar.newChat'))],
       [moreButton, '更多'],
     ] as const) {
       expect(button).not.toHaveAttribute('title');
@@ -1344,7 +1344,7 @@ describe('GlobalSidebar rail flyout', () => {
     for (const label of [
       i18n.t('app:globalSidebar.newChat'),
       i18n.t('app:globalSidebar.tasks'),
-      i18n.t('app:globalSidebar.more'),
+      i18n.t('settings:sidebar.nav.bots'),
       i18n.t('app:globalSidebar.capabilities'),
       i18n.t('app:globalSidebar.helper'),
       i18n.t('app:globalSidebar.settings'),
@@ -1907,25 +1907,19 @@ describe('GlobalSidebar rail flyout', () => {
 
 describe('Bot settings shortcut', () => {
   beforeEach(() => { vi.useRealTimers(); vi.clearAllMocks(); mocks.projects = []; window.localStorage.clear(); });
-  it('opens Bot, closes the menu, and preserves Settings navigation', async () => {
+  it('shows the chat-bot entry directly in the nav and preserves Settings navigation', () => {
     const onOpenSettings = vi.fn();
     const settingsTab: Tab = { id: 'settings-tab', view: 'settings', title: 'Settings' };
     renderSidebar({ onOpenSettings, tabs: [settingsTab], activeTab: settingsTab });
-    const more = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.more')) });
+    const bot = screen.getByRole('button', { name: '聊天机器人' });
     const settings = screen.getByRole('button', { name: '设置' });
     expect(settings).toHaveAttribute('aria-current', 'page');
-    expect(more).not.toHaveAttribute('aria-current');
-    fireEvent.pointerEnter(more);
-    const bot = await screen.findByRole('menuitem', { name: '聊天机器人 Bot' });
-    expect(screen.queryByRole('menuitem', { name: String(i18n.t('app:globalSidebar.team')) })).not.toBeInTheDocument();
+    expect(bot).not.toHaveAttribute('aria-current');
+    expect(screen.queryByRole('button', { name: '更多' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     fireEvent.click(bot);
     expect(onOpenSettings).toHaveBeenCalledWith('agent');
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     fireEvent.click(settings);
     expect(onOpenSettings).toHaveBeenLastCalledWith();
-    fireEvent.keyDown(more, { key: 'ArrowRight' });
-    expect(await screen.findByRole('menuitem', { name: '聊天机器人 Bot' })).toBeVisible();
-    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
-    expect(more).toHaveFocus();
   });
 });
