@@ -10,9 +10,11 @@ An open-source desktop agent workbench and task system based on MyAgents.
 
 [中文](README.md) · [English](README.en.md) · [Upstream MyAgents website](https://myagents.io) · [Upstream releases](https://github.com/hAcKlyc/MyAgents/releases) · [Contributing](CONTRIBUTING.md)
 
+[AgenTeam Releases](https://github.com/micsnq2yoma-lgtm/AgenTeam/releases) · [Windows preview and builds](specs/guides/windows_build_guide.md)
+
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-13.0+-black.svg)](https://myagents.io)
-[![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://myagents.io)
+[![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://github.com/micsnq2yoma-lgtm/AgenTeam/releases)
 
 </div>
 

@@ -32,20 +32,9 @@ macOS 和 Windows 的 pending package 是跨进程重启的 durable truth。应�
 
 ## Pending package 与内存状态
 
-macOS / Windows 使用：
+AgenTeam 在 `~/.agenteam/updates/` 内保存 `pending_update.bin` 与 `pending_update.json`。后台下载由 Tauri 插件使用应用公钥验签，先替换包文件再写版本元数据。两个文件的写入并非单一事务。启动时清理过期条目，进程通过 `DOWNLOADED_VERSION` 避免同一版本重复下载。
 
-- `pending_update.bin`：已验证的更新包字节；
-- `pending_update.json`：与字节对应的版本元数据；
-- `DOWNLOADED_VERSION`：当前进程对已提交磁盘版本的镜像；
-- `LATEST_UPDATE`：仅用于安装 API 所需的 `Update` 对象缓存。
-
-当前提交与校验语义：
-
-1. 新下载替换路径不在 `updater.check()` 刚返回时更新 `LATEST_UPDATE`，而是在 `save_pending_update_to_disk()` 成功后缓存。已下载版本或磁盘同版本命中时会直接对齐 cache；安装期 cache miss 的网络 fallback 也会缓存取得的 `Update`。
-2. package 使用临时文件加 rename 发布，metadata 随后直接写入；两者不是一个原子事务。只有两个步骤都成功后才发 `ready-to-restart`，但 package rename 后 metadata 写入失败会留下可能不一致的磁盘 pair。
-3. 清理 pending package 时必须同时清空 `DOWNLOADED_VERSION` 和 `LATEST_UPDATE`。
-4. 启动期 `check_pending_update()` 用当前应用版本淘汰 stale metadata；安装期读取磁盘 bytes / metadata，优先使用 cache、缺失时经网络取得 `Update`，再要求 `Update.version == pending_version`。版本不匹配时 fail closed 并清理 pending state。
-5. 新版本下载替换旧 pending package 时，`download-started` 到 `ready-to-restart` / `download-failed` 形成完整终态对。`download-failed` 只结束本次 preparing 状态，不保证旧 package 仍然完整可安装。
+安装命令和下载命令共用互斥标志。点击安装后，Rust 重新检查在线稳定清单，要求 pending 版本仍可用，再用应用公钥和这次取得的签名校验从磁盘读入的相同字节。校验成功后才停止相关进程并传入 Tauri 的安装 API。网络失败保留包供重试，已撤回或签名失效的包会被清理。产品更新验签与内置资源包的上游签名各有独立的信任根。
 
 Renderer 的 `updateReady`、`preparing` 和启动对话框只是上述磁盘状态的 UI 投影。`preparing=true` 时所有安装入口都必须隐藏，避免用户在替换 pending bytes 的临界区点击。
 
@@ -69,7 +58,7 @@ Windows 安装前必须证明当前安装目录不再被 MyAgents 进程树占�
 
 verified-clean handoff 只证明进程与锁已释放，安装资源的完整替换仍由 NSIS 拥有。自动更新跳过旧版卸载，但 PREINSTALL 在复制资源前完整移除应用自有 `nodejs/`；PREUNINSTALL 同样清理该组件，避免新版本卸载清单遗漏旧依赖。删除失败停止安装，不混合新旧 npm，也不安排重启后删除新文件。手动覆盖升级与同版本重装复用这条路径，用户数据目录不受影响。
 
-上游 installer 可能在 `%TEMP%` 创建 `MyAgents-<version>-updater-*` 派生目录。它们不是 pending authority；启动 GC 只清理名称精确匹配、类型为普通目录且超过保留期的条目，不读取或改写应用数据目录中的 pending package。
+上游 installer 可能在 `%TEMP%` 创建 `AgenTeam-<version>-updater-*` 派生目录。它们不是 pending authority；启动 GC 只清理名称精确匹配、类型为普通目录且超过保留期的条目，不读取或改写应用数据目录中的 pending package。
 
 ## 事件与 UI
 
@@ -93,7 +82,7 @@ verified-clean handoff 只证明进程与锁已释放，安装资源的完整替
 
 确定性测试至少覆盖：
 
-- pending package 的原子提交、清理和 cache=disk 一致性；
+- pending package 的原子提交、清理和 安装前按线上清单重验的行为；
 - stale / downgrade / version mismatch；
 - latest-wins 下载的成功与失败终态；
 - Windows quiesce admission、残留进程与文件锁 fail-closed；

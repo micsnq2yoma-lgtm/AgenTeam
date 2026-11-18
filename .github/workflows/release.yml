@@ -55,6 +55,35 @@ jobs:
           New-Item -ItemType Directory candidate | Out-Null
           Copy-Item -LiteralPath $installer.FullName -Destination candidate
           (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + "  $name" | Set-Content candidate/SHA256SUMS -Encoding ascii
+      - name: Check updater signing and profile import
+        run: node --test scripts/agenteam-release.test.mjs
+      - name: Install and launch the candidate on the disposable runner
+        shell: pwsh
+        timeout-minutes: 8
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = Get-Item candidate/*-setup.exe
+          $target = Join-Path $env:RUNNER_TEMP 'AgenTeam-Smoke'
+          $installed = Start-Process -FilePath $package.FullName -ArgumentList '/S',"/D=$target" -PassThru -Wait -WindowStyle Hidden
+          if ($installed.ExitCode -ne 0) { throw "NSIS exited with $($installed.ExitCode)" }
+          $exe = Get-Item -LiteralPath (Join-Path $target 'AgenTeam.exe')
+          $expected = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          if ($package.VersionInfo.ProductName -ne 'AgenTeam' -or $package.VersionInfo.ProductVersion -ne $expected) { throw 'Unexpected installer identity' }
+          foreach ($resource in 'server-dist.js','nodejs/node.exe','cli','document-processing','speech-inference') {
+            if (!(Test-Path -LiteralPath (Join-Path $target $resource))) { throw "Missing installed resource $resource" }
+          }
+          $app = Start-Process -FilePath $exe.FullName -PassThru -WindowStyle Hidden
+          $lock = Join-Path $env:USERPROFILE '.agenteam/app.lock'
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 60 -and !$app.HasExited; $i++) {
+              if ((Test-Path $lock) -and (Get-Content -Raw $lock).Trim() -eq [string]$app.Id) { $ready = $true; break }
+              Start-Sleep -Seconds 1
+            }
+            if (!$ready) { throw 'Installed app did not acquire its own profile lock' }
+          } finally {
+            if (!$app.HasExited) { Stop-Process -Id $app.Id -Force }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: AgenTeam-Windows-x64-${{ github.sha }}

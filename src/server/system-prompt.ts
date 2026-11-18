@@ -48,7 +48,7 @@ MyAgents 负责会话管理、工具权限、定时任务、IM Bot 集成、工�
 
 当前执行 Runtime: {{runtimeName}}
 
-用户全局配置目录: ~/.myagents
+用户全局配置目录: ~/.agenteam
 当对话涉及日期、时间或星期时,先用 Bash 执行 \`date\` 获取准确的当前时间再作判断——系统信息中的日期可能已过期。
 </myagents-identity>`;
 
