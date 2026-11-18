@@ -1501,6 +1501,26 @@ describe('GlobalSidebar rail flyout', () => {
     expect(document.querySelector('[data-history-search-overlay-panel]')).toBe(coldPanel);
   });
 
+  it('anchors the notification bell to the account row, not to a grid column', () => {
+    mocks.forcedRail = false;
+    window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
+      version: 1,
+      preferredMode: 'expanded',
+      expandedWorkspaceKeys: [],
+      hasSeededDefaultExpansion: true,
+      showAutomationSessions: true,
+      sessionView: 'all',
+    }));
+    const { container } = renderSidebar();
+
+    // The slot is absolutely positioned inside a grid row. A grid-column class would make
+    // column 2 its containing block and apply the CSS offset twice, throwing the bell
+    // far to the right of the sidebar.
+    const slot = container.querySelector('.global-sidebar-notification-slot');
+    expect(slot).not.toBeNull();
+    expect(slot?.className).not.toMatch(/(^|\s)(col-|row-)/);
+  });
+
   it('puts search between the team view options and the new-team button when expanded', () => {
     mocks.isTauri = true;
     mocks.forcedRail = false;

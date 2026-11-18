@@ -1340,7 +1340,7 @@ export default memo(function GlobalSidebar({
             onClick={() => onOpenSettings()}
           />
           <div className="global-sidebar-account-row grid grid-cols-[minmax(0,1fr)_var(--global-sidebar-action-size)]" data-global-sidebar-account-row>
-            <span className="global-sidebar-notification-slot col-start-2">
+            <span className="global-sidebar-notification-slot">
               <button
                 ref={notificationTriggerRef}
                 type="button"
