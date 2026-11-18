@@ -215,12 +215,18 @@
       "platform": "linux",
       "architecture": "x64",
       "onnxRuntime": {
-        "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.28.0/onnxruntime-linux-x64-1.28.0.tgz",
-        "sha256": "a3e1b79d7bb1bf09696ce675f49e4064e6c81f6202b8225624fff0e93f8d6407",
-        "size": 9125960,
+        "url": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.28.0/microsoft.ml.onnxruntime.1.28.0.nupkg",
+        "sha256": "769d1d3ea8ab6cd69f737c9dd4d4462aa4ad0ccfa106eaf506efc40d7bead5db",
+        "size": 139145017,
         "license": "MIT",
         "upstreamRevision": "v1.28.0@da9b5e364c465de65c49d91e696cd6485270757f",
-        "libraryPattern": "libonnxruntime.so.1.28.0"
+        "libraryPattern": "libonnxruntime.so",
+        "archiveMembers": [
+          "build/native/include/*",
+          "runtimes/linux-x64/native/libonnxruntime.so",
+          "LICENSE",
+          "ThirdPartyNotices.txt"
+        ]
       },
       "pdfium": {
         "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7999/pdfium-linux-x64.tgz",
@@ -235,12 +241,18 @@
       "platform": "linux",
       "architecture": "arm64",
       "onnxRuntime": {
-        "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.28.0/onnxruntime-linux-aarch64-1.28.0.tgz",
-        "sha256": "e15ff8b5d85afe6c144d97c6fd432254bf76a219daaf17658087d6ecb3e8f0bb",
-        "size": 8116278,
+        "url": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.28.0/microsoft.ml.onnxruntime.1.28.0.nupkg",
+        "sha256": "769d1d3ea8ab6cd69f737c9dd4d4462aa4ad0ccfa106eaf506efc40d7bead5db",
+        "size": 139145017,
         "license": "MIT",
         "upstreamRevision": "v1.28.0@da9b5e364c465de65c49d91e696cd6485270757f",
-        "libraryPattern": "libonnxruntime.so.1.28.0"
+        "libraryPattern": "libonnxruntime.so",
+        "archiveMembers": [
+          "build/native/include/*",
+          "runtimes/linux-arm64/native/libonnxruntime.so",
+          "LICENSE",
+          "ThirdPartyNotices.txt"
+        ]
       },
       "pdfium": {
         "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7999/pdfium-linux-arm64.tgz",

@@ -49,6 +49,16 @@ export function hostDocumentTarget(
   return target;
 }
 
+// The NuGet distribution is a ZIP containing several CPU architectures.
+// Ubuntu ships GNU tar, while Windows ships libarchive's ZIP-capable tar.
+export function extractNativeArchive(archive, destination, members = []) {
+  if (members.length && process.platform === "linux") {
+    execFileSync("unzip", ["-q", "-o", archive, ...members, "-d", destination], { stdio: "inherit" });
+  } else {
+    execFileSync("tar", ["-xf", archive, "-C", destination, ...members], { stdio: "inherit" });
+  }
+}
+
 export function lockedEntryDigest(entry) {
   if (typeof entry.sha256 === "string" && /^[0-9a-f]{64}$/.test(entry.sha256)) {
     return entry.sha256;

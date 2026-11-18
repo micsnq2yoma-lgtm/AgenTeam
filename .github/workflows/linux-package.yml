@@ -10,6 +10,7 @@ on:
       - 'build_dev_linux.sh'
       - 'src-tauri/tauri.linux.conf.json'
       - 'scripts/linux-package*'
+      - 'src-tauri/document-worker/resource-lock.json'
 
 permissions:
   contents: read

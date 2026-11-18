@@ -20,6 +20,7 @@ import { basename, delimiter, dirname, join, relative, resolve } from 'node:path
 import { fileURLToPath } from 'node:url';
 import {
   acquireLockedResource,
+  extractNativeArchive,
   computeBuildFingerprint,
   hostDocumentTarget,
   sha256File,
@@ -638,9 +639,7 @@ export async function prepareSpeechInference(options, documentResult) {
       );
       const ortExtract = join(extractRoot, 'onnxruntime');
       mkdirSync(ortExtract, { recursive: true });
-      execFileSync('tar', ['-xf', ortArchive, '-C', ortExtract, ...(targetLock.onnxRuntime.archiveMembers ?? [])], {
-        stdio: 'inherit',
-      });
+      extractNativeArchive(ortArchive, ortExtract, targetLock.onnxRuntime.archiveMembers);
       ortIncludeRoot = dirname(
         findOne(
           ortExtract,

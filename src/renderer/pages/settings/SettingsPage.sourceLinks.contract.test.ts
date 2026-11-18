@@ -11,7 +11,7 @@ const settingsPageSource = readFileSync(
 
 describe('About source links contract', () => {
   it('keeps the source-code action on the repository default page', () => {
-    expect(MYAGENTS_SOURCE_CODE_URL).toBe('https://github.com/hAcKlyc/MyAgents');
+    expect(MYAGENTS_SOURCE_CODE_URL).toBe('https://github.com/micsnq2yoma-lgtm/AgenTeam');
 
     const labelIndex = settingsPageSource.indexOf("tSettings('about.sourceCode')");
     expect(labelIndex).toBeGreaterThan(-1);
