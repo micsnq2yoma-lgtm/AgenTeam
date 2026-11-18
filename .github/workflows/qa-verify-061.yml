@@ -71,7 +71,7 @@ jobs:
         with:
           name: signed-candidate-metadata
           path: ${{ runner.temp }}/upgrade-qa/target
-      - name: Exercise the desktop update button and verify user data in the installed 0.6.1
+      - name: Change preferences via the UI, then verify the signed upgrade and retained data
         shell: pwsh
         run: ./qa/prepare.ps1
       - name: Collect limited updater diagnostics
