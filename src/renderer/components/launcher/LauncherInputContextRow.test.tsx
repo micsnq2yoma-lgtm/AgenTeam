@@ -12,7 +12,7 @@ vi.mock('@/components/RuntimeSelector', () => ({
 }));
 
 describe('LauncherInputContextRow', () => {
-  it('uses the composer surface at a lower elevation and aligns with its toolbar gutter', () => {
+  it('uses the composer surface at a lower elevation and aligns flush with the composer left edge', () => {
     const { container } = render(
       <LauncherInputContextRow
         projects={[]}
@@ -26,7 +26,7 @@ describe('LauncherInputContextRow', () => {
     const row = container.firstElementChild;
     const workspaceChip = screen.getByRole('button', { name: 'Workspace' }).parentElement;
 
-    expect(row).toHaveClass('pl-3');
+    expect(row).not.toHaveClass('pl-3');
     expect(workspaceChip).toHaveClass(
       'border',
       'border-[var(--line)]',

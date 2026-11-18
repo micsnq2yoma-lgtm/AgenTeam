@@ -630,7 +630,7 @@ export default memo(function BrandSection({
   }, [providers, apiKeys, providerVerifyStatus]);
 
   const providerSettingsPrompt = !hasAnyProvider ? (
-    <p className="pl-3 text-left text-sm text-[var(--ink-muted)]">
+    <p className="text-left text-sm text-[var(--ink-muted)]">
       {t('brand.providerPrompt.prefix')}
       <button
         type="button"
