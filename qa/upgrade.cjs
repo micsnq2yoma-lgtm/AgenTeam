@@ -86,6 +86,7 @@ async function connect(version) {
     }
     return null;
   });
+  await page.setViewportSize({width:1360,height:800});
   event('live desktop version',version);
   return {browser,page};
 }
@@ -105,7 +106,7 @@ async function snapshot(page,stage) {
     },{session,workspace,preference});
     assert.equal(state.title,title); assert.equal(state.favorite,true); assert.equal(state.content,marker);
     assert.equal(state.language,'en-US'); assert.equal(state.scheme,'dark');
-    assert.equal(state.webviewMarker,marker); assert.equal(state.width,311);
+    assert.equal(state.webviewMarker,marker); assert.equal(state.width,480);
     return state;
   });
   const config=await json(path.join(profile,'config.json'));
@@ -167,11 +168,11 @@ async function main(){
     assert.equal(status,200);
     return true;
   });
-  await first.page.evaluate(({key,marker})=>{
-    const pref=JSON.parse(localStorage.getItem(key)||'{}');
-    localStorage.setItem(key,JSON.stringify({...pref,version:1,preferredMode:'expanded',expandedWidth:311,expandedWorkspaceKeys:[],hasSeededDefaultExpansion:true,showAutomationSessions:false,sessionView:'all'}));
-    localStorage.setItem('agenteam-upgrade-qa',marker);
-  },{key:preference,marker});
+  const resize=first.page.locator('[role="separator"][aria-valuemax="480"]');
+  await resize.waitFor({state:'visible',timeout:30000});
+  await resize.press('End');
+  await first.page.waitForFunction(key=>JSON.parse(localStorage.getItem(key)||'{}').expandedWidth===480,preference);
+  await first.page.evaluate(value=>localStorage.setItem('agenteam-upgrade-qa',value),marker);
   const before=await snapshot(first.page,'before-original-060');
   await first.page.evaluate(()=>window.__TAURI_INTERNALS__.invoke('plugin:event|emit',{event:'tray:confirm-exit',payload:null})).catch(()=>{});
   await poll('clean exit of original 0.6.0',()=>original.exitCode!==null);
