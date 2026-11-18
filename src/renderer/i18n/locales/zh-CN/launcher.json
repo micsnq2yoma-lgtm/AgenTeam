@@ -202,5 +202,23 @@
     "saving": "保存中...",
     "save": "保存",
     "cancel": "取消"
+  },
+  "teamOffice": {
+    "title": "团队",
+    "summary": "{{projects}} 个项目部 · {{employees}} 名员工 · {{working}} 名工作中",
+    "legend": "状态说明",
+    "status": {
+      "working": "工作中",
+      "scheduled": "定时值守",
+      "on-call": "值守聊天",
+      "idle": "待命",
+      "resting": "休息中"
+    },
+    "lead": "助理 · {{name}}",
+    "hire": "新员工",
+    "hireIn": "在「{{project}}」添加新员工",
+    "more": "+{{count}}",
+    "emptyTitle": "还没有项目",
+    "emptyDescription": "新建一个项目后，它的员工会在这里上班。"
   }
 }

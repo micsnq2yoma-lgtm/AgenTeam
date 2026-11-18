@@ -1,32 +1,17 @@
-// ModeSegment — "任务 / 想法" mode declaration switcher.
-// Shown above the input box on Launcher (the only current caller).
-//
-// v0.1.69 redesign: replaced the prior "text | text" pipe layout with the
-// macOS-settings-style icon segmented control (variant F in the
-// `specs/playgrounds/mode-segment.html` sandbox). The segmented control
-// reads as one affordance rather than two free-floating buttons — it's
-// clearer that these are mutually-exclusive modes of a single surface.
-// (Chat surface previously used a "compact" variant; after the v0.1.69
-// review round the Chat input bar was simplified and no longer mounts
-// this component.)
-//
-// Icons:
-//   • 对话 → Sparkles — "AI 执行感觉"; the left button is now named
-//            "对话" (v0.1.69+ relabel) to reflect what actually happens
-//            when the user hits Enter: a fresh Chat tab + AI invocation.
-//            "任务" was misleading — Task Center tasks are a separate
-//            concept; here we're just starting a conversation that may
-//            or may not become a task.
-//   • 想法 → Lightbulb (same as `ThoughtPanel` header) — ideation pairs
-//            naturally with the Sparkles affordance.
+// ModeSegment — the Launcher's page-level 对话 / 团队 switch.
+//   • 对话 → the composer that starts a new employee (conversation).
+//   • 团队 → the pixel team office (features/team-office), which replaced the
+//            former 记录 (Records) mode on the Launcher.
+// A macOS-settings-style icon segmented control: one affordance with two
+// mutually exclusive modes.
 
-import { NotebookIcon, CapabilitiesIcon } from '@/components/icons';
+import { CapabilitiesIcon, TeamIcon } from '@/components/icons';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { retainFocusOnMouseDown } from '@/utils/focusRetention';
 
-export type InputMode = 'chat' | 'record';
+export type InputMode = 'chat' | 'team';
 
 interface ModeSegmentProps {
   value: InputMode;
@@ -51,8 +36,8 @@ export function ModeSegment({
   disabled = false,
 }: ModeSegmentProps) {
   const { t } = useTranslation('chat');
-  const chatTitle = tabSwitchHint ? t('input.mode.switchToRecord') : undefined;
-  const recordTitle = tabSwitchHint ? t('input.mode.switchToChat') : undefined;
+  const chatTitle = tabSwitchHint ? t('input.mode.switchToTeam') : undefined;
+  const teamTitle = tabSwitchHint ? t('input.mode.switchToChat') : undefined;
 
   // Segment button — the `active` state gets a raised paper-elevated
   // background (so the whole row reads as a track with a sliding
@@ -96,14 +81,14 @@ export function ModeSegment({
         <button
           type="button"
           disabled={disabled}
-          onClick={() => onChange('record')}
+          onClick={() => onChange('team')}
           onMouseDown={retainFocusOnMouseDown}
-          aria-pressed={value === 'record'}
-          title={recordTitle}
-          className={`${baseBtn} disabled:cursor-wait disabled:opacity-50 ${value === 'record' ? activeBtn : inactiveBtn}`}
+          aria-pressed={value === 'team'}
+          title={teamTitle}
+          className={`${baseBtn} disabled:cursor-wait disabled:opacity-50 ${value === 'team' ? activeBtn : inactiveBtn}`}
         >
-          <NotebookIcon className="h-3 w-3" strokeWidth={1.75} />
-          {t('input.mode.record')}
+          <TeamIcon className="h-3 w-3" strokeWidth={1.75} />
+          {t('input.mode.team')}
         </button>
       </div>
       {suffix && <span className="ml-2 flex items-center">{suffix}</span>}

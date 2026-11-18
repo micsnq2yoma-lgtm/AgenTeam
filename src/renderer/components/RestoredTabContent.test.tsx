@@ -91,8 +91,6 @@ function bindings(overrides: Partial<BuiltinTabBindings> = {}): BuiltinTabBindin
       startError: () => null,
       onWorkspaceSelectionChange: vi.fn(),
       onLaunchProject: vi.fn(async () => true),
-      onStartRecording: startRecordingSpy,
-      onOpenRecord: vi.fn(),
       onOpenNewAgentPanel: vi.fn(),
     },
     chat: {

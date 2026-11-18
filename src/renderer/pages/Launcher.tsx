@@ -19,7 +19,6 @@ import { projectTaskExecutionOverrides } from '@/utils/taskProviderProjection';
 import { coerceRuntimeBirthPermissionMode } from '../../shared/runtimeBirthFields';
 import { useToast } from '@/components/Toast';
 import { BrandSection } from '@/components/launcher';
-import RecordingSourceDialog from '@/components/task-center/RecordingSourceDialog';
 import { useConfig } from '@/hooks/useConfig';
 import { useBrowserResourceReady } from '@/hooks/useBrowserResourceReady';
 import {
@@ -29,7 +28,6 @@ import {
   isProjectActiveForUser,
   isProjectVisibleToUser,
 } from '@/config/types';
-import { CUSTOM_EVENTS } from '../../shared/constants';
 import {
   applyBuiltinBrowserExecutionToolToggle,
   MANAGED_BROWSER_MCP_ID,
@@ -84,8 +82,6 @@ import {
   projectProvidersForRuntime,
 } from '@/utils/runtimeProviderProjection';
 import type { InitialMessage, LaunchSessionBirthHint } from '@/types/tab';
-import { speechModelPackStatus } from '@/api/recording';
-import type { RecordingSourceSelection } from '../../shared/types/record';
 
 interface LauncherProps {
   onLaunchProject: (
@@ -100,8 +96,6 @@ interface LauncherProps {
   attachmentSessionId?: string | null;
   selectedWorkspacePath?: string | null;
   onWorkspaceSelectionChange?: (workspacePath: string | null) => void;
-  onStartRecording: (selection: RecordingSourceSelection) => Promise<void>;
-  onOpenRecord: (recordId: string) => void;
   /** Opens the app-wide New Agent panel; the launcher never registers folders itself. */
   onOpenNewAgentPanel: () => void;
   recordingBusy?: boolean;
@@ -115,8 +109,6 @@ export default function Launcher({
   attachmentSessionId,
   selectedWorkspacePath,
   onWorkspaceSelectionChange,
-  onStartRecording,
-  onOpenRecord,
   onOpenNewAgentPanel,
   recordingBusy = false,
 }: LauncherProps) {
@@ -152,13 +144,6 @@ export default function Launcher({
   const [launchingProjectId, setLaunchingProjectId] = useState<string | null>(
     null,
   );
-  const [recordingRequestBusy, setRecordingRequestBusy] = useState(false);
-  const [recordingSourceDialog, setRecordingSourceDialog] = useState<{
-    mode: 'start' | 'settings';
-    initialSelection: RecordingSourceSelection;
-    modelPackUsable?: boolean;
-    error?: string;
-  } | null>(null);
 
   // ===== Launcher-specific state for BrandSection =====
 
@@ -895,76 +880,6 @@ export default function Launcher({
     ],
   );
 
-  const handleOpenSpeechSettings = useCallback(() => {
-    setRecordingSourceDialog(null);
-    window.dispatchEvent(
-      new CustomEvent(CUSTOM_EVENTS.OPEN_SETTINGS, {
-        detail: {
-          section: 'mcp',
-          officialToolId: 'speech-recognition',
-        },
-      }),
-    );
-  }, []);
-
-  const handleRequestRecording = useCallback(async () => {
-    const initialSelection = config.recordingSourceSelection ?? {
-      microphone: true,
-      system: true,
-    };
-    setRecordingRequestBusy(true);
-    if (config.recordingSourceSelection) {
-      try {
-        await onStartRecording(initialSelection);
-      } catch (error) {
-        setRecordingSourceDialog({
-          mode: 'start',
-          initialSelection,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      } finally {
-        setRecordingRequestBusy(false);
-      }
-      return;
-    }
-    let modelPackUsable: boolean | undefined;
-    try {
-      modelPackUsable = (await speechModelPackStatus()).usable;
-    } catch {
-      // Resource status is advisory for start; capture remains available.
-    }
-    setRecordingSourceDialog({
-      mode: 'start',
-      initialSelection,
-      modelPackUsable,
-    });
-    setRecordingRequestBusy(false);
-  }, [config.recordingSourceSelection, onStartRecording]);
-
-  const handleRecordingSourceConfirm = useCallback(
-    async (selection: RecordingSourceSelection) => {
-      const dialog = recordingSourceDialog;
-      if (!dialog) return;
-      setRecordingRequestBusy(true);
-      try {
-        await updateConfig({ recordingSourceSelection: selection });
-        if (dialog.mode === 'start') {
-          await onStartRecording(selection);
-        }
-        setRecordingSourceDialog(null);
-      } catch (error) {
-        setRecordingSourceDialog({
-          ...dialog,
-          initialSelection: selection,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      } finally {
-        setRecordingRequestBusy(false);
-      }
-    },
-    [onStartRecording, recordingSourceDialog, updateConfig],
-  );
-
   // Promote a project to the global default workspace. Same code path as
   // Settings → 通用设置 → 默认工作区 (`updateConfig({ defaultWorkspacePath })`)
   // — keeps the WorkspaceSelector dropdown in sync with the existing config
@@ -1213,19 +1128,6 @@ export default function Launcher({
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[var(--paper)] text-[var(--ink)]">
-      {recordingSourceDialog && (
-        <RecordingSourceDialog
-          mode={recordingSourceDialog.mode}
-          initialSelection={recordingSourceDialog.initialSelection}
-          modelPackUsable={recordingSourceDialog.modelPackUsable}
-          error={recordingSourceDialog.error}
-          busy={recordingRequestBusy}
-          onConfirm={handleRecordingSourceConfirm}
-          onCancel={() => setRecordingSourceDialog(null)}
-          onOpenSpeechSettings={handleOpenSpeechSettings}
-        />
-      )}
-
       <main className="flex min-h-0 flex-1 overflow-hidden">
         <BrandSection
           projects={visibleProjects}
@@ -1237,9 +1139,7 @@ export default function Launcher({
           onAddFolder={onOpenNewAgentPanel}
           onSetDefaultWorkspace={handleSetDefault}
           onSend={handleBrandSend}
-          onStartRecording={handleRequestRecording}
-          onOpenRecord={onOpenRecord}
-          recordingBusy={recordingBusy || recordingRequestBusy}
+          recordingBusy={recordingBusy}
           attachmentSessionId={attachmentSessionId}
           isStarting={
             launchingProjectId === selectedWorkspace?.id && isStarting

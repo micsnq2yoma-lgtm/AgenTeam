@@ -202,5 +202,23 @@
     "saving": "Saving...",
     "save": "Save",
     "cancel": "Cancel"
+  },
+  "teamOffice": {
+    "title": "Team",
+    "summary": "{{projects}} departments · {{employees}} employees · {{working}} working",
+    "legend": "Status legend",
+    "status": {
+      "working": "Working",
+      "scheduled": "On schedule",
+      "on-call": "On chat duty",
+      "idle": "Standing by",
+      "resting": "Resting"
+    },
+    "lead": "Assistant · {{name}}",
+    "hire": "New employee",
+    "hireIn": "Add a new employee to {{project}}",
+    "more": "+{{count}}",
+    "emptyTitle": "No projects yet",
+    "emptyDescription": "Create a project and its employees will show up for work here."
   }
 }

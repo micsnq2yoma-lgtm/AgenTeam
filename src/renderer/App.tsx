@@ -4459,16 +4459,11 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       startError: (tabId) => tabErrors[tabId] ?? null,
       onWorkspaceSelectionChange: handleLauncherWorkspaceSelectionChange,
       onLaunchProject: handleLaunchProject,
-      onStartRecording: handleStartRecording,
-      onOpenRecord: (recordId) =>
-        handleOpenRecord(recordId, undefined, 'launcher_input'),
       onOpenNewAgentPanel: () => setNewAgentPanelOpen(true),
     }),
     [
       handleLaunchProject,
       handleLauncherWorkspaceSelectionChange,
-      handleOpenRecord,
-      handleStartRecording,
       loadingTabs,
       tabErrors,
     ],

@@ -15,14 +15,14 @@ describe('ModeSegment i18n', () => {
 
     expect(screen.getByRole('button', { name: 'Chat' })).toHaveAttribute(
       'title',
-      'Press Tab to switch to Records',
+      'Press Tab to switch to Team',
     );
-    expect(screen.getByRole('button', { name: 'Records' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Team' })).toHaveAttribute(
       'title',
       'Press Tab to switch to Chat',
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Records' }));
-    expect(onChange).toHaveBeenCalledWith('record');
+    fireEvent.click(screen.getByRole('button', { name: 'Team' }));
+    expect(onChange).toHaveBeenCalledWith('team');
   });
 });
