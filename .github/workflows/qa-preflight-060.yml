@@ -29,6 +29,7 @@ jobs:
           gh run download 44321078206 --repo micsnq2yoma-lgtm/AgenTeam --name baseline-060-loopback-shell --dir "$root/shell"
       - name: Validate the release-mode updater against the local HTTPS feed
         shell: pwsh
+        timeout-minutes: 9
         run: ./qa/prepare.ps1 -Preflight
       - uses: actions/upload-artifact@v4
         if: always()
