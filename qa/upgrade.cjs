@@ -115,14 +115,15 @@ async function snapshot(page,stage) {
   event('data verified',stage);
   return data;
 }
-async function feed() {
+async function feed(version='0.6.1') {
   const manifest=await json(path.join(root,'target','latest.json'));
-  assert.equal(manifest.version,'0.6.1');
+  const name='AgenTeam_'+version+'_x64-setup.exe';
+  assert.equal(manifest.version,version);
   const platform=manifest.platforms['windows-x86_64'];
-  assert.equal(platform.url,'https://github.com/micsnq2yoma-lgtm/AgenTeam/releases/download/v0.6.1/'+packagedName);
-  assert.equal(platform.signature,(await fsp.readFile(path.join(root,'target',packagedName+'.sig'),'utf8')).trim());
-  platform.url='https://localhost:18443/'+packagedName;
-  const packagePath=path.join(root,'target',packagedName);
+  assert.equal(platform.url,'https://github.com/micsnq2yoma-lgtm/AgenTeam/releases/download/v'+version+'/'+name);
+  assert.equal(platform.signature,(await fsp.readFile(path.join(root,'target',name+'.sig'),'utf8')).trim());
+  platform.url='https://localhost:18443/'+name;
+  const packagePath=path.join(root,version==='0.6.0'?'original':'target',name);
   const manifestBytes=Buffer.from(JSON.stringify(manifest));
   const served=[];
   function handle(req,res) {
@@ -130,7 +131,7 @@ async function feed() {
     if(req.url==='/latest.json') {
       served.push({type:'manifest',time:Date.now()});
       res.writeHead(200,{'Content-Type':'application/json','Content-Length':manifestBytes.length}).end(manifestBytes);
-    } else if(req.url==='/'+packagedName) {
+    } else if(req.url==='/'+name) {
       served.push({type:'package',time:Date.now()});
       res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':fs.statSync(packagePath).size});
       fs.createReadStream(packagePath).pipe(res);
@@ -172,10 +173,19 @@ async function main(){
   const shellPath=process.env.QA_BASELINE_SHELL;
   event('0.6.0 shell hashes',{original:await digest(exe),loopbackBuild:await digest(shellPath)});
   await fsp.copyFile(shellPath,exe);
-  const served=await feed();
+  const preflight=process.argv.includes('--preflight');
+  const served=await feed(preflight?'0.6.0':'0.6.1');
   const baseline=launch();
   const old=await connect('0.6.0');
   assert.deepEqual(await snapshot(old.page,'before-060-test-channel'),before);
+  if(preflight){
+    const hasUpdate=await old.page.evaluate(()=>window.__TAURI_INTERNALS__.invoke('check_and_download_update'));
+    assert.equal(hasUpdate,false);
+    assert(served.some(x=>x.type==='manifest'));
+    assert(!served.some(x=>x.type==='package'));
+    event('native 0.6.0 updater read the trusted loopback HTTPS channel','0.6.0 already current');
+    return;
+  }
   const ready=old.page.getByRole('button',{name:/^(restart update|重启更新)$/i}).first();
   await ready.waitFor({state:'visible',timeout:180000});
   const expected=await digest(path.join(root,'target',packagedName));
