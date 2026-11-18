@@ -98,7 +98,7 @@ Rewind、Fork、Retry 由 SessionEngine adapter 编排 native history 与产品�
 
 ### 4. App Shell 与 Tab authority
 
-`App` 拥有顶部 Tab workspace、active identity、持久恢复和打开/关闭规划。`Tab` 是以 `view` 判别的闭合联合；各 feature 声明准确 variant、render binding、持久 codec 与关闭 lifecycle，builtin composition 只在一个 registry 中组合。
+`App` 拥有 Tab workspace、active identity、持久恢复和打开/关闭规划。界面是单页面外壳：没有标签条，导航只经侧栏；某个 Tab 成为 active 时，其余 Tab 以 `replaced` 原因走同一个关闭 lifecycle（文件保存、录音保护、Session 释放或 BackgroundCompletion），被拦下的（如正在录音的 Record）留作隐藏 Tab。恢复只带回上次停留的页面。`Tab` 是以 `view` 判别的闭合联合；各 feature 声明准确 variant、render binding、持久 codec 与关闭 lifecycle，builtin composition 只在一个 registry 中组合。
 
 Chat Tab 由 `TabProvider` 维护 Session projection，并使用 `useTabState()` / `useTabApi()` 提供的 Session-scoped API。Settings、Capabilities 和 Launcher 使用 Global Sidecar；Record Tab 和 Task Center按各自 Rust Store  工作，不能因复用某个组件而获得 Session owner。
 

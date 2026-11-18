@@ -32,7 +32,7 @@ export type OpenTabResult<TTab extends TabBase<string>> =
   | { kind: 'created'; tab: TTab }
   | { kind: 'focused'; tab: TTab }
   | { kind: 'reopened'; tab: TTab }
-  | { kind: 'rejected'; reason: 'capacity' | 'unregistered' | 'invalid' };
+  | { kind: 'rejected'; reason: 'unregistered' | 'invalid' };
 
 export type ReplaceTabResult<TTab extends TabBase<string>> =
   | { kind: 'replaced'; tab: TTab; replaced: TTab }
@@ -70,14 +70,13 @@ export interface TabWorkspaceController<TTab extends TabBase<string>, TModules e
     tab: TTab,
     options?: {
       mount?: TabMountPolicy;
-      allowOverCapacity?: boolean;
       activate?: boolean;
     },
   ) => OpenTabResult<TTab>;
   readonly open: <K extends KindOf<TTab>>(
     kind: K,
     intent: ModuleIntent<TModules[K]>,
-    options?: { allowOverCapacity?: boolean; source?: 'open' | 'restore' },
+    options?: { source?: 'open' | 'restore' },
   ) => OpenTabResult<TabOfKind<TTab, K>>;
   readonly update: <K extends KindOf<TTab>>(
     tabId: string,
@@ -116,9 +115,6 @@ interface UseTabWorkspaceOptions<TTab extends TabBase<string>, TModules extends 
   modules: TModules;
   initialTabs: readonly TTab[];
   initialActiveTabId: string;
-  maxTabs: number;
-  /** Report admission denial after the transition; presentation stays with the caller. */
-  onCapacityRejected?: () => void;
   createId: () => string;
   isLastTabProtected: (tab: TTab) => boolean;
 }
@@ -135,8 +131,6 @@ export function useTabWorkspaceController<TTab extends TabBase<string>, const TM
   modules,
   initialTabs,
   initialActiveTabId,
-  maxTabs,
-  onCapacityRejected,
   createId,
   isLastTabProtected,
 }: UseTabWorkspaceOptions<TTab, TModules>): {
@@ -206,7 +200,6 @@ export function useTabWorkspaceController<TTab extends TabBase<string>, const TM
       tab: TTab,
       options: {
         mount?: TabMountPolicy;
-        allowOverCapacity?: boolean;
         activate?: boolean;
       } = {},
     ): OpenTabResult<TTab> => {
@@ -220,10 +213,6 @@ export function useTabWorkspaceController<TTab extends TabBase<string>, const TM
           result = { kind: 'focused', tab: existing };
           return options.activate === false ? current : focusWorkspaceTab(current, existing.id);
         }
-        if (!options.allowOverCapacity && current.tabs.length >= maxTabs) {
-          result = { kind: 'rejected', reason: 'capacity' };
-          return current;
-        }
         const deferredMountTabIds = new Set(current.deferredMountTabIds);
         if (options.mount === 'deferred-content') deferredMountTabIds.add(tab.id);
         else deferredMountTabIds.delete(tab.id);
@@ -234,10 +223,9 @@ export function useTabWorkspaceController<TTab extends TabBase<string>, const TM
           deferredMountTabIds,
         };
       });
-      if (result.kind === 'rejected' && result.reason === 'capacity') onCapacityRejected?.();
       return result;
     },
-    [commit, maxTabs, onCapacityRejected],
+    [commit],
   );
 
   const open = useCallback(
@@ -245,7 +233,6 @@ export function useTabWorkspaceController<TTab extends TabBase<string>, const TM
       kind: K,
       intent: ModuleIntent<TModules[K]>,
       options: {
-        allowOverCapacity?: boolean;
         source?: 'open' | 'restore';
       } = {},
     ): OpenTabResult<TabOfKind<TTab, K>> => {
@@ -276,10 +263,6 @@ export function useTabWorkspaceController<TTab extends TabBase<string>, const TM
           }
           return { ...current, tabs, activeTabId: existing.id };
         }
-        if (!options.allowOverCapacity && current.tabs.length >= maxTabs) {
-          result = { kind: 'rejected', reason: 'capacity' };
-          return current;
-        }
         const tab = definition.open.create(intent, { id: createId() });
         const mount =
           options.source === 'restore'
@@ -295,10 +278,9 @@ export function useTabWorkspaceController<TTab extends TabBase<string>, const TM
           deferredMountTabIds,
         };
       });
-      if (result.kind === 'rejected' && result.reason === 'capacity') onCapacityRejected?.();
       return result;
     },
-    [commit, createId, maxTabs, modules, onCapacityRejected],
+    [commit, createId, modules],
   );
 
   const update = useCallback(

@@ -10,7 +10,7 @@ import {
   planRestoreTabs,
   type PersistedTabState,
 } from './tabPersistence';
-import { MAX_TABS, type ChatTab, type RecordTab, type Tab } from '@/types/tab';
+import type { ChatTab, RecordTab, Tab } from '@/types/tab';
 
 function chatTab(over: Partial<ChatTab> = {}): ChatTab {
   return {
@@ -130,10 +130,6 @@ describe('serializeTabs', () => {
     expect(state.activeTabId).toBe('record-a');
   });
 
-  it('caps at MAX_TABS', () => {
-    const tabs = Array.from({ length: MAX_TABS + 5 }, (_, i) => chatTab({ id: `t${i}`, sessionId: `s${i}` }));
-    expect(serializeTabs(tabs, 't0')!.tabs).toHaveLength(MAX_TABS);
-  });
 });
 
 describe('deserializeTabs', () => {
@@ -264,9 +260,15 @@ describe('hydratePersistedState', () => {
     activeTabId: 'b',
   };
 
-  it('hydrates Chat with pending Sidecar disposition and Record without a Session', () => {
+  it('restores only the last active page for the single-page shell', () => {
     const { tabs, activeTabId } = hydratePersistedState(state);
     expect(activeTabId).toBe('b');
+    expect(tabs).toEqual([{ id: 'b', view: 'record', title: 'B', recordId: 'record-b' }]);
+  });
+
+  it('hydrates Chat with a pending Sidecar disposition', () => {
+    const { tabs, activeTabId } = hydratePersistedState({ ...state, activeTabId: 'a' });
+    expect(activeTabId).toBe('a');
     expect(tabs).toEqual([
       {
         id: 'a',
@@ -276,8 +278,13 @@ describe('hydratePersistedState', () => {
         title: 'A',
         sidecarConfigDisposition: 'pending',
       },
-      { id: 'b', view: 'record', title: 'B', recordId: 'record-b' },
     ]);
+  });
+
+  it('falls back to the last restorable page when the active one cannot be restored', () => {
+    const { tabs, activeTabId } = hydratePersistedState({ ...state, activeTabId: 'missing' });
+    expect(activeTabId).toBe('b');
+    expect(tabs.map((tab) => tab.id)).toEqual(['b']);
   });
 });
 
@@ -417,22 +424,6 @@ describe('planRestoreTabs (Issue #309 — pill restore merge)', () => {
     const fallback: Tab = { id: 'missing-record', view: 'taskcenter', title: 'Records' };
 
     expect(planRestoreTabs([existing], { tabs: [fallback], activeTabId: fallback.id })).toBeNull();
-  });
-
-  it('never lets activeTabId point outside the list when the cap slices it off', () => {
-    const open: Tab = {
-      id: 'open-1',
-      agentDir: '/ws/b',
-      sessionId: 's-x',
-      view: 'chat',
-      title: 'Open',
-      sidecarConfigDisposition: 'push',
-    };
-    // maxTabs=2: base [open-1] + r1 → r2/r3 (incl. active r2) sliced off.
-    const plan = planRestoreTabs([open], candidate, 2);
-    expect(plan!.tabs.map((t) => t.id)).toEqual(['open-1', 'r1']);
-    expect(plan!.tabs.some((t) => t.id === plan!.activeTabId)).toBe(true);
-    expect(plan!.activeTabId).toBe('r1');
   });
 
   it('returns null when there is nothing to restore', () => {

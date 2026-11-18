@@ -75,7 +75,6 @@
     "updateInstallBlocked": "后台服务仍在退出，更新包已保留，请稍后重试或重启电脑后安装",
     "updateInstallFailed": "安装更新失败，请重试或前往设置页手动重新检查",
     "backgroundCompletion": "AI 继续在后台完成任务",
-    "maxTabsReached": "已达到窗口上限，请关闭一些窗口哦",
     "codexSessionCreateFailed": "创建 Codex 会话失败",
     "launchFailed": "启动失败：{{message}}",
     "recordingStartFailed": "无法开始录音：{{message}}",

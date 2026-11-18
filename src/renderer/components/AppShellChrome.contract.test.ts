@@ -240,7 +240,6 @@ describe('App Shell chrome contract', () => {
       'src/renderer/components/global-sidebar/GlobalSidebar.tsx',
     );
     const titlebar = source('src/renderer/components/CustomTitleBar.tsx');
-    const tabbar = source('src/renderer/components/TabBar.tsx');
     const app = source('src/renderer/App.tsx');
     const styles = source('src/renderer/index.css');
 
@@ -249,13 +248,6 @@ describe('App Shell chrome contract', () => {
     );
     expect(titlebar).toContain('bg-[var(--global-sidebar-bg)]');
     expect(titlebar).not.toContain('border-b border-[var(--line)]');
-    expect(tabbar).toMatch(
-      /background:\s*["']var\(--global-sidebar-bg\)["']/,
-    );
-    expect(tabbar).toMatch(
-      /maskImage:\s*["']linear-gradient\(to right, #000 0%, rgba\(0, 0, 0, 0\) 100%\)["']/,
-    );
-    expect(tabbar).not.toContain('var(--paper-a0)');
     expect(sidebar).toContain(
       'data-global-sidebar-motion={sidebarMotion ?? undefined}',
     );

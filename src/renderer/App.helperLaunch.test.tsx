@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CODEX_SUBSCRIPTION_PROVIDER_ID } from '../shared/config-types';
 import { CUSTOM_EVENTS } from '../shared/constants';
 import type { SessionMetadata } from '@/api/sessionClient';
-import { ensureSelfAwarenessWorkspace } from '@/config/configService';
 import { SessionDeletionContext } from '@/context/SessionDeletionContext';
 import { useTabStateOptional } from '@/context/TabContext';
 
@@ -313,8 +312,10 @@ vi.mock('@/components/global-sidebar/GlobalSidebar', () => ({
   default: function MockGlobalSidebar(props: Record<string, unknown>) {
     mocks.sidebarProps.push(props);
     const deleteSession = useContext(SessionDeletionContext);
+    const activeTab = props.activeTab as { title?: string } | undefined;
     return (
       <aside data-testid="global-sidebar">
+        <div data-testid="tabbar-active">{activeTab?.title ?? 'missing'}</div>
         <button
           data-testid="app-delete-session"
           onClick={() => {
@@ -331,13 +332,6 @@ vi.mock('@/components/global-sidebar/GlobalSidebar', () => ({
 
 vi.mock('@/components/LinkContextMenuProvider', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
-
-vi.mock('@/components/TabBar', () => ({
-  default: (props: { tabs: Array<{ id: string; title: string; sessionId?: string | null; view?: string; recordId?: string; sidecarConfigDisposition?: string }>; activeTabId: string | null; onSelectTab: (tabId: string) => void; onCloseTab: (tabId: string) => Promise<void>; onNewTab: () => void }) => {
-    mocks.tabbarProps.push(props);
-    return <div data-testid="tabbar-active">{props.tabs.find(t => t.id === props.activeTabId)?.title ?? 'missing'}</div>;
-  },
 }));
 
 vi.mock('@/context/TabProvider', async () => {
@@ -385,7 +379,6 @@ vi.mock('@/pages/Settings', () => ({
     </div>;
   },
 }));
-
 
 vi.mock('@/pages/TaskCenter', () => ({
   default: (props: Record<string, unknown>) => {
@@ -484,11 +477,6 @@ vi.mock('@/config/services/appConfigService', () => ({
   ) => modifier({})),
   notifyConfigChanged: vi.fn(),
 }));
-
-vi.mock('@/hooks/useTabSwipeGesture', () => ({
-  useTabSwipeGesture: vi.fn(),
-}));
-
 
 vi.mock('@/utils/browserMock', () => ({
   isBrowserDevMode: () => false,
@@ -746,14 +734,29 @@ describe('App helper launch', () => {
     }
   });
 
+  // The shell has no tab strip; the sidebar receives the live tab list, and
+  // tab creation/selection go through the real keyboard shortcuts.
   function latestTabbarProps() {
-    const props = mocks.tabbarProps.at(-1);
-    if (!props) throw new Error('TabBar props were not captured');
-    return props as {
-      tabs: Array<{ id: string; title: string; sessionId?: string | null; view?: string; recordId?: string }>;
-      activeTabId: string | null;
-      onSelectTab: (tabId: string) => void;
-      onNewTab: () => void;
+    const props = mocks.sidebarProps.at(-1);
+    if (!props) throw new Error('GlobalSidebar props were not captured');
+    const tabs = props.tabs as Array<{ id: string; title: string; sessionId?: string | null; view?: string; recordId?: string }>;
+    return {
+      tabs,
+      activeTabId: (props.activeTab as { id?: string } | undefined)?.id ?? null,
+      onSelectTab: (tabId: string) => {
+        const index = tabs.findIndex((tab) => tab.id === tabId);
+        if (index < 0 || index > 7) throw new Error(`Cannot select tab ${tabId} by shortcut`);
+        fireEvent.keyDown(window, { key: String(index + 1), ctrlKey: true });
+      },
+      onNewTab: () => {
+        fireEvent.keyDown(window, { key: 't', ctrlKey: true });
+      },
+      onCloseTab: async (tabId: string) => {
+        const index = tabs.findIndex((tab) => tab.id === tabId);
+        if (index < 0 || index > 7) throw new Error(`Cannot close tab ${tabId} by shortcut`);
+        fireEvent.keyDown(window, { key: String(index + 1), ctrlKey: true });
+        fireEvent.keyDown(window, { key: 'w', ctrlKey: true });
+      },
     };
   }
 
@@ -765,29 +768,18 @@ describe('App helper launch', () => {
     return props;
   }
 
-  function latestTaskCenterProps() {
-    const props = mocks.taskCenterProps.at(-1);
-    if (!props) throw new Error('Task Center props were not captured');
-    return props as {
-      onStartRecording: (selection: { microphone: boolean; system: boolean }) => Promise<void>;
-    };
-  }
-
-  it('reuses the leftmost Launcher from the sidebar while the Tab plus keeps creating', () => {
+  it('replaces the page with a fresh Launcher from the tab shortcut and reuses it from the sidebar', () => {
     render(<App />);
     const firstLauncherId = latestTabbarProps().tabs[0].id;
 
     act(() => latestTabbarProps().onNewTab());
-    expect(latestTabbarProps().tabs).toHaveLength(2);
-    expect(latestTabbarProps().activeTabId).not.toBe(firstLauncherId);
+    expect(latestTabbarProps().tabs).toHaveLength(1);
+    const secondLauncherId = latestTabbarProps().activeTabId;
+    expect(secondLauncherId).not.toBe(firstLauncherId);
 
     act(() => latestSidebarProps().onNewTab());
-    expect(latestTabbarProps().tabs).toHaveLength(2);
-    expect(latestTabbarProps().activeTabId).toBe(firstLauncherId);
-
-    act(() => latestTabbarProps().onNewTab());
-    expect(latestTabbarProps().tabs).toHaveLength(3);
-    expect(latestTabbarProps().activeTabId).toBe(latestTabbarProps().tabs[2].id);
+    expect(latestTabbarProps().tabs).toHaveLength(1);
+    expect(latestTabbarProps().activeTabId).toBe(secondLauncherId);
   });
 
   it('creates a Launcher from the sidebar when no Launcher Tab exists', async () => {
@@ -1022,7 +1014,6 @@ describe('App helper launch', () => {
     const active = latestTabbarProps().tabs.find(
       (tab) => tab.id === latestTabbarProps().activeTabId,
     );
-    expect(latestTabbarProps().tabs).toHaveLength(2);
     expect(active?.id).not.toBe(sourceTab?.id);
     expect(active?.sessionId).toBe('prepared-managed-session');
     expect(active?.view).toBe('chat');
@@ -1037,14 +1028,17 @@ describe('App helper launch', () => {
       'prepared-managed-session',
       active?.id,
     );
-    expect(latestTabbarProps().tabs.find((tab) => tab.id === sourceTab?.id)).toEqual(sourceTab);
+    await waitFor(() => {
+      expect(latestTabbarProps().tabs.find((tab) => tab.id === sourceTab?.id)).toBeUndefined();
+    });
+    expect(latestTabbarProps().tabs).toHaveLength(1);
   });
 
   it('opens a sidebar Session from a no-workspace functional Tab and reconciles the exact same Tab owner on reopen', async () => {
     render(<App />);
     act(() => latestSidebarProps().onOpenCapabilities());
     await waitFor(() => {
-      expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(2);
+      expect(latestTabbarProps()?.tabs).toHaveLength(1);
     });
 
     const session = {
@@ -1064,9 +1058,9 @@ describe('App helper launch', () => {
         'tab',
         expect.stringMatching(/^tab-/),
       );
-      expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(3);
+      expect(latestTabbarProps()?.tabs).toHaveLength(1);
     });
-    const sessionTab = (mocks.tabbarProps.at(-1)?.tabs as Array<{ id: string; sessionId?: string }>).find(
+    const sessionTab = (latestTabbarProps()?.tabs as Array<{ id: string; sessionId?: string }>).find(
       (tab) => tab.sessionId === session.id,
     );
     expect(sessionTab).toBeTruthy();
@@ -1081,14 +1075,14 @@ describe('App helper launch', () => {
       'tab',
       sessionTab?.id,
     );
-    expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(3);
+    expect(latestTabbarProps()?.tabs).toHaveLength(1);
 
     await act(async () => {
-      await (mocks.tabbarProps.at(-1)?.onCloseTab as (tabId: string) => Promise<void>)(sessionTab!.id);
+      await (latestTabbarProps()?.onCloseTab as (tabId: string) => Promise<void>)(sessionTab!.id);
     });
     expect(mocks.releaseTabSession).toHaveBeenCalledWith(session.id, sessionTab!.id);
     expect(mocks.deleteSession).not.toHaveBeenCalled();
-    expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(2);
+    expect(latestTabbarProps()?.tabs).toHaveLength(1);
     await waitFor(() => {
       expect(mocks.track).toHaveBeenCalledWith('history_open', expect.objectContaining({
         session_id: session.id,
@@ -1150,7 +1144,7 @@ describe('App helper launch', () => {
     await act(async () => {
       await latestSidebarProps().onOpenSession(session, mocks.project);
     });
-    const sessionTab = (mocks.tabbarProps.at(-1)?.tabs as Array<{ id: string; sessionId?: string }>).find(
+    const sessionTab = (latestTabbarProps()?.tabs as Array<{ id: string; sessionId?: string }>).find(
       (tab) => tab.sessionId === session.id,
     );
     expect(sessionTab).toBeTruthy();
@@ -1173,7 +1167,7 @@ describe('App helper launch', () => {
     });
 
     await act(async () => {
-      await (mocks.tabbarProps.at(-1)?.onCloseTab as (tabId: string) => Promise<void>)(sessionTab!.id);
+      await (latestTabbarProps()?.onCloseTab as (tabId: string) => Promise<void>)(sessionTab!.id);
     });
     let reopened = true;
     await act(async () => {
@@ -1182,7 +1176,7 @@ describe('App helper launch', () => {
     });
 
     expect(reopened).toBe(false);
-    expect((mocks.tabbarProps.at(-1)?.tabs as Array<{ id: string }>).some((tab) => tab.id === sessionTab!.id)).toBe(false);
+    expect((latestTabbarProps()?.tabs as Array<{ id: string }>).some((tab) => tab.id === sessionTab!.id)).toBe(false);
     expect(mocks.releaseTabSession).toHaveBeenLastCalledWith(session.id, sessionTab!.id);
   });
 
@@ -1198,7 +1192,7 @@ describe('App helper launch', () => {
     await act(async () => {
       await latestSidebarProps().onOpenSession(session, mocks.project);
     });
-    const sessionTab = (mocks.tabbarProps.at(-1)?.tabs as Array<{ id: string; sessionId?: string }>).find(
+    const sessionTab = (latestTabbarProps()?.tabs as Array<{ id: string; sessionId?: string }>).find(
       (tab) => tab.sessionId === session.id,
     );
     expect(sessionTab).toBeTruthy();
@@ -1219,7 +1213,7 @@ describe('App helper launch', () => {
     ));
 
     await act(async () => {
-      await (mocks.tabbarProps.at(-1)?.onCloseTab as (tabId: string) => Promise<void>)(sessionTab!.id);
+      await (latestTabbarProps()?.onCloseTab as (tabId: string) => Promise<void>)(sessionTab!.id);
     });
     let reopened = true;
     await act(async () => {
@@ -1243,7 +1237,7 @@ describe('App helper launch', () => {
     await act(async () => {
       await latestSidebarProps().onOpenSession(session, mocks.project);
     });
-    const sessionTab = (mocks.tabbarProps.at(-1)?.tabs as Array<{ id: string; sessionId?: string }>).find(
+    const sessionTab = (latestTabbarProps()?.tabs as Array<{ id: string; sessionId?: string }>).find(
       (tab) => tab.sessionId === session.id,
     );
     expect(sessionTab).toBeTruthy();
@@ -1280,16 +1274,21 @@ describe('App helper launch', () => {
       await chatProps.onOpenSession('chat-history-target', 'Target history', 'chat_dropdown');
     });
 
-    const tabs = mocks.tabbarProps.at(-1)?.tabs as Array<{ sessionId?: string }>;
-    expect(tabs.filter(tab => tab.sessionId === sourceSession.id)).toHaveLength(1);
-    expect(tabs.filter(tab => tab.sessionId === 'chat-history-target')).toHaveLength(1);
+    // Single-page shell: the target replaces the source page, which is released.
+    await waitFor(() => {
+      const tabs = latestTabbarProps()?.tabs as Array<{ sessionId?: string }>;
+      expect(tabs.filter(tab => tab.sessionId === sourceSession.id)).toHaveLength(0);
+      expect(tabs.filter(tab => tab.sessionId === 'chat-history-target')).toHaveLength(1);
+    });
     expect(mocks.ensureSessionSidecar).toHaveBeenLastCalledWith(
       'chat-history-target',
       mocks.project.path,
       'tab',
       expect.stringMatching(/^tab-/),
     );
-    expect(mocks.releaseTabSession).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mocks.releaseTabSession).toHaveBeenCalledWith(sourceSession.id, expect.any(String));
+    });
     await waitFor(() => {
       expect(mocks.track).toHaveBeenCalledWith('history_open', expect.objectContaining({
         session_id: 'chat-history-target',
@@ -1319,9 +1318,9 @@ describe('App helper launch', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('tabbar-active')).toHaveTextContent('Slow sidebar history');
-      expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(2);
+      expect(latestTabbarProps()?.tabs).toHaveLength(1);
     });
-    const pendingTab = (mocks.tabbarProps.at(-1)?.tabs as Array<{
+    const pendingTab = (latestTabbarProps()?.tabs as Array<{
       sessionId?: string;
       sidecarConfigDisposition?: string;
     }>).find((tab) => tab.sessionId === session.id);
@@ -1386,7 +1385,7 @@ describe('App helper launch', () => {
     await act(async () => {
       await latestSidebarProps().onOpenSession(session, mocks.project);
     });
-    const sessionTab = (mocks.tabbarProps.at(-1)?.tabs as Array<{ id: string; sessionId?: string }>).find(
+    const sessionTab = (latestTabbarProps()?.tabs as Array<{ id: string; sessionId?: string }>).find(
       (tab) => tab.sessionId === session.id,
     );
     expect(sessionTab).toBeTruthy();
@@ -1409,7 +1408,7 @@ describe('App helper launch', () => {
         sessionTab!.id,
       );
     });
-    expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(2);
+    expect(latestTabbarProps()?.tabs).toHaveLength(1);
   });
 
   it('serializes Settings helper resume with deletion of the same Session', async () => {
@@ -1533,30 +1532,6 @@ describe('App helper launch', () => {
     expect(mocks.ensureSessionSidecar).not.toHaveBeenCalled();
   });
 
-  it('collapses multiple deleted Record restore fallbacks into one Task Center', async () => {
-    localStorage.clear();
-    mocks.lastExitWasClean = false;
-    mocks.recordGet.mockResolvedValue(null);
-    mocks.durableTabs = {
-      version: 1,
-      tabs: [
-        { view: 'record', id: 'missing-record-a', recordId: 'deleted-a', title: 'Deleted A' },
-        { view: 'record', id: 'missing-record-b', recordId: 'deleted-b', title: 'Deleted B' },
-      ],
-      activeTabId: 'missing-record-b',
-    };
-    render(<App />);
-
-    fireEvent.click(await screen.findByTestId('restore-session'));
-
-    await waitFor(() => {
-      const taskTabs = latestTabbarProps().tabs.filter((tab) => tab.view === 'taskcenter');
-      expect(taskTabs).toHaveLength(1);
-      expect(taskTabs[0]?.id).toBe('missing-record-a');
-      expect(latestTabbarProps().activeTabId).toBe('missing-record-a');
-    });
-  });
-
   it('does not add a deleted Record fallback beside an already-open Task Center', async () => {
     localStorage.clear();
     mocks.lastExitWasClean = false;
@@ -1604,34 +1579,6 @@ describe('App helper launch', () => {
     fireEvent.click(await screen.findByTestId('restore-session'));
     await waitFor(() => expect(latestTabbarProps().tabs).toEqual([expect.objectContaining({ id: 'new-live' })]));
     expect(mocks.recordGet).not.toHaveBeenCalledWith('old');
-  });
-
-  it('retains native recovery overflow together with the unaccepted offer', async () => {
-    localStorage.clear();
-    let completeValidation!: () => void;
-    const gate = new Promise<void>(resolve => { completeValidation = resolve; });
-    mocks.recordGet.mockImplementation(async recordId => {
-      await gate;
-      return { id: recordId, kind: 'audio', title: recordId, tags: [], createdAt: 1, updatedAt: 1, archived: false, convertedTaskIds: [], revision: 1 };
-    });
-    localStorage.setItem('myagents.openTabs.v1', JSON.stringify({ version: 1,
-      tabs: Array.from({ length: 12 }, (_, i) => ({ view: 'record', id: `live-${i}`, recordId: `record-${i}`, title: `Record ${i}` })),
-      activeTabId: 'live-0', pendingRestore: { version: 1,
-        tabs: Array.from({ length: 12 }, (_, i) => ({ view: 'record', id: `offer-${i}`, recordId: `pending-${i}`, title: `Pending ${i}` })),
-        activeTabId: 'offer-0',
-      },
-    }));
-    render(<App rendererAttachment={{ replacement: true, previousTabOwners: [] }} />);
-    await waitFor(() => expect(mocks.recordGet).toHaveBeenCalledTimes(12));
-    await act(async () => latestSidebarProps().onOpenSettings());
-    await act(async () => completeValidation());
-    await waitFor(() => {
-      const stored = JSON.parse(localStorage.getItem('myagents.openTabs.v1')!);
-      expect(stored.tabs).toHaveLength(10);
-      expect(stored.pendingRestore.tabs).toHaveLength(14);
-    });
-    const { loadPendingRestoredTabs } = await import('@/utils/tabPersistence');
-    expect(loadPendingRestoredTabs()?.tabs).toHaveLength(14);
   });
 
   it.each(['pending', 'failed-live'] as const)('defers %s restore until native old-token retirement finishes', async kind => {
@@ -1776,73 +1723,6 @@ describe('App helper launch', () => {
     });
   });
 
-  it('restores every Session lifecycle immediately but reveals Chat active-first', async () => {
-    const frames: FrameRequestCallback[] = [];
-    let nextFrameHandle = 1;
-    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
-      frames.push(callback);
-      return nextFrameHandle++;
-    }));
-    vi.stubGlobal('cancelAnimationFrame', vi.fn());
-    const flushQueuedFrame = (timestamp: number) => {
-      const callbacks = frames.splice(0);
-      callbacks.forEach((callback) => callback(timestamp));
-    };
-    mocks.lastExitWasClean = false;
-    mocks.durableTabs = {
-      version: 1,
-      tabs: [
-        {
-          view: 'chat',
-        id: 'restore-active',
-          agentDir: mocks.project.path,
-          sessionId: '11111111-2222-4333-8444-555555555551',
-          title: 'Active history',
-        },
-        {
-          view: 'chat',
-        id: 'restore-inactive',
-          agentDir: mocks.project.path,
-          sessionId: '11111111-2222-4333-8444-555555555552',
-          title: 'Inactive history',
-        },
-      ],
-      activeTabId: 'restore-active',
-    };
-    render(<App />);
-
-    fireEvent.click(await screen.findByTestId('restore-session'));
-    await waitFor(() => {
-      expect(mocks.ensureSessionSidecar).toHaveBeenCalledTimes(2);
-    });
-
-    const providers = screen.getAllByTestId('tab-provider');
-    expect(providers).toHaveLength(2);
-    expect(screen.getAllByTestId('chat-boot-overlay')).toHaveLength(2);
-    expect(screen.queryByTestId('chat-page')).not.toBeInTheDocument();
-    expect(frames.length).toBeGreaterThan(0);
-
-    act(() => flushQueuedFrame(0));
-    expect(screen.queryByTestId('chat-page')).not.toBeInTheDocument();
-    act(() => flushQueuedFrame(16));
-    await waitFor(() => {
-      expect(screen.getAllByTestId('chat-page')).toHaveLength(1);
-    });
-    expect(
-      providers.find((provider) => provider.dataset.tabId === 'restore-active')
-        ?.querySelector('[data-testid="chat-page"]'),
-    ).not.toBeNull();
-
-    fireEvent.keyDown(window, { key: 'Tab', code: 'Tab', ctrlKey: true });
-    expect(screen.getAllByTestId('chat-page')).toHaveLength(1);
-    expect(screen.getByTestId('tabbar-active')).toHaveTextContent('Inactive history');
-    act(() => flushQueuedFrame(32));
-    act(() => flushQueuedFrame(48));
-    await waitFor(() => {
-      expect(screen.getAllByTestId('chat-page')).toHaveLength(2);
-    });
-  });
-
   it('keeps current work unchanged when an earlier deletion owns the Session transition', async () => {
     const sessionId = '66666666-7777-4888-8999-000000000000';
     let resolveOwnerCheck!: (value: boolean) => void;
@@ -1885,14 +1765,14 @@ describe('App helper launch', () => {
         reason: 'in-use',
       }]);
     });
-    const currentTabs = mocks.tabbarProps.at(-1)?.tabs as Array<{ id: string }>;
+    const currentTabs = latestTabbarProps()?.tabs as Array<{ id: string }>;
     expect(currentTabs).toHaveLength(1);
     expect(currentTabs).not.toContainEqual(expect.objectContaining({
       id: 'refused-delete-restored-tab',
     }));
   });
 
-  it('materializes every restored Tab without requiring a Tab selection', async () => {
+  it('restores only the page the user was last on', async () => {
     const firstSessionId = '11111111-2222-4333-8444-555555555551';
     const secondSessionId = '11111111-2222-4333-8444-555555555552';
     mocks.lastExitWasClean = false;
@@ -1922,43 +1802,29 @@ describe('App helper launch', () => {
     fireEvent.click(await screen.findByTestId('restore-session'));
 
     await waitFor(() => {
-      expect(mocks.ensureSessionSidecar).toHaveBeenCalledTimes(2);
-      expect(mocks.reconcileSessionTabActivation).toHaveBeenCalledTimes(2);
+      expect(mocks.reconcileSessionTabActivation).toHaveBeenCalledTimes(1);
     });
-    expect(mocks.ensureSessionSidecar).toHaveBeenCalledWith(
-      firstSessionId,
-      mocks.project.path,
-      'tab',
-      'restored-first',
-    );
+    expect(mocks.ensureSessionSidecar).toHaveBeenCalledTimes(1);
     expect(mocks.ensureSessionSidecar).toHaveBeenCalledWith(
       secondSessionId,
       mocks.project.path,
       'tab',
       'restored-second',
     );
-    expect(new Set(mocks.tabProviderProps.map((props) => props.sessionId))).toEqual(
-      new Set([firstSessionId, secondSessionId]),
+    expect(mocks.ensureSessionSidecar).not.toHaveBeenCalledWith(
+      firstSessionId,
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
     );
-    expect(screen.getAllByTestId('tab-provider')).toHaveLength(2);
+    expect(screen.getAllByTestId('tab-provider')).toHaveLength(1);
     expect(await screen.findAllByTestId('chat-page')).toHaveLength(1);
     expect(screen.getByTestId('tabbar-active')).toHaveTextContent('Second restored history');
-    expect(mocks.setAppActiveCorrelation).toHaveBeenCalledWith({
-      tabId: 'restored-second',
-      sessionId: secondSessionId,
-      tabs: [
-        { id: 'restored-first', sessionId: firstSessionId },
-        { id: 'restored-second', sessionId: secondSessionId },
-      ],
+    await waitFor(() => {
+      expect(latestTabbarProps().tabs).toEqual([
+        expect.objectContaining({ id: 'restored-second', sidecarConfigDisposition: 'adopt' }),
+      ]);
     });
-    const restoredTabs = mocks.tabbarProps.at(-1)?.tabs as Array<{
-      id: string;
-      sidecarConfigDisposition?: string;
-    }>;
-    expect(restoredTabs).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'restored-first', sidecarConfigDisposition: 'adopt' }),
-      expect.objectContaining({ id: 'restored-second', sidecarConfigDisposition: 'adopt' }),
-    ]));
   });
 
   it('keeps a restored Tab when a predecessor terminal read spans the whole opening', async () => {
@@ -2000,7 +1866,7 @@ describe('App helper launch', () => {
 
     fireEvent.click(restoreButton);
     await waitFor(() => {
-      const restored = (mocks.tabbarProps.at(-1)?.tabs as Array<{
+      const restored = (latestTabbarProps()?.tabs as Array<{
         id: string;
         sidecarConfigDisposition?: string;
       }>).find((tab) => tab.id === 'restored-during-terminal-read');
@@ -2013,14 +1879,14 @@ describe('App helper launch', () => {
     });
 
     expect(mocks.getSessionGeneration).toHaveBeenCalledTimes(2);
-    expect(mocks.tabbarProps.at(-1)?.tabs).toContainEqual(expect.objectContaining({
+    expect(latestTabbarProps()?.tabs).toContainEqual(expect.objectContaining({
       id: 'restored-during-terminal-read',
       sessionId,
       sidecarConfigDisposition: 'adopt',
     }));
   });
 
-  it('loads every restored history but projects inactive Chat only after selection', async () => {
+  it('loads the restored page history without fetching pages that are not restored', async () => {
     const firstSessionId = '33333333-2222-4333-8444-555555555551';
     const secondSessionId = '33333333-2222-4333-8444-555555555552';
     mocks.useRealTabProvider = true;
@@ -2086,24 +1952,15 @@ describe('App helper launch', () => {
     expect(await screen.findByText('Second persisted restore message')).toBeInTheDocument();
     expect(screen.queryByText('First persisted restore message')).not.toBeInTheDocument();
     expect(mocks.sessionSidecarFetch).toHaveBeenCalledWith(
-      firstSessionId,
-      { type: 'tab', id: 'history-first' },
-      expect.stringMatching(new RegExp(`^/sessions/${firstSessionId}\\?`)),
-      expect.any(Object),
-    );
-    expect(mocks.sessionSidecarFetch).toHaveBeenCalledWith(
       secondSessionId,
       { type: 'tab', id: 'history-second' },
       expect.stringMatching(new RegExp(`^/sessions/${secondSessionId}\\?`)),
       expect.any(Object),
     );
-
-    act(() => latestTabbarProps().onSelectTab('history-first'));
-    expect(await screen.findByText('First persisted restore message')).toBeInTheDocument();
-    expect(screen.getByText('Second persisted restore message')).toBeInTheDocument();
+    expect(mocks.sessionSidecarFetch.mock.calls.some(([sessionId]) => sessionId === firstSessionId)).toBe(false);
   });
 
-  it('isolates one restored owner failure and preserves successful/current Tabs', async () => {
+  it('falls back to the start page when the restored page cannot attach its owner', async () => {
     const failedSessionId = '22222222-2222-4333-8444-555555555551';
     const successfulSessionId = '22222222-2222-4333-8444-555555555552';
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -2135,7 +1992,7 @@ describe('App helper launch', () => {
     render(<App />);
     await act(async () => latestSidebarProps().onOpenSettings());
     await waitFor(() => {
-      const latest = mocks.tabbarProps.at(-1);
+      const latest = latestTabbarProps();
       const active = (latest?.tabs as Array<{ id: string; view?: string }>).find(
         (tab) => tab.id === latest?.activeTabId,
       );
@@ -2145,22 +2002,20 @@ describe('App helper launch', () => {
     fireEvent.click(await screen.findByTestId('restore-session'));
 
     await waitFor(() => {
-      const latest = mocks.tabbarProps.at(-1);
-      const tabs = latest?.tabs as Array<{
-        id: string;
-        view?: string;
-        sidecarConfigDisposition?: string;
-      }>;
-      expect(tabs.some((tab) => tab.id === 'restore-fails')).toBe(false);
-      expect(tabs.some((tab) => tab.id === 'restore-succeeds')).toBe(true);
-      expect(tabs.find((tab) => tab.id === 'restore-succeeds')?.sidecarConfigDisposition).toBe('adopt');
-      expect(tabs.some((tab) => tab.view === 'settings')).toBe(true);
-      expect(tabs.find((tab) => tab.id === latest?.activeTabId)?.view).toBe('settings');
+      expect(mocks.releaseTabSession).toHaveBeenCalledWith(failedSessionId, 'restore-fails');
     });
-    expect(mocks.releaseTabSession).toHaveBeenCalledWith(failedSessionId, 'restore-fails');
-    expect(mocks.reconcileSessionTabActivation).toHaveBeenCalledWith(
+    await waitFor(() => {
+      const latest = latestTabbarProps();
+      const tabs = latest?.tabs as Array<{ id: string; view?: string }>;
+      expect(tabs.some((tab) => tab.id === 'restore-fails')).toBe(false);
+      expect(tabs.some((tab) => tab.id === 'restore-succeeds')).toBe(false);
+      // The restore replaced the Settings page before its owner failed.
+      expect(tabs).toHaveLength(1);
+      expect(tabs.find((tab) => tab.id === latest?.activeTabId)?.view).toBe('launcher');
+    });
+    expect(mocks.reconcileSessionTabActivation).not.toHaveBeenCalledWith(
       successfulSessionId,
-      'restore-succeeds',
+      expect.anything(),
     );
     errorSpy.mockRestore();
   });
@@ -2187,7 +2042,7 @@ describe('App helper launch', () => {
 
     await act(async () => latestSidebarProps().onOpenSettings());
     await waitFor(() => {
-      const latest = mocks.tabbarProps.at(-1);
+      const latest = latestTabbarProps();
       const active = (latest?.tabs as Array<{ id: string; view?: string }>).find(
         (tab) => tab.id === latest?.activeTabId,
       );
@@ -2199,7 +2054,7 @@ describe('App helper launch', () => {
       await openPromise;
     });
 
-    const latest = mocks.tabbarProps.at(-1);
+    const latest = latestTabbarProps();
     const active = (latest?.tabs as Array<{ id: string; view?: string }>).find(
       (tab) => tab.id === latest?.activeTabId,
     );
@@ -2222,7 +2077,7 @@ describe('App helper launch', () => {
       opened = await latestSidebarProps().onOpenSession(session, mocks.project);
     });
 
-    const sessionTab = (mocks.tabbarProps.at(-1)?.tabs as Array<{ id: string; sessionId?: string }>).find(
+    const sessionTab = (latestTabbarProps()?.tabs as Array<{ id: string; sessionId?: string }>).find(
       (tab) => tab.sessionId === session.id,
     );
     expect(opened).toBe(true);
@@ -2270,14 +2125,14 @@ describe('App helper launch', () => {
 
     expect(opened).toBe(false);
     expect(screen.getByTestId('tabbar-active')).toHaveTextContent('New Tab');
-    expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(1);
+    expect(latestTabbarProps()?.tabs).toHaveLength(1);
     errorSpy.mockRestore();
   });
 
-  it('opens a sidebar workspace as a fresh Chat tab without replacing the functional tab', async () => {
+  it('opens a sidebar workspace as a fresh Chat page that replaces the functional page', async () => {
     render(<App />);
     act(() => latestSidebarProps().onOpenCapabilities());
-    await waitFor(() => expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(2));
+    await waitFor(() => expect(latestTabbarProps()?.tabs).toHaveLength(1));
 
     let opened = false;
     await act(async () => {
@@ -2286,7 +2141,7 @@ describe('App helper launch', () => {
 
     expect(opened).toBe(true);
     await waitFor(() => {
-      expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(3);
+      expect(latestTabbarProps()?.tabs).toHaveLength(1);
       expect(mocks.ensureSessionSidecar).toHaveBeenCalledWith(
         expect.any(String),
         mocks.project.path,
@@ -2301,168 +2156,19 @@ describe('App helper launch', () => {
     }));
   });
 
-  it.each(['onOpenSettings', 'onOpenCapabilities', 'onOpenTaskCenter'] as const)(
-    'shows one capacity toast for %s without changing the active tab', async (action) => {
-      render(<App />);
-      for (let index = 1; index < 12; index += 1) {
-        act(() => latestTabbarProps().onNewTab());
-      }
-      const before = latestTabbarProps();
-      await act(async () => latestSidebarProps()[action]());
-      expect(mocks.toast.info).toHaveBeenCalledExactlyOnceWith('已达到窗口上限，请关闭一些窗口哦');
-      expect(latestTabbarProps().tabs).toEqual(before.tabs);
-      expect(latestTabbarProps().activeTabId).toBe(before.activeTabId);
-    },
-  );
-
-  it('focuses existing settings at capacity without a toast', async () => {
-    render(<App />);
-    await act(async () => latestSidebarProps().onOpenSettings());
-    const settings = latestTabbarProps().tabs.find(tab => tab.view === 'settings')!;
-    for (let index = 2; index < 12; index += 1) {
-      act(() => latestTabbarProps().onNewTab());
-    }
-    await act(async () => latestSidebarProps().onOpenSettings());
-    expect(latestTabbarProps().activeTabId).toBe(settings.id);
-    expect(mocks.toast.info).not.toHaveBeenCalled();
-  });
-
-  it('reports capacity when a new-tab action or ordinary support launch is denied', async () => {
-    render(<App />);
-    for (let index = 1; index < 12; index += 1) {
-      act(() => latestTabbarProps().onNewTab());
-    }
-    act(() => latestTabbarProps().onNewTab());
-    expect(mocks.toast.info).toHaveBeenCalledExactlyOnceWith('已达到窗口上限，请关闭一些窗口哦');
-    mocks.toast.info.mockClear();
-    await act(async () => {
-      window.dispatchEvent(new CustomEvent(CUSTOM_EVENTS.LAUNCH_BUG_REPORT, {
-        detail: { description: 'Help', images: [] },
-      }));
-    });
-    expect(mocks.toast.info).toHaveBeenCalledExactlyOnceWith('已达到窗口上限，请关闭一些窗口哦');
-    expect(mocks.ensureSessionSidecar).not.toHaveBeenCalled();
-  });
-
-  it('stops helper launch if another action takes the last slot during preparation', async () => {
-    let resolveWorkspace!: () => void;
-    const original = vi.mocked(ensureSelfAwarenessWorkspace).getMockImplementation()!;
-    vi.mocked(ensureSelfAwarenessWorkspace).mockImplementationOnce(async (...args) => {
-      await new Promise<void>(resolve => { resolveWorkspace = resolve; });
-      return original(...args);
-    });
-    render(<App />);
-    for (let index = 1; index < 11; index += 1) {
-      act(() => latestTabbarProps().onNewTab());
-    }
-    act(() => {
-      window.dispatchEvent(new CustomEvent(CUSTOM_EVENTS.LAUNCH_BUG_REPORT, {
-        detail: { description: 'Help', images: [] },
-      }));
-    });
-    act(() => latestTabbarProps().onNewTab());
-    const before = latestTabbarProps();
-    await act(async () => resolveWorkspace());
-    expect(mocks.toast.info).toHaveBeenCalledExactlyOnceWith('已达到窗口上限，请关闭一些窗口哦');
-    expect(latestTabbarProps().tabs).toEqual(before.tabs);
-    expect(latestTabbarProps().activeTabId).toBe(before.activeTabId);
-    expect(mocks.ensureSessionSidecar).not.toHaveBeenCalled();
-  });
-
-  it.each([false, true])('stops discussion launch on late capacity denial (managed provider: %s)', async (managed) => {
-    mocks.tauriEnvironment = true;
-    if (managed) mocks.resolveBuiltinSelection.mockReturnValue({ provider: managedCodexProvider(), model: 'gpt-5.5' });
-    let resolvePreparation!: (value: unknown) => void;
-    tauriCoreMocks.invoke.mockImplementation(async command => {
-      if (command === 'cmd_task_prepare_discussion') {
-        return new Promise(resolve => { resolvePreparation = resolve; });
-      }
-      return undefined;
-    });
-    render(<App />);
-    for (let index = 1; index < 11; index += 1) {
-      act(() => latestTabbarProps().onNewTab());
-    }
-    act(() => {
-      window.dispatchEvent(new CustomEvent(CUSTOM_EVENTS.OPEN_AI_DISCUSSION, {
-        detail: { content: 'Discuss this', workspaceId: mocks.project.id, tags: [] },
-      }));
-    });
-    await waitFor(() => expect(resolvePreparation).toBeDefined());
-    act(() => latestTabbarProps().onNewTab());
-    const before = latestTabbarProps();
-    await act(async () => resolvePreparation({ candidatesDir: '/tmp/discussion/candidates' }));
-    expect(mocks.toast.info).toHaveBeenCalledExactlyOnceWith('已达到窗口上限，请关闭一些窗口哦');
-    expect(latestTabbarProps().tabs).toEqual(before.tabs);
-    expect(mocks.ensureSessionSidecar).not.toHaveBeenCalled();
-    expect(mocks.createSession).not.toHaveBeenCalled();
-  });
-
-  it.each([false, true])('reports a restore denied entirely by capacity (missing record: %s)', async (missingRecord) => {
-    mocks.lastExitWasClean = false;
-    if (missingRecord) mocks.recordGet.mockResolvedValue(null);
-    mocks.durableTabs = {
-      version: 1,
-      tabs: missingRecord
-        ? [{ view: 'record', id: 'restore-capacity', recordId: 'missing-record', title: 'Record' }]
-        : [{ view: 'chat', id: 'restore-capacity', agentDir: mocks.project.path,
-          sessionId: '11111111-2222-4333-8444-555555555551', title: 'History' }],
-      activeTabId: 'restore-capacity',
-    };
-    render(<App />);
-    const restoreButton = await screen.findByTestId('restore-session');
-    for (let index = 1; index < 12; index += 1) {
-      act(() => latestTabbarProps().onNewTab());
-    }
-    await act(async () => fireEvent.click(restoreButton));
-    expect(mocks.toast.info).toHaveBeenCalledExactlyOnceWith('已达到窗口上限，请关闭一些窗口哦');
-    expect(latestTabbarProps().tabs).toHaveLength(12);
-    expect(mocks.ensureSessionSidecar).not.toHaveBeenCalled();
-  });
-
-  it('keeps Settings and Capabilities as one tab each', async () => {
+  it('keeps Settings and Capabilities as single pages that replace each other', async () => {
     render(<App />);
 
     act(() => latestSidebarProps().onOpenCapabilities());
-    await waitFor(() => expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(2));
+    await waitFor(() => expect(latestTabbarProps()?.tabs).toHaveLength(1));
     act(() => latestSidebarProps().onOpenCapabilities());
-    await waitFor(() => expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(2));
+    await waitFor(() => expect(latestTabbarProps()?.tabs).toHaveLength(1));
 
     await act(async () => latestSidebarProps().onOpenSettings());
-    await waitFor(() => expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(3));
+    await waitFor(() => expect(latestTabbarProps()?.tabs).toHaveLength(1));
     await act(async () => latestSidebarProps().onOpenSettings());
 
-    expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(3);
-  });
-
-
-
-
-
-
-
-
-  it('reuses Task Center for the active recording stop surface when the tab strip is full', async () => {
-    render(<App />);
-    act(() => latestSidebarProps().onOpenTaskCenter());
-    await waitFor(() => expect(latestTabbarProps().tabs.some((tab) => tab.view === 'taskcenter')).toBe(true));
-    for (let index = latestTabbarProps().tabs.length; index < 12; index += 1) {
-      act(() => latestTabbarProps().onNewTab());
-    }
-    expect(latestTabbarProps().tabs).toHaveLength(12);
-    const taskCenter = latestTabbarProps().tabs.find((tab) => tab.view === 'taskcenter')!;
-    act(() => latestTabbarProps().onSelectTab(taskCenter.id));
-    await waitFor(() => expect(mocks.taskCenterProps.length).toBeGreaterThan(0));
-
-    await act(async () => {
-      await latestTaskCenterProps().onStartRecording({ microphone: true, system: true });
-    });
-
-    expect(latestTabbarProps().tabs).toHaveLength(12);
-    expect(latestTabbarProps().tabs.some((tab) => tab.view === 'taskcenter')).toBe(false);
-    expect(latestTabbarProps().tabs).toContainEqual(
-      expect.objectContaining({ view: 'record', recordId: 'active-record' }),
-    );
+    expect(latestTabbarProps()?.tabs).toHaveLength(1);
   });
 
   it('routes capability deep links and item targets into the singleton Capabilities tab', async () => {
@@ -2501,7 +2207,7 @@ describe('App helper launch', () => {
       initialMcpId: 'mcp-two',
       navigationNonce: firstNonce + 1,
     })));
-    expect(mocks.tabbarProps.at(-1)?.tabs).toHaveLength(2);
+    expect(latestTabbarProps()?.tabs).toHaveLength(1);
   });
 
   it('keeps streaming-local Chat renders outside the global sidebar owner', async () => {
@@ -2749,10 +2455,6 @@ describe('App helper launch', () => {
     }
   });
 
-
-
-
-
   it('serializes fork owner acquisition with deletion of the forked Session', async () => {
     render(<App />);
     await act(async () => {
@@ -2888,7 +2590,7 @@ describe('App helper launch', () => {
     )).resolves.toBe(true);
 
     expect(mocks.upgradeSessionId).not.toHaveBeenCalled();
-    const currentTabs = mocks.tabbarProps.at(-1)?.tabs as Array<{
+    const currentTabs = latestTabbarProps()?.tabs as Array<{
       sessionId?: string | null;
     }>;
     expect(currentTabs).toContainEqual(expect.objectContaining({ sessionId: 'session-b' }));
@@ -2911,7 +2613,7 @@ describe('App helper launch', () => {
     await expect(providerProps.onSessionIdChange('session-a')).resolves.toBe(true);
 
     await act(async () => {
-      await (mocks.tabbarProps.at(-1)?.onCloseTab as (tabId: string) => Promise<void>)(
+      await (latestTabbarProps()?.onCloseTab as (tabId: string) => Promise<void>)(
         providerProps.tabId,
       );
     });
@@ -3011,7 +2713,7 @@ describe('App helper launch', () => {
     await waitFor(() => {
       expect(mocks.deleteResults).toEqual([{ deleted: true }]);
     });
-    const currentTabs = mocks.tabbarProps.at(-1)?.tabs as Array<{
+    const currentTabs = latestTabbarProps()?.tabs as Array<{
       view?: string;
       sessionId?: string | null;
     }>;
@@ -3065,7 +2767,7 @@ describe('App helper launch', () => {
       mocks.deleteTargetSessionId,
       expect.stringMatching(/^tab-/),
     );
-    const currentTabs = mocks.tabbarProps.at(-1)?.tabs as Array<{
+    const currentTabs = latestTabbarProps()?.tabs as Array<{
       view?: string;
       sessionId?: string | null;
     }>;

@@ -68,12 +68,27 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
   };
 }
 
-async function requestAdmission(reason: 'user' | 'record-deleted' = 'user'): Promise<TabCloseAdmission> {
+async function requestAdmission(reason: RecordTabCloseReason = 'user'): Promise<TabCloseAdmission> {
   const result = adapterRef.current?.prepareClose?.(tab, reason) ?? 'allow';
   return Promise.resolve(result);
 }
 
 describe('useRecordTabLifecycle', () => {
+  it('keeps a live recording page alive without prompting when the shell switches pages', async () => {
+    const deps = dependencies();
+    render(<Harness dependencies={deps} lifecycleRef={adapterRef} />);
+
+    await expect(requestAdmission('replaced')).resolves.toBe('blocked');
+    expect(screen.queryByText('Stop and save?')).not.toBeInTheDocument();
+    expect(deps.stopRecording).not.toHaveBeenCalled();
+  });
+
+  it('lets the shell replace a Record page that is not recording', async () => {
+    render(<Harness dependencies={dependencies({ getRecordingSnapshot: vi.fn(async () => null) })} lifecycleRef={adapterRef} />);
+
+    await expect(requestAdmission('replaced')).resolves.toBe('allow');
+  });
+
   it.each([
     ['Cancel', 'blocked'],
     ['Stop', 'allow'],

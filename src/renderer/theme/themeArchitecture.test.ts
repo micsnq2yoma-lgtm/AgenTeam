@@ -97,7 +97,6 @@ describe('Theme architecture guardrails', () => {
 
     expect(consumers).toEqual([
       'src/renderer/components/CustomTitleBar.tsx',
-      'src/renderer/components/TabBar.tsx',
       'src/renderer/components/global-sidebar/GlobalSidebar.tsx',
     ]);
   });

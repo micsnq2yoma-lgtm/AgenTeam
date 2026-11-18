@@ -28,7 +28,9 @@ interface ConfirmationState {
   resolve: (result: TabCloseAdmission) => void;
 }
 
-export type RecordTabCloseReason = 'user' | 'record-deleted';
+/** `replaced`: the single-page shell is moving to another page. A live
+ *  recording keeps its Record tab alive (hidden) instead of prompting. */
+export type RecordTabCloseReason = 'user' | 'record-deleted' | 'replaced';
 
 export function useRecordTabLifecycle(dependencies: RecordLifecycleDependencies): {
   adapter: TabLifecycleAdapter<RecordTab, RecordTabCloseReason>;
@@ -61,6 +63,7 @@ export function useRecordTabLifecycle(dependencies: RecordLifecycleDependencies)
         return 'blocked';
       }
       if (active?.recordId !== tab.recordId) return 'allow';
+      if (reason === 'replaced') return 'blocked';
       return new Promise<TabCloseAdmission>((resolve) => {
         setConfirmation({ tab, snapshot: active, loading: false, resolve });
       });

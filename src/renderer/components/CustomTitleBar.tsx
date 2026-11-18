@@ -22,7 +22,8 @@ import { useTranslation } from 'react-i18next';
 import { isTauri } from '@/api/tauriClient';
 
 interface CustomTitleBarProps {
-    children: ReactNode;  // TabBar component
+    /** Optional titlebar content; without it the whole middle stays draggable. */
+    children?: ReactNode;
     /** Whether an update is ready to install */
     updateReady?: boolean;
     /** Version of the update ready to install */
@@ -171,10 +172,13 @@ export default function CustomTitleBar({
                 />
             )}
 
-            {/* Tabs area: owns the available titlebar slot; TabBar leaves unused space draggable internally. */}
-            <div className="flex h-full min-w-0 flex-1 items-center overflow-hidden" data-no-drag>
-                {children}
-            </div>
+            {children ? (
+                <div className="flex h-full min-w-0 flex-1 items-center overflow-hidden" data-no-drag>
+                    {children}
+                </div>
+            ) : (
+                <TitlebarDragSpacer className="min-w-0 flex-1" />
+            )}
 
             {/* Right-edge drag target. Kept fixed so crowded tabs never cover it. */}
             <TitlebarDragSpacer style={{ width: EDGE_DRAG_REGION_WIDTH }} />

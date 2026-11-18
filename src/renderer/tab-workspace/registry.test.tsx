@@ -195,7 +195,6 @@ describe('tab module registry', () => {
         modules,
         initialTabs: [article],
         initialActiveTabId: article.id,
-        maxTabs: 3,
         createId: () => 'unused',
         isLastTabProtected: () => false,
       }),
@@ -227,7 +226,6 @@ describe('tab module registry', () => {
         modules,
         initialTabs: [dashboard],
         initialActiveTabId: dashboard.id,
-        maxTabs: 3,
         createId: () => `downstream-${++nextId}`,
         isLastTabProtected: () => false,
       });

@@ -40,7 +40,6 @@ export interface TabState {
   activeTabId: string | null;
 }
 
-export const MAX_TABS = 12;
 
 export function generateTabId(): string {
   return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

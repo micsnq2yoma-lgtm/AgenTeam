@@ -75,7 +75,6 @@
     "updateInstallBlocked": "Background services are still exiting. The update is saved; try again shortly or after restarting Windows.",
     "updateInstallFailed": "Update installation failed. Try again or check manually in Settings.",
     "backgroundCompletion": "AI will continue in the background",
-    "maxTabsReached": "Tab limit reached. Please close some tabs and try again.",
     "codexSessionCreateFailed": "Failed to create Codex session",
     "launchFailed": "Launch failed: {{message}}",
     "recordingStartFailed": "Could not start recording: {{message}}",
