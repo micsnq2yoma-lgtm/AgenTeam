@@ -1,4 +1,4 @@
-param([switch]$Rehearse)
+param([switch]$Rehearse,[switch]$Preflight)
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:GITHUB_REPOSITORY -ne 'micsnq2yoma-lgtm/AgenTeam' -or $env:RUNNER_OS -ne 'Windows') {throw 'Requires the disposable release runner'}
 $root = $env:QA_ROOT
@@ -23,6 +23,7 @@ $key = Join-Path $root 'localhost.key'
 if ($LASTEXITCODE -ne 0) { throw 'Localhost test certificate generation failed' }
 certutil -user -addstore Root $cert | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Could not trust this localhost leaf certificate on this one-off runner' }
+if ($Preflight) { & node './qa/upgrade.cjs' --preflight; exit $LASTEXITCODE }
 & node './qa/upgrade.cjs'
 $driverExit = $LASTEXITCODE
 if ($driverExit -eq 0) {
