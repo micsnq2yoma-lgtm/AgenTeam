@@ -931,12 +931,7 @@ pub fn cmd_prepare_team_folder<R: Runtime>(
         adopt_existing,
         assistant_template_id
     );
-    prepare_team_folder_with_home(
-        &dest_path,
-        adopt_existing,
-        assistant_src.as_deref(),
-        &home,
-    )
+    prepare_team_folder_with_home(&dest_path, adopt_existing, assistant_src.as_deref(), &home)
 }
 
 fn prepare_team_folder_with_home(
@@ -4000,7 +3995,10 @@ mod team_folder_tests {
         let dest = root.path().join("teams/alpha");
         let path = dest.to_string_lossy().to_string();
         prepare_team_folder_with_home(&path, false, Some(&src), root.path()).unwrap();
-        assert_eq!(fs::read_to_string(dest.join("CLAUDE.md")).unwrap(), "assistant");
+        assert_eq!(
+            fs::read_to_string(dest.join("CLAUDE.md")).unwrap(),
+            "assistant"
+        );
         assert!(dest.join(".claude/rules/01-IDENTITY.md").is_file());
     }
 
