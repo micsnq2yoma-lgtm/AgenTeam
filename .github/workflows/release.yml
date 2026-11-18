@@ -72,6 +72,12 @@ jobs:
           foreach ($resource in 'server-dist.js','nodejs/node.exe','cli','document-processing','speech-inference') {
             if (!(Test-Path -LiteralPath (Join-Path $target $resource))) { throw "Missing installed resource $resource" }
           }
+          $legalFiles = node scripts/verify-license-contract.mjs --list-legal-files
+          if ($LASTEXITCODE -ne 0 -or !$legalFiles) { throw 'Cannot enumerate required notices' }
+          foreach ($file in $legalFiles) {
+            $installedNotice = Join-Path $target "legal/$file"
+            if ((Get-FileHash -LiteralPath $installedNotice).Hash -ne (Get-FileHash -LiteralPath $file).Hash) { throw "Installed legal notice differs: $file" }
+          }
           $app = Start-Process -FilePath $exe.FullName -PassThru -WindowStyle Hidden
           $lock = Join-Path $env:USERPROFILE '.agenteam/app.lock'
           try {

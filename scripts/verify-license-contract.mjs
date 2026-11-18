@@ -39,9 +39,6 @@ const cargo = read('src-tauri/Cargo.toml');
 const cargoLock = read('src-tauri/Cargo.lock');
 const license = read('LICENSE');
 const readme = read('README.md');
-const settingsPage = read('src/renderer/pages/settings/SettingsPage.tsx');
-const settingsZh = read('src/renderer/i18n/locales/zh-CN/settings.json');
-const settingsEn = read('src/renderer/i18n/locales/en-US/settings.json');
 const expectedVersion = packageJson.version;
 const versionParts = expectedVersion.split('.').map(Number);
 
@@ -73,14 +70,9 @@ requireEqual(
 );
 requireContains('README license identifier', readme, expectedLicense);
 requireContains('README commercial contact', readme, expectedEmail);
-requireContains('Settings commercial contact', settingsPage, `mailto:${expectedEmail}`);
-requireContains('Settings version-pinned source revision', settingsPage, '`v${appVersion}`');
-requireContains('Settings license link', settingsPage, '/blob/${sourceRevision}/LICENSE');
-requireContains('Settings third-party notices link', settingsPage, '/blob/${sourceRevision}/THIRD_PARTY_NOTICES.md');
-requireContains('Chinese Settings license copy', settingsZh, expectedLicense);
-requireContains('English Settings license copy', settingsEn, expectedLicense);
-requireContains('Chinese Settings localized footer', settingsZh, 'licensingCopyright');
-requireContains('English Settings localized footer', settingsEn, 'licensingCopyright');
+for (const path of ['LICENSE', 'LICENSING.md', 'COMMERCIAL-LICENSING.md', 'THIRD_PARTY_NOTICES.md']) {
+  requireContains(`README link to ${path}`, readme, `](${path})`);
+}
 
 if (
   versionParts.length !== 3
@@ -113,4 +105,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`License contract verified: MyAgents ${expectedVersion} (${expectedLicense})`);
+console.log(`License contract verified: ${tauri.productName} ${expectedVersion} (${expectedLicense})`);
