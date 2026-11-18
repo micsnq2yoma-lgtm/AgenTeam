@@ -57,7 +57,7 @@ async function seed() {
   const now=new Date().toISOString();
   await write(path.join(profile,'config.json'), JSON.stringify({uiLanguage:'en-US',appearanceMode:'dark',minimizeToTray:false}));
   await write(path.join(profile,'projects.json'), JSON.stringify([{id:project,name:'Upgrade QA',displayName:'Upgrade QA',path:workspace,providerId:null,permissionMode:null,lastOpened:now}]));
-  await write(path.join(profile,'sessions.json'), JSON.stringify([{id:session,title,agentDir:workspace,createdAt:now,lastActiveAt:now}]));
+  await write(path.join(profile,'sessions.json'), JSON.stringify([{id:session,title:'Initial fixture title',agentDir:workspace,createdAt:now,lastActiveAt:now}]));
   await write(fixturePaths.transcript, JSON.stringify({id:'9d5f44ad-7d40-45b7-af33-4c78c41b7796',role:'user',content:marker,timestamp:now})+'\n');
   await write(fixturePaths.skill,'---\nname: qa-preserve\ndescription: upgrade test\n---\n'+marker+'\n');
   await write(fixturePaths.command,'Summarize this test note: '+marker+'\n');
@@ -93,11 +93,11 @@ async function snapshot(page,stage) {
       const result=JSON.parse(response.body);
       const messages=result.session?.messages || [];
       const pref=JSON.parse(localStorage.getItem(preference)||'{}');
-      return {title:row?.title,content:messages.find(m=>m.role==='user')?.content,
+      return {title:row?.title,favorite:row?.favorite,content:messages.find(m=>m.role==='user')?.content,
         language:document.documentElement.lang,scheme:document.documentElement.dataset.colorScheme,
         width:pref.expandedWidth,webviewMarker:localStorage.getItem('agenteam-upgrade-qa')};
     },{session,workspace,preference});
-    assert.equal(state.title,title); assert.equal(state.content,marker);
+    assert.equal(state.title,title); assert.equal(state.favorite,true); assert.equal(state.content,marker);
     assert.equal(state.language,'en-US'); assert.equal(state.scheme,'dark');
     assert.equal(state.webviewMarker,marker); assert.equal(state.width,311);
     return state;
@@ -149,6 +149,17 @@ async function main(){
   await seed();
   const original=launch();
   const first=await connect('0.6.0');
+  await poll('rename and favorite the conversation in the original running application',async()=>{
+    const status=await first.page.evaluate(async({session,title})=>{
+      const response=await window.__TAURI_INTERNALS__.invoke('global_sidecar_http_request',{
+        request:{method:'PATCH',path:'/sessions/'+session,headers:{'content-type':'application/json'},
+          body:JSON.stringify({title,titleSource:'user',favorite:true})}
+      });
+      return response.status;
+    },{session,title});
+    assert.equal(status,200);
+    return true;
+  });
   await first.page.evaluate(({key,marker})=>{
     const pref=JSON.parse(localStorage.getItem(key)||'{}');
     localStorage.setItem(key,JSON.stringify({...pref,version:1,preferredMode:'expanded',expandedWidth:311,expandedWorkspaceKeys:[],hasSeededDefaultExpansion:true,showAutomationSessions:false,sessionView:'all'}));
