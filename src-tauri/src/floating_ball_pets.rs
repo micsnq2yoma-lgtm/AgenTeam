@@ -35,7 +35,8 @@ const CODEX_ANIMATION_NAMES: [&str; 9] = [
     "running",
     "review",
 ];
-const RESERVED_BUILTIN_PET_IDS: [&str; 3] = ["mino-default", "mino-mono", "mino-focus"];
+/// Builtin pack ids; an imported pack must not shadow them.
+const RESERVED_BUILTIN_PET_IDS: [&str; 1] = ["atmer"];
 const PETDEX_HOSTS: [&str; 2] = ["petdex.dev", "www.petdex.dev"];
 const PETDEX_ASSETS_HOST: &str = "assets.petdex.dev";
 

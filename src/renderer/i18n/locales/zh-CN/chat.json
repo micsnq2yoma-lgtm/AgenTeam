@@ -14,14 +14,13 @@
   },
   "input": {
     "launcherPlaceholder": "今天，想干点啥？",
-    "placeholder": "输入消息，使用 @ 引用文件，/ 使用技能...",
-    "companionPlaceholder": "问问 Mino，或者派个活…",
+    "placeholder": "输入消息，使用 @ 提及 Agent，/ 使用技能...",
+    "companionPlaceholder": "问问小 T，或者派个活…",
     "addScreenshot": "添加屏幕截图",
     "send": "发送",
     "stop": "停止",
     "stopRetry": "停止重试",
     "currentModel": "当前模型",
-    "workspaceRoot": "工作区根目录",
     "modelDefault": "默认",
     "selectModel": "选择模型",
     "modelCatalogLoading": "正在加载模型列表…",
@@ -41,9 +40,10 @@
     "providerUnavailableDefault": "请前往设置页面设置模型供应商",
     "deleteImage": "删除图片",
     "addContext": "添加上下文",
-    "referenceFile": "引用文件",
     "useSkill": "使用技能",
     "uploadFile": "上传文件",
+    "referenceFolder": "选文件夹",
+    "createProject": "创建项目",
     "permissionModeTitle": "切换执行模式",
     "permissionModeHeader": "会话模式",
     "agentSettings": "Agent 设置",
@@ -99,12 +99,11 @@
     "undoFilesPartial": "已撤销 {{successCount}} 个文件，{{failCount}} 个文件删除失败",
     "undoReferenceOnly": "已移除引用，但文件删除失败",
     "mention": {
-      "workspaceFiles": "工作区文件",
+      "workspaceFiles": "项目文件",
       "thoughts": "记录",
       "switchHint": "⌘/Ctrl + ←/→ 切换",
-      "filePlaceholder": "搜索 Agent、想法或文件…",
+      "filePlaceholder": "搜索 Agent 或想法…",
       "searching": "搜索中...",
-      "noFiles": "未找到文件",
       "emptyThoughts": "暂无记录，先在「任务中心」保存一条吧",
       "noThoughtMatchesPrefix": "没有匹配",
       "noThoughtMatchesSuffix": "的记录",
@@ -113,8 +112,7 @@
       "thoughtSoftCap": "已显示前 {{count}} 条匹配，请输入更精确的关键词",
       "group": {
         "agent": "Agent",
-        "thought": "想法",
-        "file": "文件"
+        "thought": "想法"
       },
       "results": "提及选项",
       "local": "本机",
@@ -132,11 +130,11 @@
     "permissionModes": {
       "approval-required": {
         "label": "请求批准",
-        "description": "工作区内行动，使用工具需审批"
+        "description": "项目内行动，使用工具需审批"
       },
       "workspace-autonomous": {
-        "label": "工作区自主",
-        "description": "工作区内无限制，无需审批"
+        "label": "项目自主",
+        "description": "项目内无限制，无需审批"
       },
       "full-autonomous": {
         "label": "完全自主",
@@ -144,7 +142,7 @@
       },
       "auto": {
         "label": "请求批准",
-        "description": "工作区内行动，使用工具需审批"
+        "description": "项目内行动，使用工具需审批"
       },
       "plan": {
         "label": "规划",
@@ -176,7 +174,7 @@
       },
       "auto-edit": {
         "label": "请求批准",
-        "description": "工作区内自动执行；联网或修改外部文件时请求批准"
+        "description": "项目内自动执行；联网或修改外部文件时请求批准"
       },
       "full-auto": {
         "label": "帮我批准",
@@ -207,23 +205,26 @@
       "previewFailed": "图片 \"{{name}}\" 预览地址生成失败",
       "oversizedImageAsFile": "图片超过 10MB，请使用“上传文件”或从文件夹拖入以作为 @文件 引用",
       "oversizedImagesAsFile": "{{count}} 张图片超过 10MB，请使用“上传文件”或从文件夹拖入以作为 @文件 引用",
-      "imageUnderstandingNotReady": "当前模型不支持图片，图片已作为工作区文件添加；图片理解未就绪，Agent 可能无法读取。请启用并配置图片理解，或切换支持图片的模型。",
+      "imageUnderstandingNotReady": "当前模型不支持图片，图片已作为项目文件添加；图片理解未就绪，Agent 可能无法读取。请启用并配置图片理解，或切换支持图片的模型。",
       "desktopRequiredForUpload": "无法上传文件：当前为浏览器开发模式，请使用桌面应用",
-      "selectWorkspaceForUpload": "无法上传文件：请先选择工作区",
+      "selectWorkspaceForUpload": "无法上传文件：请先选择项目",
       "uploadFailed": "上传失败",
-      "filesAdded": "已添加 {{count}} 个文件到工作区",
+      "filesAdded": "已添加 {{count}} 个文件到项目",
       "fileUploadFailed": "文件上传失败",
       "desktopRequiredForProcess": "无法处理文件：当前为浏览器开发模式，请使用桌面应用",
-      "selectWorkspaceForProcess": "无法处理文件：请先选择工作区",
+      "selectWorkspaceForProcess": "无法处理文件：请先选择项目",
       "sessionNotReadyForImage": "无法添加图片：当前会话尚未就绪",
       "oversizedImageAddedAsReference": "图片超过 10MB，已作为文件引用添加",
       "oversizedImagesAddedAsReference": "{{count}} 张图片超过 10MB，已作为文件引用添加",
       "copyFailed": "复制失败",
       "noFilesCopied": "没有文件被成功复制",
-      "filesAddedPartial": "已添加 {{successCount}}/{{totalCount}} 个文件到工作区",
+      "filesAddedPartial": "已添加 {{successCount}}/{{totalCount}} 个文件到项目",
       "fileCopyFailed": "文件复制失败",
       "pickFilesTitle": "选择文件",
-      "pickFilesFailed": "选择文件失败"
+      "pickFilesFailed": "选择文件失败",
+      "pickFolderTitle": "选择要在对话中引用的文件夹",
+      "pickFolderFailed": "选择文件夹失败",
+      "folderDesktopOnly": "选择文件夹需要在桌面版中使用"
     },
     "repetition": {
       "title": "检测到内容存在大量重复",
@@ -259,15 +260,15 @@
       "thinkingDone": "思考了 {{seconds}}s",
       "background": "后台"
     },
-    "watchingApp": "Mino · 正在看 {{appName}}",
-    "watchingAppWindow": "Mino · 正在看 {{appName}} — {{windowTitle}}",
+    "watchingApp": "小 T · 正在看 {{appName}}",
+    "watchingAppWindow": "小 T · 正在看 {{appName}} — {{windowTitle}}",
     "chrome": {
       "openPetSettings": "打开桌面宠物设置",
       "openInMyAgents": "在 AgenTeam 中打开（新 Tab 接上这条会话）",
       "closeEsc": "关闭（Esc）"
     },
     "connecting": "正在连接 {{workspace}}…",
-    "processing": "Mino 正在处理…",
+    "processing": "小 T 正在处理…",
     "axPrompt": "授权「辅助功能」后，唤起时能自动带上你选中的文字（一次授权，长期有效）。",
     "grantAccessibility": "去授权",
     "removeQuote": "去掉引用",
@@ -276,16 +277,16 @@
     "toasts": {
       "maxImages": "最多只能上传 {{count}} 张图片",
       "cannotUploadDevMode": "无法上传文件：当前为浏览器开发模式，请使用桌面应用",
-      "cannotUploadNoWorkspace": "无法上传文件：请先选择工作区",
-      "filesAdded": "已添加 {{count}} 个文件到工作区",
+      "cannotUploadNoWorkspace": "无法上传文件：请先选择项目",
+      "filesAdded": "已添加 {{count}} 个文件到项目",
       "fileUploadFailed": "文件上传失败",
       "cannotProcessDevMode": "无法处理文件：当前为浏览器开发模式，请使用桌面应用",
-      "cannotProcessNoWorkspace": "无法处理文件：请先选择工作区",
+      "cannotProcessNoWorkspace": "无法处理文件：请先选择项目",
       "filesNotAdded": "{{count}} 个文件未能添加",
       "fileProcessFailed": "文件处理失败",
       "imageTooLargeAsFile": "图片超过 10MB，请从文件夹拖入以作为 @文件 引用",
       "imagesTooLargeAsFile": "{{count}} 张图片超过 10MB，请从文件夹拖入以作为 @文件 引用",
-      "imageConvertedToFile": "当前模型不支持图片输入，已转为文件存入工作区供模型读取",
+      "imageConvertedToFile": "当前模型不支持图片输入，已转为文件存入项目供模型读取",
       "unsupportedImageFormat": "不支持的图片格式：{{name}}",
       "imageTooLargeAddedAsFile": "图片超过 10MB，已作为文件引用添加",
       "imagesTooLargeAddedAsFile": "{{count}} 张图片超过 10MB，已作为文件引用添加",
@@ -355,10 +356,10 @@
       }
     },
     "directory": {
-      "title": "工作区",
-      "collapseWorkspace": "收起工作区",
-      "expandWorkspace": "展开工作区",
-      "foldWorkspace": "折叠工作区",
+      "title": "项目",
+      "collapseWorkspace": "收起项目",
+      "expandWorkspace": "展开项目",
+      "foldWorkspace": "折叠项目",
       "fileSearch": "文件搜索",
       "closeSearch": "关闭搜索",
       "showTerminal": "显示终端",
@@ -424,7 +425,7 @@
     },
     "search": {
       "searching": "搜索中...",
-      "searchInWorkspace": "在当前工作区中搜索",
+      "searchInWorkspace": "在当前项目中搜索",
       "fileNameAndContent": "文件夹、文件名和文件内容",
       "zeroResults": "0 个结果",
       "refreshingSuffix": " · 正在更新索引...",
@@ -497,7 +498,7 @@
       }
     },
     "history": {
-      "title": "工作区历史记录",
+      "title": "项目历史记录",
       "loading": "加载中...",
       "empty": "暂无历史记录",
       "current": "当前",
@@ -564,8 +565,8 @@
       "cancelQueued": "取消排队"
     },
     "permissionPrompt": {
-      "sandboxTitle": "工作区外写入请求",
-      "sandboxSubtitle": "仅允许当前这次操作突破工作区写入限制",
+      "sandboxTitle": "项目外写入请求",
+      "sandboxSubtitle": "仅允许当前这次操作突破项目写入限制",
       "sandboxScope": "本次批准只用于当前操作，不改变会话权限模式。",
       "commandTitle": "{{shell}} 执行请求",
       "awaitingApproval": "等待确认",
@@ -574,7 +575,7 @@
       "collapseCommand": "收起命令",
       "allowOnce": "允许一次",
       "cwd": "执行目录",
-      "sessionWorkspaceScope": "“始终允许”会在当前会话内，同时允许此工作区中的其他 Bash 命令。",
+      "sessionWorkspaceScope": "“始终允许”会在当前会话内，同时允许此项目中的其他 Bash 命令。",
       "sessionRuleScope": "“始终允许”：在当前会话及其子 Agent 中，允许 {{tool}} 对相同目标 {{target}} 的操作。",
       "progress": "权限审批 {{index}} / {{total}}",
       "title": "权限请求",
@@ -948,11 +949,11 @@
       "newChat": "新建任务",
       "newChatShort": "新任务",
       "history": "历史",
-      "expandWorkspace": "展开工作区"
+      "expandWorkspace": "展开项目"
     },
     "currentChatFallback": "此任务",
     "dropZone": {
-      "message": "松手将文件加入工作区",
+      "message": "松手将文件加入项目",
       "subtitle": "非图片文件将复制到 myagents_files 并自动引用"
     },
     "boot": {
@@ -1035,8 +1036,8 @@
       },
       "codexRewind": {
         "title": "时间回溯",
-        "message": "对话将回到本次提问之前。工作区文件不会自动恢复，当前文件修改会保留。",
-        "messageWithDraft": "对话将回到本次提问之前。工作区文件不会自动恢复，当前文件修改会保留。当前未发送的草稿和图片将被本次提问替换。",
+        "message": "对话将回到本次提问之前。项目文件不会自动恢复，当前文件修改会保留。",
+        "messageWithDraft": "对话将回到本次提问之前。项目文件不会自动恢复，当前文件修改会保留。当前未发送的草稿和图片将被本次提问替换。",
         "confirm": "仅回溯对话"
       },
       "fork": {
@@ -1050,7 +1051,7 @@
       "composerLockedByGoal": "当前会话处于目标模式，目标停止后可修改此设置",
       "providerUnavailable": "当前会话指定的 Provider「{{providerId}}」不可用（缺少 API Key 或已被禁用）。请在设置中补充密钥，或在模型选择器中切换 Provider 后再发送。",
       "snapshotProviderIncomplete": "这个历史会话缺少 Provider 信息，请先在模型选择器里重新选择一次模型。",
-      "previewWorkspaceUnavailable": "无法打开预览：工作区文件服务不可用",
+      "previewWorkspaceUnavailable": "无法打开预览：项目文件服务不可用",
       "previewUnsupportedType": "这个文件类型暂不支持 AgenTeam 预览",
       "previewOpenFailed": "打开文件预览失败",
       "autoSendRestoredDraft": "发送失败，已恢复草稿，请重试",
@@ -1081,7 +1082,7 @@
       "unknownError": "未知错误",
       "rewindFailedWithError": "时间回溯失败：{{error}}",
       "rewindFailedRetry": "时间回溯失败，请重试",
-      "codexRewindSuccess": "对话已回溯；工作区文件保持当前状态。",
+      "codexRewindSuccess": "对话已回溯；项目文件保持当前状态。",
       "codexRestoreFailed": "对话已回溯，但 Codex 需要重启后才能继续。",
       "codexRewindReconciled": "连接曾中断，已按本地历史重新同步对话；请确认当前记录后再继续。",
       "conversationError": {
@@ -1095,8 +1096,8 @@
         "unsupported_runtime": "当前 Runtime 不支持此操作。"
       },
       "rewindPartialLinks": "对话已回溯，但为保证安全，有 {{count}} 个链接文件未恢复。",
-      "rewindFilesFailed": "对话已回溯，但工作区文件恢复失败，文件保持当前状态。",
-      "rewindFilesNotAttempted": "对话已回溯，但没有可用的文件检查点，工作区文件保持当前状态。",
+      "rewindFilesFailed": "对话已回溯，但项目文件恢复失败，文件保持当前状态。",
+      "rewindFilesNotAttempted": "对话已回溯，但没有可用的文件检查点，项目文件保持当前状态。",
       "retryFailedWithError": "重试失败：{{error}}",
       "retryFailed": "重试失败",
       "forkOpenFailed": "创建分支失败：无法打开新会话",

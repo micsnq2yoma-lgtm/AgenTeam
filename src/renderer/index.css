@@ -243,6 +243,7 @@
 :root {
   /* agent-icon hues */
   --agent-icon-brand: var(--accent);
+  --agent-icon-coral: #e3876a;
   --agent-icon-clay: #c4613d;
   --agent-icon-amber: #c98f1f;
   --agent-icon-olive: #7f8f2e;
@@ -260,6 +261,7 @@
 html[data-color-scheme='dark'] {
   /* agent-icon hues */
   --agent-icon-brand: var(--accent);
+  --agent-icon-coral: #e3876a;
   --agent-icon-clay: #d9774f;
   --agent-icon-amber: #d9a33a;
   --agent-icon-olive: #99aa45;
@@ -507,7 +509,7 @@ html[data-color-scheme='dark'] .agenteam-wordmark {
    is the brand anchor, so it renders larger than
    the Theme's title size without touching Theme packages. */
 .theme-launcher-hero .theme-launcher-hero-title .agenteam-wordmark {
-  font-size: 1.4em;
+  font-size: 1.75em;
 }
 
 .launcher-slogan-mark {

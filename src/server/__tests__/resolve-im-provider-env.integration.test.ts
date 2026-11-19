@@ -53,7 +53,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         providerId: 'deepseek',
@@ -91,7 +91,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         providerId: 'deepseek',
@@ -120,7 +120,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         providerId: 'deepseek',
@@ -140,7 +140,7 @@ describe('resolveImProviderEnv (#237)', () => {
       defaultProviderId: 'deepseek',
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         model: 'deepseek-v4-pro',
@@ -159,7 +159,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: '/other/path',
         providerId: 'deepseek',
@@ -209,7 +209,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         providerId: 'deepseek',
@@ -237,7 +237,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         providerId: 'deepseek',
@@ -264,7 +264,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: winPath,
         providerId: 'deepseek',
@@ -285,7 +285,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         providerId: 'deepseek',
@@ -313,7 +313,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         providerId: 'deepseek',
@@ -343,7 +343,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         providerId: 'deepseek',
@@ -372,7 +372,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         providerId: 'deepseek',
@@ -398,7 +398,7 @@ describe('resolveImProviderEnv (#237)', () => {
     writeConfig({
       agents: [{
         id: 'agent-1',
-        name: 'Mino',
+        name: 'Atmer',
         enabled: true,
         workspacePath: AGENT_WORKSPACE,
         providerId: 'codex-sub',

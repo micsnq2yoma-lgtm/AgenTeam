@@ -86,6 +86,8 @@ export const CUSTOM_EVENTS = {
     OPEN_TASK_CENTER: 'open-task-center',
     /** Fired to open App's singleton Task creation overlay. */
     OPEN_TASK_CREATE: 'open-task-create',
+    /** Fired to open App's singleton 新建项目 panel (e.g. from the composer + menu). */
+    OPEN_NEW_PROJECT: 'open-new-project',
     /** Fired to open the Team Space singleton tab when the build/runtime gates allow it. */
     /** App-owned navigation intent from a validated content link. Payload: AppRoute. */
     OPEN_APP_ROUTE: 'open-app-route',

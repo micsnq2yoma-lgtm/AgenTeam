@@ -3,7 +3,7 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { i18n } from '@/i18n';
 import { isTauriEnvironment } from '@/utils/browserMock';
 
-import { BUILTIN_PET_PACKS, MINO_DEFAULT_PET_PACK, normalizeBuiltinPetPackId } from './defaultPetPack';
+import { BUILTIN_PET_PACKS, ATMER_PET_PACK, normalizeBuiltinPetPackId } from './defaultPetPack';
 import { normalizePetManifest, type PetPack } from './petAtlas';
 
 export interface InstalledPetRecord {
@@ -107,5 +107,5 @@ export async function resolveSelectedPetPack(petId: string | null | undefined): 
         }
     }
 
-    return MINO_DEFAULT_PET_PACK;
+    return ATMER_PET_PACK;
 }

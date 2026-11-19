@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
  */
 export const WORKSPACE_ICON_HUES = [
   'brand',
+  'coral',
   'sky',
   'amber',
   'clay',
@@ -43,6 +44,14 @@ export const WORKSPACE_ICON_GLYPHS = {
     body: 'M3 6a2.25 2.25 0 0 1 2.25-2.25h2.6c.5 0 .98.2 1.33.55l1.07 1.07c.35.35.83.55 1.33.55h3.17A2.25 2.25 0 0 1 17 8.17v5.83a2.25 2.25 0 0 1-2.25 2.25h-9.5A2.25 2.25 0 0 1 3 14z',
     line: <path d="M3 6a2.25 2.25 0 0 1 2.25-2.25h2.6c.5 0 .98.2 1.33.55l1.07 1.07c.35.35.83.55 1.33.55h3.17A2.25 2.25 0 0 1 17 8.17v5.83a2.25 2.25 0 0 1-2.25 2.25h-9.5A2.25 2.25 0 0 1 3 14z" />,
     accent: <path d="M10 8.50l0.73 1.87 1.87 0.73-1.87 0.73-0.73 1.87-0.73-1.87-1.87-0.73 1.87-0.73z" />,
+  },
+  // The coral serif T from the AgenTeam wordmark on the lead agent's rounded
+  // tile; the default assistant (小 T) wears it.
+  'agenteam-t': {
+    hue: 'coral',
+    body: 'M7 3.25h6a3.75 3.75 0 0 1 3.75 3.75v6A3.75 3.75 0 0 1 13 16.75H7A3.75 3.75 0 0 1 3.25 13V7A3.75 3.75 0 0 1 7 3.25z',
+    line: <path d="M7 3.25h6a3.75 3.75 0 0 1 3.75 3.75v6A3.75 3.75 0 0 1 13 16.75H7A3.75 3.75 0 0 1 3.25 13V7A3.75 3.75 0 0 1 7 3.25z" />,
+    accent: <path d="M6.25 6h7.5v2.35h-.7l-.35-1h-1.75v5.9l1.05.4v.6h-4v-.6l1.05-.4v-5.9H7.3l-.35 1h-.7z" />,
   },
   robot: {
     hue: 'sky',

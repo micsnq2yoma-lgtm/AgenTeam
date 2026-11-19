@@ -3,13 +3,13 @@ import { resolveBoundWorkspace } from './workspaceBinding';
 
 const projects = [
     { path: '/home/u/projects/alpha', name: 'Alpha' },
-    { path: '/home/u/mino', name: 'Mino' },
+    { path: '/home/u/atmer', name: 'Atmer' },
     { path: '/home/u/projects/beta', name: 'Beta' },
 ];
 
 describe('resolveBoundWorkspace', () => {
     it('override 命中 → 钉死该工作区（优先于默认）', () => {
-        const r = resolveBoundWorkspace('/home/u/projects/beta', '/home/u/mino', projects);
+        const r = resolveBoundWorkspace('/home/u/projects/beta', '/home/u/atmer', projects);
         expect(r?.path).toBe('/home/u/projects/beta');
     });
 
@@ -23,12 +23,12 @@ describe('resolveBoundWorkspace', () => {
         expect(r?.path).toBe('/home/u/projects/alpha');
     });
 
-    it('无 override、无默认 → /mino 后缀兜底', () => {
+    it('无 override、无默认 → /atmer 后缀兜底', () => {
         const r = resolveBoundWorkspace(undefined, undefined, projects);
-        expect(r?.path).toBe('/home/u/mino');
+        expect(r?.path).toBe('/home/u/atmer');
     });
 
-    it('无 override、无默认、无 /mino → 第一个项目', () => {
+    it('无 override、无默认、无 /atmer → 第一个项目', () => {
         const noMino = [
             { path: '/home/u/projects/alpha', name: 'Alpha' },
             { path: '/home/u/projects/beta', name: 'Beta' },
@@ -36,9 +36,9 @@ describe('resolveBoundWorkspace', () => {
         expect(resolveBoundWorkspace(undefined, undefined, noMino)?.path).toBe('/home/u/projects/alpha');
     });
 
-    it('默认工作区指向已不存在的路径 → 落到 /mino 兜底', () => {
+    it('默认工作区指向已不存在的路径 → 落到 /atmer 兜底', () => {
         const r = resolveBoundWorkspace(null, '/home/u/gone', projects);
-        expect(r?.path).toBe('/home/u/mino');
+        expect(r?.path).toBe('/home/u/atmer');
     });
 
     it('空项目列表 → undefined（caller 抛"没有可用工作区"）', () => {

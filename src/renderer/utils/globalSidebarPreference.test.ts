@@ -9,8 +9,8 @@ import {
   loadGlobalSidebarPreference,
   parseGlobalSidebarPreference,
   pruneRemovedWorkspaceKeys,
+  resolveExpandedWorkspaceKeys,
   resolveGlobalSidebarMode,
-  seedDefaultWorkspaceExpansion,
 } from './globalSidebarPreference';
 
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -33,8 +33,8 @@ describe('globalSidebarPreference', () => {
   });
 
   it('upgrades old preferences without losing existing choices', () => {
-    const old = { version: 1, preferredMode: 'rail', hasSeededDefaultExpansion: true,
-      expandedWorkspaceKeys: ['/work/a'], showAutomationSessions: true, sessionView: 'favorites' };
+    const old = { version: 1, preferredMode: 'rail',
+      collapsedWorkspaceKeys: ['/work/a'], showAutomationSessions: true, sessionView: 'favorites' };
     expect(parseGlobalSidebarPreference(old)).toEqual({ ...old, expandedWidth: 256 });
     expect(parseGlobalSidebarPreference({ ...old, expandedWidth: 'broken' })).toEqual({ ...old, expandedWidth: 256 });
     const storage = memoryStorage();
@@ -67,33 +67,20 @@ describe('globalSidebarPreference', () => {
     });
   });
 
-  it('seeds only a valid default workspace and never reseeds after user ownership', () => {
-    const untouched = seedDefaultWorkspaceExpansion(
-      DEFAULT_GLOBAL_SIDEBAR_PREFERENCE,
-      '/work/mino',
-      ['/work/other'],
-    );
-    expect(untouched).toBe(DEFAULT_GLOBAL_SIDEBAR_PREFERENCE);
-
-    const seeded = seedDefaultWorkspaceExpansion(
-      DEFAULT_GLOBAL_SIDEBAR_PREFERENCE,
-      '/work/mino/',
-      ['/work/mino'],
-    );
-    expect(seeded.hasSeededDefaultExpansion).toBe(true);
-    expect(seeded.expandedWorkspaceKeys).toEqual(['/work/mino']);
-
-    const userCollapsed = { ...seeded, expandedWorkspaceKeys: [] };
-    expect(seedDefaultWorkspaceExpansion(userCollapsed, '/work/mino', ['/work/mino'])).toBe(userCollapsed);
+  it('shows every project expanded until the user folds it away', () => {
+    expect(resolveExpandedWorkspaceKeys(DEFAULT_GLOBAL_SIDEBAR_PREFERENCE, ['/work/a', '/work/b/']))
+      .toEqual(['/work/a', '/work/b']);
+    const folded = { ...DEFAULT_GLOBAL_SIDEBAR_PREFERENCE, collapsedWorkspaceKeys: ['/work/a'] };
+    expect(resolveExpandedWorkspaceKeys(folded, ['/work/a', '/work/b'])).toEqual(['/work/b']);
   });
 
   it('prunes removed workspaces and keeps automatic rail separate from preference', () => {
     const preference = {
       ...DEFAULT_GLOBAL_SIDEBAR_PREFERENCE,
       preferredMode: 'expanded' as const,
-      expandedWorkspaceKeys: ['/work/a', '/work/b'],
+      collapsedWorkspaceKeys: ['/work/a', '/work/b'],
     };
-    expect(pruneRemovedWorkspaceKeys(preference, ['/work/b']).expandedWorkspaceKeys).toEqual(['/work/b']);
+    expect(pruneRemovedWorkspaceKeys(preference, ['/work/b']).collapsedWorkspaceKeys).toEqual(['/work/b']);
     expect(resolveGlobalSidebarMode(preference.preferredMode, true)).toBe('rail');
     expect(resolveGlobalSidebarMode(preference.preferredMode, false)).toBe('expanded');
   });

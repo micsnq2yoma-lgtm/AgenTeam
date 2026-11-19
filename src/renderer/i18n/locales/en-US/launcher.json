@@ -1,18 +1,18 @@
 {
   "toasts": {
-    "workspaceAttachmentsCleared": "Workspace switched. Attachment drafts from the previous workspace were cleared.",
+    "workspaceAttachmentsCleared": "Project switched. Attachment drafts from the previous project were cleared.",
     "thoughtSaved": "Record saved. You can find it in Task Center.",
-    "runtimeNeedsAgent": "This workspace has no Agent configured, so Runtime cannot be changed.",
+    "runtimeNeedsAgent": "This project has no Agent configured, so Runtime cannot be changed.",
     "runtimeSwitchFailed": "Failed to switch Runtime. Please try again.",
     "runtimeUnavailable": "This Runtime artifact is unavailable or failed integrity checks. Repair or reinstall AgenTeam first.",
     "selectCompatibleProviderModel": "Select a Provider and model supported by this Runtime first.",
-    "setDefaultFailed": "Failed to set the default workspace. Please try again.",
-    "selectWorkspaceFirst": "Select a workspace first.",
+    "setDefaultFailed": "Failed to set the default project. Please try again.",
+    "selectWorkspaceFirst": "Select a project first.",
     "standaloneCronCreated": "Standalone scheduled task created. You can find it in Task Center.",
     "createCronFailed": "Failed to create scheduled task: {{message}}",
     "pinFailed": "Failed to save pinned state. Please try again.",
-    "workspaceArchived": "Workspace archived.",
-    "workspaceUnarchived": "Workspace unarchived.",
+    "workspaceArchived": "Project archived.",
+    "workspaceUnarchived": "Project unarchived.",
     "archiveFailed": "Archive failed. Please try again.",
     "unarchiveFailed": "Unarchive failed. Please try again.",
     "openFolderFailed": "Failed to open containing folder.",
@@ -20,8 +20,8 @@
   },
   "dialogs": {
     "pickProjectFolder": "Choose project folder",
-    "hideDefaultWorkspace": "Hide default workspace",
-    "removeWorkspace": "Remove workspace",
+    "hideDefaultWorkspace": "Hide default project",
+    "removeWorkspace": "Remove project",
     "hideWorkspaceMessage": "Hide \"{{name}}\"? Local files will not be deleted, and you can restore it later.",
     "removeWorkspaceMessage": "Remove \"{{name}}\" from the list? Project files will not be deleted.",
     "hide": "Hide",
@@ -42,7 +42,7 @@
     "retry": "Retry",
     "emptyFavorites": "No favorite tasks",
     "emptyHistory": "No task history",
-    "emptyWorkspaceHistory": "No task history in this workspace",
+    "emptyWorkspaceHistory": "No task history in this project",
     "loadMore": "Loading more...",
     "deleteDialogTitle": "Delete Task",
     "deleteDialogMessage": "Delete \"{{title}}\"? This cannot be undone.",
@@ -83,8 +83,8 @@
     "unpin": "Unpin",
     "archive": "Archive",
     "unarchive": "Unarchive",
-    "showArchived": "Show archived Agent workspaces",
-    "hideArchived": "Hide archived Agent workspaces",
+    "showArchived": "Show archived Agent projects",
+    "hideArchived": "Hide archived Agent projects",
     "archivedCount": "{{count}} archived",
     "archivedBadge": "Archived",
     "agentSettings": "Agent settings",
@@ -107,6 +107,8 @@
     "addTemplateDescription": "Save a local folder as a template and reuse it to create projects",
     "pickTemplateDirTitle": "Choose a folder to save as a template (it will be copied to the template library)",
     "pickParentDirTitle": "Choose where to save",
+    "pickNewFolderTitle": "New folder: choose a location and type its name",
+    "newFolderDefaultName": "new-project",
     "local": {
       "title": "Local project",
       "description": "Hand an existing folder on your computer to an Agent; it reads, writes files and codes inside it.",
@@ -119,8 +121,8 @@
       "capInstructionsMissingTitle": "No project instructions",
       "capInstructionsMissingDescription": "Add an AGENTS.md to the folder later to tell the Agent your project conventions"
     },
-    "mino": {
-      "title": "Personal assistant Mino",
+    "atmer": {
+      "title": "Personal assistant 小 T",
       "description": "An AI Agent that remembers and evolves. Starts minimal and grows into what you want.",
       "intro": "A long-term companion with a name, a personality and memory. In your first chat you'll spend about 5 minutes shaping its name and personality together; after that it keeps getting to know you better.",
       "capEvolveTitle": "Keeps evolving",
@@ -134,7 +136,7 @@
       "noDescription": "This template has no description yet.",
       "addDescription": "Add description",
       "capContentsTitle": "Template contents",
-      "capContentsDescription": "Everything here is copied into the new workspace on creation",
+      "capContentsDescription": "Everything here is copied into the new project on creation",
       "hint": "The template itself is not modified",
       "more": "More",
       "edit": "Edit template",
@@ -167,7 +169,8 @@
       "pickFailed": "Failed to choose folder: {{message}}",
       "addTemplateFailed": "Failed to add template: {{message}}",
       "updateTemplateFailed": "Failed to save template: {{message}}",
-      "deleteTemplateFailed": "Failed to delete template: {{message}}"
+      "deleteTemplateFailed": "Failed to delete template: {{message}}",
+      "folderExists": "That folder already exists. Choose another name, or pick \"Existing folder\"."
     },
     "team": {
       "title": "New project",
@@ -179,7 +182,6 @@
       "locationExisting": "Existing folder",
       "assistantTitle": "Assistant mode",
       "assistantDescription": "Give the project a resident assistant with a name, a personality and memory",
-      "assistantIntro": "The project gets a resident assistant. In your first chat you'll spend about 5 minutes shaping its name and personality together; after that it keeps getting to know you better.",
       "plainIntro": "The project works directly in this folder, without the assistant persona or memory. Whatever you ask, it gives its all.",
       "capKeepFilesTitle": "Keeps your files",
       "capKeepFilesDescription": "Assistant persona and memory files are only added; files already in the folder are never overwritten"
@@ -194,11 +196,11 @@
     "setDefaultAria": "Set as default project: {{name}}"
   },
   "workspaceEdit": {
-    "title": "Edit Workspace",
+    "title": "Edit Project",
     "icon": "Icon",
     "defaultIcon": "Default icon",
     "name": "Name",
-    "namePlaceholder": "Workspace name",
+    "namePlaceholder": "Project name",
     "saving": "Saving...",
     "save": "Save",
     "cancel": "Cancel"

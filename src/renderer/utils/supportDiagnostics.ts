@@ -171,7 +171,7 @@ export function buildSupportDiagnosticsDescription(input: SupportDiagnosticsInpu
     '## 触发位置',
     `- 类型：${SOURCE_LABELS[input.source]}`,
     `- Session ID：${valueOrFallback(input.sessionId)}`,
-    `- 工作区：${valueOrFallback(sanitizePath(input.workspacePath, 500))}`,
+    `- 项目：${valueOrFallback(sanitizePath(input.workspacePath, 500))}`,
     `- Runtime：${valueOrFallback(input.runtime)}`,
   ];
 

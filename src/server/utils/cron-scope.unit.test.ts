@@ -3,23 +3,23 @@ import { buildCronScope } from './cron-scope';
 
 describe('buildCronScope', () => {
   it('echoes a default (silent) scope and nudges toward --workspace', () => {
-    const { scope, hint } = buildCronScope('C:/Users/me/projects/mino', false);
+    const { scope, hint } = buildCronScope('C:/Users/me/projects/atmer', false);
     expect(scope).toEqual({
-      workspacePath: 'C:/Users/me/projects/mino',
+      workspacePath: 'C:/Users/me/projects/atmer',
       source: 'default',
       visibility: 'single-workspace',
     });
     // The whole point of #320's secondary fix: the note must make clear the
     // result is workspace-scoped AND name the (only) broadening command.
-    expect(hint).toContain('C:/Users/me/projects/mino');
+    expect(hint).toContain('C:/Users/me/projects/atmer');
     expect(hint).toContain('其他工作区');
     expect(hint).toContain('myagents cron list --workspace');
   });
 
   it('drops the broaden nudge for an explicit --workspace caller (they already know)', () => {
-    const { scope, hint } = buildCronScope('C:/Users/me/projects/mino', true);
+    const { scope, hint } = buildCronScope('C:/Users/me/projects/atmer', true);
     expect(scope.source).toBe('explicit');
-    expect(hint).toContain('C:/Users/me/projects/mino');
+    expect(hint).toContain('C:/Users/me/projects/atmer');
     expect(hint).not.toContain('--workspace');
   });
 

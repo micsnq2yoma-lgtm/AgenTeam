@@ -892,16 +892,20 @@ async fn create_bot_instance_with_pending_cron_events<R: Runtime>(
     }
 
     // Determine default workspace (filter empty strings from frontend)
-    // Fallback chain: configured path → bundled mino → home dir
+    // Fallback chain: configured path → bundled atmer → home dir
     let default_workspace = config
         .default_workspace_path
         .as_ref()
         .filter(|p| !p.is_empty())
         .map(PathBuf::from)
         .unwrap_or_else(|| {
-            // Try bundled mino workspace first
+            // Try the bundled default assistant workspace first
             dirs::home_dir()
-                .map(|h| h.join(".agenteam").join("projects").join("mino"))
+                .map(|h| {
+                    crate::commands::default_assistant_workspace_dir(
+                        &h.join(".agenteam").join("projects"),
+                    )
+                })
                 .filter(|p| p.exists())
                 .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
         });

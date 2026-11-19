@@ -1074,7 +1074,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     // This ensures MCP and other global API calls work from any page
     void startGlobalSidecarSilent();
 
-    // NOTE: Bundled workspace (mino) initialization is handled by
+    // NOTE: Bundled workspace (atmer) initialization is handled by
     // ensureBundledWorkspace() inside ConfigProvider.load(), which runs
     // before loadProjects() to eliminate race conditions.
 
@@ -3505,6 +3505,16 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       })
       .catch(() => undefined);
   }, [openOrFocusRecord, tabWorkspaceController]);
+
+  // The composer + menu asks for the same 新建项目 panel the sidebar opens.
+  useEffect(() => {
+    const handleOpenNewProject = () => {
+      setNewAgentPurpose(undefined);
+      setNewAgentPanelOpen(true);
+    };
+    window.addEventListener(CUSTOM_EVENTS.OPEN_NEW_PROJECT, handleOpenNewProject);
+    return () => window.removeEventListener(CUSTOM_EVENTS.OPEN_NEW_PROJECT, handleOpenNewProject);
+  }, []);
 
   // Listen for OPEN_SETTINGS custom event from child components
   useEffect(() => {

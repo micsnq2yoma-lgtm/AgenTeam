@@ -14,7 +14,7 @@ vi.mock('./useAgentStatuses', () => ({
     statuses: {
       'agent-1': {
         agentId: 'agent-1',
-        agentName: 'mino',
+        agentName: 'atmer',
         enabled: false,
         channels: [{
           channelId: 'telegram-1',
@@ -32,7 +32,7 @@ vi.mock('./useConfig', () => ({
     config: {
       agents: [{
         id: 'agent-1',
-        name: 'mino',
+        name: 'atmer',
         enabled: false,
         permissionMode: 'auto',
         channels: [{ id: 'telegram-1', type: 'telegram', name: 'Telegram', enabled: true }],
@@ -40,8 +40,8 @@ vi.mock('./useConfig', () => ({
     },
     projects: [{
       id: 'project-1',
-      name: 'mino',
-      path: '/workspace/mino',
+      name: 'atmer',
+      path: '/workspace/atmer',
       agentId: 'agent-1',
       providerId: null,
       permissionMode: null,
@@ -51,7 +51,7 @@ vi.mock('./useConfig', () => ({
 
 describe('useDeliveryChannels', () => {
   it('keeps online Channels selectable while Proactive Agent is disabled', () => {
-    const { result } = renderHook(() => useDeliveryChannels('/workspace/mino'));
+    const { result } = renderHook(() => useDeliveryChannels('/workspace/atmer'));
 
     expect(result.current.hasChannels).toBe(true);
     expect(result.current.options.some(option => option.value === 'telegram-1')).toBe(true);

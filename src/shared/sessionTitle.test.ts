@@ -45,7 +45,7 @@ describe('stripSystemWrapper', () => {
   });
 
   it('strips HEARTBEAT markers', () => {
-    expect(stripSystemWrapper('<HEARTBEAT> mino，心跳唤醒，看看 wishpool')).toBe('mino，心跳唤醒，看看 wishpool');
+    expect(stripSystemWrapper('<HEARTBEAT> atmer，心跳唤醒，看看 wishpool')).toBe('atmer，心跳唤醒，看看 wishpool');
   });
 
   it('returns empty for whitespace / empty input', () => {

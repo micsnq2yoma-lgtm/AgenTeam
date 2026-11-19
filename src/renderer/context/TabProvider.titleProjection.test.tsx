@@ -115,7 +115,7 @@ function TitleHarness({ initialTitle = 'New Chat' }: { initialTitle?: string }) 
       <button type="button" onClick={() => setTitle('人工命名')}>manual rename</button>
       <TabProvider
         tabId="tab-title"
-        agentDir="/tmp/mino"
+        agentDir="/tmp/atmer"
         sessionId="pending-title"
         sessionTitle={title}
         onTitleChange={setTitle}
@@ -150,7 +150,7 @@ describe('TabProvider session title projection', () => {
     render(
       <TabProvider
         tabId="tab-title"
-        agentDir="/tmp/mino"
+        agentDir="/tmp/atmer"
         sessionId="pending-title"
         sessionTitle="New Chat"
         onTitleChange={onTitleChange}
@@ -234,7 +234,7 @@ describe('TabProvider session title projection', () => {
     render(
       <TabProvider
         tabId="tab-title"
-        agentDir="/tmp/mino"
+        agentDir="/tmp/atmer"
         sessionId="pending-title"
         sessionTitle="New Chat"
         onTitleChange={onTitleChange}
@@ -278,7 +278,7 @@ describe('TabProvider session title projection', () => {
           success: true,
           session: {
             id: 'session-title',
-            agentDir: '/tmp/mino',
+            agentDir: '/tmp/atmer',
             title: 'New Chat',
             createdAt: '2026-08-02T12:44:00.000Z',
             lastActiveAt: '2026-08-02T12:44:00.000Z',
@@ -297,7 +297,7 @@ describe('TabProvider session title projection', () => {
     render(
       <TabProvider
         tabId="tab-title"
-        agentDir="/tmp/mino"
+        agentDir="/tmp/atmer"
         sessionId="session-title"
         sessionTitle="New Chat"
         onTitleChange={onTitleChange}

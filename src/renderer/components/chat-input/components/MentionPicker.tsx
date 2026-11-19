@@ -3,7 +3,6 @@ import { useLayoutEffect, useRef, type KeyboardEventHandler } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveWorkspaceIconId } from "@/assets/workspace-icons";
 import WorkspaceIcon from "@/components/launcher/WorkspaceIcon";
-import { FileIcon } from "@/components/file-icon";
 import {
   findHighlightRanges,
   renderTextWithHighlights,
@@ -84,9 +83,7 @@ export function MentionPicker({
               </div>
               {picker.options(group).map((option) => {
                 const active = option.key === picker.selectedKey;
-                const isItem = ["agent", "thought", "file"].includes(
-                  option.kind,
-                );
+                const isItem = option.kind === "agent" || option.kind === "thought";
                 return (
                   <button
                     key={option.key}
@@ -135,22 +132,6 @@ export function MentionPicker({
                       </span>
                     ) : option.kind === "thought" ? (
                       <ThoughtPickerRow thought={option.value} query={query} />
-                    ) : option.kind === "file" ? (
-                      <span className="flex items-center gap-2.5 px-3 py-2">
-                        <FileIcon name={option.value.name} />
-                        <span className="min-w-0 flex-1 truncate text-sm text-[var(--ink)]">
-                          {highlight(option.value.name)}
-                        </span>
-                        <span
-                          title={option.value.path}
-                          className="max-w-[50%] truncate text-xs text-[var(--ink-muted)]"
-                        >
-                          {parentPath(
-                            option.value.path,
-                            t("input.workspaceRoot"),
-                          )}
-                        </span>
-                      </span>
                     ) : (
                       <span className={`flex items-center gap-1 ${option.kind !== "retry" ? "justify-center" : ""}`}>
                         {option.kind === "collapse" ? (
@@ -202,8 +183,4 @@ export function MentionPicker({
       )}
     </div>
   );
-}
-function parentPath(path: string, root: string) {
-  const index = path.lastIndexOf("/");
-  return index < 0 ? root : path.slice(0, index);
 }

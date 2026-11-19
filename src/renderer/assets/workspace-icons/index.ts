@@ -18,7 +18,7 @@ export type WorkspaceIconId = keyof typeof WORKSPACE_ICONS;
 /**
  * Default icon for workspaces without a custom icon — e.g. ones added from a
  * local folder. Template-created agents carry their template's icon instead
- * (Mino: lightning).
+ * (the default assistant 小 T: agenteam-t).
  */
 export const DEFAULT_WORKSPACE_ICON: WorkspaceIconId = 'project';
 

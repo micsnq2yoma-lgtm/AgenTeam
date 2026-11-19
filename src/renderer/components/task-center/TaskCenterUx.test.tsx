@@ -66,9 +66,9 @@ vi.mock('@/hooks/useConfig', () => ({
     projects: [
       {
         id: 'workspace-1',
-        name: 'mino',
-        displayName: 'mino',
-        path: '/Users/me/mino',
+        name: 'atmer',
+        displayName: 'atmer',
+        path: '/Users/me/atmer',
         isHidden: false,
       },
       {
@@ -135,7 +135,7 @@ function task(overrides: Partial<Task> = {}): Task {
     name: '每日 AI 行业新闻与暴论',
     executor: 'agent',
     workspaceId: 'workspace-1',
-    workspacePath: '/Users/me/mino',
+    workspacePath: '/Users/me/atmer',
     executionMode: 'recurring',
     runMode: 'new-session',
     sessionIds: [],
@@ -196,7 +196,7 @@ describe('Task Center UX refinements', () => {
       task({
         status: 'stopped',
         workspaceId: input.workspaceId ?? 'workspace-1',
-        workspacePath: input.workspacePath ?? '/Users/me/mino',
+        workspacePath: input.workspacePath ?? '/Users/me/atmer',
       }),
     );
     __setTaskCenterSessionsForTest([]);
@@ -500,7 +500,7 @@ describe('Task Center UX refinements', () => {
   it('uses launcher session title fallback and keeps execution timestamps on one line', async () => {
     const session: SessionMetadata = {
       id: 'session-1',
-      agentDir: '/Users/me/mino',
+      agentDir: '/Users/me/atmer',
       title: 'New Chat',
       lastMessagePreview: '每日 AI 行业新闻采集与总结',
       createdAt: '2026-06-27T03:12:00.000Z',
@@ -519,7 +519,7 @@ describe('Task Center UX refinements', () => {
       expectedTaskSessionTimestamp(session.lastActiveAt),
     );
     expect(timestamp).toHaveClass('whitespace-nowrap', 'tabular-nums');
-    expect(taskApiMocks.getSessions).toHaveBeenCalledWith('/Users/me/mino');
+    expect(taskApiMocks.getSessions).toHaveBeenCalledWith('/Users/me/atmer');
   });
 
   it('reveals Task execution sessions five at a time with compact row typography', async () => {
@@ -527,7 +527,7 @@ describe('Task Center UX refinements', () => {
       { length: 12 },
       (_, index) => ({
         id: `session-${index + 1}`,
-        agentDir: '/Users/me/mino',
+        agentDir: '/Users/me/atmer',
         title: `Execution ${index + 1}`,
         createdAt: new Date(Date.UTC(2026, 5, 27, 3, index)).toISOString(),
         lastActiveAt: new Date(Date.UTC(2026, 5, 27, 3, index)).toISOString(),
@@ -591,7 +591,7 @@ describe('Task Center UX refinements', () => {
   it('starts the manual create form with one canonical task document and workspace configuration', async () => {
     render(
       <DispatchTaskDialog
-        defaultWorkspacePath="/Users/me/mino"
+        defaultWorkspacePath="/Users/me/atmer"
         initialMode="manual"
         onClose={vi.fn()}
         onDispatched={vi.fn()}
@@ -619,7 +619,7 @@ describe('Task Center UX refinements', () => {
 
     const name = screen.getByText('任务名称');
     const taskDemand = screen.getByText('任务需求 Task.md');
-    const workspace = screen.getByText('Agent 工作区');
+    const workspace = screen.getByText('Agent 项目');
     expect(screen.queryByText('验收清单')).not.toBeInTheDocument();
 
     await waitFor(() => {
@@ -637,7 +637,7 @@ describe('Task Center UX refinements', () => {
   it('shows conversation strategy and pre-trigger checks only for recurring creation', () => {
     render(
       <DispatchTaskDialog
-        defaultWorkspacePath="/Users/me/mino"
+        defaultWorkspacePath="/Users/me/atmer"
         initialMode="manual"
         onClose={vi.fn()}
         onDispatched={vi.fn()}
@@ -677,7 +677,7 @@ describe('Task Center UX refinements', () => {
     expect(screen.queryByText('标签')).not.toBeInTheDocument();
 
     const taskDocument = screen.getByText('task.md · 执行 Prompt');
-    const workspace = screen.getByText('Agent 工作区');
+    const workspace = screen.getByText('Agent 项目');
     const advanced = screen.getAllByText('高级配置')[0];
     expect(
       taskDocument.compareDocumentPosition(workspace) &
@@ -722,7 +722,7 @@ describe('Task Center UX refinements', () => {
     );
 
     await screen.findByDisplayValue('# Task body');
-    fireEvent.click(screen.getByRole('button', { name: 'mino' }));
+    fireEvent.click(screen.getByRole('button', { name: 'atmer' }));
     fireEvent.click(screen.getByRole('button', { name: 'Research Agent' }));
     fireEvent.click(screen.getByRole('button', { name: '保存' }));
 
@@ -749,7 +749,7 @@ describe('Task Center UX refinements', () => {
     const onDiscuss = vi.fn().mockResolvedValue(false);
     render(
       <DispatchTaskDialog
-        defaultWorkspacePath="/Users/me/mino"
+        defaultWorkspacePath="/Users/me/atmer"
         onClose={onClose}
         onDispatched={vi.fn()}
         onDiscuss={onDiscuss}
@@ -770,7 +770,7 @@ describe('Task Center UX refinements', () => {
         expect.objectContaining({
           content: '每天检查高危依赖',
           workspaceId: 'workspace-1',
-          workspacePath: '/Users/me/mino',
+          workspacePath: '/Users/me/atmer',
         }),
       ),
     );
@@ -798,7 +798,7 @@ describe('Task Center UX refinements', () => {
     taskApiMocks.taskRun.mockResolvedValue(true);
     render(
       <DispatchTaskDialog
-        defaultWorkspacePath="/Users/me/mino"
+        defaultWorkspacePath="/Users/me/atmer"
         initialMode="manual"
         onClose={vi.fn()}
         onDispatched={vi.fn()}
@@ -844,7 +844,7 @@ describe('Task Center UX refinements', () => {
 
     render(
       <DispatchTaskDialog
-        defaultWorkspacePath="/Users/me/mino"
+        defaultWorkspacePath="/Users/me/atmer"
         initialMode="manual"
         onClose={vi.fn()}
         onDispatched={vi.fn()}
@@ -883,14 +883,14 @@ describe('Task Center UX refinements', () => {
   it('materializes an existing Session when continuous conversation is selected', async () => {
     const existing: SessionMetadata = {
       id: 'session-existing',
-      agentDir: '/Users/me/mino',
+      agentDir: '/Users/me/atmer',
       title: '构建排障上下文',
       createdAt: '2026-08-03T01:00:00.000Z',
       lastActiveAt: '2026-08-03T02:00:00.000Z',
     };
     const other: SessionMetadata = {
       id: 'session-other',
-      agentDir: '/Users/me/mino',
+      agentDir: '/Users/me/atmer',
       title: '其他排障上下文',
       createdAt: '2026-08-02T01:00:00.000Z',
       lastActiveAt: '2026-08-02T02:00:00.000Z',
@@ -908,7 +908,7 @@ describe('Task Center UX refinements', () => {
 
     render(
       <DispatchTaskDialog
-        defaultWorkspacePath="/Users/me/mino"
+        defaultWorkspacePath="/Users/me/atmer"
         currentSessionId="session-existing"
         initialMode="manual"
         onClose={vi.fn()}

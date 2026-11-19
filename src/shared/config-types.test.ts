@@ -12,6 +12,8 @@ import {
   XAI_SUBSCRIPTION_PROVIDER_ID,
   applyManagedCodexProviderReadiness,
   getEffectiveModelAliases,
+  getSystemPresetProjectMetadataPatch,
+  isDefaultAssistantWorkspacePath,
   getManagedCodexProviderReadiness,
   isManagedCodexRequiredRuntimeInstalled,
   isManagedCodexProviderGateEnabled,
@@ -469,6 +471,32 @@ describe('model aliases', () => {
       sonnet: 'glm-5.3',
       haiku: 'glm-5-turbo',
     });
+  });
+});
+
+describe('default assistant identity', () => {
+  const preset = { id: 'p', path: '/w', name: 'atmer' } as Parameters<typeof getSystemPresetProjectMetadataPatch>[0];
+
+  it('gives the atmer preset the name 小 T and the wordmark T', () => {
+    const patch = getSystemPresetProjectMetadataPatch(preset, 'atmer');
+    expect(patch).toMatchObject({
+      systemPresetId: 'atmer',
+      templateId: 'atmer',
+      displayName: '小 T',
+      icon: 'agenteam-t',
+    });
+  });
+
+  it('finds the default assistant folder under projects/atmer', () => {
+    expect(isDefaultAssistantWorkspacePath('/home/me/.agenteam/projects/atmer')).toBe(true);
+    expect(isDefaultAssistantWorkspacePath(String.raw`C:\Users\me\.agenteam\projects\atmer`)).toBe(true);
+    expect(isDefaultAssistantWorkspacePath('/home/me/notes')).toBe(false);
+  });
+
+  it('keeps a name and icon the user picked', () => {
+    const patch = getSystemPresetProjectMetadataPatch({ ...preset, displayName: '阿福', icon: 'cat' }, 'atmer');
+    expect(patch.displayName).toBeUndefined();
+    expect(patch.icon).toBeUndefined();
   });
 });
 

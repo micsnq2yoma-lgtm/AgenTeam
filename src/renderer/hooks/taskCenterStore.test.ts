@@ -253,8 +253,8 @@ describe('store snapshot', () => {
 
     it('keeps passive App-shell subscription idle and loads only requested workspaces', async () => {
         sessionClientMocks.getSessions.mockImplementation(async (agentDir?: string) => (
-            agentDir === '/work/mino'
-                ? [{ ...favoriteSession(false), agentDir, id: 'mino-session' }]
+            agentDir === '/work/atmer'
+                ? [{ ...favoriteSession(false), agentDir, id: 'atmer-session' }]
                 : []
         ));
         const listener = vi.fn();
@@ -262,13 +262,13 @@ describe('store snapshot', () => {
         try {
             expect(sessionClientMocks.getSessions).not.toHaveBeenCalled();
 
-            ensureWorkspaceSessions(['/work/mino']);
+            ensureWorkspaceSessions(['/work/atmer']);
             await vi.waitFor(() => {
-                expect(getSnapshot().sessions.map((session) => session.id)).toEqual(['mino-session']);
+                expect(getSnapshot().sessions.map((session) => session.id)).toEqual(['atmer-session']);
             });
 
             expect(sessionClientMocks.getSessions).toHaveBeenCalledTimes(1);
-            expect(sessionClientMocks.getSessions).toHaveBeenCalledWith('/work/mino');
+            expect(sessionClientMocks.getSessions).toHaveBeenCalledWith('/work/atmer');
         } finally {
             unsubscribe();
         }
@@ -311,7 +311,7 @@ describe('store snapshot', () => {
     });
 
     it('refreshes a loaded passive workspace when authoritative Session metadata changes', async () => {
-        const agentDir = '/work/mino';
+        const agentDir = '/work/atmer';
         let currentSessions = [
             { ...favoriteSession(false), agentDir, id: 'existing-session' },
         ];
@@ -354,7 +354,7 @@ describe('store snapshot', () => {
     });
 
     it('reconciles changes that land while the metadata listener is still registering', async () => {
-        const agentDir = '/work/mino';
+        const agentDir = '/work/atmer';
         let currentSessions = [
             { ...favoriteSession(false), agentDir, id: 'existing-session' },
         ];
@@ -399,7 +399,7 @@ describe('store snapshot', () => {
     });
 
     it('reconciles a loaded workspace after a zero-subscriber event gap', async () => {
-        const agentDir = '/work/mino';
+        const agentDir = '/work/atmer';
         let currentSessions = [
             { ...favoriteSession(false), agentDir, id: 'existing-session' },
         ];

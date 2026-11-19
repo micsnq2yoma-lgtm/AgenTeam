@@ -9,20 +9,15 @@ import type { AgentMentionSnapshot } from "../../../../shared/agentMentions";
 import type { Thought } from "../../../../shared/types/thought";
 import { thoughtListPage, taskCenterAvailable } from "@/api/taskCenter";
 import type { PickerPage } from "@/api/pickerPage";
-import type {
-  FileSearchResult,
-  WorkspaceFileService,
-} from "@/hooks/useWorkspaceFileService";
 import {
   useAgentNetworkSnapshot,
   useAgentNetworkDirectoryVersion,
 } from "@/features/agent-network/store";
 
-export type MentionKind = "agent" | "thought" | "file";
+export type MentionKind = "agent" | "thought";
 export type MentionItem =
   | { kind: "agent"; key: string; value: AgentMentionSnapshot }
-  | { kind: "thought"; key: string; value: Thought }
-  | { kind: "file"; key: string; value: FileSearchResult };
+  | { kind: "thought"; key: string; value: Thought };
 export interface MentionGroup {
   kind: MentionKind;
   items: MentionItem[];
@@ -40,7 +35,7 @@ export type MentionOption =
       key: string;
       group: MentionKind;
     };
-const ORDER: MentionKind[] = ["agent", "thought", "file"];
+const ORDER: MentionKind[] = ["agent", "thought"];
 const empty = (kind: MentionKind): MentionGroup => ({
   kind,
   items: [],
@@ -86,14 +81,10 @@ export function useMentionPicker(
   open: boolean,
   query: string,
   workspace: string | null | undefined,
-  files: WorkspaceFileService,
 ) {
   const network = useAgentNetworkSnapshot("official");
   const directoryVersion = useAgentNetworkDirectoryVersion();
-  const kinds = useMemo(
-    () => (query.trim() ? ORDER : ORDER.slice(0, 2)),
-    [query],
-  );
+  const kinds = ORDER;
   const scope = JSON.stringify([workspace, query, open, directoryVersion]);
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
@@ -157,8 +148,7 @@ export function useMentionPicker(
       }));
       try {
         if (
-          (kind === "thought" && !taskCenterAvailable()) ||
-          (kind === "file" && !files.isAvailable)
+          kind === "thought" && !taskCenterAvailable()
         ) {
           update(requestScope, requestGeneration, kind, (group) => ({
             ...group,
@@ -215,22 +205,12 @@ export function useMentionPicker(
             },
           }));
         } else {
-          let page: PickerPage<Thought> | PickerPage<FileSearchResult>;
-          if (kind === "thought") {
-            page = await thoughtListPage(query, cursor, 200);
-            items = page.items.map((value) => ({
-              kind: "thought",
-              key: `thought:${value.id}`,
-              value,
-            }));
-          } else {
-            page = await files.searchFilesPage({ query, cursor, limit: 200 });
-            items = page.items.map((value) => ({
-              kind: "file",
-              key: `file:${value.path}`,
-              value,
-            }));
-          }
+          const page: PickerPage<Thought> = await thoughtListPage(query, cursor, 200);
+          items = page.items.map((value) => ({
+            kind: "thought",
+            key: `thought:${value.id}`,
+            value,
+          }));
           if (
             page.hasMore !== Boolean(page.nextCursor) ||
             (page.complete && (page.hasMore || page.scanLimitReached))
@@ -267,7 +247,6 @@ export function useMentionPicker(
       }
     },
     [
-      files,
       network.authGeneration,
       network.principalId,
       network.networkId,

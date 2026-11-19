@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import minoPetManifest from '@/assets/floating-pets/mino/pet.json';
-import minoPixelPetManifest from '@/assets/floating-pets/mino-pixel/pet.json';
-import minoRunnerPetManifest from '@/assets/floating-pets/mino-runner/pet.json';
+import atmerPetManifest from '@/assets/floating-pets/atmer/pet.json';
 
 import { BUILTIN_PET_PACKS, DEFAULT_PET_PACK_ID, normalizeBuiltinPetPackId } from './defaultPetPack';
 import { CODEX_PET_ANIMATION_NAMES, CODEX_PET_ATLAS, normalizePetAtlas, normalizePetManifest } from './petAtlas';
@@ -53,9 +51,8 @@ describe('normalizePetManifest', () => {
     });
 
     it('accepts all bundled manifests and supplies the default atlas', () => {
-        const manifests = [minoPetManifest, minoPixelPetManifest, minoRunnerPetManifest]
-            .map(normalizePetManifest);
-        expect(manifests.map((manifest) => manifest?.id)).toEqual(['mino', 'mino-pixel', 'mino-runner']);
+        const manifests = [atmerPetManifest].map(normalizePetManifest);
+        expect(manifests.map((manifest) => manifest?.id)).toEqual(['atmer']);
         for (const manifest of manifests) {
             expect(manifest?.spritesheetPath).toBe('spritesheet.webp');
             expect(manifest?.description).toBeTruthy();
@@ -63,11 +60,12 @@ describe('normalizePetManifest', () => {
         }
     });
 
-    it('keeps the bundled pet registry ordered and compatible with the old default id', () => {
-        const manifest = normalizePetManifest(minoPetManifest);
+    it('ships Atmer as the only builtin pet', () => {
+        const manifest = normalizePetManifest(atmerPetManifest);
         expect(manifest?.id).toBe(DEFAULT_PET_PACK_ID);
-        expect(BUILTIN_PET_PACKS.map((pack) => pack.id)).toEqual(['mino', 'mino-pixel', 'mino-runner']);
-        expect(normalizeBuiltinPetPackId('mino-default')).toBe(DEFAULT_PET_PACK_ID);
+        expect(BUILTIN_PET_PACKS.map((pack) => pack.id)).toEqual(['atmer']);
+        expect(normalizeBuiltinPetPackId('tater')).toBe('tater');
+        expect(normalizeBuiltinPetPackId('')).toBeNull();
     });
 
     it('rejects malformed manifests instead of guessing paths', () => {

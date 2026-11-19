@@ -3,7 +3,6 @@ import { isRuntimeBackedProvider } from '../../../shared/providerExecution';
 import { isImeComposingEvent } from '@/utils/imeKeyboard';
 import {
   AlertIcon,
-  AtIcon,
   SlashCommandIcon,
   ChevronRightIcon,
   ChevronUpIcon,
@@ -17,6 +16,8 @@ import {
   TimerIcon,
   WrenchIcon,
   CloseIcon,
+  FolderIcon,
+  FolderPlusIcon,
 } from '@/components/icons';
 import { memo, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, forwardRef, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -497,17 +498,16 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
   const [showFileSearch, setShowFileSearch] = useState(false);
   const [fileSearchQuery, setFileSearchQuery] = useState('');
   const [atPosition, setAtPosition] = useState<number | null>(null);
-  const mentionPicker = useMentionPicker(showFileSearch, fileSearchQuery, workspacePath, fileService);
+  const mentionPicker = useMentionPicker(showFileSearch, fileSearchQuery, workspacePath);
   const chooseMention = (option: MentionOption) => {
-    if (option.kind !== 'agent' && option.kind !== 'thought' && option.kind !== 'file') {
+    if (option.kind !== 'agent' && option.kind !== 'thought') {
       mentionPicker.activateControl(option);
       return;
     }
     const text = inputValueRef.current;
     const end = textareaRef.current?.selectionStart ?? (atPosition ?? 0) + 1 + fileSearchQuery.length;
     if (atPosition === null || text[atPosition] !== '@' || end < atPosition + 1) return;
-    const token = option.kind === 'agent' ? agentMentionToken(option.value.agent.selector)
-      : option.kind === 'file' ? `@${option.value.path}` : option.value.content;
+    const token = option.kind === 'agent' ? agentMentionToken(option.value.agent.selector) : option.value.content;
     const next = `${text.slice(0, atPosition)}${token} ${text.slice(end)}`;
     if (option.kind === 'agent') setAgentMentions(previous => [...previous.filter(item => item.agent.selector !== option.value.agent.selector), option.value]);
     setInputValue(next); setShowFileSearch(false); setAtPosition(null);
@@ -726,6 +726,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
     processDroppedFiles,
     processDroppedFilePaths,
     handleUploadButtonClick,
+    handleFolderButtonClick,
     handleFileChange,
     handlePaste,
   } = useAttachmentHandling({
@@ -1532,41 +1533,47 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                 placement="top-start"
                 className="composer-toolbar-menu-enter w-48 py-1"
               >
-                {/* PRD 0.2.7: previously gated by `!isLauncherMode`; both
-                 *  launcher and chat-tab now route file ops through the
-                 *  workspace_files Rust commands, so the launcher's plus menu
-                 *  can offer 引用文件 / 使用技能 the same way. */}
+                {/* Order: 创建项目 · 上传文件 · 选文件夹 · 使用技能 · 定时任务. */}
                 <button
                   type="button"
-                  // This item moves focus to the textarea; preventDefault on mousedown stops
-                  // the item itself from grabbing focus during the tap, which avoids the
-                  // macOS WebKit focus-steal that drops the click (matching the menu-item /
-                  // toolbar-button convention elsewhere).
-                  onMouseDown={retainFocusOnMouseDown}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Insert @ at cursor position and trigger file search
-                    const textarea = textareaRef.current;
-                    if (textarea) {
-                      const cursorPos = textarea.selectionStart;
-                      const before = inputValue.slice(0, cursorPos);
-                      const after = inputValue.slice(cursorPos);
-                      setInputValue(`${before}@${after}`);
-                      setShowFileSearch(true);
-                      setAtPosition(cursorPos);
-                      setFileSearchQuery('');
-                      textarea.focus();
-                    }
                     setShowPlusMenu(false);
+                    window.dispatchEvent(new CustomEvent(CUSTOM_EVENTS.OPEN_NEW_PROJECT));
                   }}
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--hover-bg)] hover:text-[var(--ink)]"
+                  data-composer-create-project
                 >
-                  <AtIcon className="h-4 w-4" />
-                  {t('input.referenceFile')}
+                  <FolderPlusIcon className="h-4 w-4" />
+                  {t('input.createProject')}
                 </button>
                 <button
                   type="button"
-                  // Same focus-steal guard as 引用文件 above.
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleUploadButtonClick();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--hover-bg)] hover:text-[var(--ink)]"
+                >
+                  <AttachIcon className="h-4 w-4" />
+                  {t('input.uploadFile')}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleFolderButtonClick();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--hover-bg)] hover:text-[var(--ink)]"
+                  data-composer-reference-folder
+                >
+                  <FolderIcon className="h-4 w-4" />
+                  {t('input.referenceFolder')}
+                </button>
+                <button
+                  type="button"
+                  // Moves focus to the textarea; preventDefault on mousedown keeps the tap from
+                  // stealing focus first (macOS WebKit drops the click otherwise).
                   onMouseDown={retainFocusOnMouseDown}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1589,17 +1596,6 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                 >
                   <SlashCommandIcon className="h-4 w-4" />
                   {t('input.useSkill')}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void handleUploadButtonClick();
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--ink-muted)] hover:bg-[var(--hover-bg)] hover:text-[var(--ink)]"
-                >
-                  <AttachIcon className="h-4 w-4" />
-                  {t('input.uploadFile')}
                 </button>
                 {onCronButtonClick && (
                   <button

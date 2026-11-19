@@ -96,8 +96,8 @@ describe('BotPlatformRegistry', () => {
     await waitFor(() => {
       expect(within(promotedCard('企业微信')).getByRole('button', { name: '安装中' })).toBeDisabled();
       expect(within(promotedCard('微信')).getByText('v1.0.0')).toBeInTheDocument();
-      expect(within(promotedCard('微信')).getByRole('button', { name: '添加到工作区' })).toBeEnabled();
-      expect(screen.queryByRole('heading', { name: '选择工作区' })).not.toBeInTheDocument();
+      expect(within(promotedCard('微信')).getByRole('button', { name: '添加到项目' })).toBeEnabled();
+      expect(screen.queryByRole('heading', { name: '选择项目' })).not.toBeInTheDocument();
     });
 
     wecomInstall.resolve(plugin('wecom-openclaw-plugin', '@wecom/wecom-openclaw-plugin'));
@@ -114,9 +114,9 @@ describe('BotPlatformRegistry', () => {
       return Promise.reject(new Error(`Unexpected invoke: ${command}`));
     });
     const project: Project = {
-      id: 'mino',
-      name: 'mino',
-      path: '/workspace/mino',
+      id: 'atmer',
+      name: 'atmer',
+      path: '/workspace/atmer',
       providerId: null,
       permissionMode: null,
     };
@@ -129,10 +129,10 @@ describe('BotPlatformRegistry', () => {
       />,
     );
 
-    await waitFor(() => expect(within(promotedCard('Telegram')).getByRole('button', { name: '添加到工作区' })).toBeEnabled());
-    fireEvent.click(within(promotedCard('Telegram')).getByRole('button', { name: '添加到工作区' }));
-    expect(screen.getByRole('heading', { name: '选择 Agent 工作区' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /mino/u }));
+    await waitFor(() => expect(within(promotedCard('Telegram')).getByRole('button', { name: '添加到项目' })).toBeEnabled());
+    fireEvent.click(within(promotedCard('Telegram')).getByRole('button', { name: '添加到项目' }));
+    expect(screen.getByRole('heading', { name: '选择 Agent 项目' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /atmer/u }));
 
     expect(onAddToWorkspace).toHaveBeenCalledWith('telegram', project);
   });

@@ -63,7 +63,7 @@ import { BrowserPanelContext } from '@/context/BrowserPanelContext';
 
 import Markdown from './Markdown';
 
-const WORKSPACE = '/Users/zhihu/Documents/project/mino';
+const WORKSPACE = '/Users/zhihu/Documents/project/atmer';
 const REL = '.claude/rules/04-MEMORY.md';
 const ABS = `${WORKSPACE}/${REL}`;
 

@@ -30,7 +30,7 @@ describe('Agent conflict chooser', () => {
     render(<AgentIdentityConflicts />);
     expect(screen.getByText('/current')).toBeInTheDocument();
     expect(screen.getByText('/preset')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Choose the workspace that keeps this Agent' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Choose the project that keeps this Agent' }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirm repair' })).toBeDisabled();
     expect(screen.getByText('Hidden')).toBeInTheDocument();
@@ -42,7 +42,7 @@ describe('Agent conflict chooser', () => {
 
   it('submits only the selected keeper plus the observed claim snapshot', async () => {
     render(<AgentIdentityConflicts />);
-    fireEvent.click(screen.getByRole('button', { name: 'Choose the workspace that keeps this Agent' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Choose the project that keeps this Agent' }));
     fireEvent.click(screen.getByRole('radio', { name: 'Current /current' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm repair' }));
     await waitFor(() => expect(mocks.success).toHaveBeenCalled());
@@ -55,7 +55,7 @@ describe('Agent conflict chooser', () => {
   it('does not report success on a stale choice and refreshes instead of automatically retrying', async () => {
     mocks.post.mockResolvedValue({ success: false, error: 'Conflict changed. Refresh.' });
     render(<AgentIdentityConflicts />);
-    fireEvent.click(screen.getByRole('button', { name: 'Choose the workspace that keeps this Agent' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Choose the project that keeps this Agent' }));
     fireEvent.click(screen.getByRole('radio', { name: 'Current /current' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm repair' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Conflict changed. Refresh.'));

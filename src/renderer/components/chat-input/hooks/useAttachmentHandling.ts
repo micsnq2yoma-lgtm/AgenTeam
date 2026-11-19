@@ -553,6 +553,33 @@ export function useAttachmentHandling({
     fileInputRef.current?.click();
   }, [processDroppedFilePaths, setShowPlusMenu, fileInputRef, toastRef, t]);
 
+  /**
+   * Reference a folder in place: the message carries its absolute path so the
+   * Agent reads it where it lives. Nothing is copied into the project, so a
+   * large folder costs nothing and the task stays in its current project.
+   */
+  const handleFolderButtonClick = useCallback(async () => {
+    setShowPlusMenu(false);
+    if (!isTauriEnvironment()) {
+      toastRef.current.info(t('input.attachments.folderDesktopOnly'));
+      return;
+    }
+    try {
+      const selected = await open({
+        multiple: false,
+        directory: true,
+        title: t('input.attachments.pickFolderTitle'),
+      });
+      if (!mountedRef.current || typeof selected !== 'string') return;
+      insertReferenceText([/\s/.test(selected) ? `"${selected}"` : selected]);
+      textareaRef.current?.focus();
+    } catch (err) {
+      if (!mountedRef.current) return;
+      console.error('[SimpleChatInput] Folder picker error:', err);
+      toastRef.current.error(t('input.attachments.pickFolderFailed'));
+    }
+  }, [insertReferenceText, setShowPlusMenu, textareaRef, toastRef, t]);
+
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
@@ -594,6 +621,7 @@ export function useAttachmentHandling({
     processDroppedFiles,
     processDroppedFilePaths,
     handleUploadButtonClick,
+    handleFolderButtonClick,
     handleFileChange,
     handlePaste,
   };

@@ -44,7 +44,7 @@ describe('workspace identity icons', () => {
     }
   });
 
-  it('shows the neutral project folder for unset and old default icons, and Mino keeps lightning', () => {
+  it('shows the neutral project folder for unset and old default icons, and 小 T wears the wordmark T', () => {
     expect(DEFAULT_WORKSPACE_ICON).toBe('project');
     expect(ALL_WORKSPACE_ICON_IDS[0]).toBe('project');
     expect(WORKSPACE_ICON_GLYPHS.project.hue).toBe('brand');
@@ -53,8 +53,10 @@ describe('workspace identity icons', () => {
     }
     // Robot stays a selectable identity, no longer the fallback.
     expect(resolveWorkspaceIconId('robot')).toBe('robot');
-    expect(resolveWorkspaceIconId(getSystemPresetProjectMetadata('mino').icon)).toBe('lightning');
-    expect(resolveWorkspaceIconId(PRESET_TEMPLATES.find(t => t.name === 'Mino')?.icon)).toBe('lightning');
+    expect(getSystemPresetProjectMetadata('atmer').displayName).toBe('小 T');
+    expect(resolveWorkspaceIconId(getSystemPresetProjectMetadata('atmer').icon)).toBe('agenteam-t');
+    expect(resolveWorkspaceIconId(PRESET_TEMPLATES.find(t => t.id === 'atmer')?.icon)).toBe('agenteam-t');
+    expect(WORKSPACE_ICON_GLYPHS['agenteam-t'].hue).toBe('coral');
   });
 
   it('binds the default project hue to the Theme accent', () => {

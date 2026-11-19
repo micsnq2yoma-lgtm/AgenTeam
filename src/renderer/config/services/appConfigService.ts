@@ -373,7 +373,7 @@ export async function ensureBundledWorkspace(): Promise<boolean> {
         }
 
         const project = await addProject(result.path);
-        // Set Mino icon and display name for the bundled workspace
+        // Set Atmer icon and display name for the bundled workspace
         const { patchProject } = await import('./projectService');
         try {
             const metadataPatch = getSystemPresetProjectMetadataPatch(project, DEFAULT_SYSTEM_PRESET_WORKSPACE_ID);

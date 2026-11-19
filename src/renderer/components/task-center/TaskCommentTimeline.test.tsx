@@ -243,7 +243,7 @@ describe("TaskCommentTimeline", () => {
     render(
       <TaskCommentTimeline
         task={task()}
-        agentLabel="mino"
+        agentLabel="atmer"
         onBeforeOpenSession={onBeforeOpenSession}
       />,
     );
@@ -253,9 +253,9 @@ describe("TaskCommentTimeline", () => {
       "STRONG",
     );
     const identity = screen.getByRole("button", {
-      name: /Agent\(mino\).*session-/,
+      name: /Agent\(atmer\).*session-/,
     });
-    expect(screen.getByText("Agent(mino)")).toHaveClass("text-sm");
+    expect(screen.getByText("Agent(atmer)")).toHaveClass("text-sm");
     fireEvent.click(identity);
 
     expect(onBeforeOpenSession).toHaveBeenCalledOnce();

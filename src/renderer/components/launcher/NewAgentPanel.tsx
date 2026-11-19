@@ -14,8 +14,8 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { basename, homeDir, join } from '@tauri-apps/api/path';
-import { open as openDialog } from '@tauri-apps/plugin-dialog';
+import { basename, dirname, homeDir, join } from '@tauri-apps/api/path';
+import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { exists } from '@tauri-apps/plugin-fs';
 
 import {
@@ -76,9 +76,9 @@ type TeamLocation = 'default' | 'new' | 'existing';
 interface TeamDraft {
   kind: 'team';
   location: TeamLocation;
-  /** Chosen folder when `location === 'existing'`. */
+  /** Chosen folder when `location === 'existing'`; the folder to create when `location === 'new'`. */
   folderPath: string;
-  /** Parent picked for `location === 'new'`. */
+  /** Parent of the folder to create when `location === 'new'`. */
   parentDir: string;
   defaultParentDir: string;
   name: string;
@@ -309,10 +309,37 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
           const name = current.draft.name.trim() ? current.draft.name : leaf;
           return { view: 'detail', draft: { ...current.draft, location, folderPath: path, name } };
         });
-      } else {
+      } else if (isBrowserDevMode()) {
         const parent = await pickFolder(t('newAgentPanel.pickParentDirTitle'));
         if (!parent || !mountedRef.current) return;
-        updateDraft({ location, parentDir: parent });
+        updateDraft({ location, parentDir: parent, folderPath: '' });
+      } else {
+        // A save-style dialog lets the user type the name of a folder that does
+        // not exist yet; a folder picker only accepts existing folders.
+        const baseDir = draft.parentDir || draft.defaultParentDir;
+        const suggested = deriveWorkspaceFolderName(draft.name) || t('newAgentPanel.newFolderDefaultName');
+        const target = await saveDialog({
+          title: t('newAgentPanel.pickNewFolderTitle'),
+          defaultPath: baseDir ? await join(baseDir, suggested) : suggested,
+        });
+        if (!target || !mountedRef.current) return;
+        if (await exists(target)) {
+          toastRef.current.error(t('newAgentPanel.errors.folderExists'));
+          return;
+        }
+        const conflict = classifyFolderConflict(projectsRef.current, target);
+        if (conflict) {
+          toastRef.current.error(conflict.kind === 'archived' ? t('newAgentPanel.errors.archived') : t('newAgentPanel.errors.exists'));
+          return;
+        }
+        const parent = await dirname(target);
+        const leaf = await folderLeaf(target);
+        if (!mountedRef.current) return;
+        setPage((current) => {
+          if (current.view !== 'detail' || current.draft.kind !== 'team') return current;
+          const name = current.draft.name.trim() ? current.draft.name : leaf;
+          return { view: 'detail', draft: { ...current.draft, location, parentDir: parent, folderPath: target, name } };
+        });
       }
     } catch (err) {
       toastRef.current.error(t('newAgentPanel.errors.pickFailed', { message: errorMessage(err) }));
@@ -328,7 +355,8 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
     openDetail({
       kind: 'template',
       templateId: tpl.id,
-      name: tpl.isBuiltin ? tpl.name.toLowerCase() : tpl.name,
+      // Builtin template ids are folder-safe; their display names (小 T) are not.
+      name: tpl.isBuiltin ? tpl.id : tpl.name,
       icon: tpl.icon ?? '',
       parentDir,
     });
@@ -404,7 +432,9 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
   const canCreate = !!draft
     && draft.name.trim().length > 0
     && (draft.kind === 'team'
-      ? (draft.location === 'existing' ? !!draft.folderPath : templateFolderName.length > 0 && templateParentDir.length > 0)
+      ? (draft.location === 'existing' || (draft.location === 'new' && !!draft.folderPath)
+        ? !!draft.folderPath
+        : templateFolderName.length > 0 && templateParentDir.length > 0)
       : (templateFolderName.length > 0 && templateParentDir.length > 0 && !!template));
 
   const handleCreate = useCallback(async () => {
@@ -417,7 +447,8 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
       if (draft.kind === 'team') {
         const adopt = draft.location === 'existing';
         const parentDir = teamParentDir(draft);
-        const destPath = adopt || !parentDir
+        // 'new' with a typed folder creates exactly that folder.
+        const destPath = adopt || !parentDir || (draft.location === 'new' && draft.folderPath)
           ? draft.folderPath
           : await findAvailablePath(parentDir, deriveWorkspaceFolderName(displayName));
         const assistant = draft.assistant && ASSISTANT_TEMPLATE ? ASSISTANT_TEMPLATE : null;
@@ -786,10 +817,10 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
               <div className="flex shrink-0 items-center gap-3 border-t border-[var(--line)] px-6 py-4">
                 <span className="min-w-0 flex-1 text-xs text-[var(--ink-subtle)]">
                   {teamDraft
-                    ? (teamDraft.assistant ? t('newAgentPanel.mino.hint') : null)
+                    ? (teamDraft.assistant ? t('newAgentPanel.atmer.hint') : null)
                     : page.draft.kind === 'template' && template
                     ? template.isBuiltin
-                      ? t('newAgentPanel.mino.hint')
+                      ? t('newAgentPanel.atmer.hint')
                       : t('newAgentPanel.template.hint')
                     : null}
                 </span>
@@ -835,7 +866,7 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
 type TFn = TFunction<'launcher'>;
 
 function builtinTitle(tpl: WorkspaceTemplate, t: TFn): string {
-  return tpl.id === DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID ? t('newAgentPanel.mino.title') : tpl.name;
+  return tpl.id === DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID ? t('newAgentPanel.atmer.title') : tpl.name;
 }
 
 // ---------- list page ----------
@@ -987,7 +1018,7 @@ function PathLine({
   const { t } = useTranslation('launcher');
   let parent: string;
   let leaf: string;
-  const fixedFolder = draft.kind === 'team' && draft.location === 'existing' ? draft.folderPath : null;
+  const fixedFolder = draft.kind === 'team' && draft.location !== 'default' && draft.folderPath ? draft.folderPath : null;
   const parentDir = draft.kind === 'team' ? teamParentDir(draft) ?? '' : draft.parentDir;
   if (fixedFolder !== null) {
     ({ parent, leaf } = splitPathForDisplay(shortenPathForDisplay(fixedFolder)));
@@ -1125,19 +1156,19 @@ function DetailIntro({
   let intro: ReactNode;
   let capabilities: Capability[];
   if (draft.kind === 'team' && draft.assistant) {
-    intro = t('newAgentPanel.team.assistantIntro');
+    intro = null;
     capabilities = [
       {
         key: 'evolve',
         icon: <BrainIcon className={iconClass} />,
-        title: t('newAgentPanel.mino.capEvolveTitle'),
-        description: t('newAgentPanel.mino.capEvolveDescription'),
+        title: t('newAgentPanel.atmer.capEvolveTitle'),
+        description: t('newAgentPanel.atmer.capEvolveDescription'),
       },
       {
         key: 'skills',
         icon: <WrenchIcon className={iconClass} />,
-        title: t('newAgentPanel.mino.capSkillsTitle'),
-        description: t('newAgentPanel.mino.capSkillsDescription'),
+        title: t('newAgentPanel.atmer.capSkillsTitle'),
+        description: t('newAgentPanel.atmer.capSkillsDescription'),
       },
       ...(draft.location === 'existing'
         ? [{
@@ -1178,21 +1209,21 @@ function DetailIntro({
       channels,
     ];
   } else if (template?.isBuiltin) {
-    const isMino = template.id === DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID;
-    intro = isMino ? t('newAgentPanel.mino.intro') : template.description;
-    capabilities = isMino
+    const isDefaultAssistant = template.id === DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID;
+    intro = isDefaultAssistant ? t('newAgentPanel.atmer.intro') : template.description;
+    capabilities = isDefaultAssistant
       ? [
         {
           key: 'evolve',
           icon: <BrainIcon className={iconClass} />,
-          title: t('newAgentPanel.mino.capEvolveTitle'),
-          description: t('newAgentPanel.mino.capEvolveDescription'),
+          title: t('newAgentPanel.atmer.capEvolveTitle'),
+          description: t('newAgentPanel.atmer.capEvolveDescription'),
         },
         {
           key: 'skills',
           icon: <WrenchIcon className={iconClass} />,
-          title: t('newAgentPanel.mino.capSkillsTitle'),
-          description: t('newAgentPanel.mino.capSkillsDescription'),
+          title: t('newAgentPanel.atmer.capSkillsTitle'),
+          description: t('newAgentPanel.atmer.capSkillsDescription'),
         },
         channels,
       ]
@@ -1226,7 +1257,7 @@ function DetailIntro({
 
   return (
     <>
-      <p className="mt-5 text-sm leading-relaxed text-[var(--ink-muted)]">{intro}</p>
+      {intro && <p className="mt-5 text-sm leading-relaxed text-[var(--ink-muted)]">{intro}</p>}
       <div className="mt-5">
         <div className="mb-2 text-xs font-medium text-[var(--ink-muted)]">{t('newAgentPanel.capabilitiesTitle')}</div>
         <ul className="divide-y divide-[var(--line)] rounded-xl border border-[var(--line)] bg-[var(--paper)]" data-new-agent-panel-capabilities>

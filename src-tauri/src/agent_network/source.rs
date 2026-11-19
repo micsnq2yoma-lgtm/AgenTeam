@@ -305,22 +305,22 @@ mod tests {
     #[test]
     fn network_request_label_carries_the_registered_device_name() {
         assert_eq!(
-            network_caller_label("Mino", Some("Example-Mac.local")),
-            "Mino@Example-Mac.local"
+            network_caller_label("Atmer", Some("Example-Mac.local")),
+            "Atmer@Example-Mac.local"
         );
         assert_eq!(
-            network_caller_label("Mino", Some("EXAMPLE-WIN")),
-            "Mino@EXAMPLE-WIN"
+            network_caller_label("Atmer", Some("EXAMPLE-WIN")),
+            "Atmer@EXAMPLE-WIN"
         );
-        assert_eq!(network_caller_label("Mino", None), "Mino");
+        assert_eq!(network_caller_label("Atmer", None), "Atmer");
     }
 
     #[test]
     fn caller_label_uses_the_network_nickname_and_requires_its_account_device_scope() {
         let name = serde_json::json!({"deviceId":"device-b", "networkId":"network", "principalId":"account", "name":"家里 Windows"});
         assert_eq!(
-            registered_caller_label("Mino", &name, "device-b", "network", Some("account")).unwrap(),
-            "Mino@家里 Windows"
+            registered_caller_label("Atmer", &name, "device-b", "network", Some("account")).unwrap(),
+            "Atmer@家里 Windows"
         );
         for (device, network, account) in [
             ("device-a", "network", "account"),
@@ -328,7 +328,7 @@ mod tests {
             ("device-b", "network", "other"),
         ] {
             assert_eq!(
-                registered_caller_label("Mino", &name, device, network, Some(account))
+                registered_caller_label("Atmer", &name, device, network, Some(account))
                     .unwrap_err()
                     .code,
                 "NETWORK_METADATA_SCOPE_MISMATCH"

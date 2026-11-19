@@ -239,7 +239,7 @@ export type MemoryEvolutionJobStatus = 'completed' | 'skipped' | 'error' | 'time
  * product-owned managed tasks.
  */
 export interface MemoryEvolutionConfig {
-  /** Enable/disable long-term memory evolution (default: true for Mino templates) */
+  /** Enable/disable long-term memory evolution (default: true for Atmer templates) */
   enabled: boolean;
   /** ISO timestamp of last memory gardener run */
   lastGardenerAt?: string;

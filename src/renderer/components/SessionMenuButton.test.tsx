@@ -140,10 +140,10 @@ describe('SessionMenuButton', () => {
   it('hands over to the selected peer session instead of only the channel', async () => {
     const privateTarget: BotChannelCandidate = {
       agentId: 'agent-1',
-      agentName: 'Mino',
+      agentName: 'Atmer',
       channelId: 'channel-1',
       channelType: 'openclaw:feishu',
-      channelName: 'mino-bot',
+      channelName: 'atmer-bot',
       platformLabel: '飞书',
       sessionKey: 'agent:agent-1:openclaw:feishu:private:ou_target',
       sessionId: 'old-im-session',
@@ -186,10 +186,10 @@ describe('SessionMenuButton', () => {
     await i18n.changeLanguage('en-US');
     const groupTarget: BotChannelCandidate = {
       agentId: 'agent-1',
-      agentName: 'Mino',
+      agentName: 'Atmer',
       channelId: 'channel-1',
       channelType: 'openclaw:feishu',
-      channelName: 'mino-bot',
+      channelName: 'atmer-bot',
       platformLabel: '飞书',
       sessionKey: 'agent:agent-1:openclaw:feishu:group:oc_target',
       sessionId: 'old-im-session',
@@ -205,7 +205,7 @@ describe('SessionMenuButton', () => {
 
     expect(screen.getByText('Group · Product Crew')).toBeInTheDocument();
     expect(screen.getByText('飞书')).toBeInTheDocument();
-    expect(screen.getByText('mino-bot')).toBeInTheDocument();
+    expect(screen.getByText('atmer-bot')).toBeInTheDocument();
   });
 
   it('routes deletion through the App-owned Session lifecycle capability', async () => {

@@ -15,7 +15,7 @@ function project(overrides: Partial<Project> & Pick<Project, 'id' | 'path'>): Pr
 
 describe('deriveWorkspaceFolderName', () => {
   it('keeps ordinary names, including CJK and inner spaces', () => {
-    expect(deriveWorkspaceFolderName('mino')).toBe('mino');
+    expect(deriveWorkspaceFolderName('atmer')).toBe('atmer');
     expect(deriveWorkspaceFolderName('  研究 助手  ')).toBe('研究 助手');
   });
 

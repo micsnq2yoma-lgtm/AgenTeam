@@ -607,8 +607,8 @@ describe("Agent network account and device management", () => {
           mountId: "66666666-6666-4666-8666-666666666666",
           localAgentId: "agent",
           localWorkspaceId: "workspace",
-          name: "Mino",
-          path: "/Users/fixture/mino",
+          name: "Atmer",
+          path: "/Users/fixture/atmer",
           lifecycle: "active",
           catalogRevision: 1,
           enabled: true,
@@ -620,7 +620,7 @@ describe("Agent network account and device management", () => {
       complete: true,
     });
     render(<AgentNetwork />);
-    expect(await screen.findByText("Mino")).toBeInTheDocument();
+    expect(await screen.findByText("Atmer")).toBeInTheDocument();
     expect(screen.getByText("本机")).toBeInTheDocument();
     expect(screen.queryByText("让设备加入网络")).not.toBeInTheDocument();
     expect(screen.queryByText("开放 Agent 工作区")).not.toBeInTheDocument();
