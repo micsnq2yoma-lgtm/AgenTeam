@@ -274,8 +274,16 @@ async function main(){
   ready=old.page.getByRole('button',{name:/^(restart update|重启更新)$/i}).first();
   await ready.waitFor({state:'visible',timeout:60000});
   const priorReads=served.filter(x=>x.type==='manifest').length;
-  await ready.click({timeout:15000});
-  event('clicked the rendered Restart update button','0.6.0');
+  const startupInstall=old.page.locator('div.glass-panel')
+    .filter({hasText:'Version v0.6.5 has been downloaded. Install now?'})
+    .getByRole('button',{name:'Install',exact:true});
+  if(await startupInstall.isVisible()) {
+    await startupInstall.click({timeout:15000});
+    event('clicked Install on the recovered update prompt','0.6.0');
+  } else {
+    await ready.click({timeout:15000});
+    event('clicked the rendered Restart update button','0.6.0');
+  }
   const confirm=old.page.getByRole('button',{name:/^(exit|quit|退出)$/i}).last();
   if(await confirm.waitFor({timeout:5000}).then(()=>true,()=>false)) await confirm.click({timeout:5000}).catch(()=>{});
   await poll('0.6.0 updater exits for NSIS',()=>baseline.exitCode!==null,110000);
