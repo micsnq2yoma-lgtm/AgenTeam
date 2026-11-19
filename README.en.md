@@ -1,180 +1,113 @@
 <div align="center">
 
-<img src="src/renderer/assets/brand/agenteam-mark.svg" width="72" alt="AgenTeam" />
+<img src="src/renderer/assets/brand/agenteam-mark.svg" width="72" alt="AgenTeam">
 
 # AgenTeam
 
 **Focus Your Attention on Valuable Things.**
 
-An open-source desktop agent workbench and task system based on MyAgents.
+Every project is a team. You set the direction and make the calls; AI employees get the work done in your local workspace.
 
-[中文](README.md) · [English](README.en.md) · [Upstream MyAgents website](https://myagents.io) · [Upstream releases](https://github.com/hAcKlyc/MyAgents/releases) · [Contributing](CONTRIBUTING.md)
+[中文](README.md) · **English**
 
-[AgenTeam Releases](https://github.com/micsnq2yoma-lgtm/AgenTeam/releases) · [Windows preview and builds](specs/guides/windows_build_guide.md)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Features](#features) · [Development guide](DEVELOPMENT.md)
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
-[![macOS](https://img.shields.io/badge/macOS-13.0+-black.svg)](https://myagents.io)
-[![Windows](https://img.shields.io/badge/Windows-10+-blue.svg)](https://github.com/micsnq2yoma-lgtm/AgenTeam/releases)
+[![stars](https://img.shields.io/github/stars/micsnq2yoma-lgtm/AgenTeam?style=flat&logo=github)](https://github.com/micsnq2yoma-lgtm/AgenTeam/stargazers) [![Tests](https://img.shields.io/github/actions/workflow/status/micsnq2yoma-lgtm/AgenTeam/test.yml?branch=main&label=tests)](https://github.com/micsnq2yoma-lgtm/AgenTeam/actions/workflows/test.yml) [![license](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE) ![platform](https://img.shields.io/badge/platform-Windows%2010%2B%20%7C%20macOS%2013%2B-informational) ![node](https://img.shields.io/badge/node-%E2%89%A524.14-339933) ![built on](https://img.shields.io/badge/built%20on-MyAgents-orange)
+
+<img src="specs/assets/readme/agenteam-team-skins.png" width="860" alt="AgenTeam Agent Team view in the Modern office, Imperial court and Starship skins">
 
 </div>
 
-## What is AgenTeam?
+## How it works
 
-AgenTeam is a free, open-source, local-first **Agent workbench and task system** for working with agents in your local workspaces and scheduling ongoing tasks.
+| ① New project | ② New chat | ③ Employees do the work | ④ You decide |
+| --- | --- | --- | --- |
+| Pick a folder (new, existing, or the default location) and optionally turn on assistant mode | Each chat is an employee of the project, starting with the workspace as context | Claude Agent SDK, DeepSeek Harness or Codex read and write files and run commands on your machine | Steer at any time; hand recurring work to automations |
 
-It is both a workbench for working directly with Agents and a way to turn your computers into execution nodes that Agents can call on. Connect your computers to **AgentNet**, choose which Agents to make available, and build your own Agent task network.
+In the sidebar's **Agent Team** view, every project is a department: the assistant sits at the head desk and employees at their desks, acting out what their chat is really doing (working, on schedule, on chat duty, standing by, resting). Click an employee to open the chat; click "New employee" to start a new chat in that project.
 
-Work with an Agent on your everyday computer: **you keep setting direction, Agents advance work in parallel, and you make the key decisions.** When work needs another device's files or environment, let your Agent hand it off across devices. Give ongoing work to Agents on computers you keep running.
+## Who it is for
 
-AgenTeam gives both people and Agents a way to operate the system: you use the GUI, while Agents use the CLI to create tasks and call other Agents, turning your requests into ongoing work. Other Agents you install can also access AgenTeam capabilities through its CLI.
+- ✅ You want to organise many AI chats by project instead of scrolling one long thread
+- ✅ You already have Claude / Codex subscriptions or model APIs and want them working on your own computer
+- ✅ You want daily checks, tidying and reports to run on a schedule and only wake you when needed
+- ❌ Not a multi-user SaaS: one install per computer, with workspaces and chats stored locally
 
-- **Multiple Agent runtimes**: Claude Agent SDK, DeepSeek Harness, and Codex, with supported AI subscription sign-ins and model API configuration. Each Agent can use its own workspace, model, Skills, and tools.
-- **Task system**: scheduled tasks and scripts that wake an Agent when a condition is met. Turn recurring work into tasks that keep your methods in use.
-- **Channel IM connections**: built-in Feishu, DingTalk, and Telegram support, with plugins for more platforms. Work with Agents through your everyday messaging apps.
-- **AgentNet**: available Agents on the same self-hosted network can hand work across devices, using each device's files, context, and execution environment. Task content and results travel with end-to-end encryption.
+## Features
 
-Workspaces, tasks, and Agents run locally. Cross-device calls require each device to join the same self-hosted AgentNet service.
-
-![AgenTeam launcher in dark mode](specs/assets/readme/agenteam-launcher-en.png)
-
-*Choose a workspace and configure a model provider to start a conversation. The feature screenshots below show the upstream Chinese interface.*
+| | |
+| --- | --- |
+| 🗂️ **Projects** A project is a folder: create one, adopt an existing folder, or use the default location; optional assistant mode | 👥 **Agent Team** A pixel office showing every project's employees, with Modern office / Imperial court / Starship skins |
+| 🤖 **Runtimes** Claude Agent SDK, DeepSeek Harness, managed Codex, or the Claude Code / Codex CLI on your system | 🔑 **Subscriptions and APIs** Sign in with a subscription or use any model API, chosen per Agent |
+| ⏰ **Automations** One-off, interval and Cron schedules; run a script first and wake the Agent only when a condition is met | 🧰 **Skills and tools** Skills capture your methods; MCP connects tools and data (STDIO / HTTP / SSE) |
+| 💬 **Chat bots** Built-in Feishu, DingTalk and Telegram, more platforms via plugins | 🛰️ **Multi-device network** Self-hosted AgentNet hands work across devices, end-to-end encrypted |
+| 🔍 **Full-text search** The sidebar search bar finds any chat by title or content | 🧑‍💻 **CLI** Agents use the `myagents` CLI to create tasks and call other Agents; authorised external Agents can too |
 
 ## Quick start
 
-1. **Build the AgenTeam desktop app** by following the [development guide](DEVELOPMENT.md) in this repository.
-2. **Connect a model**: in Settings → Model Providers, sign in to a supported subscription or configure a model API, then select a compatible runtime and model. See the [model and runtime guide](bundled-skills/myagents-docs/references/models-providers-runtimes.md).
-3. **Choose a workspace and create an Agent**: use your own project folder or start with the included Mino template, then enable the Skills and tools you need.
-4. **Start working**: bring your materials, explain the goal, and keep refining the direction in conversation. Ask your Agent to create a Task for work that should continue on a schedule.
+You need Node.js 24.14+ and npm 11.15+ (see [package.json](package.json)). Native builds also need the Visual Studio C++ desktop workload with the Windows SDK, Rustup and CMake; see the [Windows build guide](specs/guides/windows_build_guide.md).
 
-One computer is enough to start. When you need another device's context or environment, open Agent Network from the sidebar's More menu. Enable self-hosted AgentNet in Developer Settings before adding a network.
-
-![Model provider settings with subscription sign-in and API configuration](specs/assets/readme/v050-model-providers-zh.png)
-
-*Connect through a supported subscription or model API. Check the provider list in the app for available options.*
-
-## Working with your Agents
-
-### Set direction and advance multiple projects in the workbench
-
-Each Agent has its own workspace, model, runtime, Skills, and tool configuration, and can have multiple sessions. Advance research, development, and content work in parallel while giving feedback and making decisions along the way.
-
-- Bring project files into context, reference files with `@`, and use Skills with `/`.
-- Inspect files and results, and verify work in the embedded terminal and browser.
-- Keep conversation history, workspace files, and memory as a foundation for future work.
-- Turn repeatable methods into Skills that other sessions can reuse.
-
-### Keep recurring work running with Tasks
-
-Ask an Agent to create a task, or create and edit it in the task center. A Task keeps its objective, state, and run history, with support for one-time schedules, fixed intervals, and Cron expressions.
-
-For frequent checks that only need AI when something changes, run a local script on a schedule and **wake the Agent only when the condition is met**. Examples include waiting for a build to finish, checking for new files, or detecting a service status change.
-
-An example request:
-
-> Every morning, check for new material in this workspace. If anything has changed, summarize it and flag decisions I need to make; otherwise, stay quiet. Confirm how to check for changes and where to save the results with me before creating the task.
-
-Tasks determine when work is triggered. For ongoing research, execution, and verification within the current session, use **Goal Mode**. See the [task and automation guide](bundled-skills/myagents-docs/references/automation.md).
-
-### Use AgentNet to reach the right device
-
-Your everyday computer can remain your main point of interaction, while other computers contribute their files and execution environments. Develop on a MacBook, hand Windows checks to an Agent on a Windows computer, and place recurring work on a device you keep running.
-
-This example shows devices on the same self-hosted network. The lines represent task handoffs and results:
-
-```mermaid
-flowchart TB
-    person["You · direction and key decisions"] <--> daily["Agent on your everyday laptop<br/>Conversation, delegation, results"]
-    daily <-->|AgentNet| dev["Agent on your development MacBook<br/>Project files and development environment"]
-    daily <-->|AgentNet| win["Agent on your Windows computer<br/>Verification in Windows"]
+```powershell
+git clone https://github.com/micsnq2yoma-lgtm/AgenTeam.git
+cd AgenTeam
+.\setup_windows.ps1     # prepare Node, dependencies and build resources (slow the first time, cached afterwards)
+npm run tauri:dev       # start the desktop dev build
 ```
 
-You choose which Agents are available to the network. A remote Agent executes with the workspace, model, and tools on its own device. Tasks run through AgenTeam on the device where they are created: computers you keep running can handle ongoing work, while portable devices join as needed.
-
-![AgentNet device overview showing online status and Agents available to the network](specs/assets/readme/v050-agentnet-zh.png)
-
-*View devices and available Agents on the same self-hosted network. This screenshot shows two online devices and one device that has not joined the network. Cross-device calls require the target to be online.*
-
-See the [AgentNet guide](bundled-skills/myagents-docs/references/agent-network.md) for setup and operating requirements.
-
-### People use the GUI; Agents arrange work through the CLI
-
-Manage Agents, Tasks, and records in the interface. Agents running inside AgenTeam can use the `myagents` CLI to create tasks, call other Agents, read status, and write back results. Requests in conversation can become actual work arrangements.
-
-Other Agents you install can connect too. Enable External Access in Settings and authorize access with a token to use the public CLI capabilities. See the [external Agent integration guide](bundled-guides/external-myagents-cli/SKILL.md).
-
-### Work with Agents through your messaging apps
-
-Connect a messaging platform to an Agent workspace through Channels. Feishu, DingTalk, and Telegram have built-in connections; install plugins for additional platforms, then continue working with your Agent from your usual messaging app.
-
-![Channel settings for Feishu, DingTalk, Telegram, and additional messaging platforms](specs/assets/readme/v050-im-channels-zh.png)
-
-*Add a Channel to a workspace or install the platform plugin you need. See the [Agent and Channel guide](bundled-skills/myagents-docs/references/agents-channels.md) for configuration.*
-
-## More capabilities
-
-| Capability | What you can do |
+| Goal | Command |
 | --- | --- |
-| Models and runtimes | Use Claude Agent SDK, DeepSeek Harness, or managed Codex, as well as installed system Claude Code CLI / Codex CLI. Subscription sign-in and API configuration depend on the provider and runtime. |
-| Skills and MCP tools | Keep reusable methods in built-in or custom Skills; connect tools and data sources through MCP over STDIO, HTTP, or SSE. |
-| Channel IM connections | Use built-in Feishu, DingTalk, and Telegram connections, with plugins for additional platforms. |
-| Records | Capture text, ideas, and meeting audio, transcribe locally, and discuss the material with an Agent to turn it into tasks. Speech transcription requires the appropriate model download. |
-| Files and sessions | Browse workspace files, preview results, revisit sessions, and search local files and history. |
-| Desktop entry points | Use the main workbench, the built-in assistant, or a floating desktop window for full work sessions and quick questions. |
-| Native desktop control | Enable the optional Cuse global Skill and CLI on macOS / Windows so Agents can interact with the desktop. |
+| Tweak the UI only | `preview_windows.cmd`: browser preview with hot reload; desktop features such as search and files are unavailable |
+| Debug desktop features | `.\setup_windows.ps1`, then `npm run tauri:dev` |
+| Build an installer | `.\build_windows.ps1 -Candidate -SkipPortable`; output in `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/` |
 
-Learn more: [Models and runtimes](bundled-skills/myagents-docs/references/models-providers-runtimes.md) · [Skills, tools, and plugins](bundled-skills/myagents-docs/references/tools-skills-plugins.md) · [Agents and Channels](bundled-skills/myagents-docs/references/agents-channels.md) · [Records and Tasks](bundled-skills/myagents-docs/references/automation.md)
+On macOS run `./setup.sh` then `./start_dev.sh`; on Ubuntu 24.04 run `./setup.sh` and `./build_dev_linux.sh`. See the [development guide](DEVELOPMENT.md) for details.
 
-The detailed usage guides linked here are currently maintained in Chinese.
+Once it is running:
 
-## Operating notes and FAQ
+1. **Connect a model**: Settings → Model Providers, sign in to a subscription or enter an API, then pick the Runtime and model. See the [models and Runtime guide](bundled-skills/myagents-docs/references/models-providers-runtimes.md).
+2. **Create a project**: click **+** next to "Projects" in the sidebar, choose the folder location and whether to turn on assistant mode.
+3. **Start a chat**: open a chat in the project, share the material and the goal; for ongoing work, ask the Agent to set up an automation.
 
-### Does my computer need to stay on?
+App data lives in `~/.myagents` (the upstream MyAgents directory name, kept on purpose; do not rename it).
 
-Open the app when you need interactive work. Scheduled tasks and condition checks require **the device running them to stay powered on and awake, with AgenTeam running**. They continue with the window minimized or the app in the background, but do not execute while the app is fully closed or the system is asleep. Put ongoing tasks on a device you keep running.
+## What you can change in Settings
 
-For AgentNet calls, the target device must be online, joined to the same self-hosted network, with the target Agent made available. There is currently no offline-device message queue or delivery after reconnection.
+- **Team look**: choose the Agent Team skin; on supported systems you can also enable the desktop pet to summon AgenTeam at any time.
+- **Chat bots**: connect Feishu / DingTalk / Telegram to a project.
+- **External calls**: authorise other Agents to use AgenTeam through the CLI; see the [external Agent guide](bundled-guides/external-myagents-cli/SKILL.md).
 
-### Where does data go in a local-first system?
+## Architecture
 
-| Content | Where it runs or is stored |
+| Path | Contents |
 | --- | --- |
-| Agent execution, workspaces, conversations, and local tasks | On your own devices. |
-| Model requests and external tool calls | Sent to the model or tool services you configure, potentially including the context you choose to use. |
-| AgentNet tasks and results | Devices connect through a relay; business content is end-to-end encrypted. The service handles routing metadata such as device discovery and online status. |
+| `src/renderer/` | React 19 + Vite desktop UI; `features/team-office/` holds Agent Team and its skins |
+| `src/server/` | Node.js Sidecar: SessionEngine and Runtime adapters, one process per session |
+| `src-tauri/` | Tauri v2 Rust shell: processes, persistence, HTTP/SSE proxy, automation store |
+| `src/cli/` | The `myagents` CLI |
+| `src/shared/` | Types and pure logic shared by the UI and the Sidecar |
+| `bundled-workspaces/` `bundled-skills/` | Built-in Mino assistant template and skill docs |
+| `specs/` | Architecture, design system, module tech docs and build guides |
 
-Cross-device AgentNet calls require a compatible self-hosted AgentHub relay and enrolled devices.
+## Documentation
 
-### What is free and open source?
+- [Development guide](DEVELOPMENT.md): environment, builds, checks and tests
+- [Architecture](specs/ARCHITECTURE.md) · [Design system](specs/DESIGN.md)
+- [Tasks and automation](bundled-skills/myagents-docs/references/automation.md) · [Skills, tools and plugins](bundled-skills/myagents-docs/references/tools-skills-plugins.md) · [Agents and chat bots](bundled-skills/myagents-docs/references/agents-channels.md) · [Multi-device network](bundled-skills/myagents-docs/references/agent-network.md)
+- [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
 
-The AgenTeam client is free and open source. Model subscriptions, APIs, and external tools follow the pricing of the services you choose. See the license section below for client licensing.
+## Star History
 
-### Can external Agents use every capability?
+[![Star History Chart](https://api.star-history.com/svg?repos=micsnq2yoma-lgtm/AgenTeam&type=Date)](https://star-history.com/#micsnq2yoma-lgtm/AgenTeam&Date)
 
-External access is off by default. Once enabled and authorized, external Agents can use the public commands for Agents, sessions, Tasks, Records, and other supported capabilities. See the [integration guide](bundled-guides/external-myagents-cli/SKILL.md) for the exact scope, which differs from the full set available to Agents inside the app.
+## Acknowledgements
 
-## Development and contributing
+AgenTeam stands on the shoulders of these projects; full third-party licences are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-Contributions, documentation improvements, and issue reports are welcome.
-
-- [Development guide](DEVELOPMENT.md#english): setup, local development, builds, and checks.
-- [Contributing](CONTRIBUTING.md): Issues, Pull Requests, and contribution terms.
-- [Architecture](specs/ARCHITECTURE.md): module responsibilities and design constraints.
-- [Changelog](CHANGELOG.md) · [Report an issue](https://github.com/hAcKlyc/MyAgents/issues).
+- [MyAgents](https://github.com/hAcKlyc/MyAgents) (AGPL-3.0-only): upstream of the desktop app, Runtimes and task system
+- [AgenTeam pixel-office](https://github.com/micsnq2yoma-lgtm/Agent) (MIT): pixel employees and office
+- [claude-code-pixel-pet](https://github.com/zhizunbao-studio/claude-code-pixel-pet): the DeepSeek whale silhouette
+- Cormorant Garamond (SIL OFL 1.1): wordmark font
 
 ## License
 
-MyAgents is available under the
-[GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`).
-Individuals and companies may use it for free, including commercially, when
-they comply with the AGPL. A separate commercial license is required for
-closed-source modification, embedding, OEM distribution, proprietary
-distribution, or hosted offerings that do not comply with the AGPL. Contact
-[myagents.io@gmail.com](mailto:myagents.io@gmail.com).
-
-See [LICENSING.md](LICENSING.md) for details,
-[COMMERCIAL-LICENSING.md](COMMERCIAL-LICENSING.md) for a commercial licensing
-overview, and
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for independently licensed
-components.
-
-Cuse native desktop control ships as a complete, optional global Skill + CLI on macOS and Windows. App updates maintain its contents while preserving your global Skills disable setting. See the [integration and build contract](specs/tech_docs/cuse_bundle.md).
+This repository keeps the upstream [GNU AGPL v3.0](LICENSE) (`AGPL-3.0-only`). If you distribute a modified version or offer one to users over a network, you must provide the corresponding source under the AGPL. See [LICENSING.md](LICENSING.md) and [COMMERCIAL-LICENSING.md](COMMERCIAL-LICENSING.md) for details, and the [acknowledgements](#acknowledgements) above for third-party components.
