@@ -218,7 +218,6 @@ export type EventName =
   | 'task_delete'
   | 'task_align_discuss'
   // 启动页 / Record 输入
-  | 'launcher_mode_switch'
   // Record/Recording/Speech authoritative product milestones.
   | 'record_create'
   | 'recording_start_result'
@@ -432,16 +431,6 @@ export interface AgentChannelMutationParams {
 export interface AgentChannelToggleParams {
   platform: string;
   enabled: boolean;
-}
-
-/**
- * launcher_mode_switch 事件参数
- *
- * GUI 独有 —— CLI 没有 launcher 概念，所以不带 `source` 字段。
- */
-export interface LauncherModeSwitchParams {
-  to: 'chat' | 'record';
-  via: 'click' | 'shortcut';
 }
 
 export interface RecordUseParams {
