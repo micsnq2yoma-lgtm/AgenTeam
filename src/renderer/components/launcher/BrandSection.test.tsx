@@ -122,22 +122,6 @@ vi.mock('./LauncherInputContextRow', () => ({
   default: () => <div data-testid="launcher-context-row">context row</div>,
 }));
 
-vi.mock('@/components/task-center/ModeSegment', () => ({
-  default: ({ onChange }: { onChange: (mode: 'chat' | 'team') => void }) => (
-    <button type="button" onClick={() => onChange('team')}>
-      team mode
-    </button>
-  ),
-}));
-
-vi.mock('@/features/team-office/TeamOffice', () => ({
-  default: ({ onHireEmployee, projects }: { onHireEmployee: (project: Project) => void; projects: Project[] }) => (
-    <div data-testid="team-office">
-      <button type="button" onClick={() => onHireEmployee(projects[0]!)}>hire first</button>
-    </div>
-  ),
-}));
-
 vi.mock('@/components/Toast', () => ({
   useToast: () => ({
     error: vi.fn(),
@@ -245,34 +229,12 @@ describe('BrandSection', () => {
     expect(simpleInputHandle.processDroppedFiles).not.toHaveBeenCalled();
   });
 
-  it('stops accepting drops while the team office is visible', () => {
+  it('has no 对话 / 团队 switch; the team office lives on its own page', () => {
     taskCenterMock.available = true;
     renderBrandSection({ isActive: true });
-    const input = screen.getByTestId('launcher-input');
-    const file = new File(['report'], 'report.pdf', {
-      type: 'application/pdf',
-    });
 
-    fireEvent.click(screen.getByRole('button', { name: 'team mode' }));
-
-    expect(screen.getByTestId('team-office')).toBeInTheDocument();
-    expect(nativeFileDrop.options?.enabled).toBe(false);
-    expect(input).toHaveAttribute('data-active', 'false');
-    fireEvent.drop(input, { dataTransfer: { files: [file] } });
-
-    expect(simpleInputHandle.processDroppedFiles).not.toHaveBeenCalled();
-  });
-
-  it('hiring from the team office selects that project and returns to the composer', () => {
-    taskCenterMock.available = true;
-    const onSelectWorkspace = vi.fn();
-    renderBrandSection({ isActive: true, onSelectWorkspace });
-
-    fireEvent.click(screen.getByRole('button', { name: 'team mode' }));
-    fireEvent.click(screen.getByRole('button', { name: 'hire first' }));
-
-    expect(onSelectWorkspace).toHaveBeenCalledWith(project);
-    expect(screen.queryByTestId('team-office')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(团队|Team)$/ })).not.toBeInTheDocument();
     expect(screen.getByTestId('launcher-input')).toHaveAttribute('data-active', 'true');
   });
 

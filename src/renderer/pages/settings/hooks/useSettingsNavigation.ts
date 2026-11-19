@@ -11,7 +11,6 @@ interface UseSettingsNavigationParams {
   /** Mount-only default; removing a consumed navigation target must preserve local selection. */
   defaultSection?: SettingsSection;
   navigationNonce?: number;
-  floatingBallDevGate?: boolean;
   onSectionChange?: () => void;
 }
 
@@ -19,11 +18,9 @@ export function useSettingsNavigation({
   initialSection,
   defaultSection = 'providers',
   navigationNonce,
-  floatingBallDevGate,
   onSectionChange,
 }: UseSettingsNavigationParams) {
   const onSectionChangeRef = useRef(onSectionChange);
-  const floatingBallDisabled = floatingBallDevGate === false;
 
   useEffect(() => {
     onSectionChangeRef.current = onSectionChange;
@@ -31,9 +28,6 @@ export function useSettingsNavigation({
 
   const getInitialSection = (): SettingsSection => {
     if (initialSection && VALID_SECTIONS.includes(initialSection as SettingsSection)) {
-      if (initialSection === 'desktop-pet' && floatingBallDisabled) {
-        return 'about';
-      }
       if (initialSection === 'developer' && !isDeveloperSectionUnlocked()) {
         return 'about';
       }
@@ -51,11 +45,6 @@ export function useSettingsNavigation({
   useEffect(() => {
     if (initialSection && VALID_SECTIONS.includes(initialSection as SettingsSection)) {
       const timer = window.setTimeout(() => {
-        if (initialSection === 'desktop-pet' && floatingBallDisabled) {
-          setActiveSection('about');
-          notifySectionChange();
-          return;
-        }
         if (initialSection === 'developer' && !isDeveloperSectionUnlocked()) {
           setActiveSection('about');
           notifySectionChange();
@@ -69,19 +58,7 @@ export function useSettingsNavigation({
         window.clearTimeout(timer);
       };
     }
-  }, [floatingBallDisabled, initialSection, navigationNonce, notifySectionChange]);
-
-  useEffect(() => {
-    if (activeSection === 'desktop-pet' && floatingBallDisabled) {
-      const timer = window.setTimeout(() => {
-        setActiveSection('about');
-      }, 0);
-
-      return () => {
-        window.clearTimeout(timer);
-      };
-    }
-  }, [activeSection, floatingBallDisabled]);
+  }, [initialSection, navigationNonce, notifySectionChange]);
 
   const navigateToProxySettings = useCallback(() => {
     setActiveSection('proxy');

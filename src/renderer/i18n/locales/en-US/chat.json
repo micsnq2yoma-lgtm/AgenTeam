@@ -98,12 +98,6 @@
     "undoFilesAdded": "Undid adding {{count}} file(s).",
     "undoFilesPartial": "Undid {{successCount}} file(s); {{failCount}} file(s) could not be deleted.",
     "undoReferenceOnly": "Reference removed, but file deletion failed.",
-    "mode": {
-      "chat": "Chat",
-      "team": "Team",
-      "switchToTeam": "Press Tab to switch to Team",
-      "switchToChat": "Press Tab to switch to Chat"
-    },
     "mention": {
       "workspaceFiles": "Workspace files",
       "thoughts": "Records",

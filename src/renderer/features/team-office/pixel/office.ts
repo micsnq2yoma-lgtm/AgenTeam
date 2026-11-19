@@ -2,6 +2,7 @@
 // (MIT, see THIRD_PARTY_NOTICES.md). Departments become projects and people are
 // the project's assistant (lead) and conversations (employees).
 import { characterFrame, FRAME_MS, SPRITE_HEIGHT, SPRITE_WIDTH, type PixelAction } from "./characters";
+import { OFFICE_SKINS, type OfficePalette, type OfficeSkin, type SkinPainter } from "./skins";
 import type { ModelFamily } from "./types";
 
 export interface OfficePerson {
@@ -24,88 +25,7 @@ export interface OfficeSnapshot {
   people: OfficePerson[];
 }
 
-export interface OfficePalette {
-  floorA: string;
-  floorB: string;
-  wall: string;
-  wallDark: string;
-  trim: string;
-  sky: string;
-  desk: string;
-  deskTop: string;
-  deskLeg: string;
-  monitor: string;
-  screenIdle: string;
-  screenOn: string;
-  code: string;
-  plant: string;
-  plantDark: string;
-  pot: string;
-  rug: string;
-  rugB: string;
-  chair: string;
-  mug: string;
-  shelf: string;
-  books: string[];
-  accent: string;
-}
-
-/** Office skin, light (DESIGN §5). */
-export const DEFAULT_PALETTE: OfficePalette = {
-  floorA: "#EFEDE9",
-  floorB: "#E8E5E1",
-  wall: "#F6F5F3",
-  wallDark: "#E4E1DD",
-  trim: "#D8D2CB",
-  sky: "#F7E4D6",
-  desk: "#3A3F45",
-  deskTop: "#CDBBA8",
-  deskLeg: "#3A3F45",
-  monitor: "#2B3138",
-  screenIdle: "#46566B",
-  screenOn: "#9FC4BA",
-  code: "#ffffff",
-  plant: "#8FA58A",
-  plantDark: "#7A9475",
-  pot: "#E3876A",
-  rug: "#EDEAE6",
-  rugB: "#E3876A",
-  chair: "#5F6266",
-  mug: "#ffffff",
-  shelf: "#8E7F73",
-  books: ["#E3876A", "#C6BCC4", "#EBC3A0", "#A9B79B", "#9AA7B5"],
-  accent: "#E3876A",
-};
-
-/** Office skin, dark (DESIGN §5). */
-export const DARK_PALETTE: OfficePalette = {
-  floorA: "#191C20",
-  floorB: "#1D2125",
-  wall: "#1E2226",
-  wallDark: "#2A2F34",
-  trim: "#3A3F45",
-  sky: "#3B3240",
-  desk: "#2B3035",
-  deskTop: "#8C7C6C",
-  deskLeg: "#2B3035",
-  monitor: "#14181C",
-  screenIdle: "#33465E",
-  screenOn: "#5CC4AE",
-  code: "#ffffff",
-  plant: "#6E8A6A",
-  plantDark: "#5D7859",
-  pot: "#C9765D",
-  rug: "#22262A",
-  rugB: "#C9765D",
-  chair: "#3A4047",
-  mug: "#D8D2CB",
-  shelf: "#5B5048",
-  books: ["#E3876A", "#C6BCC4", "#EBC3A0", "#A9B79B", "#9AA7B5"],
-  accent: "#E3876A",
-};
-
-/** The lead's seat gets a 3px peach → lavender outline; nothing else uses a gradient (DESIGN §5). */
-export const LEAD_OUTLINE = ["#F2BC94", "#BFB6D6"] as const;
+export type { OfficePalette } from "./skins";
 
 export function lerpColor(a: string, b: string, t: number): string {
   const p = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -224,19 +144,31 @@ export class OfficeRenderer {
   private seenWalk = new Set<string>();
   selected: string | null = null;
   reducedMotion = false;
+  private skin: OfficeSkin = OFFICE_SKINS.office;
+  private palette: OfficePalette = OFFICE_SKINS.office.light;
+  private readonly painter: SkinPainter = {
+    px: (c, x, y, w, h) => this.px(c, x, y, w, h),
+    clip: (x, y, w, h, draw) => {
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.rect(x, y, w, h);
+      this.ctx.clip();
+      draw();
+      this.ctx.restore();
+    },
+  };
 
-  constructor(
-    private canvas: HTMLCanvasElement,
-    private palette: OfficePalette = DEFAULT_PALETTE,
-  ) {
+  constructor(private canvas: HTMLCanvasElement) {
     const c = canvas.getContext("2d");
     if (!c) throw new Error("canvas 2d not available");
     this.ctx = c;
     this.reducedMotion = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  setPalette(p: Partial<OfficePalette>) {
-    this.palette = { ...this.palette, ...p };
+  /** Swap the scenery and headwear; the next frame repaints with it. */
+  setSkin(skin: OfficeSkin, dark: boolean) {
+    this.skin = skin;
+    this.palette = dark ? skin.dark : skin.light;
   }
 
   setSnapshot(s: OfficeSnapshot) {
@@ -346,10 +278,13 @@ export class OfficeRenderer {
     if (!this.reducedMotion) this.stepWalkers(dt);
     if (this.reducedMotion) t = 0;
     const P = this.palette;
+    const skin = this.skin;
+    const d = this.painter;
     const { width: W, height: H } = this.layout;
     this.ctx.imageSmoothingEnabled = false;
     // floor
-    for (let iy = 0; iy * 10 + TOP < H; iy++) for (let ix = 0; ix * 10 < W; ix++) this.px((ix + iy) % 2 ? P.floorA : P.floorB, ix * 10, TOP + iy * 10, 10, 10);
+    const tile = skin.floorTile;
+    for (let iy = 0; iy * tile + TOP < H; iy++) for (let ix = 0; ix * tile < W; ix++) this.px((ix + iy) % 2 ? P.floorA : P.floorB, ix * tile, TOP + iy * tile, tile, tile);
     // wall
     this.px(P.wall, 0, 0, W, 38);
     this.px(P.wallDark, 0, 36, W, 8);
@@ -357,28 +292,9 @@ export class OfficeRenderer {
     for (const z of this.layout.zones) {
       // zone divider
       if (z.x > 0) this.px(P.trim, z.x, TOP, 1, H - TOP);
-      // windows
-      [z.x + 14, z.x + 104].forEach((wx, i) => {
-        this.px(P.trim, wx - 2, 8, 34, 24);
-        this.px(P.sky, wx, 10, 30, 20);
-        const cx = wx + ((Math.floor(t / 140) + i * 11) % 40) - 8;
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.rect(wx, 10, 30, 20);
-        this.ctx.clip();
-        this.px("#ffffff", cx, 15, 9, 3);
-        this.px("#ffffff", cx + 2, 13, 5, 2);
-        this.ctx.restore();
-        this.px(P.trim, wx + 14, 10, 2, 20);
-        this.px(P.trim, wx, 19, 30, 1);
-      });
-      // shelf between windows
-      const sx = z.x + 58;
-      this.px(P.shelf, sx, 8, 32, 30);
-      for (let s = 0; s < 2; s++) for (let b = 0; b < 6; b++) {
-        const hgt = 6 + ((b * 3 + s) % 3);
-        this.px(P.books[(b + s) % P.books.length], sx + 2 + b * 5, 10 + s * 13 + (9 - hgt), 3, hgt);
-      }
+      // windows and the wall piece between them
+      [z.x + 14, z.x + 104].forEach((wx, i) => skin.window(d, P, wx, t, i));
+      skin.centerpiece(d, P, z.x + 58, t);
       // lead rug
       const lead = this.layout.seats.find((s) => s.isLead && s.zone === this.layout.zones.indexOf(z));
       if (lead) {
@@ -386,17 +302,17 @@ export class OfficeRenderer {
         this.px(P.rug, rx, ry, rw, rh);
         // 3px outline, peach at the top-left fading to lavender at the bottom-right
         for (let i = 0; i < rw; i++) {
-          const c = lerpColor(LEAD_OUTLINE[0], LEAD_OUTLINE[1], i / (rw - 1));
+          const c = lerpColor(skin.leadOutline[0], skin.leadOutline[1], i / (rw - 1));
           this.px(c, rx + i, ry - 3, 1, 3);
           this.px(c, rx + i, ry + rh, 1, 3);
         }
         for (let j = -3; j < rh + 3; j++) {
           const t = (j + 3) / (rh + 5);
-          this.px(lerpColor(LEAD_OUTLINE[0], LEAD_OUTLINE[1], t * 0.5), rx - 3, ry + j, 3, 1);
-          this.px(lerpColor(LEAD_OUTLINE[0], LEAD_OUTLINE[1], 0.5 + t * 0.5), rx + rw, ry + j, 3, 1);
+          this.px(lerpColor(skin.leadOutline[0], skin.leadOutline[1], t * 0.5), rx - 3, ry + j, 3, 1);
+          this.px(lerpColor(skin.leadOutline[0], skin.leadOutline[1], 0.5 + t * 0.5), rx + rw, ry + j, 3, 1);
         }
       }
-      this.plant(z.x + z.w - 14, TOP + 4);
+      skin.corner(d, P, z.x + z.w - 14, TOP + 4, t);
     }
     // seats
     const byId = new Map(this.snapshot.people.map((p) => [p.agentId, p]));
@@ -429,20 +345,15 @@ export class OfficeRenderer {
     }
   }
 
-  private plant(x: number, y: number) {
-    const P = this.palette;
-    this.px(P.plantDark, x + 2, y, 6, 4);
-    this.px(P.plant, x, y + 3, 10, 5);
-    this.px(P.plantDark, x + 3, y + 6, 4, 3);
-    this.px(P.pot, x + 2, y + 9, 7, 6);
-  }
-
   private drawRobot(x: number, y: number, p: OfficeSnapshot["people"][number], t: number, walking = false) {
     const frame = this.reducedMotion ? 0 : Math.floor(t / FRAME_MS);
     const action = walking ? "walk_to_lead" : p.anim;
+    let top = SPRITE_HEIGHT;
     for (const [dx, dy, w, h, color] of characterFrame(p.eye, action, frame)) {
       this.px(color, x + dx, y + dy, w, h);
+      if (dy < top) top = dy;
     }
+    this.skin.headwear?.(this.painter, this.palette, x + SPRITE_WIDTH / 2, y + top, t, p.isLead);
   }
 
   private drawDesk(dx: number, dy: number, anim: PixelAction, t: number, isLead: boolean) {
@@ -453,20 +364,7 @@ export class OfficeRenderer {
     this.px(P.deskLeg, dx, dy + 10, w, 1);
     this.px(P.deskLeg, dx + 1, dy + 11, 3, 3);
     this.px(P.deskLeg, dx + w - 4, dy + 11, 3, 3);
-    this.px(P.monitor, dx + 2, dy - 9, 13, 10);
-    let scr = anim === "working" ? P.screenOn : P.screenIdle;
-    if (anim === "paused") scr = P.monitor;
-    if (anim === "failed") scr = Math.floor(t / 500) % 2 ? "#c23b3b" : P.screenIdle;
-    if (anim === "waiting") scr = Math.floor(t / 400) % 2 ? "#ffcf5a" : P.screenIdle;
-    this.px(scr, dx + 3, dy - 8, 11, 7);
-    if (anim === "working") {
-      for (let i = 0; i < 3; i++) {
-        const lw = 2 + ((Math.floor(t / 160) + i * 3 + dx) % 8);
-        this.px(P.code, dx + 4, dy - 7 + i * 2, Math.min(9, lw), 1);
-      }
-    }
-    if (isLead) this.px(P.accent, dx + 30, dy + 1, 7, 2);
-    else this.px(P.mug, dx + 26, dy - 1, 3, 3);
+    this.skin.deskProps(this.painter, P, dx, dy, anim, t, isLead);
   }
 
   private stepWalkers(dt: number) {

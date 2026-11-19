@@ -8,14 +8,12 @@ interface SettingsSidebarProps {
   setActiveSection: Dispatch<SetStateAction<SettingsSection>>;
   showDevTools?: boolean;
   developerUnlocked?: boolean;
-  floatingBallDevGate?: boolean;
   onShowLogs: () => void;
 }
 
 const NAV_ITEMS: Array<{ section: SettingsSection; labelKey: string }> = [
   { section: 'providers', labelKey: 'sidebar.nav.providers' },
   { section: 'general', labelKey: 'sidebar.nav.general' },
-  { section: 'agent', labelKey: 'sidebar.nav.bots' },
   { section: 'desktop-pet', labelKey: 'sidebar.nav.floatingBall' },
   { section: 'usage-stats', labelKey: 'sidebar.nav.usageStats' },
   { section: 'proxy', labelKey: 'sidebar.nav.proxy' },
@@ -30,7 +28,6 @@ export function SettingsSidebar({
   setActiveSection,
   showDevTools,
   developerUnlocked,
-  floatingBallDevGate,
   onShowLogs,
 }: SettingsSidebarProps) {
   const { t } = useTranslation('settings');
@@ -52,7 +49,6 @@ export function SettingsSidebar({
 
       <nav className="settings-nav overflow-x-auto space-y-1">
         {NAV_ITEMS.map((item) => {
-          if (item.section === 'desktop-pet' && floatingBallDevGate === false) return null;
           if (item.section === 'developer' && !developerUnlocked) return null;
           const isActive = item.section === activeSection;
           return (

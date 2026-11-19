@@ -205,7 +205,6 @@
   },
   "teamOffice": {
     "title": "团队",
-    "summary": "{{projects}} 个项目部 · {{employees}} 名员工 · {{working}} 名工作中",
     "legend": "状态说明",
     "status": {
       "working": "工作中",
@@ -214,11 +213,34 @@
       "idle": "待命",
       "resting": "休息中"
     },
-    "lead": "助理 · {{name}}",
-    "hire": "新员工",
-    "hireIn": "在「{{project}}」添加新员工",
     "more": "+{{count}}",
     "emptyTitle": "还没有项目",
-    "emptyDescription": "新建一个项目后，它的员工会在这里上班。"
+    "emptyDescription": "新建一个项目后，它的员工会在这里上班。",
+    "skins": {
+      "office": {
+        "name": "现代办公室",
+        "description": "项目部、工位和电脑，默认的团队形象。",
+        "summary": "{{projects}} 个项目部 · {{employees}} 名员工 · {{working}} 名工作中",
+        "lead": "助理 · {{name}}",
+        "hire": "新员工",
+        "hireIn": "在「{{project}}」添加新员工"
+      },
+      "court": {
+        "name": "朝堂",
+        "description": "红墙金匾、案几奏折，助理是丞相，员工戴乌纱帽上朝。",
+        "summary": "{{projects}} 个衙门 · {{employees}} 位官员 · {{working}} 位当值",
+        "lead": "丞相 · {{name}}",
+        "hire": "招贤",
+        "hireIn": "为「{{project}}」招贤纳士"
+      },
+      "starship": {
+        "name": "星舰",
+        "description": "舷窗外星河流动，助理是舰长，员工戴通讯耳机执勤。",
+        "summary": "{{projects}} 个舱段 · {{employees}} 名舰员 · {{working}} 名执勤中",
+        "lead": "舰长 · {{name}}",
+        "hire": "招募",
+        "hireIn": "为「{{project}}」招募舰员"
+      }
+    }
   }
 }

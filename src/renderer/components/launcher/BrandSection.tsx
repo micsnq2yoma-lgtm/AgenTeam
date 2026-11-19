@@ -1,18 +1,13 @@
 /**
  * BrandSection - Left panel of the Launcher page
- * Layout: owns the whole Launcher page. A 对话 / 团队 ModeSegment is pinned to
- * the top edge as the page-level switch. In 对话, a three-row grid anchors the
+ * Layout: owns the whole Launcher page. A three-row grid anchors the
  * composition to a fixed line at 42% of the page height: the brand sits on
  * that line and the input hangs from it. Neither moves when the input grows —
  * extra height only ever extends downward.
  *
- * 「团队」 replaces the composition with the pixel team office
- * (features/team-office): every project is a department and its employees
- * are its conversations. The composer stays mounted (hidden) so a draft
- * survives the switch.
+ * The pixel team office is its own page (sidebar → 智能体团队), not a mode here.
  */
 
-import { isImeComposingEvent } from '@/utils/imeKeyboard';
 import {
   memo,
   useCallback,
@@ -38,19 +33,11 @@ import CronTaskSettingsModal, {
 } from '@/components/cron/CronTaskSettingsModal';
 import LauncherInputContextRow from './LauncherInputContextRow';
 import type { RuntimeDetections } from '../../../shared/types/runtime';
-import ModeSegment, {
-  type InputMode,
-} from '@/components/task-center/ModeSegment';
 import { useToast } from '@/components/Toast';
 import { track } from '@/analytics';
-import { taskCenterAvailable } from '@/api/taskCenter';
-import type { SessionMetadata } from '@/api/sessionClient';
-import TeamOffice from '@/features/team-office/TeamOffice';
 import { useFileDropZone } from '@/hooks/useFileDropZone';
 import { useTauriFileDrop } from '@/hooks/useTauriFileDrop';
-import { hasOverlayLayer } from '@/utils/closeLayer';
 import { shouldShowBuiltinSdkSlashCommands } from '@/utils/runtimeUiProjection';
-import { CUSTOM_EVENTS } from '@/../shared/constants';
 import {
   type Project,
   type Provider,
@@ -239,7 +226,6 @@ export default memo(function BrandSection({
   useEffect(() => {
     tRef.current = t;
   }, [t]);
-  const [mode, setMode] = useState<InputMode>('chat');
   // PRD 0.2.7 D1 + C6: cron settings staged in the launcher. The actual
   // `cmd_create_cron_task` does NOT run here — we only collect the params,
   // then carry them forward to Chat via InitialMessage.cron at send time.
@@ -248,8 +234,6 @@ export default memo(function BrandSection({
   const [stagedCron, setStagedCron] = useState<CronSettingsResult | null>(null);
   const [cronOpenPreset, setCronOpenPreset] =
     useState<CronInitialConfig | null>(null);
-  // Gracefully degrade in browser dev mode — ModeSegment is Tauri-only.
-  const modeSegmentEnabled = taskCenterAvailable();
 
   // `runtime` is present for user-managed external CLIs. Managed Codex keeps
   // provider-style input chrome, so its execution Runtime comes from the
@@ -261,19 +245,10 @@ export default memo(function BrandSection({
       ? provider.execution.runtime
       : 'builtin');
 
-  // Ref for imperative focus. The composer stays mounted (hidden via CSS
-  // in 团队) so typed-but-not-yet-sent text survives mode switches.
-  // Focus is driven by a mode-effect below so the caret returns to the
-  // composer whenever 对话 is shown again.
-  //
-  // ModeSegment buttons use `retainFocusOnMouseDown` (see
-  // `utils/focusRetention.ts`) so the textarea never loses focus on
-  // click in the first place — no rAF, no race with macOS WebKit
-  // touchpad-tap synthesis. The effect below handles the programmatic
-  // hand-off when a keyboard chord (Tab / Cmd+Shift+T) switches modes.
+  // Ref for imperative focus; the composer takes the caret on mount.
   const inputRef = useRef<SimpleChatInputHandle>(null);
   const inputDropZoneRef = useRef<HTMLDivElement>(null);
-  const canAcceptFileDrop = isActive && mode === 'chat';
+  const canAcceptFileDrop = isActive;
 
   const handleDroppedFiles = useCallback((files: File[]) => {
     void inputRef.current?.processDroppedFiles(files);
@@ -312,44 +287,10 @@ export default memo(function BrandSection({
     (isHtmlFileDragActive ||
       (isNativeFileDragging &&
         nativeDropZoneId === LAUNCHER_INPUT_DROP_ZONE_ID));
-  // Single helper for BOTH the segment click path (explicit mode) and
-  // the keyboard paths (Tab / Cmd+Shift+T toggle). Without this the
-  // two call sites diverged on `setMode(next)` vs `setMode((m) => …)`
-  // and future work added to one would silently skip the other.
-  //
-  // `modeRef` mirrors `mode` so we can read the current value outside
-  // a setState updater — track() fires once per real switch, even though
-  // React strict-mode invokes the updater function twice.
-  const modeRef = useRef<InputMode>(mode);
-  useEffect(() => {
-    modeRef.current = mode;
-  }, [mode]);
-  const setModeAndFocus = useCallback((next: InputMode | 'toggle') => {
-    const prev = modeRef.current;
-    const resolved: InputMode =
-      next === 'toggle' ? (prev === 'chat' ? 'team' : 'chat') : next;
-    if (resolved !== prev) {
-      track('launcher_mode_switch', {
-        to: resolved,
-        via: next === 'toggle' ? 'shortcut' : 'click',
-      });
-    }
-    if (next === 'toggle') {
-      setMode((m) => (m === 'chat' ? 'team' : 'chat'));
-    } else {
-      setMode(next);
-    }
-  }, []);
 
-  // Focus handoff — follows the visible input. Fires on mount (initial
-  // mode) and every mode change; `retainFocusOnMouseDown` already keeps
-  // focus on the correct textarea for mouse-driven ModeSegment clicks,
-  // so this effect's job is the keyboard-chord path (Tab / Cmd+Shift+T).
-  // Running in an effect keeps it out of the click-handler frame — no
-  // touchpad-tap race.
   useEffect(() => {
-    if (mode === 'chat') inputRef.current?.focus();
-  }, [mode]);
+    inputRef.current?.focus();
+  }, []);
 
   // PRD 0.2.7 D3: switching workspaces in the launcher invalidates any
   // workspace-bound draft state — `@myagents_files/...` references point to
@@ -465,99 +406,17 @@ export default memo(function BrandSection({
     setShowCronSettings(true);
   }, []);
 
-  // 团队: an employee opens its conversation through the same App-owned
-  // new-or-jump path as every other surface; hiring switches back to 对话
-  // with that project selected so the next message starts the employee.
-  const handleOpenEmployee = useCallback((session: SessionMetadata, project: Project) => {
-    window.dispatchEvent(new CustomEvent(CUSTOM_EVENTS.OPEN_SESSION_IN_NEW_TAB, {
-      detail: { sessionId: session.id, workspacePath: project.path },
-    }));
-  }, []);
-  const handleHireEmployee = useCallback((project: Project) => {
-    onSelectWorkspace(project);
-    setModeAndFocus('chat');
-  }, [onSelectWorkspace, setModeAndFocus]);
-
-  // Scoping ref for the Tab handler below — we only hijack Tab when the
-  // focus is inside this Launcher subtree, so Chat tabs / settings /
-  // modals keep their native focus navigation.
-  const sectionRef = useRef<HTMLElement | null>(null);
-
-  // PRD §4.1.1 hotkeys:
-  //   • Cmd/Ctrl+Shift+T toggles mode globally while the Launcher is
-  //     mounted — an explicit chord, safe to listen on `window`.
-  //   • Plain Tab toggles too, and — crucially — fires even when the
-  //     textarea is focused. The tooltip on the ModeSegment buttons
-  //     ("按 Tab 切换到「对话」") promises this behaviour; guarding
-  //     against editable targets like earlier iterations did made the
-  //     tooltip a lie the moment mount-time focus landed the caret in
-  //     the textarea. Child components that legitimately need to
-  //     consume Tab (SimpleChatInput's slash-menu / file-search
-  //     autocomplete) call `event.stopPropagation()` inside their
-  //     onKeyDown handlers — React's `stopPropagation` halts the
-  //     underlying native bubble, so this window listener truly won't
-  //     fire when a child has first claim on the Tab keystroke.
-  useEffect(() => {
-    if (!modeSegmentEnabled) return;
-    const handler = (e: KeyboardEvent) => {
-      if (isImeComposingEvent(e)) return;
-      if (
-        (e.metaKey || e.ctrlKey) &&
-        e.shiftKey &&
-        (e.key === 'T' || e.key === 't')
-      ) {
-        e.preventDefault();
-        setModeAndFocus('toggle');
-        return;
-      }
-      if (
-        e.key !== 'Tab' ||
-        e.metaKey ||
-        e.ctrlKey ||
-        e.altKey ||
-        e.shiftKey ||
-        hasOverlayLayer()
-      ) {
-        return;
-      }
-      const section = sectionRef.current;
-      const target = e.target as Node | null;
-      const inScope =
-        !target ||
-        target === document.body ||
-        (section?.contains(target) ?? false);
-      if (!inScope) return;
-      e.preventDefault();
-      setModeAndFocus('toggle');
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [modeSegmentEnabled, setModeAndFocus]);
 
   return (
     <section
-      ref={sectionRef}
       className="theme-launcher-hero relative grid h-full w-full grid-rows-[minmax(10rem,42%)_auto_minmax(0,1fr)] justify-items-center px-12"
       style={heroStyle}
       data-theme-hero={resolvedTheme.themeId}
     >
-      {/* Page-level mode switch: 对话 / 团队 (see DESIGN.md §5.6, PRD §4.1).
-          Out of flow so it never takes a grid row. */}
-      {modeSegmentEnabled && (
-        <div className="absolute inset-x-0 top-6 z-10 flex justify-center">
-          <ModeSegment
-            value={mode}
-            onChange={setModeAndFocus}
-            disabled={recordingBusy}
-          />
-        </div>
-      )}
-
       {/* Row 1 — brand group, bottom-aligned on the anchor line; `pb-8`
           separates "who we are" from the input below. */}
       <div
-        className={`flex min-h-0 flex-col items-center justify-end pb-8 ${mode === 'team' ? 'hidden' : ''}`}
-        aria-hidden={mode === 'team'}
+        className="flex min-h-0 flex-col items-center justify-end pb-8"
       >
         <h1 className="theme-product-wordmark theme-launcher-hero-title">
           <ProductWordmark name={resolvedTheme.hero.productName} showMark={false} />
@@ -571,12 +430,8 @@ export default memo(function BrandSection({
 
       {/* Row 2 — input, top edge on the anchor line. The context row is
           absolute-positioned below it so it hangs in row 3 without affecting
-          the anchor (PRD §4.2). Hidden, not unmounted, in 团队. */}
-      <div
-        className={`w-full max-w-[640px] ${mode === 'team' ? 'hidden' : ''}`}
-        aria-hidden={mode === 'team'}
-        inert={mode === 'team'}
-      >
+          the anchor (PRD §4.2). */}
+      <div className="w-full max-w-[640px]">
         <div className="relative w-full">
           <div className="grid *:col-start-1 *:row-start-1">
             <div
@@ -640,36 +495,24 @@ export default memo(function BrandSection({
           </div>
           {/* PRD 0.2.7 Phase F: launcher-only chip row that surfaces
            *  the project + Runtime below the composer. */}
-          {mode === 'chat' && (
-            <div className="launcher-below-input-stack absolute left-0 right-0 top-full mt-2 flex flex-col gap-4">
-              <div className="w-full">
-                <LauncherInputContextRow
-                  projects={projects}
-                  selectedProject={selectedProject}
-                  defaultWorkspacePath={defaultWorkspacePath}
-                  onSelectWorkspace={onSelectWorkspace}
-                  onAddFolder={onAddFolder}
-                  onSetDefaultWorkspace={onSetDefaultWorkspace}
-                  showRuntime={!!runtimeSelectorAvailable}
-                  runtime={activeRuntime}
-                  runtimeDetections={runtimeDetections}
-                  onRuntimeChange={onRuntimeChange}
-                />
-              </div>
+          <div className="launcher-below-input-stack absolute left-0 right-0 top-full mt-2 flex flex-col gap-4">
+            <div className="w-full">
+              <LauncherInputContextRow
+                projects={projects}
+                selectedProject={selectedProject}
+                defaultWorkspacePath={defaultWorkspacePath}
+                onSelectWorkspace={onSelectWorkspace}
+                onAddFolder={onAddFolder}
+                onSetDefaultWorkspace={onSetDefaultWorkspace}
+                showRuntime={!!runtimeSelectorAvailable}
+                runtime={activeRuntime}
+                runtimeDetections={runtimeDetections}
+                onRuntimeChange={onRuntimeChange}
+              />
             </div>
-          )}
+          </div>
         </div>
       </div>
-
-      {mode === 'team' && (
-        <div className="col-start-1 row-start-1 row-end-4 flex min-h-0 w-full flex-col pb-6 pt-20" data-launcher-team>
-          <TeamOffice
-            projects={projects}
-            onOpenEmployee={handleOpenEmployee}
-            onHireEmployee={handleHireEmployee}
-          />
-        </div>
-      )}
 
       {/* PRD 0.2.7 D1: launcher cron settings modal — confirming stages
        *  the config locally; the actual cron task is created by Chat

@@ -3171,8 +3171,18 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
   // Open Settings as a new tab (or switch to existing one)
   // Optional initialSection parameter to open a specific section (e.g., 'providers')
   // Optional initialSelect to open a specific item's detail (skill/command/agent)
+  // 聊天机器人 is its own page; 'agent' is the retired Settings section id
+  // it used to live under, kept so any stale deep link still lands there.
+  const handleOpenBots = useCallback(() => {
+    tabWorkspaceController.open('bots', { title: t('tabs.bots') });
+  }, [t, tabWorkspaceController]);
+
   const handleOpenSettings = useCallback(
     async (initialSection?: string) => {
+      if (initialSection === 'agent') {
+        handleOpenBots();
+        return;
+      }
       // Track settings_open event
       track('settings_open', { section: initialSection ?? null });
       tabWorkspaceController.open('settings', {
@@ -3183,7 +3193,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
         },
       });
     },
-    [t, tabWorkspaceController],
+    [handleOpenBots, t, tabWorkspaceController],
   );
 
   const handleOpenCapabilities = useCallback(
@@ -4602,14 +4612,20 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       capabilities: capabilitiesBinding,
       taskcenter: taskCenterBinding,
       agentnetwork: null,
+      bots: null,
       teamai: { onCreate: () => { setNewAgentPurpose('team-ai'); setNewAgentPanelOpen(true); }, onOpenSession: handleOpenSidebarSession,
         onSelectProject: (tabId, projectId) => tabWorkspaceController.update(tabId, 'teamai', tab => ({ ...tab, projectId })) },
       record: recordBinding,
+      teamoffice: {
+        onOpenEmployee: handleOpenSidebarSession,
+        onHireEmployee: (project) => handleOpenWorkspaceFromSidebar(project),
+      },
     }),
     [
       capabilitiesBinding,
       chatBinding,
       handleOpenSidebarSession,
+      handleOpenWorkspaceFromSidebar,
       launcherBinding,
       recordBinding,
       settingsBinding,
@@ -4635,6 +4651,8 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
             onOpenTaskCenter={handleOpenTaskCenter}
             onCreateTask={handleSidebarCreateTask}
             onOpenTeamAi={() => tabWorkspaceController.open('teamai', { title: t('tabs.teamAi') })}
+            onOpenTeamOffice={() => tabWorkspaceController.open('teamoffice', { title: t('tabs.teamOffice') })}
+            onOpenBots={handleOpenBots}
             onOpenAgentNetwork={() => tabWorkspaceController.open('agentnetwork', { title: t('tabs.agentNetwork') })}
             onOpenAppRoute={handleOpenAppRoute}
             onOpenCapabilities={handleOpenCapabilities}

@@ -29,7 +29,7 @@ const updater = {
 
 function Harness({ kind, initialIntent = true }: { kind: 'settings' | 'capabilities'; initialIntent?: boolean }) {
   const [tab, setTab] = useState<SettingsTab | CapabilitiesTab>(() => kind === 'settings'
-    ? { id: 'singleton', view: 'settings', title: 'Settings', ...(initialIntent ? { navigationIntent: { generation: 1, section: 'agent' } } : {}) }
+    ? { id: 'singleton', view: 'settings', title: 'Settings', ...(initialIntent ? { navigationIntent: { generation: 1, section: 'about' } } : {}) }
     : { id: 'singleton', view: 'capabilities', title: 'Capabilities', ...(initialIntent ? { navigationIntent: { generation: 1, section: 'mcp' } } : {}) });
   const [consumed, setConsumed] = useState(0);
   const onNavigationConsumed = (_id: string, generation: number) => {
@@ -40,7 +40,7 @@ function Harness({ kind, initialIntent = true }: { kind: 'settings' | 'capabilit
   const CapabilitiesRenderer = capabilitiesTabModule.render;
   return <>
     <button onClick={() => setTab(current => current.view === 'settings'
-      ? settingsTabModule.open.reopen(current, { title: 'Settings', navigationIntent: { generation: consumed + 1, section: 'agent' } })
+      ? settingsTabModule.open.reopen(current, { title: 'Settings', navigationIntent: { generation: consumed + 1, section: 'about' } })
       : capabilitiesTabModule.open.reopen(current, { title: 'Capabilities', navigationIntent: { generation: consumed + 1, section: 'mcp' } }))}>shortcut</button>
     <button onClick={() => setTab(current => current.view === 'settings'
       ? settingsTabModule.open.reopen(current, { title: 'Settings', navigationIntent: { generation: consumed + 1 } })
@@ -61,7 +61,7 @@ async function settleConsumed(generation: number) {
 }
 
 describe.each(['settings', 'capabilities'] as const)('%s navigation intent lifecycle', kind => {
-  const target = kind === 'settings' ? 'agent' : 'mcp';
+  const target = kind === 'settings' ? 'about' : 'mcp';
   const fallback = kind === 'settings' ? 'providers' : 'skills';
   it('keeps the target after consumption and supports repeat navigation after a manual selection', async () => {
     render(<Harness kind={kind} />);

@@ -181,14 +181,17 @@ describe('Ubuntu settings availability', () => {
     await waitFor(() => expect(settingsMocks.updateConfig).toHaveBeenCalledWith({ defaultWorkspacePath: '/agents/beta' }));
   });
 
-  it('redirects a saved desktop-pet route and removes unsupported/update controls without changing config', async () => {
+  it('keeps Team look without the desktop pet and removes unsupported/update controls without changing config', async () => {
     settingsMocks.linux = true;
     const onCheckForUpdate = vi.fn();
-    render(<ToastProvider><Settings mode="settings" initialSection="desktop-pet" isActive
+    const { container } = render(<ToastProvider><Settings mode="settings" initialSection="desktop-pet" isActive
       onCheckForUpdate={onCheckForUpdate} /></ToastProvider>);
+    // Team skins work everywhere; only the native desktop pet is unsupported on Linux.
+    await waitFor(() => expect(container.querySelector('[data-team-appearance]')).toBeInTheDocument());
+    expect(container.querySelector('[data-team-appearance-pet]')).not.toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: String(i18n.t('sidebar.nav.about', { ns: 'settings' })) }));
     await waitFor(() => expect(screen.getByText(String(i18n.t('about.manualLinuxUpdate', { ns: 'settings' })))).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: String(i18n.t('about.checkUpdates', { ns: 'settings' })) })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: String(i18n.t('sidebar.nav.floatingBall', { ns: 'settings' })) })).not.toBeInTheDocument();
     expect(screen.queryByText(String(i18n.t('about.desktopPetTitle', { ns: 'settings' })))).not.toBeInTheDocument();
     expect(screen.queryByText(String(i18n.t('about.developer.codexProviderTitle', { ns: 'settings' })))).not.toBeInTheDocument();
     expect(onCheckForUpdate).not.toHaveBeenCalled();

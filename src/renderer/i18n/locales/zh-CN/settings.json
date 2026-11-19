@@ -11,18 +11,18 @@
     "title": "设置",
     "logsTitle": "查看 Rust 日志",
     "nav": {
-      "providers": "模型供应商",
+      "providers": "模型设置",
       "skills": "技能 Skills",
       "plugins": "插件 Plugins",
       "tools": "工具箱",
       "bots": "聊天机器人",
-      "floatingBall": "桌面宠物",
+      "floatingBall": "团队形象",
       "usageStats": "使用统计",
       "general": "通用设置",
       "proxy": "网络代理",
       "externalCli": "外部调用",
-      "shortcuts": "快捷键",
-      "about": "关于",
+      "shortcuts": "快捷按键",
+      "about": "软件版本",
       "developer": "开发者"
     }
   },
@@ -164,7 +164,7 @@
     "scopeDialogManaged": "Managed"
   },
   "shortcuts": {
-    "title": "快捷键",
+    "title": "快捷按键",
     "description": "管理消息发送与全局唤起快捷键",
     "desktopOnly": "仅桌面版有效",
     "toasts": {
@@ -393,7 +393,7 @@
         }
       }
     },
-    "title": "模型供应商",
+    "title": "模型设置",
     "cardTitles": {
       "claudeSubscription": "Claude (订阅)",
       "claudeApi": "Claude (API)",
@@ -2167,6 +2167,13 @@
     "feedbackEmptyTip": "请输入问题描述或添加图片",
     "feedbackPlaceholder": "描述您遇到的问题、提出您的意见或建议"
   },
+  "teamAppearance": {
+    "title": "团队形象",
+    "description": "选择启动页「团队」里像素员工的场景与装扮。",
+    "skinTitle": "团队皮肤",
+    "skinDescription": "皮肤只改变场景、装扮和称呼，员工状态与动作含义保持不变。",
+    "saveFailed": "切换团队皮肤失败：{{message}}"
+  },
   "floatingBallPet": {
     "title": "桌面宠物",
     "description": "悬浮桌面宠物伴你在任何时刻唤起 AgenTeam，与 AI 对话或发起任务。",
@@ -2254,10 +2261,10 @@
     "cliRegistryTitle": "CLI 工具注册表",
     "cliRegistryDescription": "允许 AI 创建并注册命令行小工具，并在工具箱中管理；开启后新会话可自动发现已启用工具。MCP 与 myagents 内置 CLI 能力不受影响。",
     "desktopPetTitle": "桌面宠物",
-    "desktopPetDescription": "显示设置侧边栏中的「桌面宠物」入口。悬浮球是否显示由桌面宠物页顶部开关控制。",
-    "desktopPetEnabled": "已显示桌面宠物入口",
-    "desktopPetDisabled": "已隐藏桌面宠物入口",
-    "desktopPetToggleFailed": "{{action}}桌面宠物入口失败：{{message}}",
+    "desktopPetDescription": "在「团队形象」页显示桌面宠物设置。悬浮球是否显示由该处的「启用」开关控制。",
+    "desktopPetEnabled": "已显示桌面宠物设置",
+    "desktopPetDisabled": "已隐藏桌面宠物设置",
+    "desktopPetToggleFailed": "{{action}}桌面宠物设置失败：{{message}}",
     "enableAction": "启用",
     "disableAction": "关闭",
     "helperTitle": "AI 小助理",

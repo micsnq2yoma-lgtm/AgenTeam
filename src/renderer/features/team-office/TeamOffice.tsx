@@ -5,6 +5,7 @@
  * action shows what that conversation is actually doing (see
  * teamOfficeModel.ts). Clicking an employee opens its conversation; the
  * 「新员工」 button on a department (or clicking its assistant) starts a new one.
+ * The scenery and the wording follow the team skin chosen in Settings → 团队形象.
  */
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -12,11 +13,13 @@ import { useTranslation } from 'react-i18next';
 
 import { PlusIcon } from '@/components/icons';
 import type { SessionMetadata } from '@/api/sessionClient';
-import type { Project } from '@/config/types';
+import { normalizeTeamOfficeSkin, type Project } from '@/config/types';
+import { useConfig } from '@/hooks/useConfig';
 import { usePassiveWorkspaceSessions } from '@/hooks/useTaskCenterData';
 import { useResolvedTheme } from '@/theme';
 
-import { DARK_PALETTE, DEFAULT_PALETTE, layoutOffice, OfficeRenderer, seatedLabels } from './pixel/office';
+import { layoutOffice, OfficeRenderer, seatedLabels } from './pixel/office';
+import { OFFICE_SKINS } from './pixel/skins';
 import { buildTeamOffice, type EmployeeStatus } from './teamOfficeModel';
 
 const STATUS_ORDER: readonly EmployeeStatus[] = ['working', 'scheduled', 'on-call', 'idle', 'resting'];
@@ -43,6 +46,9 @@ interface TeamOfficeProps {
 export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmployee }: TeamOfficeProps) {
   const { t } = useTranslation('launcher');
   const resolvedTheme = useResolvedTheme();
+  const { config } = useConfig();
+  const skin = normalizeTeamOfficeSkin(config.teamOfficeSkin);
+  const words = `teamOffice.skins.${skin}`;
   const projectPaths = useMemo(() => projects.map((project) => project.path), [projects]);
   const data = usePassiveWorkspaceSessions(projectPaths);
 
@@ -84,8 +90,8 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
   }, []);
 
   useEffect(() => {
-    rendererRef.current?.setPalette(resolvedTheme.resolvedColorScheme === 'dark' ? DARK_PALETTE : DEFAULT_PALETTE);
-  }, [resolvedTheme.resolvedColorScheme]);
+    rendererRef.current?.setSkin(OFFICE_SKINS[skin], resolvedTheme.resolvedColorScheme === 'dark');
+  }, [resolvedTheme.resolvedColorScheme, skin]);
 
   useEffect(() => {
     rendererRef.current?.setSnapshot(office.snapshot);
@@ -132,12 +138,12 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
   const statusText = (status: EmployeeStatus) => t(`teamOffice.status.${status}`);
 
   return (
-    <section className="flex h-full min-h-0 w-full flex-col" aria-label={t('teamOffice.title')} data-team-office>
+    <section className="flex h-full min-h-0 w-full flex-col" aria-label={t('teamOffice.title')} data-team-office data-team-office-skin={skin}>
       <header className="mx-auto flex w-full max-w-[1040px] flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-[var(--ink)]">{t('teamOffice.title')}</h2>
           <p className="mt-0.5 text-sm text-[var(--ink-muted)]" data-team-office-summary>
-            {t('teamOffice.summary', office.counts)}
+            {t(`${words}.summary`, office.counts)}
           </p>
         </div>
         <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--ink-muted)]" aria-label={t('teamOffice.legend')}>
@@ -198,10 +204,10 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
                     type="button"
                     onClick={() => onHireEmployee(project)}
                     className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--paper-elevated)]/90 px-1.5 py-0.5 text-xs text-[var(--ink-muted)] shadow-xs transition-colors hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                    aria-label={t('teamOffice.hireIn', { project: zone.name })}
+                    aria-label={t(`${words}.hireIn`, { project: zone.name })}
                   >
                     <PlusIcon className="h-3 w-3" />
-                    {t('teamOffice.hire')}
+                    {t(`${words}.hire`)}
                   </button>
                 </div>
               );
@@ -211,7 +217,7 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
               const entry = office.entries.get(label.agentId);
               if (!entry) return null;
               const x = label.left * width;
-              const name = entry.kind === 'lead' ? t('teamOffice.lead', { name: label.name }) : label.name;
+              const name = entry.kind === 'lead' ? t(`${words}.lead`, { name: label.name }) : label.name;
               return (
                 <div key={label.agentId}>
                   {label.bubble && (

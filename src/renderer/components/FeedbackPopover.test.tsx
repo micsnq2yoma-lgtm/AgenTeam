@@ -46,4 +46,11 @@ describe('FeedbackPopover', () => {
     expect(mocks.popoverProps?.className).toContain('shadow-xl');
     expect(mocks.popoverProps?.className).toContain('rounded-xl');
   });
+
+  it('offers only the helper, with no community group QR code', () => {
+    render(<FeedbackPopover open onClose={vi.fn()} onOpenBugReport={vi.fn()} triggerRef={createRef<HTMLDivElement>()} />);
+
+    expect(screen.getAllByRole('button')).toHaveLength(2); // close + helper
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
 });

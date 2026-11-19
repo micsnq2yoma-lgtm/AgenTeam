@@ -464,6 +464,17 @@ html[data-color-scheme='dark'] {
   pointer-events: auto;
 }
 
+/* No account entry in this fork: when expanded the row takes no height and the
+   Bell rides on the Settings row's trailing action axis instead of leaving an
+   empty line. Rail mode keeps the row so the Bell stacks under Settings. */
+.global-sidebar[data-global-sidebar-mode='expanded'] .global-sidebar-account-row {
+  height: 0;
+}
+
+.global-sidebar[data-global-sidebar-mode='expanded'] .global-sidebar-notification-slot {
+  top: calc(-1 * var(--global-sidebar-action-size));
+}
+
 .global-sidebar[data-global-sidebar-mode='rail'] .global-sidebar-search-slot,
 .global-sidebar[data-global-sidebar-mode='rail'] .global-sidebar-notification-slot {
   transform: translateX(0);

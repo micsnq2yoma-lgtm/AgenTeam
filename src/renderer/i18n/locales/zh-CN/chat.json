@@ -98,12 +98,6 @@
     "undoFilesAdded": "已撤销 {{count}} 个文件的添加",
     "undoFilesPartial": "已撤销 {{successCount}} 个文件，{{failCount}} 个文件删除失败",
     "undoReferenceOnly": "已移除引用，但文件删除失败",
-    "mode": {
-      "chat": "对话",
-      "team": "团队",
-      "switchToTeam": "按 Tab 切换到「团队」",
-      "switchToChat": "按 Tab 切换到「对话」"
-    },
     "mention": {
       "workspaceFiles": "工作区文件",
       "thoughts": "记录",

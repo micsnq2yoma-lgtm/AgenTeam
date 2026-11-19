@@ -54,10 +54,7 @@ import CustomSelect from '@/components/CustomSelect';
 import { UnifiedLogsPanel } from '@/components/UnifiedLogsPanel';
 import GlobalPluginsPanel from '@/components/GlobalPluginsPanel';
 import CronTaskDebugPanel from '@/components/dev/CronTaskDebugPanel';
-import { BotPlatformRegistry } from '@/components/ImSettings';
 import ProxyScopeDialog from '@/components/ProxyScopeDialog';
-import WorkspaceConfigPanel from '@/components/WorkspaceConfigPanel';
-import AgentIdentityConflicts from '@/components/AgentSettings/AgentIdentityConflicts';
 import ModelManagementPanel from '@/components/ModelManagementPanel';
 import GrokSubscriptionProvider from '@/components/GrokSubscriptionProvider';
 import CliProxySubscriptionProvider from '@/components/CliProxySubscriptionProvider';
@@ -149,11 +146,8 @@ import type { ProxyScopeSettings } from '../../../shared/config-types';
 import { describeProxyScopeSummary } from './proxyScopePresentation';
 import { formatSubscriptionVerifyError } from '../../../shared/subscription';
 import { resolveSupportedLocale, type UiLanguage } from '../../../shared/i18n';
-import type { ChannelType } from '../../../shared/types/agent';
-import { reconcilePersistedAgentWorkspaceIdentities } from '@/config/services/agentConfigService';
-import { getBotWorkspaceCandidates } from '@/components/ImSettings/botWorkspaceSelection';
 import ProviderEnableOrderDialog from '@/components/ProviderEnableOrderDialog';
-import FloatingBallPetSettings from '@/components/FloatingBallPetSettings';
+import TeamAppearanceSettings from '@/features/team-office/TeamAppearanceSettings';
 import {
   describeNativeFloatingBallError,
   setNativeFloatingBallEnabled,
@@ -490,7 +484,6 @@ export default function Settings({
     initialSection,
     defaultSection: mode === 'capabilities' ? 'skills' : 'providers',
     navigationNonce,
-    floatingBallDevGate: linuxDesktop ? false : config.floatingBallDevGate,
     onSectionChange,
   });
   useEffect(() => {
@@ -504,11 +497,6 @@ export default function Settings({
       return;
     setActiveSection('skills');
   }, [activeSection, mode, setActiveSection]);
-  // Agent overlay state for viewing agent config from Settings card list
-  const [overlayAgent, setOverlayAgent] = useState<{
-    workspacePath: string;
-    initialAddChannelPlatform?: ChannelType;
-  } | null>(null);
 
   // Global summon shortcut (PRD 0.2.16) — load from Rust on mount, mutate
   // via cmd_set_global_summon_shortcut which validates + registers + saves.
@@ -589,52 +577,6 @@ export default function Settings({
   useEffect(() => {
     if (propUpdateReady) setDownloadProgress(null);
   }, [propUpdateReady]);
-
-  const handleAddBotToWorkspace = useCallback(
-    async (
-      platform: ChannelType,
-      selectedProject: import('@/config/types').Project,
-    ) => {
-      try {
-        const identity = await reconcilePersistedAgentWorkspaceIdentities();
-        const project = getBotWorkspaceCandidates(
-          identity.projects,
-          config.defaultWorkspacePath,
-        ).find((candidate) => candidate.id === selectedProject.id);
-        if (!project)
-          throw new Error(
-            `Project '${selectedProject.id}' is no longer available.`,
-          );
-        const projection = identity.agentProjections.find(
-          (item) => item.projectId === project.id,
-        );
-        if (!projection)
-          throw new Error(
-            `Agent identity is unavailable for Project '${project.id}'.`,
-          );
-        await refreshConfig();
-        setOverlayAgent({
-          workspacePath: project.path,
-          initialAddChannelPlatform: platform,
-        });
-      } catch (error) {
-        console.error(
-          '[Settings] Failed to prepare workspace for Channel setup:',
-          error,
-        );
-        toastRef.current.error(
-          tSettingsRef.current('agentSettings.botRegistry.openWorkspaceFailed'),
-        );
-      }
-    },
-    [config.defaultWorkspacePath, refreshConfig],
-  );
-
-  const handleInitialAddChannelPlatformConsumed = useCallback(() => {
-    setOverlayAgent((current) =>
-      current ? { workspacePath: current.workspacePath } : current,
-    );
-  }, []);
 
   // #230: The proxy host/port fields previously called updateConfig() on every
   // keystroke. Each call writes config.json AND — via ConfigProvider's
@@ -4708,7 +4650,6 @@ export default function Settings({
           setActiveSection={setActiveSection}
           showDevTools={config.showDevTools}
           developerUnlocked={devSectionVisible}
-          floatingBallDevGate={linuxDesktop ? false : config.floatingBallDevGate}
           onShowLogs={() => setShowLogs(true)}
         />
       )}
@@ -4790,17 +4731,6 @@ export default function Settings({
         )}
 
         {/* Bot Platform Registry (formerly Agent / IM Bot) */}
-        {activeSection === 'agent' && (
-          <div className="mx-auto max-w-4xl px-8 py-8">
-            <AgentIdentityConflicts />
-            <BotPlatformRegistry
-              projects={projects}
-              defaultWorkspacePath={config.defaultWorkspacePath}
-              onAddToWorkspace={handleAddBotToWorkspace}
-            />
-          </div>
-        )}
-
         {/* Usage Stats section */}
         {activeSection === 'usage-stats' && (
           <div className="mx-auto max-w-4xl px-8 py-8">
@@ -4808,8 +4738,10 @@ export default function Settings({
           </div>
         )}
 
-        {activeSection === 'desktop-pet' &&
-          !linuxDesktop && config.floatingBallDevGate !== false && <FloatingBallPetSettings />}
+        {/* 'desktop-pet' is kept as the section id so floating-ball deep links still land here. */}
+        {activeSection === 'desktop-pet' && (
+          <TeamAppearanceSettings showDesktopPet={!linuxDesktop && config.floatingBallDevGate !== false} />
+        )}
 
         {activeSection === 'external-cli' && <ExternalCliSettingsSection />}
 
@@ -9588,18 +9520,6 @@ export default function Settings({
         />
       )}
 
-      {/* Agent detail overlay */}
-      {overlayAgent && (
-        <WorkspaceConfigPanel
-          agentDir={overlayAgent.workspacePath}
-          onClose={() => setOverlayAgent(null)}
-          initialTab="agent"
-          initialAddChannelPlatform={overlayAgent.initialAddChannelPlatform}
-          onInitialAddChannelPlatformConsumed={
-            handleInitialAddChannelPlatformConsumed
-          }
-        />
-      )}
     </div>
   );
 }

@@ -289,7 +289,8 @@ function PetdexImportDialog({
     );
 }
 
-export default function FloatingBallPetSettings() {
+/** `embedded`: rendered inside Settings → 团队形象 below the team skin picker. */
+export default function FloatingBallPetSettings({ embedded = false }: { embedded?: boolean } = {}) {
     const { t } = useTranslation('settings');
     const tRef = useRef(t);
     const { config, updateConfig, projects, addProject } = useConfig();
@@ -533,7 +534,7 @@ export default function FloatingBallPetSettings() {
     }, [importPaths, registerZone, unregisterZone]);
 
     return (
-        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-8">
+        <div className={embedded ? undefined : 'mx-auto max-w-4xl px-4 py-8 sm:px-8'}>
             <PetdexImportDialog
                 open={petdexDialogOpen}
                 value={petdexUrl}
@@ -551,8 +552,12 @@ export default function FloatingBallPetSettings() {
                     setDeleteTarget(null);
                 }}
             />
-            <div className="mb-8">
-                <h2 className="text-xl font-semibold text-[var(--ink)]">{t('floatingBallPet.title')}</h2>
+            <div className={embedded ? 'mb-4' : 'mb-8'}>
+                {embedded ? (
+                    <h3 className="text-lg font-semibold text-[var(--ink)]">{t('floatingBallPet.title')}</h3>
+                ) : (
+                    <h2 className="text-xl font-semibold text-[var(--ink)]">{t('floatingBallPet.title')}</h2>
+                )}
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">
                     {t('floatingBallPet.description')}
                 </p>

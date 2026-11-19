@@ -27,6 +27,16 @@ describe('App Shell chrome contract', () => {
     expect(sidebarLayer).toBeLessThan(layer(searchOverlay));
   });
 
+  it('leaves no empty account line in the expanded sidebar footer', () => {
+    // The fork has no account entry; an expanded account row would only reserve blank space.
+    const sidebar = source('src/renderer/components/global-sidebar/GlobalSidebar.tsx');
+    const css = source('src/renderer/index.css');
+    const row = sidebar.slice(sidebar.indexOf('data-global-sidebar-account-row'), sidebar.indexOf('</aside>'));
+    expect(row).not.toMatch(/AccountEntry|data-global-account-trigger/);
+    expect(css).toMatch(/\[data-global-sidebar-mode='expanded'\] \.global-sidebar-account-row \{\s*height: 0;/);
+    expect(css).toMatch(/\[data-global-sidebar-mode='expanded'\] \.global-sidebar-notification-slot \{\s*top: calc\(-1 \* var\(--global-sidebar-action-size\)\);/);
+  });
+
   it('keeps Runtime switching in model selection and never gates send on input chrome', () => {
     const chat = source('src/renderer/pages/Chat.tsx');
     const send = chat.slice(chat.indexOf('const handleSendMessage = useCallback'), chat.indexOf('// Ref-stabilize handleSendMessage'));
