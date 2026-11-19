@@ -6,6 +6,9 @@
  * teamOfficeModel.ts). Clicking an employee opens its conversation; the
  * 「新员工」 button on a department (or clicking its assistant) starts a new one.
  * The scenery and the wording follow the team skin chosen in Settings → 团队形象.
+ *
+ * Naming: project → assistant → 任务. A session is a 任务 everywhere in the UI
+ * except here, where the same session is shown as a 员工.
  */
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';

@@ -110,10 +110,10 @@ describe('SessionHistoryDropdown row actions', () => {
         renderDropdown(vi.fn());
         await screen.findByText('My session');
 
-        const hiddenStateButton = screen.getByRole('button', { name: '定时任务对话已隐藏' });
+        const hiddenStateButton = screen.getByRole('button', { name: '自动化运行的任务已隐藏' });
         fireEvent.click(hiddenStateButton);
 
-        expect(screen.getByRole('button', { name: '定时任务对话已显示' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: '自动化运行的任务已显示' })).toBeInTheDocument();
     });
 
     it('surfaces only 在新 tab 打开 + 更多 on the row; the rest live behind 更多', async () => {
@@ -125,17 +125,17 @@ describe('SessionHistoryDropdown row actions', () => {
         expect(screen.getByRole('button', { name: '更多操作' })).toBeInTheDocument();
 
         // The low-frequency actions are NOT on the row until 更多 is opened.
-        expect(screen.queryByText('收藏对话')).toBeNull();
+        expect(screen.queryByText('收藏任务')).toBeNull();
         expect(screen.queryByText('导出为 md 文件')).toBeNull();
         expect(screen.queryByText('查看统计')).toBeNull();
-        expect(screen.queryByText('删除对话')).toBeNull();
+        expect(screen.queryByText('删除任务')).toBeNull();
 
         fireEvent.click(screen.getByRole('button', { name: '更多操作' }));
 
-        expect(screen.getByText('收藏对话')).toBeInTheDocument();
+        expect(screen.getByText('收藏任务')).toBeInTheDocument();
         expect(screen.getByText('导出为 md 文件')).toBeInTheDocument();
         expect(screen.getByText('查看统计')).toBeInTheDocument();
-        expect(screen.getByText('删除对话')).toBeInTheDocument();
+        expect(screen.getByText('删除任务')).toBeInTheDocument();
     });
 
     it('opens a session in a new tab and closes the dropdown', async () => {
@@ -163,7 +163,7 @@ describe('SessionHistoryDropdown row actions', () => {
         await screen.findByText('My session');
 
         fireEvent.click(screen.getByRole('button', { name: '更多操作' }));
-        fireEvent.click(screen.getByText('收藏对话'));
+        fireEvent.click(screen.getByText('收藏任务'));
 
         await waitFor(() => {
             expect(mocks.updateSession).toHaveBeenCalledWith(SESSION.id, { favorite: true });
@@ -176,7 +176,7 @@ describe('SessionHistoryDropdown row actions', () => {
         await screen.findByText('My session');
 
         fireEvent.click(screen.getByRole('button', { name: '更多操作' }));
-        fireEvent.click(screen.getByText('删除对话'));
+        fireEvent.click(screen.getByText('删除任务'));
         fireEvent.click(screen.getByRole('button', { name: '删除' }));
 
         await waitFor(() => {
