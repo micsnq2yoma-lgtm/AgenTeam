@@ -11,8 +11,8 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 18
     env:
-      QA_LATEST: '0.6.1'
-      QA_PACKAGE_DIGEST: ''
+      QA_LATEST: '0.6.2'
+      QA_PACKAGE_DIGEST: '7cd87827f3dc44f918a6c36f82d2a91700647bafba6d9388026de5946ddeb2e0'
     steps:
       - uses: actions/checkout@v4
         with:
