@@ -87,7 +87,7 @@ App data lives in `~/.myagents` (the upstream MyAgents directory name, kept on p
 | `src-tauri/` | Tauri v2 Rust shell: processes, persistence, HTTP/SSE proxy, automation store |
 | `src/cli/` | The `myagents` CLI |
 | `src/shared/` | Types and pure logic shared by the UI and the Sidecar |
-| `bundled-workspaces/` `bundled-skills/` | Built-in Mino assistant template and skill docs |
+| `bundled-workspaces/` `bundled-skills/` | Built-in 小 T assistant template and skill docs |
 | `specs/` | Architecture, design system, module tech docs and build guides |
 
 ## Documentation

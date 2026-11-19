@@ -4391,7 +4391,7 @@ mod channel_discovery_tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.json");
         let config = serde_json::json!({
-            "agents": [{"id": "agent", "name": "Mino", "providerEnvJson": {}, "channels": [
+            "agents": [{"id": "agent", "name": "Atmer", "providerEnvJson": {}, "channels": [
                 {"id": "lark", "type": "openclaw:openclaw-lark", "name": "Lark", "openclawPluginConfig": {"streaming": "true"}},
                 {"id": "wecom", "type": "openclaw:wecom", "openclawPluginId": "wecom-openclaw-plugin"}
             ]}],
@@ -4406,7 +4406,7 @@ mod channel_discovery_tests {
         std::fs::write(&backup, "original backup").unwrap();
         let metadata = read_channel_discovery_configs(&path).unwrap();
         assert_eq!(metadata.len(), 3);
-        assert_eq!(metadata[0].agent_name.as_deref(), Some("Mino"));
+        assert_eq!(metadata[0].agent_name.as_deref(), Some("Atmer"));
         assert_eq!(metadata[0].platform.to_string(), "openclaw:openclaw-lark");
         assert_eq!(
             metadata[1].openclaw_plugin_id.as_deref(),

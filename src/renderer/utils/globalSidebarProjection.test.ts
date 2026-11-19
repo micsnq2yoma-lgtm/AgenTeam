@@ -21,7 +21,7 @@ const chat = (agentDir: string): ChatTab => ({
 
 describe('resolveGlobalSidebarWorkspace', () => {
   it('projects the workspace selected by the active Launcher', () => {
-    expect(resolveGlobalSidebarWorkspace(launcher('/work/mino'))).toBe('/work/mino');
+    expect(resolveGlobalSidebarWorkspace(launcher('/work/atmer'))).toBe('/work/atmer');
   });
 
   it('projects the active Chat workspace directly from Tab authority', () => {

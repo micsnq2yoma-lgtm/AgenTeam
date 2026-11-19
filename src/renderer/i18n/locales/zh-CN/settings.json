@@ -52,7 +52,7 @@
     "promptLoadFailed": "暂时无法读取本机调用路径，请稍后重试。",
     "guideUnavailable": "外部 CLI 指南暂时不可用。请重启 AgenTeam；访问开关和 token 管理仍可使用。",
     "handoffPrompt": "请先阅读本机文件 \"{{skillPath}}\"，并严格按照其中的公开 CLI 契约操作 AgenTeam。\n\n本机 AgenTeam CLI 完整路径是：\"{{launcherPath}}\"\n\n请将 MYAGENTS_API_TOKEN 注入到环境变量：`{{tokenCommand}}`",
-    "securityWarning": "持有 MYAGENTS_API_TOKEN 的本机程序可以把当前 OS 用户和 AgenTeam 可访问的任意合格目录注册为 Workspace Agent，并让 Agent 读取或操作该工作区。请像保管密码一样保管它。",
+    "securityWarning": "持有 MYAGENTS_API_TOKEN 的本机程序可以把当前 OS 用户和 AgenTeam 可访问的任意合格目录注册为项目 Agent，并让 Agent 读取或操作该项目。请像保管密码一样保管它。",
     "copyFailed": "复制失败"
   },
   "general": {
@@ -76,9 +76,9 @@
     "forceWakeDescription": "开启后即使 AI 没有在运行，电脑也不会自动睡眠。注意：合上盖子仍会睡眠，且会更快消耗电池。",
     "forceWakeEnabled": "已开启常开阻睡",
     "forceWakeDisabled": "已关闭常开阻睡",
-    "defaultWorkspaceTitle": "启动时打开的工作区",
-    "defaultWorkspaceDescription": "启动页默认选中的 Agent 工作区，与启动页的「设为默认」保持一致",
-    "defaultWorkspaceSaved": "已设置默认工作区",
+    "defaultWorkspaceTitle": "启动时打开的项目",
+    "defaultWorkspaceDescription": "启动页默认选中的 Agent 项目，与启动页的「设为默认」保持一致",
+    "defaultWorkspaceSaved": "已设置默认项目",
     "appearanceModeTitle": "外观模式",
     "appearanceModeDescription": "设置应用的明暗外观模式",
     "themeTitle": "主题",
@@ -680,18 +680,18 @@
   },
   "agentSettings": {
     "identity": {
-      "title": "Agent 工作区归属冲突",
-      "description": "多个工作区关联了同一个 Agent，相关渠道暂时无法启动。请选择保留原 Agent 的工作区。",
-      "choose": "选择保留原 Agent 的工作区",
-      "consequences": "所选工作区保留原 Agent 的全部配置、渠道和凭据。其他工作区恢复独立配置，不复制这个 Agent 的渠道。文件和历史会话不会删除或迁移。",
-      "defaults": "独立配置沿用既有配置或标准模板默认值（例如 Mino 可能启用主动能力）。修复会停止相关 Agent 的运行；完成后请重启应用再继续已有会话。",
+      "title": "Agent 项目归属冲突",
+      "description": "多个项目关联了同一个 Agent，相关渠道暂时无法启动。请选择保留原 Agent 的项目。",
+      "choose": "选择保留原 Agent 的项目",
+      "consequences": "所选项目保留原 Agent 的全部配置、渠道和凭据。其他项目恢复独立配置，不复制这个 Agent 的渠道。文件和历史会话不会删除或迁移。",
+      "defaults": "独立配置沿用既有配置或标准模板默认值（例如小 T 可能启用主动能力）。修复会停止相关 Agent 的运行；完成后请重启应用再继续已有会话。",
       "hidden": "已隐藏",
       "archived": "已归档",
       "cancel": "取消",
       "confirm": "确认修复",
       "repairing": "正在修复…",
-      "success": "工作区归属已修复。请重启应用后继续已有会话。",
-      "failed": "修复未完成，请刷新后检查工作区归属。"
+      "success": "项目归属已修复。请重启应用后继续已有会话。",
+      "failed": "修复未完成，请刷新后检查项目归属。"
     },
     "panel": {
       "title": "Agent 设置",
@@ -825,13 +825,13 @@
       "newRulePlaceholder": "文件名",
       "ruleTooltip": "添加的规则文件均会自动加载到系统提示词 System Prompt 里面",
       "emptyTitle": "还没有 CLAUDE.md",
-      "emptyDescription": "系统提示词决定 Agent 在工作区里的行为风格——选一种方式开始：",
+      "emptyDescription": "系统提示词决定 Agent 在项目里的行为风格——选一种方式开始：",
       "generateTitle": "智能生成",
       "recommended": "推荐",
       "generateDescriptionPrefix": "AI 分析当前项目结构，自动生成贴合的 CLAUDE.md（运行 ",
       "generateDescriptionSuffix": "）",
       "templateTitle": "从模板库添加",
-      "templateDescription": "挑一个内置或自定义的 Agent 模板，合并到当前工作区（同名文件覆盖）",
+      "templateDescription": "挑一个内置或自定义的 Agent 模板，合并到当前项目（同名文件覆盖）",
       "manualTitle": "手动创建",
       "manualDescription": "自己写一份 CLAUDE.md，进入编辑器从空白开始",
       "ruleMissingTitle": "{{filename}} 文件不存在",
@@ -840,15 +840,15 @@
       "deleteTitle": "删除规则文件",
       "deleteMessage": "确认删除 {{filename}}？此操作不可恢复。",
       "fileDeleted": "文件已删除",
-      "templateApplied": "模板已应用到当前工作区"
+      "templateApplied": "模板已应用到当前项目"
     },
     "templateApply": {
       "back": "返回",
       "close": "关闭",
-      "pickTitle": "选择模板应用到当前工作区",
+      "pickTitle": "选择模板应用到当前项目",
       "confirmTitle": "确认应用",
       "builtin": "内置",
-      "confirmMerge": "将「{{name}}」模板的内容合并到当前工作区。同名文件会被覆盖，工作区中其它文件保留不变。",
+      "confirmMerge": "将「{{name}}」模板的内容合并到当前项目。同名文件会被覆盖，项目中其它文件保留不变。",
       "overwriteFiles": "将覆盖 {{count}} 个文件",
       "addFiles": "将新增 {{count}} 个文件",
       "empty": "模板为空，无文件可应用。",
@@ -864,7 +864,7 @@
       "manualTitle": "手动创建",
       "manualDescription": "自己写一份 INTRODUCTION.md，进入编辑器从空白开始",
       "deleteTitle": "删除使用指南",
-      "deleteMessage": "确定删除使用指南？删除后，用户打开新对话时将不再看到使用指南内容。文件 {{filename}} 将从工作区中移除。"
+      "deleteMessage": "确定删除使用指南？删除后，用户打开新对话时将不再看到使用指南内容。文件 {{filename}} 将从项目中移除。"
     },
     "skillCommandList": {
       "skillImportSuccess": "技能导入成功",
@@ -889,13 +889,13 @@
         "inventory_unstable": "扫描期间目录发生变化，当前不会加载该技能。请稍后刷新。",
         "missing_required_skill": "AgenTeam 必需的系统技能缺失；该技能不会加载，其他能力可继续使用。"
       },
-      "projectSkillsTitle": "工作区可用技能",
+      "projectSkillsTitle": "项目可用技能",
       "skillsTitle": "技能 Skills",
       "emptyProjectSkills": "还没有项目技能",
       "emptySkills": "还没有技能",
       "emptySkillsDescription": "创建你的第一个技能来扩展 Claude 的能力",
       "viewUserSkills": "查看用户技能",
-      "projectCommandsTitle": "工作区可用指令",
+      "projectCommandsTitle": "项目可用指令",
       "commandsTitle": "指令 Commands",
       "emptyProjectCommands": "还没有项目指令",
       "emptyCommands": "还没有指令",
@@ -969,10 +969,10 @@
       "install": "安装"
     },
     "general": {
-      "missingWorkspace": "未找到工作区配置",
+      "missingWorkspace": "未找到项目配置",
       "basicsTitle": "基础设置",
       "proactiveTitle": "主动 Agent 模式",
-      "proactiveDescription": "统一开启心跳感知、夜间记忆更新和长期记忆进化，让 AI 持续感知并维护工作区。",
+      "proactiveDescription": "统一开启心跳感知、夜间记忆更新和长期记忆进化，让 AI 持续感知并维护项目。",
       "enabled": "主动 Agent 模式已开启",
       "disabled": "主动 Agent 模式已关闭",
       "operationFailed": "操作失败"
@@ -980,7 +980,7 @@
     "basics": {
       "basicInfo": "基础信息",
       "name": "名称",
-      "workspace": "工作区",
+      "workspace": "项目",
       "runtime": "运行环境",
       "networkProxy": "网络代理",
       "model": "模型",
@@ -989,7 +989,7 @@
       "tools": "工具",
       "plugins": "插件",
       "status": "状态",
-      "workspaceNamePlaceholder": "工作区名称",
+      "workspaceNamePlaceholder": "项目名称",
       "chooseIcon": "选择图标",
       "defaultIcon": "默认",
       "defaultProvider": "默认",
@@ -1001,7 +1001,7 @@
       "noProviders": "还没有可用的供应商 —— 请先到「设置 → 模型供应商」添加 API Key 或完成订阅登录。",
       "openProviderSettings": "打开模型供应商设置 →",
       "runtimeChanged": "已切换为 {{label}}，新开 Tab 后生效",
-      "externalRuntimeNotice": "当前 Agent 工作区的运行环境已设置为 {{runtime}}。无论你在 AgenTeam 客户端或通过绑定的聊天机器人与 AI 对话，均将直接调用本机已安装的 {{runtime}} 来执行，效果等同于在终端中使用。因此供应商配置、支持的模型、MCP 工具、权限规则等均由 {{runtime}} 自身管理，如需调整请在其设置中修改。",
+      "externalRuntimeNotice": "当前 Agent 项目的运行环境已设置为 {{runtime}}。无论你在 AgenTeam 客户端或通过绑定的聊天机器人与 AI 对话，均将直接调用本机已安装的 {{runtime}} 来执行，效果等同于在终端中使用。因此供应商配置、支持的模型、MCP 工具、权限规则等均由 {{runtime}} 自身管理，如需调整请在其设置中修改。",
       "proxyMyAgents": "AgenTeam 代理",
       "proxyMyAgentsHint": "使用 AgenTeam 设置里的代理（默认）",
       "proxyTerminal": "跟随终端",
@@ -1019,7 +1019,7 @@
       "auto": "请求批准",
       "plan": "规划",
       "fullAgency": "完全自主",
-      "autoDescription": "工作区内行动，使用工具需审批",
+      "autoDescription": "项目内行动，使用工具需审批",
       "planDescription": "Agent 仅研究信息并与你讨论规划",
       "fullAgencyDescription": "无限制使用电脑与互联网，无需审批"
     },
@@ -1080,7 +1080,7 @@
       "descriptionPrefix": "在夜间自动读取",
       "descriptionSuffix": "中的指令，对各活跃 session 执行记忆维护。",
       "createdFile": "已创建 UPDATE_MEMORY.md",
-      "fileError": "无法读写 UPDATE_MEMORY.md，请检查工作区路径",
+      "fileError": "无法读写 UPDATE_MEMORY.md，请检查项目路径",
       "taskReconcileFailed": "自动记忆设置未能完整应用：{{message}}",
       "interval": "更新间隔",
       "intervalHours": "{{count}} 小时",
@@ -1124,7 +1124,7 @@
       "pluginSubtitle": "选择此 Agent 启动会话时自动启用的 Claude 插件（来自 Settings → 插件 中已显示的候选）"
     },
     "agentList": {
-      "empty": "尚未创建 Agent。在工作区设置中可以将工作区升级为 Agent。",
+      "empty": "尚未创建 Agent。在项目设置中可以将项目升级为 Agent。",
       "disabled": "已禁用",
       "defaultModel": "默认模型",
       "online": "{{online}}/{{total}} 在线",
@@ -1133,17 +1133,17 @@
     },
     "upgrade": {
       "title": "升级为 Agent",
-      "description": "将此工作区升级为 Agent 后，可以添加 IM Channel（飞书、Telegram、钉钉等），让 AI 通过多个渠道与用户交互，共享同一份工作区和工具配置。",
-      "benefitShared": "多个 Channel 共享一个工作区和 MCP 工具",
+      "description": "将此项目升级为 Agent 后，可以添加 IM Channel（飞书、Telegram、钉钉等），让 AI 通过多个渠道与用户交互，共享同一份项目和工具配置。",
+      "benefitShared": "多个 Channel 共享一个项目和 MCP 工具",
       "benefitOverrides": "独立的 AI 模型和权限覆盖配置",
       "benefitUnified": "统一的心跳和定时任务管理",
       "benefitRouting": "智能主动消息路由",
       "action": "升级为 Agent"
     },
     "workspaceSelect": {
-      "title": "选择工作区",
-      "description": "选择一个尚未升级的工作区，将其转化为 Agent。",
-      "empty": "所有工作区已升级为 Agent。"
+      "title": "选择项目",
+      "description": "选择一个尚未升级的项目，将其转化为 Agent。",
+      "empty": "所有项目已升级为 Agent。"
     },
     "toolGroups": {
       "title": "工具组",
@@ -1176,11 +1176,11 @@
       "installPlaceholder": "npm 包名，例如 @openclaw/plugin-xxx",
       "install": "安装",
       "cancel": "取消",
-      "addToWorkspace": "添加到工作区",
-      "selectWorkspaceTitle": "选择 Agent 工作区",
-      "selectWorkspaceDescription": "选择后将直接打开该工作区的机器人配置。",
-      "noWorkspaceAvailable": "暂无可用工作区",
-      "openWorkspaceFailed": "无法打开该工作区的机器人配置，请刷新后重试",
+      "addToWorkspace": "添加到项目",
+      "selectWorkspaceTitle": "选择 Agent 项目",
+      "selectWorkspaceDescription": "选择后将直接打开该项目的机器人配置。",
+      "noWorkspaceAvailable": "暂无可用项目",
+      "openWorkspaceFailed": "无法打开该项目的机器人配置，请刷新后重试",
       "uninstallConfirmTitle": "卸载插件",
       "uninstallConfirmMessage": "确定要卸载「{{name}}」吗？使用此插件的渠道将无法启动。",
       "uninstallConfirm": "卸载"
@@ -2050,7 +2050,7 @@
     "descriptionIntro": "AgenTeam 支持 Claude Plugins 插件协议，每个插件内可能包含 skills、sub agents、hooks 和 MCP。",
     "descriptionInstall": "右侧「安装插件」按钮支持通过 GitHub 链接或本地文件夹来安装插件。",
     "descriptionVisibilityPrefix": "插件开关决定插件「",
-    "descriptionVisibilityEmphasis": "在各工作区是否可见",
+    "descriptionVisibilityEmphasis": "在各项目是否可见",
     "descriptionVisibilitySuffix": "」；如果要实际启用，请去 Agent 设置或 Chat 输入框的工具菜单里勾选启用。",
     "loading": "加载中…",
     "emptyTitle": "还没有插件",
@@ -2062,7 +2062,7 @@
       "uninstall": "卸载失败"
     },
     "toasts": {
-      "hidden": "已隐藏 {{name}}（各工作区不再可选）",
+      "hidden": "已隐藏 {{name}}（各项目不再可选）",
       "shown": "已显示 {{name}}（可在 Agent / Chat 工具菜单里勾选启用）",
       "uninstalled": "已卸载 {{name}}",
       "uninstalledWithWarning": "已卸载 {{name}}（⚠ {{warning}}）"
@@ -2073,14 +2073,14 @@
       "confirm": "卸载"
     },
     "card": {
-      "hideTitle": "隐藏（不在工作区里出现）",
-      "showTitle": "显示（可被工作区选择）",
+      "hideTitle": "隐藏（不在项目里出现）",
+      "showTitle": "显示（可被项目选择）",
       "noDescription": "暂无描述"
     },
     "detail": {
       "back": "返回列表",
-      "hide": "隐藏（不再各工作区可见）",
-      "show": "显示（可被工作区选择）",
+      "hide": "隐藏（不再各项目可见）",
+      "show": "显示（可被项目选择）",
       "openDirectory": "打开目录",
       "uninstall": "卸载",
       "metadata": "元数据",
@@ -2180,9 +2180,9 @@
     "enableTitle": "启用",
     "enableDescription": "显示桌面悬浮入口和伴侣窗口。",
     "generalTitle": "通用设置",
-    "workspaceBindingTitle": "绑定工作区",
-    "workspaceBindingDescription": "默认跟随启动页工作区，也可以固定到某个项目。",
-    "followDefaultWorkspace": "跟随默认工作区",
+    "workspaceBindingTitle": "绑定项目",
+    "workspaceBindingDescription": "默认跟随启动页项目，也可以固定到某个项目。",
+    "followDefaultWorkspace": "跟随默认项目",
     "hoverPeekTitle": "悬停预览浮窗",
     "hoverPeekDescription": "鼠标移到悬浮球上时自动展开半透明浮窗；关闭后点击悬浮球仍可打开。",
     "petStyleTitle": "宠物样式",
@@ -2235,7 +2235,7 @@
       "petdexUrlRequired": "请输入 Petdex 链接",
       "importPetdexFailed": "Petdex 链接导入失败：{{message}}",
       "chooseFileFailed": "选择文件失败：{{message}}",
-      "workspaceBindingUpdated": "工作区绑定已更新",
+      "workspaceBindingUpdated": "项目绑定已更新",
       "hoverPeekEnabled": "已开启悬停预览浮窗",
       "hoverPeekDisabled": "已关闭悬停预览浮窗"
     }
@@ -2254,7 +2254,7 @@
     "installing": "安装中…",
     "restartInstall": "重启安装",
     "developerLabel": "关于 AgenTeam",
-    "developerParagraph1": "AgenTeam 基于开源项目 MyAgents 构建。你可以在本机工作区与 Agent 协作，把持续性工作交给任务系统。",
+    "developerParagraph1": "AgenTeam 基于开源项目 MyAgents 构建。你可以在本机项目与 Agent 协作，把持续性工作交给任务系统。",
     "labTitle": "实验室",
     "teamAiPanelTitle": "Team AI 面板",
     "teamAiPanelDescription": "在侧栏「更多」中显示 Team AI 管理面板入口。关闭只隐藏入口，已有 Agent 和 Channel 继续运行。",
@@ -2277,7 +2277,7 @@
       "agentNetworkMultiNetworkTitle": "自建 AgentNet",
       "agentNetworkMultiNetworkDescription": "启用设备间调用。关闭后暂停自建连接，保留配置和设备凭据。",
       "chatHistoryEntryTitle": "对话页历史入口",
-      "chatHistoryEntryDescription": "在 AI 对话页顶部显示「历史」按钮。关闭不影响全局会话搜索和工作区 Session 列表。",
+      "chatHistoryEntryDescription": "在 AI 对话页顶部显示「历史」按钮。关闭不影响全局会话搜索和项目 Session 列表。",
       "codexProviderTitle": "Codex 订阅 Provider",
       "codexProviderDescription": "在模型供应商页显示 AgenTeam 托管的 Codex (订阅) 配置入口。",
       "splitViewTitle": "分屏预览（实验性）",

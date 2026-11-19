@@ -110,22 +110,22 @@ describe('agentConfigService template Agent defaults', () => {
 
   it('does not apply builtin defaults to user templates with matching IDs', () => {
     const templates: WorkspaceTemplate[] = [{
-      id: 'mino',
-      name: 'Mino',
+      id: 'atmer',
+      name: 'Atmer',
       description: '',
       isBuiltin: true,
       agentDefaults: { enabled: true },
     }];
 
     const defaults = resolveAgentDefaultsForProject(
-      project({ templateId: 'mino', templateSource: 'user' }),
+      project({ templateId: 'atmer', templateSource: 'user' }),
       templates,
     );
 
     expect(defaults).toBeUndefined();
   });
 
-  it('creates proactive Mino Agents from the preset when a project has builtin template provenance', () => {
+  it('creates proactive Atmer Agents from the preset when a project has builtin template provenance', () => {
     const cfg: AppConfig = {
       defaultPermissionMode: 'auto',
       themeId: 'myagents-default',
@@ -140,7 +140,7 @@ describe('agentConfigService template Agent defaults', () => {
     const projects = [project({
       templateId: DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID,
       templateSource: 'builtin',
-      displayName: 'Mino',
+      displayName: 'Atmer',
     })];
 
     const result = ensureAllProjectsHaveAgent(cfg, projects, cfg.defaultPermissionMode);
@@ -150,7 +150,7 @@ describe('agentConfigService template Agent defaults', () => {
     expect(projects[0].agentId).toBeTruthy();
     expect(cfg.agents).toHaveLength(1);
     expect(cfg.agents![0]).toMatchObject({
-      name: 'Mino',
+      name: 'Atmer',
       enabled: true,
       heartbeat: PRESET_TEMPLATES[0].agentDefaults!.heartbeat,
       memoryAutoUpdate: PRESET_TEMPLATES[0].agentDefaults!.memoryAutoUpdate,

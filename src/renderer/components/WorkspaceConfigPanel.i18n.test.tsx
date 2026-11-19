@@ -132,9 +132,9 @@ vi.mock('@/hooks/useConfig', () => ({
     config: {
       agents: [{
         id: 'agent-1',
-        name: 'mino',
+        name: 'atmer',
         enabled: true,
-        workspacePath: '/Users/me/mino',
+        workspacePath: '/Users/me/atmer',
         runtime: mocks.agentRuntime,
         permissionMode: mocks.agentPermissionMode,
         runtimeConfig: { envPolicy: { proxy: 'myagents' } },
@@ -149,12 +149,12 @@ vi.mock('@/hooks/useConfig', () => ({
     projects: [{
       id: 'workspace-1',
       agentId: 'agent-1',
-      displayName: 'mino',
+      displayName: 'atmer',
       icon: 'bolt',
       isAgent: true,
       isHidden: false,
-      name: 'mino',
-      path: '/Users/me/mino',
+      name: 'atmer',
+      path: '/Users/me/atmer',
     }],
     providerVerifyStatus: {},
     providers: [],
@@ -176,7 +176,7 @@ describe('WorkspaceConfigPanel i18n', () => {
     });
     mocks.useAgentStatuses.mockReturnValue({
       refresh: vi.fn(),
-      statuses: { 'agent-1': { agentId: 'agent-1', agentName: 'mino', channels: [], enabled: true } },
+      statuses: { 'agent-1': { agentId: 'agent-1', agentName: 'atmer', channels: [], enabled: true } },
     });
     mocks.getAllMcpServers.mockResolvedValue([]);
     mocks.getEnabledMcpServerIds.mockResolvedValue([]);
@@ -184,7 +184,7 @@ describe('WorkspaceConfigPanel i18n', () => {
   });
 
   it('renders the Agent settings shell and General tab chrome in English', async () => {
-    render(<WorkspaceConfigPanel agentDir="/Users/me/mino" onClose={vi.fn()} />);
+    render(<WorkspaceConfigPanel agentDir="/Users/me/atmer" onClose={vi.fn()} />);
 
     expect(screen.getByRole('heading', { name: 'Agent Settings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'General' })).toBeInTheDocument();
@@ -199,7 +199,7 @@ describe('WorkspaceConfigPanel i18n', () => {
     expect(screen.getByText('Follow terminal')).toBeInTheDocument();
     expect(screen.getByText('Proactive Agent Mode')).toBeInTheDocument();
 
-    await waitFor(() => expect(mocks.getWorkspaceCronTasks).toHaveBeenCalledWith('/Users/me/mino'));
+    await waitFor(() => expect(mocks.getWorkspaceCronTasks).toHaveBeenCalledWith('/Users/me/atmer'));
     expect(screen.queryByText('Agent 设置')).not.toBeInTheDocument();
     expect(screen.queryByText('基础设置')).not.toBeInTheDocument();
   });
@@ -207,7 +207,7 @@ describe('WorkspaceConfigPanel i18n', () => {
   it('uses the conversation permission menu style in Agent settings', async () => {
     mocks.agentRuntime = 'builtin';
     const user = userEvent.setup();
-    render(<WorkspaceConfigPanel agentDir="/Users/me/mino" onClose={vi.fn()} />);
+    render(<WorkspaceConfigPanel agentDir="/Users/me/atmer" onClose={vi.fn()} />);
 
     await user.click(screen.getByRole('button', { name: 'Plan' }));
 
@@ -223,7 +223,7 @@ describe('WorkspaceConfigPanel i18n', () => {
   it('routes the close layer through the unsaved-edit guard', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<WorkspaceConfigPanel agentDir="/Users/me/mino" onClose={onClose} />);
+    render(<WorkspaceConfigPanel agentDir="/Users/me/atmer" onClose={onClose} />);
 
     await user.click(screen.getByRole('button', { name: 'System Prompt' }));
     mocks.systemPromptsEditing = true;

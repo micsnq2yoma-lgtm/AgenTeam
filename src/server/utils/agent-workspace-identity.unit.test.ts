@@ -129,7 +129,7 @@ describe('persisted Agent workspace identity', () => {
 
   it('reports incomplete materialization, then normal reconciliation reuses the saved independent ID', async () => {
     const choice = conflict();
-    state.projects[1].templateId = 'mino';
+    state.projects[1].templateId = 'atmer';
     state.projects[1].templateSource = 'builtin';
     state.failConfigOnce = true;
     await expect(resolvePersistedAgentWorkspaceConflict(choice, async () => {})).rejects.toMatchObject({ code: 'AGENT_MATERIALIZATION_DEFERRED' });

@@ -106,7 +106,7 @@ import {
   pruneRemovedWorkspaceKeys,
   resolveGlobalSidebarMode,
   saveGlobalSidebarPreference,
-  seedDefaultWorkspaceExpansion,
+  resolveExpandedWorkspaceKeys,
   type GlobalSidebarPreferenceV1,
 } from '@/utils/globalSidebarPreference';
 import { isTauriEnvironment } from '@/utils/browserMock';
@@ -535,25 +535,22 @@ export default memo(function GlobalSidebar({
       .sort((a, b) => (Date.parse(b.archivedAt ?? '') || 0) - (Date.parse(a.archivedAt ?? '') || 0)),
     [sortedProjects],
   );
+  const expandedWorkspaceKeys = useMemo(
+    () => resolveExpandedWorkspaceKeys(preference, activeProjects.map((project) => project.path)),
+    [activeProjects, preference],
+  );
   const expandedWorkspacePaths = useMemo(() => {
-    const expandedKeys = new Set(preference.expandedWorkspaceKeys);
+    const expandedKeys = new Set(expandedWorkspaceKeys);
     return activeProjects
       .filter((project) => expandedKeys.has(normalizeWorkspacePathIdentity(project.path)))
       .map((project) => project.path);
-  }, [activeProjects, preference.expandedWorkspaceKeys]);
+  }, [activeProjects, expandedWorkspaceKeys]);
   const taskCenterData = useGlobalSidebarTaskCenterData(expandedWorkspacePaths, searchOpen);
 
   useEffect(() => {
     if (projectsLoading) return;
-    updatePreference((current) => {
-      const seeded = seedDefaultWorkspaceExpansion(
-        current,
-        config.defaultWorkspacePath,
-        activeProjects.map((project) => project.path),
-      );
-      return pruneRemovedWorkspaceKeys(seeded, activeProjects.map((project) => project.path));
-    });
-  }, [activeProjects, config.defaultWorkspacePath, projectsLoading, updatePreference]);
+    updatePreference((current) => pruneRemovedWorkspaceKeys(current, activeProjects.map((project) => project.path)));
+  }, [activeProjects, projectsLoading, updatePreference]);
 
   const effectiveMode = resolveGlobalSidebarMode(preference.preferredMode, forceRail);
   const expanded = effectiveMode === 'expanded';
@@ -769,10 +766,10 @@ export default memo(function GlobalSidebar({
   const handleToggleWorkspace = useCallback((project: Project) => {
     const key = normalizeWorkspacePathIdentity(project.path);
     updatePreference((current) => {
-      const keys = new Set(current.expandedWorkspaceKeys);
+      const keys = new Set(current.collapsedWorkspaceKeys);
       if (keys.has(key)) keys.delete(key);
       else keys.add(key);
-      return { ...current, expandedWorkspaceKeys: [...keys], hasSeededDefaultExpansion: true };
+      return { ...current, collapsedWorkspaceKeys: [...keys] };
     });
   }, [updatePreference]);
 
@@ -1029,7 +1026,7 @@ export default memo(function GlobalSidebar({
       tabs={tabs}
       activeTab={activeTab}
       activeWorkspacePath={activeWorkspacePath}
-      expandedWorkspaceKeys={preference.expandedWorkspaceKeys}
+      expandedWorkspaceKeys={expandedWorkspaceKeys}
       sessionLimits={sessionLimits}
       showAutomationSessions={preference.showAutomationSessions}
       sessionView={preference.sessionView}

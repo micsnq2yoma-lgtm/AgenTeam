@@ -10,6 +10,7 @@ import { modelFamilyFor } from './pixel/types';
 import {
   buildTeamOffice,
   employeeStatus,
+  isAssistantProject,
   RESTING_AFTER_MS,
   STAFF_PER_PROJECT,
 } from './teamOfficeModel';
@@ -30,6 +31,13 @@ function session(overrides: Partial<SessionMetadata> & Pick<SessionMetadata, 'id
 }
 
 const tags = (entries: Array<[string, SessionTag[]]> = []) => new Map(entries);
+
+describe('isAssistantProject', () => {
+  it('recognises projects created from the atmer template', () => {
+    expect(isAssistantProject({ templateId: 'atmer' })).toBe(true);
+    expect(isAssistantProject({ templateId: 'other' })).toBe(false);
+  });
+});
 
 describe('employeeStatus', () => {
   const s = session({ id: 's', agentDir: '/p' });
@@ -53,21 +61,21 @@ describe('employeeStatus', () => {
 
 describe('buildTeamOffice', () => {
   it('turns projects into departments, the assistant into the lead and conversations into employees', () => {
-    const assistant = project({ id: 'mino', path: '/home/mino', displayName: 'Mino', templateId: 'mino', model: 'claude-sonnet' });
+    const assistant = project({ id: 'atmer', path: '/home/atmer', displayName: 'Atmer', templateId: 'atmer', model: 'claude-sonnet' });
     const plain = project({ id: 'app', path: '/work/app', displayName: 'App' });
     const office = buildTeamOffice({
       projects: [assistant, plain],
       sessions: [
-        session({ id: 'a1', agentDir: '/home/mino', title: 'Plan trip' }),
+        session({ id: 'a1', agentDir: '/home/atmer', title: 'Plan trip' }),
         session({ id: 'b1', agentDir: '/work/app', title: 'Fix login', model: 'gpt-5.5', runtime: 'codex' }),
       ],
       sessionTags: tags([['b1', [{ type: 'background' }]]]),
       now: NOW,
     });
 
-    expect(office.snapshot.departments.map((d) => d.name).sort()).toEqual(['App', 'Mino']);
+    expect(office.snapshot.departments.map((d) => d.name).sort()).toEqual(['App', 'Atmer']);
     const lead = office.snapshot.people.find((p) => p.isLead);
-    expect(lead).toMatchObject({ departmentId: 'mino', name: 'Mino', eye: 'claude', anim: 'idle' });
+    expect(lead).toMatchObject({ departmentId: 'atmer', name: 'Atmer', eye: 'claude', anim: 'idle' });
     expect(office.snapshot.people.filter((p) => p.departmentId === 'app' && p.isLead)).toHaveLength(0);
 
     const coder = office.snapshot.people.find((p) => p.agentId === 'session:b1');
@@ -77,10 +85,10 @@ describe('buildTeamOffice', () => {
   });
 
   it('lets the assistant type while one of its employees works', () => {
-    const assistant = project({ id: 'mino', path: '/home/mino', workspaceType: 'system-preset', systemPresetId: 'mino' });
+    const assistant = project({ id: 'atmer', path: '/home/atmer', workspaceType: 'system-preset', systemPresetId: 'atmer' });
     const office = buildTeamOffice({
       projects: [assistant],
-      sessions: [session({ id: 'a1', agentDir: '/home/mino' })],
+      sessions: [session({ id: 'a1', agentDir: '/home/atmer' })],
       sessionTags: tags([['a1', [{ type: 'background' }]]]),
       now: NOW,
     });

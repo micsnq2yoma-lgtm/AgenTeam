@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   userTemplates: [] as WorkspaceTemplate[],
   addProject: vi.fn(),
   openDialog: vi.fn(),
+  saveDialog: vi.fn(),
   invoke: vi.fn(),
   checkPaths: vi.fn(),
   openPathExternal: vi.fn(),
@@ -22,11 +23,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/hooks/useConfig', () => ({
   useConfig: () => ({ projects: mocks.projects, addProject: mocks.addProject }),
 }));
-vi.mock('@tauri-apps/plugin-dialog', () => ({ open: mocks.openDialog }));
+vi.mock('@tauri-apps/plugin-dialog', () => ({ open: mocks.openDialog, save: mocks.saveDialog }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }));
 vi.mock('@tauri-apps/api/path', () => ({
   join: async (...parts: string[]) => parts.join('/'),
   basename: async (path: string) => path.split('/').filter(Boolean).pop() ?? '',
+  dirname: async (path: string) => path.split('/').slice(0, -1).join('/'),
   homeDir: async () => '/Users/me',
 }));
 vi.mock('@tauri-apps/plugin-fs', () => ({ exists: async (path: string) => mocks.existingPaths.has(path) }));
@@ -70,6 +72,7 @@ beforeEach(() => {
   mocks.existingPaths = new Set();
   mocks.addProject.mockReset().mockImplementation(async (path: string) => project({ id: 'new', path }));
   mocks.openDialog.mockReset();
+  mocks.saveDialog.mockReset();
   mocks.invoke.mockReset().mockResolvedValue(undefined);
   mocks.checkPaths.mockReset().mockResolvedValue({ results: {} });
   mocks.openPathExternal.mockReset();
@@ -90,7 +93,7 @@ describe('NewAgentPanel list', () => {
     expect(labels[1]).toContain('研究助手');
     expect(labels[1]).toContain(tl('newAgentPanel.noDescription'));
     expect(labels[2]).toContain(tl('newAgentPanel.addTemplate'));
-    expect(within(list).queryByText(tl('newAgentPanel.mino.title'))).not.toBeInTheDocument();
+    expect(within(list).queryByText(tl('newAgentPanel.atmer.title'))).not.toBeInTheDocument();
     expect(within(list).getByText(tl('newAgentPanel.myTemplates'))).toBeInTheDocument();
   });
 
@@ -127,7 +130,7 @@ describe('NewAgentPanel new team', () => {
     expect(screen.getByRole('switch', { name: tl('newAgentPanel.team.assistantTitle') })).toHaveAttribute('aria-checked', 'true');
     const capabilities = document.querySelector('[data-new-agent-panel-capabilities]') as HTMLElement;
     expect(within(capabilities).getAllByRole('listitem')).toHaveLength(3);
-    expect(within(capabilities).getByText(tl('newAgentPanel.mino.capEvolveTitle'))).toBeInTheDocument();
+    expect(within(capabilities).getByText(tl('newAgentPanel.atmer.capEvolveTitle'))).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: tl('newAgentPanel.changePath') })).not.toBeInTheDocument();
   });
 
@@ -141,13 +144,13 @@ describe('NewAgentPanel new team', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('cmd_prepare_team_folder', {
       destPath: '/Users/me/.agenteam/projects/alpha',
       adoptExisting: false,
-      assistantTemplateId: 'mino',
+      assistantTemplateId: 'atmer',
     });
     const [path, options] = mocks.addProject.mock.calls[0];
     expect(path).toBe('/Users/me/.agenteam/projects/alpha');
     expect(options).toMatchObject({
       displayName: 'alpha',
-      templateId: 'mino',
+      templateId: 'atmer',
       templateSource: 'builtin',
       onExisting: 'reject',
     });
@@ -162,36 +165,52 @@ describe('NewAgentPanel new team', () => {
     await waitFor(() => expect(pathText()).toContain('alpha-2'));
   });
 
-  it('creates a plain team in a new folder under the picked parent', async () => {
-    mocks.openDialog.mockResolvedValue('/work');
+  it('creates a plain team in the new folder typed into the save dialog', async () => {
+    mocks.saveDialog.mockResolvedValue('/work/sadfsad');
     await openTeam('beta');
 
     fireEvent.click(locationRadio('locationNew'));
     await waitFor(() => expect(locationRadio('locationNew')).toHaveAttribute('aria-checked', 'true'));
-    await waitFor(() => expect(pathText()).toContain('beta'));
+    expect(mocks.saveDialog).toHaveBeenCalledWith(expect.objectContaining({ defaultPath: '/Users/me/.agenteam/projects/beta' }));
+    expect(mocks.openDialog).not.toHaveBeenCalled();
+    await waitFor(() => expect(pathText()).toContain('sadfsad'));
     fireEvent.click(screen.getByRole('switch', { name: tl('newAgentPanel.team.assistantTitle') }));
     expect(screen.getByText(tl('newAgentPanel.team.plainIntro'))).toBeInTheDocument();
     fireEvent.click(createButton());
 
     await waitFor(() => expect(mocks.addProject).toHaveBeenCalled());
     expect(mocks.invoke).toHaveBeenCalledWith('cmd_prepare_team_folder', {
-      destPath: '/work/beta',
+      destPath: '/work/sadfsad',
       adoptExisting: false,
       assistantTemplateId: null,
     });
-    expect(mocks.addProject).toHaveBeenCalledWith('/work/beta', {
+    expect(mocks.addProject).toHaveBeenCalledWith('/work/sadfsad', {
       displayName: 'beta',
       icon: undefined,
       onExisting: 'reject',
     });
   });
 
-  it('keeps the previous location when the parent picker is cancelled', async () => {
-    mocks.openDialog.mockResolvedValue(null);
+  it('keeps the previous location when the new-folder dialog is cancelled', async () => {
+    mocks.saveDialog.mockResolvedValue(null);
     await openTeam('beta');
     fireEvent.click(locationRadio('locationNew'));
-    await waitFor(() => expect(mocks.openDialog).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.saveDialog).toHaveBeenCalled());
     expect(locationRadio('locationDefault')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('refuses a new folder that already exists', async () => {
+    mocks.existingPaths.add('/work/taken');
+    mocks.saveDialog.mockResolvedValue('/work/taken');
+    await openTeam('beta');
+    fireEvent.click(locationRadio('locationNew'));
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(tl('newAgentPanel.errors.folderExists')));
+    expect(locationRadio('locationDefault')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('shows no long assistant-mode introduction', async () => {
+    await openTeam('beta');
+    expect(screen.queryByText(/5 分钟|five minutes/u)).not.toBeInTheDocument();
   });
 
   it('adopts an existing folder without file work when assistant mode is off', async () => {
@@ -226,9 +245,9 @@ describe('NewAgentPanel new team', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('cmd_prepare_team_folder', {
       destPath: '/work/my-app',
       adoptExisting: true,
-      assistantTemplateId: 'mino',
+      assistantTemplateId: 'atmer',
     });
-    expect(mocks.addProject.mock.calls[0][1]).toMatchObject({ displayName: '助理', templateId: 'mino' });
+    expect(mocks.addProject.mock.calls[0][1]).toMatchObject({ displayName: '助理', templateId: 'atmer' });
   });
 
   it('rejects an already registered folder and keeps the current location', async () => {

@@ -281,8 +281,8 @@ describe('Goal system-reminder user bubble', () => {
 describe('Cross-session request system-reminder user bubble', () => {
     it.each([
         ['Planning &amp; Review', 'Planning & Review'],
-        ['Mino@Example-Mac.local', 'Mino@Example-Mac.local'],
-        ['Mino &amp; Review@Win &quot;Desk&quot;', 'Mino & Review@Win "Desk"'],
+        ['Atmer@Example-Mac.local', 'Atmer@Example-Mac.local'],
+        ['Atmer &amp; Review@Win &quot;Desk&quot;', 'Atmer & Review@Win "Desk"'],
     ])('renders request source %s without leaking protocol metadata', (sourceAttribute, sourceLabel) => {
         const content = [
             '<system-reminder>',

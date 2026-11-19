@@ -38,7 +38,7 @@
     "settings": "设置",
     "workspaces": "项目管理",
     "workspaceSection": "项目管理",
-    "workspaceViewOptions": "工作区与会话显示选项",
+    "workspaceViewOptions": "项目与会话显示选项",
     "allSessions": "全部会话",
     "favoriteSessions": "只看收藏",
     "showAutomationHistory": "显示自动化历史",
@@ -85,7 +85,7 @@
     "recordCloseStatusFailed": "暂时无法确认录音状态，记录页没有关闭。",
     "recordStopFailed": "录音尚未安全停止，记录页没有关闭。",
     "recordRestoreMissing": "记录已不存在，已返回记录列表。",
-    "noWorkspaceForDiscussion": "还没有工作区，无法开始 AI 讨论",
+    "noWorkspaceForDiscussion": "还没有项目，无法开始 AI 讨论",
     "noModelProviderForDiscussion": "未配置可用模型供应商，无法开始 AI 讨论",
     "taskDiscussionContentRequired": "请输入任务目标与需求",
     "taskDiscussionStartFailed": "无法开始任务讨论",
@@ -124,8 +124,8 @@
     "replyFailed": "回复出错了",
     "agentErrorOpenMainWindow": "Agent 出错了，点 ↗ 去主窗口查看",
     "sessionExpiredNewChat": "上一个任务已失效，已为你开启新任务",
-    "noWorkspace": "没有可用的工作区——请先在 AgenTeam 中完成初始化",
-    "switchWorkspaceFailed": "切换工作区失败，请重试",
+    "noWorkspace": "没有可用的项目——请先在 AgenTeam 中完成初始化",
+    "switchWorkspaceFailed": "切换项目失败，请重试",
     "newConversationFailed": "新建任务失败，请重试",
     "engineNotReady": "AI 引擎尚未就绪，稍等片刻再试",
     "confirmSendFailed": "确认发送失败，请重试",
@@ -220,8 +220,8 @@
     "failed": "导出失败，请重试"
   },
   "workspaceFile": {
-    "desktopOnly": "工作区文件操作仅在桌面应用中可用。当前为浏览器开发模式。",
-    "selectWorkspaceFirst": "请先选择工作区"
+    "desktopOnly": "项目文件操作仅在桌面应用中可用。当前为浏览器开发模式。",
+    "selectWorkspaceFirst": "请先选择项目"
   },
   "browserPanel": {
     "urlPlaceholder": "输入网址或本地文件路径…",
@@ -252,7 +252,7 @@
     "reload": "重新加载"
   },
   "dropZone": {
-    "defaultMessage": "松手将文件加入工作区"
+    "defaultMessage": "松手将文件加入项目"
   },
   "richDoc": {
     "tooLarge": "文件超过 50MB，暂不支持内联预览。",
@@ -322,7 +322,7 @@
     "revealInTree": "在文件目录中展示",
     "previewUnsupported": "暂不支持预览，可右键菜单打开",
     "targetUnavailable": "文件不存在或无法访问",
-    "directoryNotInWorkspace": "无法在当前工作区中定位该目录，可右键菜单打开",
+    "directoryNotInWorkspace": "无法在当前项目中定位该目录，可右键菜单打开",
     "imageLoadFailed": "图片预览加载失败",
     "previewLoadFailed": "文件预览加载失败",
     "openFailed": "无法使用系统应用打开"
@@ -462,7 +462,7 @@
       "all": "全部",
       "favorite": "收藏"
     },
-    "allWorkspaces": "全部工作区",
+    "allWorkspaces": "全部项目",
     "deleted": "已删除",
     "deleteFailedRetry": "删除失败，请重试",
     "deleteFailed": "删除失败",
@@ -632,8 +632,8 @@
     "guide": {
       "step1Title": "让设备加入网络",
       "step1Body": "在每台设备上加入同一个自建 AgentNet 网络，再选择要参与协作的设备。",
-      "step2Title": "开放 Agent 工作区",
-      "step2Body": "加入后工作区默认关闭，只开放你希望被调用的 Agent，并写一句简介。",
+      "step2Title": "开放 Agent 项目",
+      "step2Body": "加入后项目默认关闭，只开放你希望被调用的 Agent，并写一句简介。",
       "step3Title": "照常对话",
       "step3Body": "告诉当前 Agent 要做什么；需要时它会联络另一台设备上的 Agent，或用 @ 指定。"
     },
@@ -645,7 +645,7 @@
     "offlineSince": "离线 · 最后在线 {{time}}",
     "syncing": "同步中",
     "notJoined": "未加入网络",
-    "notJoinedHint": "这台设备尚未加入网络。加入后，可以选择开放哪些工作区。",
+    "notJoinedHint": "这台设备尚未加入网络。加入后，可以选择开放哪些项目。",
     "local": "本机",
     "copyDeviceId": "复制 Device ID",
     "renameDevice": "设备重命名",
@@ -660,7 +660,7 @@
     "noOpenAgents": "还没有开放任何 Agent",
     "unsyncedShort": "尚未同步 Agent 目录",
     "unsynced": "这台设备尚未同步 Agent 目录，设备上线后会自动出现。",
-    "noAgents": "暂无可管理的 Agent 工作区",
+    "noAgents": "暂无可管理的 Agent 项目",
     "noDevices": "登录的设备会自动显示在这里",
     "partial": "列表过大，当前仅显示部分结果。",
     "openDevice": "查看 {{name}} 的设备详情",
@@ -672,7 +672,7 @@
     "leaveTitle": "退出网络？",
     "leaveMessage": "退出后，这台设备的所有 Agent 将停止在当前网络中开放。重新加入后，需要重新开启。",
     "leaveConfirm": "退出网络",
-    "agents": "Agent 工作区",
+    "agents": "Agent 项目",
     "opened": "已开放",
     "deviceInfo": "设备信息",
     "system": "系统",
@@ -730,17 +730,17 @@
       "waitingApproval": "授权后，下次符合触发规则的消息会开始会话。",
       "waitingMessage": "收到首条有效消息后，会话会显示在这里。"
     },
-    "join": "加入已有 Agent 工作区",
-    "selectWorkspaceTitle": "选择 Agent 工作区",
-    "selectWorkspaceDescription": "选择要加入 Team AI 的 Agent 工作区。只添加用途分类，不修改文件、配置或历史。",
+    "join": "加入已有 Agent 项目",
+    "selectWorkspaceTitle": "选择 Agent 项目",
+    "selectWorkspaceDescription": "选择要加入 Team AI 的 Agent 项目。只添加用途分类，不修改文件、配置或历史。",
     "create": "创建 Team AI",
-    "noCandidates": "所有可用工作区都已加入。",
+    "noCandidates": "所有可用项目都已加入。",
     "retry": "重试",
     "onboarding": {
       "title": "让一个 Agent 为整个团队工作",
       "body": "把 Agent 接入企业微信、飞书等聊天工具，同事在群聊或私聊里直接使用；你在这里管理它在每个会话里的工作。",
       "step1": "准备 Agent",
-      "step1Body": "新建一个，或把已有的 Agent 工作区加入 Team AI",
+      "step1Body": "新建一个，或把已有的 Agent 项目加入 Team AI",
       "step2": "连接聊天机器人",
       "step2Body": "接入企业微信、飞书、钉钉等，设置谁可以使用",
       "step3": "在群里 @ 它",
@@ -752,7 +752,7 @@
     "connectBot": "连接聊天机器人",
     "leave": "移出 Team AI",
     "leaveTitle": "将 {{name}} 移出 Team AI？",
-    "leaveMessage": "只移除用途分类。工作区、Bot、会话和历史都保持不变。",
+    "leaveMessage": "只移除用途分类。项目、Bot、会话和历史都保持不变。",
     "leaveConfirm": "移出",
     "private": "私聊",
     "group": "群聊",
@@ -816,7 +816,7 @@
       "updated": "{{what}}已更新",
       "savedAsOwn": "已保存为专属设置"
     },
-    "createdUnbound": "会话 {{id}} 已创建，但未完成绑定，可在工作区中打开。",
+    "createdUnbound": "会话 {{id}} 已创建，但未完成绑定，可在项目中打开。",
     "deliveryWarning": "绑定已生效，但保存或交接通知未完成，请刷新确认。",
     "efforts": {
       "default": "跟随服务商",

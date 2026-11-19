@@ -24,11 +24,11 @@ describe('system preset workspace helpers', () => {
   it('identifies system preset projects by lifecycle metadata, not template source alone', () => {
     expect(isSystemPresetProject(project({
       workspaceType: 'system-preset',
-      systemPresetId: 'mino',
+      systemPresetId: 'atmer',
     }))).toBe(true);
 
     expect(isSystemPresetProject(project({
-      templateId: 'mino',
+      templateId: 'atmer',
       templateSource: 'builtin',
     }))).toBe(false);
   });
@@ -43,15 +43,15 @@ describe('system preset workspace helpers', () => {
 
   it('repairs only missing system preset metadata without overwriting user-facing customizations', () => {
     const patch = getSystemPresetProjectMetadataPatch(project({
-      displayName: 'My Mino',
+      displayName: 'My Atmer',
       icon: 'star',
-      path: '/Users/me/.agenteam/projects/mino',
-    }), 'mino');
+      path: '/Users/me/.agenteam/projects/atmer',
+    }), 'atmer');
 
     expect(patch).toMatchObject({
       workspaceType: 'system-preset',
-      systemPresetId: 'mino',
-      templateId: 'mino',
+      systemPresetId: 'atmer',
+      templateId: 'atmer',
       templateSource: 'builtin',
     });
     expect(patch.displayName).toBeUndefined();
@@ -73,20 +73,20 @@ describe('applyProjectRemovalIntent', () => {
   });
 
   it('soft-deletes system preset workspaces', () => {
-    const mino = project({
-      id: 'mino-project',
-      path: '/Users/me/.agenteam/projects/mino',
+    const atmer = project({
+      id: 'atmer-project',
+      path: '/Users/me/.agenteam/projects/atmer',
       workspaceType: 'system-preset',
-      systemPresetId: 'mino',
+      systemPresetId: 'atmer',
     });
     const other = project({ id: 'other', path: '/tmp/other' });
 
-    const result = applyProjectRemovalIntent([mino, other], mino.id, '2026-06-11T00:00:00.000Z');
+    const result = applyProjectRemovalIntent([atmer, other], atmer.id, '2026-06-11T00:00:00.000Z');
 
     expect(result?.action).toBe('hidden');
     expect(result?.projects).toHaveLength(2);
     expect(result?.project).toMatchObject({
-      id: 'mino-project',
+      id: 'atmer-project',
       hidden: true,
       hiddenAt: '2026-06-11T00:00:00.000Z',
     });

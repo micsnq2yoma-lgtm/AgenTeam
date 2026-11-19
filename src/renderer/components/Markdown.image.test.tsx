@@ -19,7 +19,7 @@ import { FileActionProvider } from '@/context/FileActionContext';
 import { i18n } from '@/i18n';
 import Markdown from './Markdown';
 
-const WORKSPACE = '/Users/zhihu/Documents/project/mino';
+const WORKSPACE = '/Users/zhihu/Documents/project/atmer';
 const IMAGE_PATH = `${WORKSPACE}/workspace/0908-kanshan-impact/看山_F123连续周曲线.png`;
 const MARKDOWN = `![看山分人群连续周曲线](${IMAGE_PATH})`;
 const FILE = { name: 'chart.png', mimeType: 'image/png', data: 'AQID' };

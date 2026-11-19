@@ -546,8 +546,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -582,8 +581,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -755,8 +753,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -792,8 +789,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -834,8 +830,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'favorites',
     }));
@@ -864,8 +859,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -894,8 +888,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -927,8 +920,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -962,8 +954,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -998,8 +989,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1045,8 +1035,7 @@ describe('GlobalSidebar rail flyout', () => {
       JSON.stringify({
         version: 1,
         preferredMode: 'expanded',
-        expandedWorkspaceKeys: [],
-        hasSeededDefaultExpansion: true,
+        collapsedWorkspaceKeys: [],
         showAutomationSessions: true,
         sessionView: 'all',
       }),
@@ -1074,8 +1063,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1104,8 +1092,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1163,8 +1150,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1246,8 +1232,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: [],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1369,8 +1354,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'expanded',
-      expandedWorkspaceKeys: [],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: ['/work/project-one', '/work/project-two'],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1460,8 +1444,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'expanded',
-      expandedWorkspaceKeys: [],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: ['/work/project-one'],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1534,8 +1517,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'expanded',
-      expandedWorkspaceKeys: [],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1555,8 +1537,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'expanded',
-      expandedWorkspaceKeys: [],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1698,8 +1679,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1764,8 +1744,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/project-one'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));
@@ -1853,7 +1832,7 @@ describe('GlobalSidebar rail flyout', () => {
       { id: 'project-empty', name: 'Empty project', path: '/work/empty' },
     );
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
-      version: 1, preferredMode, expandedWorkspaceKeys: [], hasSeededDefaultExpansion: true,
+      version: 1, preferredMode, collapsedWorkspaceKeys: ['C:/Work/Agent', '/work/b', '/work/empty'],
     }));
     const running: ChatTab = {
       id: 'running-tab', view: 'chat', title: 'New session', agentDir: 'c:/work/agent/',
@@ -1903,8 +1882,7 @@ describe('GlobalSidebar rail flyout', () => {
     mocks.forcedRail = false;
     mocks.projects.push({ id: 'project-a', name: 'Project A', path: '/work/a' });
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
-      version: 1, preferredMode: 'expanded', expandedWorkspaceKeys: ['/work/a'],
-      hasSeededDefaultExpansion: true, showAutomationSessions: true, sessionView: 'all',
+      version: 1, preferredMode: 'expanded', collapsedWorkspaceKeys: [], showAutomationSessions: true, sessionView: 'all',
     }));
     for (let index = 0; index < 6; index++) {
       mocks.taskData.sessions.push({
@@ -1950,8 +1928,7 @@ describe('GlobalSidebar rail flyout', () => {
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
       preferredMode: 'rail',
-      expandedWorkspaceKeys: ['/work/a', '/work/b'],
-      hasSeededDefaultExpansion: true,
+      collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
     }));

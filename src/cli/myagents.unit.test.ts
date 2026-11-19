@@ -1327,14 +1327,14 @@ describe('myagents CLI Agent / Session collaboration contracts', () => {
           archived: false,
           enabled: true,
           channelCount: 0,
-          name: 'mino',
+          name: 'atmer',
         },
         {
           agentId: 'agent-system',
           archived: false,
           enabled: true,
           channelCount: 0,
-          name: 'Mino',
+          name: 'Atmer',
         },
       ]);
       const output = log.mock.calls.flat().join('\n');

@@ -24,7 +24,7 @@ function Harness({
     return (
         <textarea
             data-testid="composer"
-            defaultValue="hello mino"
+            defaultValue="hello atmer"
             onKeyDown={composer.onKeyDown}
             onCompositionStart={composer.onCompositionStart}
             onCompositionEnd={composer.onCompositionEnd}
@@ -63,7 +63,7 @@ describe('useFloatingComposerKeydown', () => {
 
         expect(notPrevented).toBe(false);
         expect(textarea.selectionStart).toBe(0);
-        expect(textarea.selectionEnd).toBe('hello mino'.length);
+        expect(textarea.selectionEnd).toBe('hello atmer'.length);
     });
 
     it('bare Enter sends for enter preference and prevents newline', () => {

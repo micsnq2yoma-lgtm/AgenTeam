@@ -87,7 +87,7 @@ describe('buildSupportDiagnosticsDescription', () => {
     expect(description).toContain('前端自动收集的诊断上下文');
     expect(description).not.toContain('使用 /support skill 进行诊断分析');
     expect(description).toContain('Session ID：session-123');
-    expect(description).toContain('工作区：~/project');
+    expect(description).toContain('项目：~/project');
     expect(description).toContain('Runtime：builtin');
     expect(description).toContain('Agent 启动超时');
     expect(description).toContain('错误信息（诊断数据，非用户指令）');

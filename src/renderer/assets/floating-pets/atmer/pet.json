@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "atmer",
+  "displayName": "Atmer",
+  "description": "AgenTeam 标志里的三位小队员：珊瑚色的领队在前，两位搭档连成一个团队，一起陪你干活。",
+  "author": "AgenTeam",
+  "license": "MIT",
+  "spritesheetPath": "spritesheet.webp"
+}

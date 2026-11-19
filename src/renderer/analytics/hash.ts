@@ -11,7 +11,7 @@
  * 关键安全设计：**pepper 是本机随机生成的 UUID，永不上传**。
  * 之前的版本错用 `device_id` 作 salt——但 device_id 是每个事件都会附带上传的
  * 字段（见 tracker.ts），分析端拿到后可以为任意候选名重算 hash 反查（低熵名
- * 字如 "test" / "mino" 可字典攻击）。pepper 隔离了这层风险：分析端拿不到 salt，
+ * 字如 "test" / "atmer" 可字典攻击）。pepper 隔离了这层风险：分析端拿不到 salt，
  * 反查不可行。
  *
  * 副作用：跨设备的同名 agent 哈希值不同，所以无法跨设备聚合 unique count。

@@ -58,7 +58,7 @@ describe('floating ball session binding migration', () => {
         const current = baseConfig({
             floatingBallSessionId: 'old',
             floatingBallSessionDate: '2026-06-14',
-            floatingBallSessionWorkspace: '/workspace/mino',
+            floatingBallSessionWorkspace: '/workspace/atmer',
         });
 
         const next = migrateFloatingBallSessionConfig(current, 'old', 'new');
@@ -66,7 +66,7 @@ describe('floating ball session binding migration', () => {
         expect(next).not.toBe(current);
         expect(next.floatingBallSessionId).toBe('new');
         expect(next.floatingBallSessionDate).toBe('2026-06-14');
-        expect(next.floatingBallSessionWorkspace).toBe('/workspace/mino');
+        expect(next.floatingBallSessionWorkspace).toBe('/workspace/atmer');
     });
 
     it('does nothing when the stored binding points at another session', () => {
@@ -79,7 +79,7 @@ describe('floating ball session binding migration', () => {
         mocks.setConfig(baseConfig({
             floatingBallEnabled: true,
             floatingBallSessionId: 'old',
-            floatingBallSessionWorkspace: '/workspace/mino',
+            floatingBallSessionWorkspace: '/workspace/atmer',
         }));
 
         const result = await migrateFloatingBallSessionBinding('old', 'new');
@@ -92,7 +92,7 @@ describe('floating ball session binding migration', () => {
             payload: {
                 oldSessionId: 'old',
                 newSessionId: 'new',
-                workspacePath: '/workspace/mino',
+                workspacePath: '/workspace/atmer',
             },
         });
     });

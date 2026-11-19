@@ -257,10 +257,10 @@ test('macOS recording privacy contract rejects commented or empty declarations',
 });
 
 test('bundled workspace templates are committed, clean, and setup-independent', () => {
-  const templateRoot = resolve(repoRoot, 'bundled-workspaces', 'mino');
+  const templateRoot = resolve(repoRoot, 'bundled-workspaces', 'atmer');
   assert.ok(
     existsSync(resolve(templateRoot, 'CLAUDE.md')),
-    'the committed mino template must include its workspace marker',
+    'the committed atmer template must include its workspace marker',
   );
   assert.equal(
     tauriConfig.bundle.resources['../bundled-workspaces'],
@@ -304,7 +304,7 @@ test('bundled workspace templates are committed, clean, and setup-independent', 
     assert.doesNotMatch(setup, /openmino/i);
     assert.doesNotMatch(setup, /git clone[^\n]*mino/i);
   }
-  assert.match(buildMacos, /bundled-workspaces\/mino\/CLAUDE\.md/);
+  assert.match(buildMacos, /bundled-workspaces\/atmer\/CLAUDE\.md/);
 });
 
 test('macOS dev build replaces every mutable native resource staging directory', () => {

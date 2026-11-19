@@ -153,23 +153,28 @@ describe('SimpleChatInput send paths', () => {
 
   it('defers mention search and keeps expansion during IME composition', async () => {
     await i18n.changeLanguage('zh-CN');
-    workspaceMocks.service.searchFilesPage.mockResolvedValue({items:Array.from({length:8},(_,i)=>({name:`file${i}`,path:`file${i}`,type:'file'})),complete:true,hasMore:false,scanLimitReached:false,nextCursor:null});
+    const agents = Array.from({ length: 8 }, (_, i) => ({
+      selector: `agent-${i}`, name: `agent${i}`, isLocal: true, deviceId: null, deviceName: null,
+      platform: null, description: null, source: null,
+    }));
+    workspaceMocks.discovery.mockResolvedValue({ items: agents, complete: true, networkStatus: 'signedOut', authGeneration: 0, principalId: null, networkId: null });
     renderInput({workspacePath:'/ws'});
     const textbox=screen.getByRole('textbox');
     fireEvent.change(textbox,{target:{value:'@',selectionStart:1}});
-    fireEvent.change(textbox,{target:{value:'@f',selectionStart:2}});
-    await screen.findByText((_, node) => node?.textContent === 'file0');
+    fireEvent.change(textbox,{target:{value:'@a',selectionStart:2}});
+    await screen.findByText((_, node) => node?.textContent === 'agent0');
     fireEvent.click(screen.getByRole('option',{name:'展开更多'}));
-    expect(screen.getByText((_, node) => node?.textContent === 'file7')).toBeInTheDocument();
-    workspaceMocks.service.searchFilesPage.mockClear();
+    expect(screen.getByText((_, node) => node?.textContent === 'agent7')).toBeInTheDocument();
+    workspaceMocks.discovery.mockClear();
     fireEvent.compositionStart(textbox);
     fireEvent.change(textbox,{target:{value:'@wen',selectionStart:4}});
     await act(async()=>{await new Promise(resolve=>setTimeout(resolve,200));});
-    expect(workspaceMocks.service.searchFilesPage).not.toHaveBeenCalled();
-    expect(screen.getByText((_, node) => node?.textContent === 'file7')).toBeInTheDocument();
+    expect(workspaceMocks.discovery).not.toHaveBeenCalled();
+    expect(screen.getByText((_, node) => node?.textContent === 'agent7')).toBeInTheDocument();
     fireEvent.change(textbox,{target:{value:'@文件',selectionStart:3}});
     fireEvent.compositionEnd(textbox);
-    await waitFor(()=>expect(workspaceMocks.service.searchFilesPage).toHaveBeenCalledWith(expect.objectContaining({query:'文件'})));
+    await waitFor(()=>expect(workspaceMocks.discovery).toHaveBeenCalled());
+    expect(workspaceMocks.service.searchFilesPage).not.toHaveBeenCalled();
   });
 
   it('keeps the next draft typed while an admission response is pending', async () => {
@@ -525,12 +530,29 @@ describe('SimpleChatInput send paths', () => {
     }
   });
 
+  it('opens the 新建项目 panel from the + menu', async () => {
+    await i18n.changeLanguage('zh-CN');
+    const user = userEvent.setup();
+    const onOpenNewProject = vi.fn();
+    window.addEventListener('open-new-project', onOpenNewProject);
+    try {
+      renderInput();
+      await user.click(screen.getByTitle('添加上下文'));
+      expect(screen.getByRole('button', { name: '选文件夹' })).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: '创建项目' }));
+      expect(onOpenNewProject).toHaveBeenCalledTimes(1);
+      expect(document.querySelectorAll('.composer-toolbar-menu-enter')).toHaveLength(0);
+    } finally {
+      window.removeEventListener('open-new-project', onOpenNewProject);
+    }
+  });
+
   it('matches the mention and slash picker elevations to the composer', async () => {
     await i18n.changeLanguage('zh-CN');
     const user = userEvent.setup();
     renderInput();
 
-    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 引用文件，/ 使用技能...');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
     await user.type(textarea, '@');
 
     const emptySearchHint = await screen.findByRole('listbox', { name: '提及选项' });
@@ -586,7 +608,7 @@ describe('SimpleChatInput send paths', () => {
         ],
       });
 
-      const textarea = screen.getByPlaceholderText('输入消息，使用 @ 引用文件，/ 使用技能...');
+      const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
       await user.type(textarea, '/');
 
       expect(await screen.findByText('/goal')).toBeInTheDocument();
@@ -765,7 +787,7 @@ describe('SimpleChatInput send paths', () => {
           source: 'client',
         }],
       });
-      const textarea = screen.getByPlaceholderText('输入消息，使用 @ 引用文件，/ 使用技能...');
+      const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
       await user.type(textarea, '/');
       await user.click(await screen.findByText('/compact'));
 
@@ -785,7 +807,7 @@ describe('SimpleChatInput send paths', () => {
     const user = userEvent.setup();
     const onSend = renderInput();
 
-    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 引用文件，/ 使用技能...');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
     await user.type(textarea, 'chat hello');
     await user.click(screen.getByTitle(/发送/));
 
@@ -1040,7 +1062,7 @@ describe('SimpleChatInput send paths', () => {
       },
     });
 
-    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 引用文件，/ 使用技能...');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
     await user.type(textarea, 'subscription hello');
     await user.click(screen.getByTitle(/发送/));
 
@@ -1249,14 +1271,15 @@ describe('SimpleChatInput send paths', () => {
     expect(screen.getByTitle('Send (Enter)')).toBeInTheDocument();
 
     await user.click(screen.getByTitle('Add context'));
-    expect(screen.getByText('Reference file')).toBeInTheDocument();
+    expect(screen.queryByText('Reference file')).not.toBeInTheDocument();
+    expect(screen.getByText('Choose folder')).toBeInTheDocument();
     expect(screen.getByText('Use skill')).toBeInTheDocument();
     expect(screen.getByText('Upload file')).toBeInTheDocument();
 
     await user.click(screen.getByTitle('Switch execution mode'));
     expect(screen.getByText('Session mode')).toBeInTheDocument();
     expect(screen.getAllByText('Ask for approval').length).toBeGreaterThan(0);
-    expect(screen.getByText('Work in the workspace; ask before using tools')).toBeInTheDocument();
+    expect(screen.getByText('Work in the project; ask before using tools')).toBeInTheDocument();
   });
 
   it('accepts pasted image attachments without routing through workspace file IO for external runtimes', async () => {
@@ -1368,7 +1391,7 @@ describe('SimpleChatInput send paths', () => {
 
     await waitFor(() => expect(textarea).toHaveValue('@myagents_files/pasted.txt '));
     expect(screen.getByText(/图片理解未就绪/)).toHaveTextContent(
-      '当前模型不支持图片，图片已作为工作区文件添加；图片理解未就绪，Agent 可能无法读取。请启用并配置图片理解，或切换支持图片的模型。',
+      '当前模型不支持图片，图片已作为项目文件添加；图片理解未就绪，Agent 可能无法读取。请启用并配置图片理解，或切换支持图片的模型。',
     );
   });
 

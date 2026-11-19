@@ -6,8 +6,8 @@ import { parseLeadingSystemReminder, parseSessionSendRequestDisplay } from '../.
 
 describe('handleInboxDrain scenario routing', () => {
   it.each([
-    ['Mino@Example-Mac.local', true],
-    ['Mino & Review@Win "Desk"', false],
+    ['Atmer@Example-Mac.local', true],
+    ['Atmer & Review@Win "Desk"', false],
     ['Local Session', true],
   ])('preserves request source label %s through admission and display', async (fromLabel, replyBack) => {
     const injector = vi.fn<InboxInjector>(async () => ({ queued: false }));

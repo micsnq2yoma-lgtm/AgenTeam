@@ -43,7 +43,7 @@ Ubuntu 24.04 x64：
 ./build_dev_linux.sh
 ```
 
-setup 会按 target 与已验证缓存检查原生构建工具，然后准备 Node、依赖和文档/语音推理资源；重复运行会复用匹配的资源缓存。Linux 系统依赖通过 apt 安装，需要相应权限。详细行为与平台差异见[构建资源准备与复用](specs/tech_docs/build_resource_preparation.md)。内置 Mino 工作区模板在 `bundled-workspaces/mino/`，初始化无需额外的 GitHub SSH 或模板下载。
+setup 会按 target 与已验证缓存检查原生构建工具，然后准备 Node、依赖和文档/语音推理资源；重复运行会复用匹配的资源缓存。Linux 系统依赖通过 apt 安装，需要相应权限。详细行为与平台差异见[构建资源准备与复用](specs/tech_docs/build_resource_preparation.md)。内置默认助理（小 T）工作区模板在 `bundled-workspaces/atmer/`，初始化无需额外的 GitHub SSH 或模板下载。
 
 | 目标 | 入口与说明 |
 | --- | --- |
@@ -124,7 +124,7 @@ Clone the repository or your fork, then use the appropriate entry points:
 | Windows PowerShell | `.\setup_windows.ps1` | `.\build_windows.ps1` | See the Windows guide for packaging options |
 | Ubuntu 24.04 x64 | `./setup.sh` | `./build_dev_linux.sh` | `./build_linux.sh` (`.deb`) |
 
-Setup checks native tools for the target and prepares dependencies and document/speech resources, reusing verified caches. Linux system packages are installed through apt and require appropriate permissions. The Mino template is included in `bundled-workspaces/mino/`; it does not require a separate template download or GitHub SSH access.
+Setup checks native tools for the target and prepares dependencies and document/speech resources, reusing verified caches. Linux system packages are installed through apt and require appropriate permissions. The default assistant (小 T) template is included in `bundled-workspaces/atmer/`; it does not require a separate template download or GitHub SSH access.
 
 Platform details: [macOS and release guide](specs/guides/build_and_release_guide.md) · [Windows](specs/guides/windows_build_guide.md) · [Linux](specs/guides/linux_build_guide.md) · [Troubleshooting](specs/guides/build_troubleshooting.md) · [Resource preparation](specs/tech_docs/build_resource_preparation.md). These detailed guides are maintained in Chinese. A Linux build entry point does not imply that a particular version has passed release acceptance; check Releases for available packages.
 

@@ -18,8 +18,8 @@ export interface GlobalSidebarPreferenceV1 {
   version: 1;
   preferredMode: GlobalSidebarPreferredMode;
   expandedWidth: number;
-  expandedWorkspaceKeys: string[];
-  hasSeededDefaultExpansion: boolean;
+  /** Projects the user folded away; every other project shows its tasks. */
+  collapsedWorkspaceKeys: string[];
   showAutomationSessions: boolean;
   sessionView: 'all' | 'favorites';
 }
@@ -28,8 +28,7 @@ export const DEFAULT_GLOBAL_SIDEBAR_PREFERENCE: GlobalSidebarPreferenceV1 = {
   version: 1,
   preferredMode: 'expanded',
   expandedWidth: GLOBAL_SIDEBAR_DEFAULT_WIDTH,
-  expandedWorkspaceKeys: [],
-  hasSeededDefaultExpansion: false,
+  collapsedWorkspaceKeys: [],
   showAutomationSessions: false,
   sessionView: 'all',
 };
@@ -51,14 +50,12 @@ function normalizeWorkspaceKeys(value: unknown): string[] {
 export function parseGlobalSidebarPreference(value: unknown): GlobalSidebarPreferenceV1 | null {
   if (!isRecord(value) || value.version !== 1) return null;
   if (value.preferredMode !== 'expanded' && value.preferredMode !== 'rail') return null;
-  if (typeof value.hasSeededDefaultExpansion !== 'boolean') return null;
 
   return {
     version: 1,
     preferredMode: value.preferredMode,
     expandedWidth: normalizeGlobalSidebarWidth(value.expandedWidth),
-    expandedWorkspaceKeys: normalizeWorkspaceKeys(value.expandedWorkspaceKeys),
-    hasSeededDefaultExpansion: value.hasSeededDefaultExpansion,
+    collapsedWorkspaceKeys: normalizeWorkspaceKeys(value.collapsedWorkspaceKeys),
     showAutomationSessions: typeof value.showAutomationSessions === 'boolean'
       ? value.showAutomationSessions
       : false,
@@ -114,20 +111,15 @@ export function saveGlobalSidebarPreference(
   }
 }
 
-export function seedDefaultWorkspaceExpansion(
+/** Expanded = every valid project the user has not folded away. */
+export function resolveExpandedWorkspaceKeys(
   preference: GlobalSidebarPreferenceV1,
-  defaultWorkspacePath: string | null | undefined,
   validWorkspacePaths: readonly string[],
-): GlobalSidebarPreferenceV1 {
-  if (preference.hasSeededDefaultExpansion || !defaultWorkspacePath) return preference;
-  const defaultKey = normalizeWorkspacePathIdentity(defaultWorkspacePath);
-  const validKeys = new Set(validWorkspacePaths.map(normalizeWorkspacePathIdentity));
-  if (!validKeys.has(defaultKey)) return preference;
-  return {
-    ...preference,
-    expandedWorkspaceKeys: [...new Set([...preference.expandedWorkspaceKeys, defaultKey])],
-    hasSeededDefaultExpansion: true,
-  };
+): string[] {
+  const collapsed = new Set(preference.collapsedWorkspaceKeys);
+  return validWorkspacePaths
+    .map(normalizeWorkspacePathIdentity)
+    .filter((key) => !collapsed.has(key));
 }
 
 export function pruneRemovedWorkspaceKeys(
@@ -135,9 +127,9 @@ export function pruneRemovedWorkspaceKeys(
   validWorkspacePaths: readonly string[],
 ): GlobalSidebarPreferenceV1 {
   const validKeys = new Set(validWorkspacePaths.map(normalizeWorkspacePathIdentity));
-  const expandedWorkspaceKeys = preference.expandedWorkspaceKeys.filter((key) => validKeys.has(key));
-  if (expandedWorkspaceKeys.length === preference.expandedWorkspaceKeys.length) return preference;
-  return { ...preference, expandedWorkspaceKeys };
+  const collapsedWorkspaceKeys = preference.collapsedWorkspaceKeys.filter((key) => validKeys.has(key));
+  if (collapsedWorkspaceKeys.length === preference.collapsedWorkspaceKeys.length) return preference;
+  return { ...preference, collapsedWorkspaceKeys };
 }
 
 export function resolveGlobalSidebarMode(

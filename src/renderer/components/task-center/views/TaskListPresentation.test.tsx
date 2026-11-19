@@ -11,7 +11,7 @@ function task(overrides: Partial<Task> = {}): Task {
     name: '每日 AI 行业新闻与暴论',
     executor: 'agent',
     workspaceId: 'workspace-1',
-    workspacePath: '/Users/me/mino',
+    workspacePath: '/Users/me/atmer',
     executionMode: 'recurring',
     runMode: 'new-session',
     sessionIds: ['session-1'],

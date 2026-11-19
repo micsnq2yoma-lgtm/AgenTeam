@@ -3,8 +3,8 @@
  *
  * Layout (post-PRD-0.2.7 layout polish):
  *   ┌─ Agent 工作区 ─────────────────────────────────┐
- *   │ [icon] mino [默认]                  [设为默认] │  ← line 1
- *   │        ~/Documents/.../mino                    │  ← line 2 (full width)
+ *   │ [icon] atmer [默认]                  [设为默认] │  ← line 1
+ *   │        ~/Documents/.../atmer                    │  ← line 2 (full width)
  *   │ [icon] zao_translate                [设为默认] │
  *   │        ~/Documents/.../zao_translate           │
  *   └────────────────────────────────────────────────┘
@@ -30,7 +30,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Popover } from '@/components/ui/Popover';
-import { type Project } from '@/config/types';
+import { isDefaultAssistantWorkspacePath, type Project } from '@/config/types';
 import { getFolderName } from '@/types/tab';
 import { shortenPathForDisplay } from '@/utils/pathDetection';
 import { workspacePathsEqual } from '@/../shared/workspacePath';
@@ -55,7 +55,7 @@ export function resolveDefaultWorkspaceProject(
 ): Project | null {
     const configured = projects.find(project => workspacePathsEqual(project.path, defaultWorkspacePath));
     if (configured) return configured;
-    return projects.find(project => project.path.replace(/\\/g, '/').endsWith('/mino')) ?? projects[0] ?? null;
+    return projects.find(project => isDefaultAssistantWorkspacePath(project.path)) ?? projects[0] ?? null;
 }
 
 export function orderWorkspaceSelectorProjects(

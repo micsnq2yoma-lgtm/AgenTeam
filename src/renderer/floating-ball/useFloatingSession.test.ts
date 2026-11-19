@@ -15,7 +15,7 @@ import { buildFloatingBallContextReminder } from '../../shared/systemReminder';
 
 describe('extractMessageText', () => {
     it('passes plain text through unchanged', () => {
-        expect(extractMessageText('你好，Mino')).toBe('你好，Mino');
+        expect(extractMessageText('你好，Atmer')).toBe('你好，Atmer');
     });
 
     it('returns empty string for empty content', () => {

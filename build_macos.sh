@@ -153,12 +153,12 @@ check_dependency "codesign" "需要 Xcode Command Line Tools"
 check_dependency "lipo" "需要 Xcode Command Line Tools"
 check_dependency "otool" "需要 Xcode Command Line Tools"
 
-# 检查仓库内置的 mino 工作区模板
-if [ ! -f "${PROJECT_DIR}/bundled-workspaces/mino/CLAUDE.md" ]; then
-    echo -e "${RED}错误: bundled-workspaces/mino/ 模板不存在或不完整!${NC}"
+# 检查仓库内置的 atmer 工作区模板
+if [ ! -f "${PROJECT_DIR}/bundled-workspaces/atmer/CLAUDE.md" ]; then
+    echo -e "${RED}错误: bundled-workspaces/atmer/ 模板不存在或不完整!${NC}"
     exit 1
 fi
-echo -e "${GREEN}  ✓ mino 内置工作区模板已就绪${NC}"
+echo -e "${GREEN}  ✓ atmer 内置工作区模板已就绪${NC}"
 
 # Rust toolchain/components/target 必须与 rust-toolchain.toml 和 CI 对齐。
 "${PROJECT_DIR}/scripts/ensure_rust_toolchain.sh" "${BUILD_TARGETS[@]}"

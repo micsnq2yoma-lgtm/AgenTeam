@@ -52,7 +52,7 @@
     "promptLoadFailed": "The local invocation paths could not be loaded. Try again shortly.",
     "guideUnavailable": "The external CLI guide is temporarily unavailable. Restart AgenTeam; access and token controls remain available.",
     "handoffPrompt": "First read the local file \"{{skillPath}}\" and strictly follow its public CLI contract when operating AgenTeam.\n\nThe absolute path to the AgenTeam CLI on this computer is: \"{{launcherPath}}\"\n\nInject MYAGENTS_API_TOKEN into the environment: `{{tokenCommand}}`",
-    "securityWarning": "A local program holding MYAGENTS_API_TOKEN can register any eligible directory accessible to the current OS user and AgenTeam as a Workspace Agent, then let that Agent read or modify the workspace. Protect it like a password.",
+    "securityWarning": "A local program holding MYAGENTS_API_TOKEN can register any eligible directory accessible to the current OS user and AgenTeam as a Project Agent, then let that Agent read or modify the project. Protect it like a password.",
     "copyFailed": "Copy failed"
   },
   "general": {
@@ -76,9 +76,9 @@
     "forceWakeDescription": "When enabled, this computer will not automatically sleep even when no AI task is running. Closing the lid still sleeps the computer and battery drains faster.",
     "forceWakeEnabled": "Always-on wake lock enabled",
     "forceWakeDisabled": "Always-on wake lock disabled",
-    "defaultWorkspaceTitle": "Workspace opened at startup",
-    "defaultWorkspaceDescription": "Default Agent workspace selected on the start page; the same as “Set as default” there",
-    "defaultWorkspaceSaved": "Default workspace saved",
+    "defaultWorkspaceTitle": "Project opened at startup",
+    "defaultWorkspaceDescription": "Default Agent project selected on the start page; the same as “Set as default” there",
+    "defaultWorkspaceSaved": "Default project saved",
     "appearanceModeTitle": "Appearance mode",
     "appearanceModeDescription": "Set the app light and dark appearance mode",
     "themeTitle": "Theme",
@@ -680,18 +680,18 @@
   },
   "agentSettings": {
     "identity": {
-      "title": "Agent workspace ownership conflict",
-      "description": "Multiple workspaces claim this Agent, so its channels cannot start. Choose which workspace keeps the original Agent.",
-      "choose": "Choose the workspace that keeps this Agent",
-      "consequences": "The selected workspace keeps the original configuration, channels and credentials. Other workspaces receive independent configurations without copying this Agent's channels. Files and session history are not deleted or moved.",
-      "defaults": "Independent configurations use existing settings or standard template defaults (Mino may enable proactive features). Repair stops the related Agent runtime. Restart the app before continuing existing sessions.",
+      "title": "Agent project ownership conflict",
+      "description": "Multiple projects claim this Agent, so its channels cannot start. Choose which project keeps the original Agent.",
+      "choose": "Choose the project that keeps this Agent",
+      "consequences": "The selected project keeps the original configuration, channels and credentials. Other projects receive independent configurations without copying this Agent's channels. Files and session history are not deleted or moved.",
+      "defaults": "Independent configurations use existing settings or standard template defaults (小 T may enable proactive features). Repair stops the related Agent runtime. Restart the app before continuing existing sessions.",
       "hidden": "Hidden",
       "archived": "Archived",
       "cancel": "Cancel",
       "confirm": "Confirm repair",
       "repairing": "Repairing…",
-      "success": "Workspace ownership repaired. Restart the app before continuing existing sessions.",
-      "failed": "Repair is incomplete. Refresh to check workspace ownership."
+      "success": "Project ownership repaired. Restart the app before continuing existing sessions.",
+      "failed": "Repair is incomplete. Refresh to check project ownership."
     },
     "panel": {
       "title": "Agent Settings",
@@ -825,13 +825,13 @@
       "newRulePlaceholder": "File name",
       "ruleTooltip": "Rule files are automatically included in the system prompt.",
       "emptyTitle": "No CLAUDE.md yet",
-      "emptyDescription": "The system prompt defines how the Agent behaves in this workspace. Choose how to start:",
+      "emptyDescription": "The system prompt defines how the Agent behaves in this project. Choose how to start:",
       "generateTitle": "Generate with AI",
       "recommended": "Recommended",
       "generateDescriptionPrefix": "Let AI analyze the current project and generate a tailored CLAUDE.md (runs ",
       "generateDescriptionSuffix": ")",
       "templateTitle": "Add from Template Library",
-      "templateDescription": "Choose a built-in or custom Agent template and merge it into this workspace. Matching files are overwritten.",
+      "templateDescription": "Choose a built-in or custom Agent template and merge it into this project. Matching files are overwritten.",
       "manualTitle": "Create Manually",
       "manualDescription": "Write CLAUDE.md yourself and start from a blank editor.",
       "ruleMissingTitle": "{{filename}} does not exist",
@@ -840,15 +840,15 @@
       "deleteTitle": "Delete Rule File",
       "deleteMessage": "Delete {{filename}}? This cannot be undone.",
       "fileDeleted": "File deleted",
-      "templateApplied": "Template applied to this workspace"
+      "templateApplied": "Template applied to this project"
     },
     "templateApply": {
       "back": "Back",
       "close": "Close",
-      "pickTitle": "Apply a template to the current workspace",
+      "pickTitle": "Apply a template to the current project",
       "confirmTitle": "Confirm apply",
       "builtin": "Built-in",
-      "confirmMerge": "Merge the \"{{name}}\" template into the current workspace. Matching files will be overwritten; other files in the workspace stay unchanged.",
+      "confirmMerge": "Merge the \"{{name}}\" template into the current project. Matching files will be overwritten; other files in the project stay unchanged.",
       "overwriteFiles": "Will overwrite {{count}} file(s)",
       "addFiles": "Will add {{count}} file(s)",
       "empty": "This template is empty. No files can be applied.",
@@ -864,7 +864,7 @@
       "manualTitle": "Create Manually",
       "manualDescription": "Write INTRODUCTION.md yourself and start from a blank editor.",
       "deleteTitle": "Delete Guide",
-      "deleteMessage": "Delete the guide? New chats will no longer show this content. {{filename}} will be removed from the workspace."
+      "deleteMessage": "Delete the guide? New chats will no longer show this content. {{filename}} will be removed from the project."
     },
     "skillCommandList": {
       "skillImportSuccess": "Skill imported",
@@ -889,13 +889,13 @@
         "inventory_unstable": "The folder changed during inspection, so the Skill is not loaded from this snapshot. Refresh and try again.",
         "missing_required_skill": "A required AgenTeam system Skill is missing; that Skill will not load, while other capabilities remain available."
       },
-      "projectSkillsTitle": "Workspace Skills",
+      "projectSkillsTitle": "Project Skills",
       "skillsTitle": "Skills",
       "emptyProjectSkills": "No project skills yet",
       "emptySkills": "No skills yet",
       "emptySkillsDescription": "Create your first skill to extend Claude.",
       "viewUserSkills": "View User Skills",
-      "projectCommandsTitle": "Workspace Commands",
+      "projectCommandsTitle": "Project Commands",
       "commandsTitle": "Commands",
       "emptyProjectCommands": "No project commands yet",
       "emptyCommands": "No commands yet",
@@ -969,10 +969,10 @@
       "install": "Install"
     },
     "general": {
-      "missingWorkspace": "Workspace configuration not found",
+      "missingWorkspace": "Project configuration not found",
       "basicsTitle": "Basic Settings",
       "proactiveTitle": "Proactive Agent Mode",
-      "proactiveDescription": "Enable heartbeat, nightly memory updates, and long-term memory evolution together so AI can continuously maintain this workspace.",
+      "proactiveDescription": "Enable heartbeat, nightly memory updates, and long-term memory evolution together so AI can continuously maintain this project.",
       "enabled": "Proactive Agent Mode enabled",
       "disabled": "Proactive Agent Mode disabled",
       "operationFailed": "Operation failed"
@@ -980,7 +980,7 @@
     "basics": {
       "basicInfo": "Basic info",
       "name": "Name",
-      "workspace": "Workspace",
+      "workspace": "Project",
       "runtime": "Runtime",
       "networkProxy": "Network proxy",
       "model": "Model",
@@ -989,7 +989,7 @@
       "tools": "Tools",
       "plugins": "Plugins",
       "status": "Status",
-      "workspaceNamePlaceholder": "Workspace name",
+      "workspaceNamePlaceholder": "Project name",
       "chooseIcon": "Choose icon",
       "defaultIcon": "Default",
       "defaultProvider": "Default",
@@ -1001,7 +1001,7 @@
       "noProviders": "No available providers yet. Add an API key or complete subscription login in Settings → Model Providers first.",
       "openProviderSettings": "Open Model Provider settings →",
       "runtimeChanged": "Switched to {{label}}. New tabs will use it.",
-      "externalRuntimeNotice": "This Agent workspace now uses {{runtime}}. Conversations from AgenTeam or bound Channels will call the locally installed {{runtime}} directly, just like using it in a terminal. Provider settings, supported models, MCP tools, and permission rules are managed by {{runtime}} itself. Change them in that runtime's own settings.",
+      "externalRuntimeNotice": "This Agent project now uses {{runtime}}. Conversations from AgenTeam or bound Channels will call the locally installed {{runtime}} directly, just like using it in a terminal. Provider settings, supported models, MCP tools, and permission rules are managed by {{runtime}} itself. Change them in that runtime's own settings.",
       "proxyMyAgents": "AgenTeam proxy",
       "proxyMyAgentsHint": "Use the proxy configured in AgenTeam (default)",
       "proxyTerminal": "Follow terminal",
@@ -1019,7 +1019,7 @@
       "auto": "Ask for approval",
       "plan": "Plan",
       "fullAgency": "Full autonomy",
-      "autoDescription": "Work in the workspace; ask before using tools",
+      "autoDescription": "Work in the project; ask before using tools",
       "planDescription": "Agent only researches information and discusses plans with you",
       "fullAgencyDescription": "Unrestricted computer and internet access; no approval needed"
     },
@@ -1080,7 +1080,7 @@
       "descriptionPrefix": "At night, automatically read instructions from",
       "descriptionSuffix": "and run memory maintenance on active sessions.",
       "createdFile": "Created UPDATE_MEMORY.md",
-      "fileError": "Cannot read or write UPDATE_MEMORY.md. Check the workspace path.",
+      "fileError": "Cannot read or write UPDATE_MEMORY.md. Check the project path.",
       "taskReconcileFailed": "Memory update settings could not be fully applied: {{message}}",
       "interval": "Update interval",
       "intervalHours": "{{count}} hours",
@@ -1124,7 +1124,7 @@
       "pluginSubtitle": "Choose Claude plugins automatically enabled when this Agent starts a session."
     },
     "agentList": {
-      "empty": "No Agents yet. Upgrade a workspace to an Agent from workspace settings.",
+      "empty": "No Agents yet. Upgrade a project to an Agent from project settings.",
       "disabled": "Disabled",
       "defaultModel": "Default model",
       "online": "{{online}}/{{total}} online",
@@ -1133,17 +1133,17 @@
     },
     "upgrade": {
       "title": "Upgrade to Agent",
-      "description": "After upgrading this workspace to an Agent, you can add IM Channels such as Feishu, Telegram, or DingTalk, so AI can interact with users through multiple channels while sharing the same workspace and tool configuration.",
-      "benefitShared": "Multiple Channels share one workspace and MCP tool set",
+      "description": "After upgrading this project to an Agent, you can add IM Channels such as Feishu, Telegram, or DingTalk, so AI can interact with users through multiple channels while sharing the same project and tool configuration.",
+      "benefitShared": "Multiple Channels share one project and MCP tool set",
       "benefitOverrides": "Independent AI model and permission override configuration",
       "benefitUnified": "Unified heartbeat and scheduled task management",
       "benefitRouting": "Smart proactive message routing",
       "action": "Upgrade to Agent"
     },
     "workspaceSelect": {
-      "title": "Select workspace",
-      "description": "Select a workspace that has not been upgraded and convert it to an Agent.",
-      "empty": "All workspaces have been upgraded to Agents."
+      "title": "Select project",
+      "description": "Select a project that has not been upgraded and convert it to an Agent.",
+      "empty": "All projects have been upgraded to Agents."
     },
     "toolGroups": {
       "title": "Tool groups",
@@ -1176,11 +1176,11 @@
       "installPlaceholder": "npm package name, e.g. @openclaw/plugin-xxx",
       "install": "Install",
       "cancel": "Cancel",
-      "addToWorkspace": "Add to workspace",
-      "selectWorkspaceTitle": "Select Agent workspace",
-      "selectWorkspaceDescription": "The selected workspace will open directly in bot setup.",
-      "noWorkspaceAvailable": "No available workspaces",
-      "openWorkspaceFailed": "Could not open bot setup for this workspace. Refresh and try again.",
+      "addToWorkspace": "Add to project",
+      "selectWorkspaceTitle": "Select Agent project",
+      "selectWorkspaceDescription": "The selected project will open directly in bot setup.",
+      "noWorkspaceAvailable": "No available projects",
+      "openWorkspaceFailed": "Could not open bot setup for this project. Refresh and try again.",
       "uninstallConfirmTitle": "Uninstall plugin",
       "uninstallConfirmMessage": "Uninstall \"{{name}}\"? Channels using this plugin will not be able to start.",
       "uninstallConfirm": "Uninstall"
@@ -2050,7 +2050,7 @@
     "descriptionIntro": "AgenTeam supports the Claude Plugins protocol. A plugin can include skills, sub-agents, hooks, and MCP.",
     "descriptionInstall": "Use Install Plugin to add one from a GitHub link or local folder.",
     "descriptionVisibilityPrefix": "The plugin switch controls whether the plugin is ",
-    "descriptionVisibilityEmphasis": "visible in workspaces",
+    "descriptionVisibilityEmphasis": "visible in projects",
     "descriptionVisibilitySuffix": ". To actually enable it, select it in Agent Settings or the Chat input tool menu.",
     "loading": "Loading...",
     "emptyTitle": "No plugins yet",
@@ -2062,7 +2062,7 @@
       "uninstall": "Uninstall failed"
     },
     "toasts": {
-      "hidden": "Hidden {{name}}. It is no longer selectable in workspaces.",
+      "hidden": "Hidden {{name}}. It is no longer selectable in projects.",
       "shown": "Shown {{name}}. Enable it from Agent Settings or the Chat tool menu.",
       "uninstalled": "Uninstalled {{name}}",
       "uninstalledWithWarning": "Uninstalled {{name}} (⚠ {{warning}})"
@@ -2073,14 +2073,14 @@
       "confirm": "Uninstall"
     },
     "card": {
-      "hideTitle": "Hide from workspaces",
-      "showTitle": "Show so workspaces can select it",
+      "hideTitle": "Hide from projects",
+      "showTitle": "Show so projects can select it",
       "noDescription": "No description"
     },
     "detail": {
       "back": "Back to list",
-      "hide": "Hide from workspaces",
-      "show": "Show so workspaces can select it",
+      "hide": "Hide from projects",
+      "show": "Show so projects can select it",
       "openDirectory": "Open Directory",
       "uninstall": "Uninstall",
       "metadata": "Metadata",
@@ -2180,9 +2180,9 @@
     "enableTitle": "Enable",
     "enableDescription": "Show the floating desktop entry point and companion window.",
     "generalTitle": "General Settings",
-    "workspaceBindingTitle": "Bound Workspace",
-    "workspaceBindingDescription": "Follow the launcher workspace by default, or pin the pet to a specific project.",
-    "followDefaultWorkspace": "Follow default workspace",
+    "workspaceBindingTitle": "Bound Project",
+    "workspaceBindingDescription": "Follow the launcher project by default, or pin the pet to a specific project.",
+    "followDefaultWorkspace": "Follow default project",
     "hoverPeekTitle": "Hover Preview Window",
     "hoverPeekDescription": "Automatically open a translucent preview when the cursor hovers over the floating ball. When off, clicking the ball still opens it.",
     "petStyleTitle": "Pet Style",
@@ -2235,7 +2235,7 @@
       "petdexUrlRequired": "Enter a Petdex link",
       "importPetdexFailed": "Failed to import Petdex link: {{message}}",
       "chooseFileFailed": "Failed to choose file: {{message}}",
-      "workspaceBindingUpdated": "Workspace binding updated",
+      "workspaceBindingUpdated": "Project binding updated",
       "hoverPeekEnabled": "Hover preview window enabled",
       "hoverPeekDisabled": "Hover preview window disabled"
     }
@@ -2254,7 +2254,7 @@
     "installing": "Installing...",
     "restartInstall": "Restart to Install",
     "developerLabel": "About AgenTeam",
-    "developerParagraph1": "AgenTeam is built on the open-source MyAgents project. Work with agents in a local workspace and use scheduled tasks for ongoing work.",
+    "developerParagraph1": "AgenTeam is built on the open-source MyAgents project. Work with agents in a local project and use scheduled tasks for ongoing work.",
     "labTitle": "Lab",
     "teamAiPanelTitle": "Team AI panel",
     "teamAiPanelDescription": "Show the Team AI management panel under More in the sidebar. Turning this off hides the entry; existing Agents and Channels keep running.",
@@ -2277,7 +2277,7 @@
       "agentNetworkMultiNetworkTitle": "Self-hosted AgentNet",
       "agentNetworkMultiNetworkDescription": "Enable calls between devices. Turning this off pauses connections and preserves their settings and device credentials.",
       "chatHistoryEntryTitle": "Chat History Entry",
-      "chatHistoryEntryDescription": "Show the History button in the AI chat header. Global session search and workspace session lists remain available when this is off.",
+      "chatHistoryEntryDescription": "Show the History button in the AI chat header. Global session search and project session lists remain available when this is off.",
       "codexProviderTitle": "Codex Subscription Provider",
       "codexProviderDescription": "Show the AgenTeam-managed Codex subscription entry on the Model Providers page.",
       "splitViewTitle": "Split View Preview (Experimental)",

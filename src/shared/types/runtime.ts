@@ -507,8 +507,8 @@ export const BUILTIN_PERMISSION_MODES: RuntimePermissionMode[] = [
 ];
 
 export const DSH_PERMISSION_MODES: RuntimePermissionMode[] = [
-  { value: 'approval-required', label: '请求批准', icon: '\u{1F6E1}', description: '工作区内行动，使用工具需审批' },
-  { value: 'workspace-autonomous', label: '工作区自主', icon: '\u{1F4C1}', description: '工作区内无限制，无需审批' },
+  { value: 'approval-required', label: '请求批准', icon: '\u{1F6E1}', description: '项目内行动，使用工具需审批' },
+  { value: 'workspace-autonomous', label: '项目自主', icon: '\u{1F4C1}', description: '项目内无限制，无需审批' },
   { value: 'full-autonomous', label: '完全自主', icon: '\u26A1', description: '无限制使用电脑与互联网，无需审批' },
 ];
 
@@ -519,7 +519,7 @@ export const CODEX_PERMISSION_MODES: RuntimePermissionMode[] = [
     value: 'auto-edit',
     label: 'Ask for approval',
     icon: '\u{1F4DD}',  // 📝
-    description: '工作区内自动执行；联网或修改外部文件时请求批准',
+    description: '项目内自动执行；联网或修改外部文件时请求批准',
   },
   {
     value: 'full-auto',

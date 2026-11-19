@@ -7,7 +7,6 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorkspaceFileService } from "@/hooks/useWorkspaceFileService";
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
   thoughts: vi.fn(),
@@ -32,7 +31,7 @@ vi.mock("@/features/agent-network/store", () => ({
 import { useMentionPicker } from "./useMentionPicker";
 import { MentionPicker } from "../components/MentionPicker";
 function PickerView({ query }: { query: string }) {
-  const picker = useMentionPicker(true, query, "/ws", files);
+  const picker = useMentionPicker(true, query, "/ws");
   return (
     <MentionPicker
       picker={picker}
@@ -49,10 +48,7 @@ const page = <T,>(items: T[], nextCursor: string | null = null) => ({
   complete: !nextCursor,
   scanLimitReached: false,
 });
-const files = {
-  isAvailable: true,
-  searchFilesPage: vi.fn(),
-} as unknown as WorkspaceFileService;
+const thought = (id: string) => ({ id, content: id, updatedAt: "now", tags: [] as string[] });
 const discovery = {
   items: [
     {
@@ -83,21 +79,12 @@ beforeEach(() => {
   mocks.thoughtsAvailable = true;
   mocks.invoke.mockResolvedValue(discovery);
   mocks.thoughts.mockResolvedValue(page([]));
-  vi.mocked(files.searchFilesPage).mockResolvedValue(
-    page(
-      Array.from({ length: 8 }, (_, i) => ({
-        name: `${i}.txt`,
-        path: `${i}.txt`,
-        type: "file" as const,
-      })),
-    ),
-  );
 });
 afterEach(() => vi.clearAllMocks());
 describe("unified mention picker", () => {
-  it("never queries or exposes files for an empty mention, including keyboard choices", async () => {
+  it("offers Agents and thoughts only, never files", async () => {
     const { result, rerender } = renderHook(
-      ({ query }) => useMentionPicker(true, query, "/ws", files),
+      ({ query }) => useMentionPicker(true, query, "/ws"),
       { initialProps: { query: "" } },
     );
     await waitFor(() =>
@@ -107,13 +94,7 @@ describe("unified mention picker", () => {
       "agent",
       "thought",
     ]);
-    expect(
-      result.current.allOptions.some((option) => option.kind === "file"),
-    ).toBe(false);
-    expect(files.searchFilesPage).not.toHaveBeenCalled();
     rerender({ query: "txt" });
-    await waitFor(() => expect(files.searchFilesPage).toHaveBeenCalledTimes(1));
-    rerender({ query: "" });
     await waitFor(() =>
       expect(result.current.groups.every((group) => !group.loading)).toBe(true),
     );
@@ -121,7 +102,6 @@ describe("unified mention picker", () => {
       "agent",
       "thought",
     ]);
-    expect(files.searchFilesPage).toHaveBeenCalledTimes(1);
   });
   it("reveals at most five more thoughts per click and preserves other groups", async () => {
     mocks.thoughts.mockResolvedValue(
@@ -135,7 +115,7 @@ describe("unified mention picker", () => {
       ),
     );
     function View() {
-      const picker = useMentionPicker(true, "", "/ws", files);
+      const picker = useMentionPicker(true, "", "/ws");
       return (
         <MentionPicker
           picker={picker}
@@ -169,48 +149,38 @@ describe("unified mention picker", () => {
     expect(screen.getAllByText(/^Thought /)).toHaveLength(5);
   });
   it("retains rows and the continuation cursor when loading more fails", async () => {
-    const items = Array.from({ length: 5 }, (_, i) => ({
-      name: `${i}.txt`,
-      path: `${i}.txt`,
-      type: "file" as const,
-    }));
-    vi.mocked(files.searchFilesPage)
+    const items = Array.from({ length: 5 }, (_, i) => thought(`t${i}`));
+    mocks.thoughts
       .mockResolvedValueOnce(page(items, "next"))
       .mockRejectedValueOnce(new Error("offline"))
-      .mockResolvedValueOnce(
-        page([{ name: "six", path: "six", type: "file" }]),
-      );
+      .mockResolvedValueOnce(page([thought("six")]));
     const { result } = renderHook(() =>
-      useMentionPicker(true, "txt", "/ws", files),
+      useMentionPicker(true, "txt", "/ws"),
     );
-    await waitFor(() => expect(result.current.groups[2].loading).toBe(false));
+    await waitFor(() => expect(result.current.groups[1].loading).toBe(false));
     act(() =>
       result.current.activateControl({
         kind: "expand",
-        key: "file:expand",
-        group: "file",
+        key: "thought:expand",
+        group: "thought",
       }),
     );
-    await waitFor(() => expect(result.current.groups[2].error).toBe(true));
-    expect(result.current.groups[2].visibleCount).toBe(5);
-    expect(result.current.groups[2].items).toHaveLength(5);
+    await waitFor(() => expect(result.current.groups[1].error).toBe(true));
+    expect(result.current.groups[1].visibleCount).toBe(5);
+    expect(result.current.groups[1].items).toHaveLength(5);
     act(() =>
       result.current.activateControl({
         kind: "retry",
-        key: "file:retry",
-        group: "file",
+        key: "thought:retry",
+        group: "thought",
       }),
     );
-    await waitFor(() => expect(result.current.groups[2].items).toHaveLength(6));
-    expect(files.searchFilesPage).toHaveBeenLastCalledWith({
-      query: "txt",
-      cursor: "next",
-      limit: 200,
-    });
+    await waitFor(() => expect(result.current.groups[1].items).toHaveLength(6));
+    expect(mocks.thoughts).toHaveBeenLastCalledWith("txt", "next", 200);
     expect(
       result.current
-        .options(result.current.groups[2])
-        .filter((item) => item.kind === "file"),
+        .options(result.current.groups[1])
+        .filter((item) => item.kind === "thought"),
     ).toHaveLength(6);
   });
 
@@ -222,27 +192,30 @@ describe("unified mention picker", () => {
           resolve = r;
         }),
     );
-    const { result } = renderHook(() =>
-      useMentionPicker(true, "a", "/ws", files),
+    mocks.thoughts.mockResolvedValue(
+      page(Array.from({ length: 8 }, (_, i) => thought(`${i}.txt`))),
     );
-    await waitFor(() => expect(result.current.groups[2].loading).toBe(false));
+    const { result } = renderHook(() =>
+      useMentionPicker(true, "a", "/ws"),
+    );
+    await waitFor(() => expect(result.current.groups[1].loading).toBe(false));
     expect(result.current.loading).toBe(true);
     expect(result.current.allOptions).toEqual([]);
     expect(result.current.selectedKey).toBeUndefined();
     await act(async () => resolve(discovery));
     expect(result.current.loading).toBe(false);
     expect(result.current.selectedKey).toBe("agent:local");
-    act(() => result.current.select("file:2.txt"));
+    act(() => result.current.select("thought:2.txt"));
     const expand = result.current.allOptions.find(
       (item) => item.kind === "expand",
     )!;
     act(() => {
       if (expand.kind === "expand") result.current.activateControl(expand);
     });
-    expect(result.current.selectedKey).toBe("file:2.txt");
+    expect(result.current.selectedKey).toBe("thought:2.txt");
     expect(
       result.current.groups.map((group) => group.visibleCount > 5),
-    ).toEqual([false, false, true]);
+    ).toEqual([false, true]);
   });
 
   it.each(["lightning", "companion-star"])("uses one loading view, then renders the remote workspace icon %s", async (icon) => {
@@ -340,7 +313,7 @@ describe("unified mention picker", () => {
           }),
       );
       const { result, rerender } = renderHook(() =>
-        useMentionPicker(true, "", "/ws", files),
+        useMentionPicker(true, "", "/ws"),
       );
       await act(async () => vi.advanceTimersByTimeAsync(0));
       expect(mocks.invoke).toHaveBeenNthCalledWith(1, "cmd_agent_discovery", {
@@ -402,7 +375,7 @@ describe("unified mention picker", () => {
           }),
       );
       const { result } = renderHook(() =>
-        useMentionPicker(true, "", "/ws", files),
+        useMentionPicker(true, "", "/ws"),
       );
       await act(async () => vi.advanceTimersByTimeAsync(2000));
       expect(result.current.loading).toBe(false);
@@ -434,42 +407,36 @@ describe("unified mention picker", () => {
   });
   it("marks unavailable sources independently and never requests their owners", async () => {
     mocks.thoughtsAvailable = false;
-    const unavailableFiles = { ...files, isAvailable: false };
     const { result } = renderHook(() =>
-      useMentionPicker(true, "a", "/ws", unavailableFiles),
+      useMentionPicker(true, "a", "/ws"),
     );
     await waitFor(() => expect(result.current.groups[0].loading).toBe(false));
     expect(result.current.groups[1].unavailable).toBe(true);
-    expect(result.current.groups[2].unavailable).toBe(true);
     expect(result.current.groups[0].items).toHaveLength(1);
     expect(mocks.thoughts).not.toHaveBeenCalled();
-    expect(files.searchFilesPage).not.toHaveBeenCalled();
   });
   it("rejects late results from another workspace/query and resets expansion on reopening", async () => {
-    let resolve!: (
-      value: ReturnType<
-        typeof page<{ name: string; path: string; type: "file" }>
-      >,
-    ) => void;
-    vi.mocked(files.searchFilesPage).mockImplementationOnce(
+    let resolve!: (value: ReturnType<typeof page<ReturnType<typeof thought>>>) => void;
+    mocks.thoughts.mockImplementationOnce(
       () =>
         new Promise((r) => {
           resolve = r;
         }),
     );
+    mocks.thoughts.mockResolvedValue(
+      page(Array.from({ length: 8 }, (_, i) => thought(`n${i}`))),
+    );
     const { result, rerender } = renderHook(
       ({ workspace, query, open }) =>
-        useMentionPicker(open, query, workspace, files),
+        useMentionPicker(open, query, workspace),
       { initialProps: { workspace: "/old", query: "a", open: true } },
     );
-    await waitFor(() => expect(files.searchFilesPage).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.thoughts).toHaveBeenCalled());
     rerender({ workspace: "/new", query: "new", open: true });
-    await waitFor(() => expect(result.current.groups[2].loading).toBe(false));
-    await act(async () =>
-      resolve(page([{ name: "old", path: "old", type: "file" }])),
-    );
+    await waitFor(() => expect(result.current.groups[1].loading).toBe(false));
+    await act(async () => resolve(page([thought("old")])));
     expect(
-      result.current.groups[2].items.some((item) => item.key === "file:old"),
+      result.current.groups[1].items.some((item) => item.key === "thought:old"),
     ).toBe(false);
     const expand = result.current.allOptions.find(
       (item) => item.kind === "expand",
@@ -479,14 +446,13 @@ describe("unified mention picker", () => {
     });
     rerender({ workspace: "/new", query: "new", open: false });
     rerender({ workspace: "/new", query: "new", open: true });
-    await waitFor(() => expect(result.current.groups[2].loading).toBe(false));
+    await waitFor(() => expect(result.current.groups[1].loading).toBe(false));
     expect(
       result.current.groups.every((group) => group.visibleCount === 5),
     ).toBe(true);
   });
   it("keeps initial empty groups but shows one unified successful search miss", async () => {
     mocks.invoke.mockResolvedValue({ ...discovery, items: [] });
-    vi.mocked(files.searchFilesPage).mockResolvedValue(page([]));
     const view = render(<PickerView query="" />);
     await waitFor(() => expect(screen.getAllByRole("group")).toHaveLength(2));
     view.rerender(<PickerView query="missing" />);
@@ -498,44 +464,35 @@ describe("unified mention picker", () => {
   it("keeps failed and unavailable search groups visible independently", async () => {
     mocks.invoke.mockResolvedValue({ ...discovery, items: [] });
     mocks.thoughtsAvailable = false;
-    vi.mocked(files.searchFilesPage).mockRejectedValue(
-      new Error("owner offline"),
-    );
     render(<PickerView query="missing" />);
-    await waitFor(() => expect(screen.getAllByRole("group")).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByRole("group")).toHaveLength(1));
     expect(screen.getByText("当前场景不可用")).toBeInTheDocument();
     expect(screen.queryByText("没有匹配结果")).not.toBeInTheDocument();
   });
   it("loads subsequent pages and exposes a scan cutoff rather than claiming all results", async () => {
-    vi.mocked(files.searchFilesPage)
-      .mockResolvedValueOnce(
-        page([{ name: "one", path: "one", type: "file" }], "next"),
-      )
+    mocks.thoughts
+      .mockResolvedValueOnce(page([thought("one")], "next"))
       .mockResolvedValueOnce({
-        ...page([{ name: "two", path: "two", type: "file" }]),
+        ...page([thought("two")]),
         complete: false,
         scanLimitReached: true,
       });
     const { result } = renderHook(() =>
-      useMentionPicker(true, "a", "/ws", files),
+      useMentionPicker(true, "a", "/ws"),
     );
-    await waitFor(() => expect(result.current.groups[2].loading).toBe(false));
+    await waitFor(() => expect(result.current.groups[1].loading).toBe(false));
     act(() =>
       result.current.activateControl({
         kind: "expand",
-        key: "file:expand",
-        group: "file",
+        key: "thought:expand",
+        group: "thought",
       }),
     );
-    await waitFor(() => expect(result.current.groups[2].partial).toBe(true));
-    expect(result.current.groups[2].items.map((item) => item.key)).toEqual([
-      "file:one",
-      "file:two",
+    await waitFor(() => expect(result.current.groups[1].partial).toBe(true));
+    expect(result.current.groups[1].items.map((item) => item.key)).toEqual([
+      "thought:one",
+      "thought:two",
     ]);
-    expect(files.searchFilesPage).toHaveBeenLastCalledWith({
-      query: "a",
-      cursor: "next",
-      limit: 200,
-    });
+    expect(mocks.thoughts).toHaveBeenLastCalledWith("a", "next", 200);
   });
 });

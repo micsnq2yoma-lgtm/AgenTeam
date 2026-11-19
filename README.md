@@ -87,7 +87,7 @@ macOS 用 `./setup.sh`，再 `./start_dev.sh`；Ubuntu 24.04 用 `./setup.sh` �
 | `src-tauri/` | Tauri v2 Rust 壳：进程、持久化、HTTP/SSE 代理、自动化任务存储 |
 | `src/cli/` | `myagents` CLI |
 | `src/shared/` | 前后端共用的类型与纯逻辑 |
-| `bundled-workspaces/` `bundled-skills/` | 内置 Mino 助理模板与技能文档 |
+| `bundled-workspaces/` `bundled-skills/` | 内置小 T 助理模板与技能文档 |
 | `specs/` | 架构、设计规范、模块技术文档与构建指南 |
 
 ## 文档

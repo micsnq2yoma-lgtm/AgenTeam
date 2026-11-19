@@ -1,17 +1,17 @@
 {
   "toasts": {
-    "workspaceAttachmentsCleared": "已切换工作区，已清理上一工作区的附件草稿",
+    "workspaceAttachmentsCleared": "已切换项目，已清理上一项目的附件草稿",
     "thoughtSaved": "记录已保存，可在任务中心查看",
-    "runtimeNeedsAgent": "该工作区未配置 Agent，无法切换 Runtime",
+    "runtimeNeedsAgent": "该项目未配置 Agent，无法切换 Runtime",
     "runtimeSwitchFailed": "切换 Runtime 失败，请重试",
     "runtimeUnavailable": "此 Runtime 产物不可用或未通过完整性校验，请先修复或重新安装 AgenTeam",
     "selectCompatibleProviderModel": "请先选择此 Runtime 支持的 Provider 和模型",
     "setDefaultFailed": "设为默认失败，请重试",
-    "selectWorkspaceFirst": "请先选择工作区",
+    "selectWorkspaceFirst": "请先选择项目",
     "standaloneCronCreated": "独立定时任务已创建，可在任务中心查看",
     "createCronFailed": "创建定时任务失败：{{message}}",
     "pinFailed": "置顶状态保存失败，请重试",
-    "workspaceArchived": "已归档工作区",
+    "workspaceArchived": "已归档项目",
     "workspaceUnarchived": "已取消归档",
     "archiveFailed": "归档失败，请重试",
     "unarchiveFailed": "取消归档失败，请重试",
@@ -20,8 +20,8 @@
   },
   "dialogs": {
     "pickProjectFolder": "选择项目文件夹",
-    "hideDefaultWorkspace": "隐藏默认工作区",
-    "removeWorkspace": "移除工作区",
+    "hideDefaultWorkspace": "隐藏默认项目",
+    "removeWorkspace": "移除项目",
     "hideWorkspaceMessage": "确定要隐藏「{{name}}」吗？此操作不会删除本地文件，后续可通过恢复入口重新显示。",
     "removeWorkspaceMessage": "确定要从列表中移除「{{name}}」吗？此操作不会删除项目文件。",
     "hide": "隐藏",
@@ -42,7 +42,7 @@
     "retry": "重试",
     "emptyFavorites": "暂无收藏任务",
     "emptyHistory": "暂无历史任务",
-    "emptyWorkspaceHistory": "该工作区暂无历史任务",
+    "emptyWorkspaceHistory": "该项目暂无历史任务",
     "loadMore": "加载更多...",
     "deleteDialogTitle": "删除任务",
     "deleteDialogMessage": "确定要删除「{{title}}」吗？此操作不可撤销。",
@@ -83,8 +83,8 @@
     "unpin": "取消置顶",
     "archive": "归档",
     "unarchive": "取消归档",
-    "showArchived": "展示归档 Agent 工作区",
-    "hideArchived": "收起归档 Agent 工作区",
+    "showArchived": "展示归档 Agent 项目",
+    "hideArchived": "收起归档 Agent 项目",
     "archivedCount": "{{count}} 个已归档",
     "archivedBadge": "已归档",
     "agentSettings": "Agent 设置",
@@ -107,6 +107,8 @@
     "addTemplateDescription": "把一个本地文件夹保存为模板，之后可以反复用它创建项目",
     "pickTemplateDirTitle": "选择文件夹作为模板（将复制到模板库）",
     "pickParentDirTitle": "选择保存位置",
+    "pickNewFolderTitle": "新建文件夹：选择位置并输入文件夹名称",
+    "newFolderDefaultName": "新项目",
     "local": {
       "title": "本地项目",
       "description": "把电脑上已有的文件夹交给 Agent，它在里面读写文件、写代码。",
@@ -119,8 +121,8 @@
       "capInstructionsMissingTitle": "没有项目说明",
       "capInstructionsMissingDescription": "可以之后在文件夹里放一个 AGENTS.md，告诉 Agent 项目约定"
     },
-    "mino": {
-      "title": "个人助理 Mino",
+    "atmer": {
+      "title": "个人助理小 T",
       "description": "能记忆、会进化的 AI Agent。从 minimal 开始，长成你想要的样子。",
       "intro": "有名字、有性格、有记忆的长期伙伴。第一次聊天时，你们会花大约 5 分钟一起确定它的名字和性格，之后它会越来越懂你。",
       "capEvolveTitle": "持续进化",
@@ -134,7 +136,7 @@
       "noDescription": "这个模板还没有描述。",
       "addDescription": "添加描述",
       "capContentsTitle": "模板内容",
-      "capContentsDescription": "创建时会把这些内容完整复制到新的工作区",
+      "capContentsDescription": "创建时会把这些内容完整复制到新的项目",
       "hint": "模板本身不会被修改",
       "more": "更多",
       "edit": "编辑模板",
@@ -167,7 +169,8 @@
       "pickFailed": "选择文件夹失败：{{message}}",
       "addTemplateFailed": "添加模板失败：{{message}}",
       "updateTemplateFailed": "保存模板失败：{{message}}",
-      "deleteTemplateFailed": "删除模板失败：{{message}}"
+      "deleteTemplateFailed": "删除模板失败：{{message}}",
+      "folderExists": "这个文件夹已经存在，请换一个名称，或选择“已有文件夹”"
     },
     "team": {
       "title": "新建项目",
@@ -179,7 +182,6 @@
       "locationExisting": "已有文件夹",
       "assistantTitle": "助理模式",
       "assistantDescription": "为项目配一位常驻助理：有名字、性格和记忆",
-      "assistantIntro": "项目会有一位常驻助理。第一次对话时，你们会花大约 5 分钟一起确定它的名字和性格，之后它会越来越懂你。",
       "plainIntro": "项目直接在这个文件夹里工作，不启用助理的角色与记忆。你提的每个要求，它都会全力完成。",
       "capKeepFilesTitle": "保留已有文件",
       "capKeepFilesDescription": "助理的人格与记忆文件只会补充进来，不会覆盖文件夹里已有的同名文件"
@@ -194,11 +196,11 @@
     "setDefaultAria": "设为默认项目：{{name}}"
   },
   "workspaceEdit": {
-    "title": "编辑工作区",
+    "title": "编辑项目",
     "icon": "图标",
     "defaultIcon": "默认图标",
     "name": "名称",
-    "namePlaceholder": "工作区名称",
+    "namePlaceholder": "项目名称",
     "saving": "保存中...",
     "save": "保存",
     "cancel": "取消"

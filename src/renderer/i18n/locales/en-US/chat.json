@@ -14,14 +14,13 @@
   },
   "input": {
     "launcherPlaceholder": "What do you want to do today?",
-    "placeholder": "Message AgenTeam, use @ for files and / for skills...",
-    "companionPlaceholder": "Ask Mino or delegate a task...",
+    "placeholder": "Message AgenTeam, use @ for Agents and / for skills...",
+    "companionPlaceholder": "Ask 小 T or delegate a task...",
     "addScreenshot": "Add screenshot",
     "send": "Send",
     "stop": "Stop",
     "stopRetry": "Stop retry",
     "currentModel": "Current model",
-    "workspaceRoot": "Workspace root",
     "modelDefault": "Default",
     "selectModel": "Select model",
     "modelCatalogLoading": "Loading models…",
@@ -41,9 +40,10 @@
     "providerUnavailableDefault": "Set up a model provider in Settings first.",
     "deleteImage": "Remove image",
     "addContext": "Add context",
-    "referenceFile": "Reference file",
     "useSkill": "Use skill",
     "uploadFile": "Upload file",
+    "referenceFolder": "Choose folder",
+    "createProject": "New project",
     "permissionModeTitle": "Switch execution mode",
     "permissionModeHeader": "Session mode",
     "agentSettings": "Agent settings",
@@ -99,12 +99,11 @@
     "undoFilesPartial": "Undid {{successCount}} file(s); {{failCount}} file(s) could not be deleted.",
     "undoReferenceOnly": "Reference removed, but file deletion failed.",
     "mention": {
-      "workspaceFiles": "Workspace files",
+      "workspaceFiles": "Project files",
       "thoughts": "Records",
       "switchHint": "⌘/Ctrl + ←/→ to switch",
-      "filePlaceholder": "Search Agents, thoughts or files…",
+      "filePlaceholder": "Search Agents or thoughts…",
       "searching": "Searching...",
-      "noFiles": "No files found",
       "emptyThoughts": "No records yet. Capture one in Task Center first.",
       "noThoughtMatchesPrefix": "No records match",
       "noThoughtMatchesSuffix": "",
@@ -113,8 +112,7 @@
       "thoughtSoftCap": "Showing the first {{count}} matches. Type a more specific keyword.",
       "group": {
         "agent": "Agent",
-        "thought": "Thoughts",
-        "file": "Files"
+        "thought": "Thoughts"
       },
       "results": "Mention options",
       "local": "Local",
@@ -132,11 +130,11 @@
     "permissionModes": {
       "approval-required": {
         "label": "Ask for approval",
-        "description": "Work in the workspace; ask before using tools"
+        "description": "Work in the project; ask before using tools"
       },
       "workspace-autonomous": {
-        "label": "Workspace autonomy",
-        "description": "Unrestricted within the workspace; no approval needed"
+        "label": "Project autonomy",
+        "description": "Unrestricted within the project; no approval needed"
       },
       "full-autonomous": {
         "label": "Full autonomy",
@@ -144,7 +142,7 @@
       },
       "auto": {
         "label": "Ask for approval",
-        "description": "Work in the workspace; ask before using tools"
+        "description": "Work in the project; ask before using tools"
       },
       "plan": {
         "label": "Plan",
@@ -176,7 +174,7 @@
       },
       "auto-edit": {
         "label": "Ask for approval",
-        "description": "Run in the workspace; ask before internet access or editing other files"
+        "description": "Run in the project; ask before internet access or editing other files"
       },
       "full-auto": {
         "label": "Approve for me",
@@ -207,23 +205,26 @@
       "previewFailed": "Failed to generate a preview URL for image \"{{name}}\".",
       "oversizedImageAsFile": "Image is over 10 MB. Use Upload file or drag it from a folder to reference it as an @file.",
       "oversizedImagesAsFile": "{{count}} images are over 10 MB. Use Upload file or drag them from a folder to reference them as @files.",
-      "imageUnderstandingNotReady": "The current model does not support images. The image was added as a workspace file, but Image Understanding is not ready, so the Agent may be unable to read it. Enable and configure Image Understanding, or switch to a model that supports images.",
+      "imageUnderstandingNotReady": "The current model does not support images. The image was added as a project file, but Image Understanding is not ready, so the Agent may be unable to read it. Enable and configure Image Understanding, or switch to a model that supports images.",
       "desktopRequiredForUpload": "Cannot upload files in browser dev mode. Use the desktop app.",
-      "selectWorkspaceForUpload": "Select a workspace before uploading files.",
+      "selectWorkspaceForUpload": "Select a project before uploading files.",
       "uploadFailed": "Upload failed",
-      "filesAdded": "Added {{count}} file(s) to the workspace.",
+      "filesAdded": "Added {{count}} file(s) to the project.",
       "fileUploadFailed": "File upload failed",
       "desktopRequiredForProcess": "Cannot process files in browser dev mode. Use the desktop app.",
-      "selectWorkspaceForProcess": "Select a workspace before processing files.",
+      "selectWorkspaceForProcess": "Select a project before processing files.",
       "sessionNotReadyForImage": "Cannot add image because this session is not ready.",
       "oversizedImageAddedAsReference": "Image is over 10 MB and was added as a file reference.",
       "oversizedImagesAddedAsReference": "{{count}} images are over 10 MB and were added as file references.",
       "copyFailed": "Copy failed",
       "noFilesCopied": "No files were copied successfully",
-      "filesAddedPartial": "Added {{successCount}}/{{totalCount}} file(s) to the workspace.",
+      "filesAddedPartial": "Added {{successCount}}/{{totalCount}} file(s) to the project.",
       "fileCopyFailed": "File copy failed",
       "pickFilesTitle": "Choose files",
-      "pickFilesFailed": "Failed to choose files"
+      "pickFilesFailed": "Failed to choose files",
+      "pickFolderTitle": "Choose a folder to reference in this conversation",
+      "pickFolderFailed": "Could not choose a folder",
+      "folderDesktopOnly": "Choosing a folder requires the desktop app"
     },
     "repetition": {
       "title": "Repeated content detected",
@@ -259,16 +260,16 @@
       "thinkingDone": "Thought for {{seconds}}s",
       "background": "Background"
     },
-    "watchingApp": "Mino · Watching {{appName}}",
-    "watchingAppWindow": "Mino · Watching {{appName}} — {{windowTitle}}",
+    "watchingApp": "小 T · Watching {{appName}}",
+    "watchingAppWindow": "小 T · Watching {{appName}} — {{windowTitle}}",
     "chrome": {
       "openPetSettings": "Open Desktop Pet settings",
       "openInMyAgents": "Open in AgenTeam (continue in a new tab)",
       "closeEsc": "Close (Esc)"
     },
     "connecting": "Connecting to {{workspace}}...",
-    "processing": "Mino is working...",
-    "axPrompt": "Allow Accessibility access so Mino can include selected text when summoned. You only need to grant this once.",
+    "processing": "小 T is working...",
+    "axPrompt": "Allow Accessibility access so 小 T can include selected text when summoned. You only need to grant this once.",
     "grantAccessibility": "Grant access",
     "removeQuote": "Remove quote",
     "resizeHandle": "Drag to resize",
@@ -276,16 +277,16 @@
     "toasts": {
       "maxImages": "You can upload at most {{count}} images.",
       "cannotUploadDevMode": "Cannot upload files in browser dev mode. Use the desktop app.",
-      "cannotUploadNoWorkspace": "Select a workspace before uploading files.",
-      "filesAdded": "Added {{count}} file(s) to the workspace.",
+      "cannotUploadNoWorkspace": "Select a project before uploading files.",
+      "filesAdded": "Added {{count}} file(s) to the project.",
       "fileUploadFailed": "File upload failed",
       "cannotProcessDevMode": "Cannot process files in browser dev mode. Use the desktop app.",
-      "cannotProcessNoWorkspace": "Select a workspace before processing files.",
+      "cannotProcessNoWorkspace": "Select a project before processing files.",
       "filesNotAdded": "{{count}} file(s) could not be added.",
       "fileProcessFailed": "File processing failed",
       "imageTooLargeAsFile": "Image is over 10 MB. Drag it from a folder to reference it as an @file.",
       "imagesTooLargeAsFile": "{{count}} images are over 10 MB. Drag them from a folder to reference them as @files.",
-      "imageConvertedToFile": "The current model does not support image input, so images were saved as workspace files for the model to read.",
+      "imageConvertedToFile": "The current model does not support image input, so images were saved as project files for the model to read.",
       "unsupportedImageFormat": "Unsupported image format: {{name}}",
       "imageTooLargeAddedAsFile": "Image is over 10 MB and was added as a file reference.",
       "imagesTooLargeAddedAsFile": "{{count}} images are over 10 MB and were added as file references.",
@@ -355,10 +356,10 @@
       }
     },
     "directory": {
-      "title": "Workspace",
-      "collapseWorkspace": "Collapse workspace",
-      "expandWorkspace": "Expand workspace",
-      "foldWorkspace": "Fold workspace",
+      "title": "Project",
+      "collapseWorkspace": "Collapse project",
+      "expandWorkspace": "Expand project",
+      "foldWorkspace": "Fold project",
       "fileSearch": "Search files",
       "closeSearch": "Close search",
       "showTerminal": "Show terminal",
@@ -424,7 +425,7 @@
     },
     "search": {
       "searching": "Searching...",
-      "searchInWorkspace": "Search in the current workspace",
+      "searchInWorkspace": "Search in the current project",
       "fileNameAndContent": "Folders, file names, and file contents",
       "zeroResults": "0 results",
       "refreshingSuffix": " · updating index...",
@@ -497,7 +498,7 @@
       }
     },
     "history": {
-      "title": "Workspace history",
+      "title": "Project history",
       "loading": "Loading...",
       "empty": "No history yet",
       "current": "Current",
@@ -564,7 +565,7 @@
       "cancelQueued": "Cancel queued"
     },
     "permissionPrompt": {
-      "sandboxTitle": "Write outside the workspace",
+      "sandboxTitle": "Write outside the project",
       "sandboxSubtitle": "Approve wider write access for this operation only",
       "sandboxScope": "Approval applies only to this operation and does not change the session mode.",
       "commandTitle": "Run {{shell}} command",
@@ -574,7 +575,7 @@
       "collapseCommand": "Collapse command",
       "allowOnce": "Allow once",
       "cwd": "Working directory",
-      "sessionWorkspaceScope": "Always allow also permits other Bash commands in this workspace for this Session.",
+      "sessionWorkspaceScope": "Always allow also permits other Bash commands in this project for this Session.",
       "sessionRuleScope": "Always allow: permit {{tool}} for the same target {{target}} in this Session and its children.",
       "progress": "Permission approval {{index}} / {{total}}",
       "title": "Permission request",
@@ -948,11 +949,11 @@
       "newChat": "New task",
       "newChatShort": "New task",
       "history": "History",
-      "expandWorkspace": "Expand workspace"
+      "expandWorkspace": "Expand project"
     },
     "currentChatFallback": "This task",
     "dropZone": {
-      "message": "Release to add files to the workspace",
+      "message": "Release to add files to the project",
       "subtitle": "Non-image files will be copied to myagents_files and referenced automatically."
     },
     "boot": {
@@ -1035,8 +1036,8 @@
       },
       "codexRewind": {
         "title": "Time rewind",
-        "message": "The conversation will return to before this message. Workspace files will not be restored; current file changes will remain.",
-        "messageWithDraft": "The conversation will return to before this message. Workspace files will not be restored; current file changes will remain. Your current unsent draft and images will be replaced by this message.",
+        "message": "The conversation will return to before this message. Project files will not be restored; current file changes will remain.",
+        "messageWithDraft": "The conversation will return to before this message. Project files will not be restored; current file changes will remain. Your current unsent draft and images will be replaced by this message.",
         "confirm": "Rewind conversation only"
       },
       "fork": {
@@ -1050,7 +1051,7 @@
       "composerLockedByGoal": "Goal Mode is active in this chat. Stop the goal before changing this setting.",
       "providerUnavailable": "The Provider pinned to this chat, \"{{providerId}}\", is unavailable because its API key is missing or it has been disabled. Add the key in Settings, or switch Provider in the model picker before sending.",
       "snapshotProviderIncomplete": "This historical chat is missing Provider information. Select the model again in the model picker first.",
-      "previewWorkspaceUnavailable": "Cannot open preview because the workspace file service is unavailable.",
+      "previewWorkspaceUnavailable": "Cannot open preview because the project file service is unavailable.",
       "previewUnsupportedType": "This file type is not supported by AgenTeam preview yet.",
       "previewOpenFailed": "Failed to open file preview.",
       "autoSendRestoredDraft": "Send failed. Your draft was restored; please try again.",
@@ -1081,7 +1082,7 @@
       "unknownError": "Unknown error",
       "rewindFailedWithError": "Time rewind failed: {{error}}",
       "rewindFailedRetry": "Time rewind failed. Please try again.",
-      "codexRewindSuccess": "Conversation rewound. Workspace files remain unchanged.",
+      "codexRewindSuccess": "Conversation rewound. Project files remain unchanged.",
       "codexRestoreFailed": "Conversation rewound, but Codex must restart before you continue.",
       "codexRewindReconciled": "The connection was interrupted. The conversation was resynced from local history; review it before continuing.",
       "conversationError": {
@@ -1095,8 +1096,8 @@
         "unsupported_runtime": "The current Runtime does not support this operation."
       },
       "rewindPartialLinks": "Conversation rewound, but {{count}} linked file(s) were left unchanged for safety.",
-      "rewindFilesFailed": "Conversation rewound, but workspace files could not be restored and remain unchanged.",
-      "rewindFilesNotAttempted": "Conversation rewound without a usable file checkpoint; workspace files remain unchanged.",
+      "rewindFilesFailed": "Conversation rewound, but project files could not be restored and remain unchanged.",
+      "rewindFilesNotAttempted": "Conversation rewound without a usable file checkpoint; project files remain unchanged.",
       "retryFailedWithError": "Retry failed: {{error}}",
       "retryFailed": "Retry failed",
       "forkOpenFailed": "Failed to create branch: cannot open a new chat.",

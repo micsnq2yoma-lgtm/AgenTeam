@@ -38,7 +38,7 @@
     "settings": "Settings",
     "workspaces": "Projects",
     "workspaceSection": "Projects",
-    "workspaceViewOptions": "Workspace and session view options",
+    "workspaceViewOptions": "Project and session view options",
     "allSessions": "All sessions",
     "favoriteSessions": "Favorites only",
     "showAutomationHistory": "Show automation history",
@@ -85,7 +85,7 @@
     "recordCloseStatusFailed": "Recording status could not be verified, so the Record stayed open.",
     "recordStopFailed": "Recording has not stopped safely, so the Record stayed open.",
     "recordRestoreMissing": "This Record no longer exists. The Records list was opened instead.",
-    "noWorkspaceForDiscussion": "No workspaces yet. Cannot start AI discussion.",
+    "noWorkspaceForDiscussion": "No projects yet. Cannot start AI discussion.",
     "noModelProviderForDiscussion": "No available model provider configured. Cannot start AI discussion.",
     "taskDiscussionContentRequired": "Describe the task goal and requirements",
     "taskDiscussionStartFailed": "Unable to start the task discussion",
@@ -124,8 +124,8 @@
     "replyFailed": "Reply failed",
     "agentErrorOpenMainWindow": "Agent error. Click ↗ to view it in the main window.",
     "sessionExpiredNewChat": "The previous task expired. A new task has been started.",
-    "noWorkspace": "No available workspace. Finish AgenTeam setup first.",
-    "switchWorkspaceFailed": "Failed to switch workspace. Try again.",
+    "noWorkspace": "No available project. Finish AgenTeam setup first.",
+    "switchWorkspaceFailed": "Failed to switch project. Try again.",
     "newConversationFailed": "Failed to start a new task. Try again.",
     "engineNotReady": "AI engine is not ready yet. Try again shortly.",
     "confirmSendFailed": "Failed to send confirmation. Try again.",
@@ -220,8 +220,8 @@
     "failed": "Export failed. Try again."
   },
   "workspaceFile": {
-    "desktopOnly": "Workspace file operations are only available in the desktop app. Current mode: browser development.",
-    "selectWorkspaceFirst": "Select a workspace first"
+    "desktopOnly": "Project file operations are only available in the desktop app. Current mode: browser development.",
+    "selectWorkspaceFirst": "Select a project first"
   },
   "browserPanel": {
     "urlPlaceholder": "Enter a URL or local file path…",
@@ -252,7 +252,7 @@
     "reload": "Reload"
   },
   "dropZone": {
-    "defaultMessage": "Release to add files to the workspace"
+    "defaultMessage": "Release to add files to the project"
   },
   "richDoc": {
     "tooLarge": "This file is over 50 MB and cannot be previewed inline.",
@@ -322,7 +322,7 @@
     "revealInTree": "Reveal in file tree",
     "previewUnsupported": "Preview isn't supported yet. Use the right-click menu to open it.",
     "targetUnavailable": "The file doesn't exist or can't be accessed",
-    "directoryNotInWorkspace": "This folder can't be revealed in the current workspace. Use the right-click menu to open it.",
+    "directoryNotInWorkspace": "This folder can't be revealed in the current project. Use the right-click menu to open it.",
     "imageLoadFailed": "Failed to load the image preview",
     "previewLoadFailed": "Failed to load the file preview",
     "openFailed": "Couldn't open with the system application"
@@ -462,7 +462,7 @@
       "all": "All",
       "favorite": "Favorites"
     },
-    "allWorkspaces": "All workspaces",
+    "allWorkspaces": "All projects",
     "deleted": "Deleted",
     "deleteFailedRetry": "Delete failed. Please try again.",
     "deleteFailed": "Delete failed",
@@ -634,8 +634,8 @@
     "guide": {
       "step1Title": "Add your devices",
       "step1Body": "Add the same self-hosted AgentNet network on each device you want to use.",
-      "step2Title": "Open Agent workspaces",
-      "step2Body": "Workspaces stay closed after joining. Open only the Agents you want others to call, with a short description.",
+      "step2Title": "Open Agent projects",
+      "step2Body": "Projects stay closed after joining. Open only the Agents you want others to call, with a short description.",
       "step3Title": "Just keep chatting",
       "step3Body": "Tell your Agent what you need. It reaches Agents on other devices when needed, or use @ to pick one."
     },
@@ -647,7 +647,7 @@
     "offlineSince": "Offline · last seen {{time}}",
     "syncing": "Syncing",
     "notJoined": "Not in network",
-    "notJoinedHint": "This device has not joined the network. After joining, choose which workspaces to open.",
+    "notJoinedHint": "This device has not joined the network. After joining, choose which projects to open.",
     "local": "This device",
     "copyDeviceId": "Copy Device ID",
     "renameDevice": "Rename device",
@@ -662,7 +662,7 @@
     "noOpenAgents": "No Agents open yet",
     "unsyncedShort": "Agent catalog not synced",
     "unsynced": "This device has not synced its Agent catalog yet. It will appear once the device is online.",
-    "noAgents": "No Agent workspaces to manage",
+    "noAgents": "No Agent projects to manage",
     "noDevices": "Your signed-in devices will appear here",
     "partial": "This large list is only partially displayed.",
     "openDevice": "View details for {{name}}",
@@ -674,7 +674,7 @@
     "leaveTitle": "Leave network?",
     "leaveMessage": "All Agents on this device will stop being available in this network. Rejoining requires enabling them again.",
     "leaveConfirm": "Leave network",
-    "agents": "Agent workspaces",
+    "agents": "Agent projects",
     "opened": "Open",
     "deviceInfo": "Device info",
     "system": "System",
@@ -732,17 +732,17 @@
       "waitingApproval": "After approval, the next eligible message will start a conversation.",
       "waitingMessage": "The conversation will appear after the first eligible message."
     },
-    "join": "Add an existing Agent workspace",
-    "selectWorkspaceTitle": "Choose an Agent workspace",
-    "selectWorkspaceDescription": "Choose an Agent workspace to add to Team AI. Only its usage is tagged; files, settings and history stay unchanged.",
+    "join": "Add an existing Agent project",
+    "selectWorkspaceTitle": "Choose an Agent project",
+    "selectWorkspaceDescription": "Choose an Agent project to add to Team AI. Only its usage is tagged; files, settings and history stay unchanged.",
     "create": "Create Team AI",
-    "noCandidates": "All available workspaces have been added.",
+    "noCandidates": "All available projects have been added.",
     "retry": "Retry",
     "onboarding": {
       "title": "Let one Agent work for your whole team",
       "body": "Connect an Agent to WeCom, Feishu and other chat tools so colleagues can use it in groups and private chats. Manage how it works in each conversation here.",
       "step1": "Prepare an Agent",
-      "step1Body": "Create one, or add an existing Agent workspace to Team AI",
+      "step1Body": "Create one, or add an existing Agent project to Team AI",
       "step2": "Connect a chatbot",
       "step2Body": "Connect WeCom, Feishu, DingTalk and more, and choose who can use it",
       "step3": "@ it in a group",
@@ -754,7 +754,7 @@
     "connectBot": "Connect a chatbot",
     "leave": "Remove from Team AI",
     "leaveTitle": "Remove {{name}} from Team AI?",
-    "leaveMessage": "Only the usage tag is removed. The workspace, bots, sessions and history stay unchanged.",
+    "leaveMessage": "Only the usage tag is removed. The project, bots, sessions and history stay unchanged.",
     "leaveConfirm": "Remove",
     "private": "Private chat",
     "group": "Group chat",
@@ -818,7 +818,7 @@
       "updated": "{{what}} updated",
       "savedAsOwn": "Saved as this conversation’s own settings"
     },
-    "createdUnbound": "Session {{id}} was created but not bound; open it from the workspace.",
+    "createdUnbound": "Session {{id}} was created but not bound; open it from the project.",
     "deliveryWarning": "The switch took effect, but saving or the handover notice did not finish. Refresh to confirm.",
     "efforts": {
       "default": "Provider default",

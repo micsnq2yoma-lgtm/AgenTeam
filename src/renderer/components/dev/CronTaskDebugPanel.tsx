@@ -72,7 +72,7 @@ export default function CronTaskDebugPanel({ isOpen, onClose }: CronTaskDebugPan
       onClose();
     } else {
       // No tab associated - show info
-      alert(`该任务没有关联的标签页\n\n工作区: ${task.workspacePath}\nSession: ${task.sessionId}\n\n请手动打开对应的工作区和历史记录`);
+      alert(`该任务没有关联的标签页\n\n项目: ${task.workspacePath}\nSession: ${task.sessionId}\n\n请手动打开对应的项目和历史记录`);
     }
   }, [onClose]);
 

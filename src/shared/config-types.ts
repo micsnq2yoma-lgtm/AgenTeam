@@ -65,7 +65,7 @@ export const PERMISSION_MODES: {
     value: 'auto',
     label: '行动',
     icon: '⚡',
-    description: 'Agent 在工作区内行动，使用工具需确认',
+    description: 'Agent 在项目内行动，使用工具需确认',
     sdkValue: 'acceptEdits',
   },
   {
@@ -562,7 +562,7 @@ export interface Provider {
  * Project/workspace configuration
  */
 export type WorkspaceType = 'user' | 'system-preset';
-export type SystemPresetWorkspaceId = 'mino';
+export type SystemPresetWorkspaceId = 'atmer';
 
 export interface Project {
   /** Product usage; independent from user/system lifecycle and template provenance. */
@@ -606,7 +606,7 @@ export interface Project {
   templateSource?: WorkspaceTemplateSource;
   /** Lifecycle owner. Missing means ordinary user workspace for backward compatibility. */
   workspaceType?: WorkspaceType;
-  /** Stable ID for a system-preset workspace instance. Current preset set: mino. */
+  /** Stable ID for a system-preset workspace instance. Current preset set: atmer. */
   systemPresetId?: SystemPresetWorkspaceId;
   /** Soft-delete flag. Hidden projects remain persisted but are excluded from user-facing lists. */
   hidden?: boolean;
@@ -651,9 +651,13 @@ export interface WorkspaceTemplate {
   agentDefaults?: WorkspaceTemplateAgentDefaults;
 }
 
-export const DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID = 'mino';
+export const DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID = 'atmer';
 export const DEFAULT_SYSTEM_PRESET_WORKSPACE_ID: SystemPresetWorkspaceId =
-  'mino';
+  'atmer';
+/** Folder-name tail of the default assistant workspace (`projects/atmer`). */
+export function isDefaultAssistantWorkspacePath(path: string): boolean {
+  return path.replace(/\\/g, '/').endsWith(`/${DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID}`);
+}
 
 export function isSystemPresetProject(
   project: Pick<Project, 'workspaceType' | 'systemPresetId'> | null | undefined,
@@ -692,16 +696,20 @@ export function isProjectActiveForUser(
   return isProjectVisibleToUser(project) && !isProjectArchived(project);
 }
 
+/** The default assistant's name and icon (the T from the AgenTeam wordmark). */
+export const DEFAULT_ASSISTANT_NAME = '小 T';
+export const DEFAULT_ASSISTANT_ICON = 'agenteam-t';
+
 export function getSystemPresetProjectMetadata(
   presetId: SystemPresetWorkspaceId,
 ): ProjectPatch {
   switch (presetId) {
-    case 'mino':
+    case 'atmer':
       return {
         workspaceType: 'system-preset',
-        systemPresetId: 'mino',
-        icon: 'lightning',
-        displayName: 'Mino',
+        systemPresetId: 'atmer',
+        icon: DEFAULT_ASSISTANT_ICON,
+        displayName: DEFAULT_ASSISTANT_NAME,
         templateId: DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID,
         templateSource: 'builtin',
       };
@@ -745,10 +753,10 @@ export function getSystemPresetProjectMetadataPatch(
 export const PRESET_TEMPLATES: WorkspaceTemplate[] = [
   {
     id: DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID,
-    name: 'Mino',
+    name: DEFAULT_ASSISTANT_NAME,
     description:
       '能记忆、会进化的 AI Agent。从 minimal 开始，长成你想要的样子。',
-    icon: 'lightning',
+    icon: DEFAULT_ASSISTANT_ICON,
     isBuiltin: true,
     agentDefaults: {
       enabled: true,
@@ -1030,7 +1038,7 @@ export interface AppConfig {
   floatingBallEnabled?: boolean;
   /** 悬浮球本体外观。缺省视同 'pet'（PRD 0.2.34 floating_ball_pet_mode Phase 1）。 */
   floatingBallAppearance?: 'pet' | 'orb';
-  /** 当前选中的桌宠资源包。缺省视同内置 Mino。 */
+  /** 当前选中的桌宠资源包。缺省视同内置 Atmer。 */
   floatingBallPetId?: string;
   /** 桌面渠道持久 session id（伴侣窗自铸 UUID v4；轮换见下两个字段，PRD §6.2）。 */
   floatingBallSessionId?: string;

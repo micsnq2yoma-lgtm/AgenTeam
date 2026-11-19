@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { loadAppConfig } from '@/config/services/appConfigService';
 import { listenWithCleanup } from '@/utils/tauriListen';
 
-import { MINO_DEFAULT_PET_PACK } from './defaultPetPack';
+import { ATMER_PET_PACK } from './defaultPetPack';
 import {
     createFloatingBallHoverIntentState,
     enterFloatingBallHover,
@@ -53,7 +53,7 @@ export default function BallWindow() {
     const [hasError, setHasError] = useState(false);
     const [petLoadFailed, setPetLoadFailed] = useState(false);
     const [appearance, setAppearance] = useState<'pet' | 'orb'>('pet');
-    const [petPack, setPetPack] = useState(MINO_DEFAULT_PET_PACK);
+    const [petPack, setPetPack] = useState(ATMER_PET_PACK);
     const summonPulseMs = useMemo(() => getPetAnimationDuration(petPack.atlas, 'jumping'), [petPack]);
     const donePulseMs = useMemo(() => getPetAnimationDuration(petPack.atlas, 'waving'), [petPack]);
 

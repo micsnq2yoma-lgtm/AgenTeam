@@ -397,7 +397,12 @@ pub struct InitBundledWorkspaceResult {
 }
 
 const BUNDLED_WORKSPACE_TEMPLATES_DIR: &str = "bundled-workspaces";
-const DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID: &str = "mino";
+const DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID: &str = "atmer";
+
+/// Where the default assistant workspace lives: `projects/atmer`.
+pub(crate) fn default_assistant_workspace_dir(projects_dir: &Path) -> PathBuf {
+    projects_dir.join(DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID)
+}
 
 /// Resolve one immutable workspace template shipped with the current app.
 ///
@@ -435,18 +440,19 @@ fn resolve_bundled_workspace_template<R: Runtime>(
     resolve_bundled_workspace_template_at(&resource_dir, template_id)
 }
 
-/// Command: Initialize bundled workspace (mino) on first launch
-/// Copies from the immutable app template to ~/.agenteam/projects/mino/.
+/// Command: Initialize the bundled default assistant workspace on first launch
+/// Copies from the immutable app template to ~/.agenteam/projects/atmer/.
 /// An existing user-owned workspace is never overwritten.
 #[tauri::command]
 pub fn cmd_initialize_bundled_workspace<R: Runtime>(
     app_handle: AppHandle<R>,
 ) -> Result<InitBundledWorkspaceResult, String> {
     let home_dir = dirs::home_dir().ok_or("Failed to get home dir")?;
-    let mino_dest = home_dir.join(".agenteam").join("projects").join("mino");
+    let atmer_dest =
+        default_assistant_workspace_dir(&home_dir.join(".agenteam").join("projects"));
 
     // NOTE: Path::exists() follows symlinks, so a dangling
-    // ~/.agenteam/projects/mino link returns false here and we'd fall
+    // ~/.agenteam/projects/<dir> link returns false here and we'd fall
     // through to copy_dir_recursive — which fails on EEXIST and surfaces
     // a workspace-init error to the user every launch until they clear
     // the link by hand. Same family as the cpSync crash fixed in
@@ -454,36 +460,36 @@ pub fn cmd_initialize_bundled_workspace<R: Runtime>(
     // existsSync / Path::exists() as an existence probe). Single fixed path
     // and graceful error → not crashing in production, so left as TODO
     // to avoid scope creep on the v0.2.6 hotfix.
-    if mino_dest.exists() {
+    if atmer_dest.exists() {
         return Ok(InitBundledWorkspaceResult {
-            path: mino_dest.to_string_lossy().to_string(),
+            path: atmer_dest.to_string_lossy().to_string(),
             is_new: false,
         });
     }
 
-    let mino_src =
+    let atmer_src =
         resolve_bundled_workspace_template(&app_handle, DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID)?;
 
     ulog_info!(
         "[workspace] Initializing bundled workspace from {:?}",
-        mino_src
+        atmer_src
     );
-    copy_dir_recursive(&mino_src, &mino_dest)
-        .map_err(|e| format!("Failed to copy mino workspace: {}", e))?;
+    copy_dir_recursive(&atmer_src, &atmer_dest)
+        .map_err(|e| format!("Failed to copy atmer workspace: {}", e))?;
 
     // Validate the copy produced a valid workspace
-    if !mino_dest.join("CLAUDE.md").exists() {
-        let _ = fs::remove_dir_all(&mino_dest);
-        return Err("Bundled mino copy produced incomplete workspace".to_string());
+    if !atmer_dest.join("CLAUDE.md").exists() {
+        let _ = fs::remove_dir_all(&atmer_dest);
+        return Err("Bundled atmer copy produced incomplete workspace".to_string());
     }
 
     Ok(InitBundledWorkspaceResult {
-        path: mino_dest.to_string_lossy().to_string(),
+        path: atmer_dest.to_string_lossy().to_string(),
         is_new: true,
     })
 }
 
-/// Command: Create a dedicated workspace for an IM Bot by copying the bundled mino template.
+/// Command: Create a dedicated workspace for an IM Bot by copying the bundled atmer template.
 /// Sanitizes the name for path safety and auto-appends numeric suffix on collision.
 /// Returns the created workspace path.
 #[tauri::command]
@@ -503,20 +509,20 @@ pub fn cmd_create_bot_workspace<R: Runtime>(
     // Find available path (handle collisions with numeric suffix)
     let dest = find_available_workspace_path(&projects_dir, &sanitized);
 
-    let mino_src =
+    let atmer_src =
         resolve_bundled_workspace_template(&app_handle, DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID)?;
     ulog_info!(
-        "[workspace] Copying bundled mino from {:?} to {:?}",
-        mino_src,
+        "[workspace] Copying bundled atmer from {:?} to {:?}",
+        atmer_src,
         dest
     );
-    copy_dir_recursive(&mino_src, &dest)
+    copy_dir_recursive(&atmer_src, &dest)
         .map_err(|e| format!("Failed to copy workspace template: {}", e))?;
 
-    // Validate: CLAUDE.md must exist in destination (marker file for a valid mino template)
+    // Validate: CLAUDE.md must exist in destination (marker file for a valid atmer template)
     if !dest.join("CLAUDE.md").exists() {
         let _ = fs::remove_dir_all(&dest);
-        return Err("Bundled mino copy produced incomplete workspace".to_string());
+        return Err("Bundled atmer copy produced incomplete workspace".to_string());
     }
 
     ulog_info!("[workspace] Bot workspace created: {:?}", dest);
@@ -1598,20 +1604,26 @@ fn merge_dir_validated_with_home(
 #[cfg(test)]
 mod bundled_workspace_template_tests {
     use super::{
-        resolve_bundled_workspace_template_at, BUNDLED_WORKSPACE_TEMPLATES_DIR,
-        DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID,
+        default_assistant_workspace_dir, resolve_bundled_workspace_template_at,
+        BUNDLED_WORKSPACE_TEMPLATES_DIR, DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID,
     };
     use std::path::Path;
 
     #[test]
-    fn committed_mino_template_is_complete_and_resolves_from_resource_root() {
+    fn default_assistant_workspace_lives_under_atmer() {
+        let projects = tempfile::tempdir().expect("tempdir");
+        assert!(default_assistant_workspace_dir(projects.path()).ends_with("atmer"));
+    }
+
+    #[test]
+    fn committed_default_template_is_complete_and_resolves_from_resource_root() {
         let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .expect("src-tauri must live under the repository root");
 
         let resolved =
             resolve_bundled_workspace_template_at(repo_root, DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID)
-                .expect("committed mino template must resolve");
+                .expect("committed atmer template must resolve");
 
         assert!(resolved.join("CLAUDE.md").is_file());
         assert!(resolved.ends_with(
@@ -1626,7 +1638,7 @@ mod bundled_workspace_template_tests {
             .expect("src-tauri must live under the repository root");
 
         assert_eq!(
-            resolve_bundled_workspace_template_at(repo_root, "../mino").unwrap_err(),
+            resolve_bundled_workspace_template_at(repo_root, "../atmer").unwrap_err(),
             "Invalid template ID"
         );
         assert!(

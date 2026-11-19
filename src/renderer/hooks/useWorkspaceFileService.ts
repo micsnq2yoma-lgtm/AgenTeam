@@ -205,7 +205,7 @@ interface GitignoreResult {
  * `WorkspaceFileService` exposes Rust workspace_files commands as a stable
  * callable surface.
  *
- * # Methods that REQUIRE a workspace (throw "请先选择工作区" if `workspacePath`
+ * # Methods that REQUIRE a workspace (throw "请先选择项目" if `workspacePath`
  * is null):
  * `importBase64Files`, `copyPaths`, `addGitignore`, `searchFiles`,
  * `deleteFile`, `listSlashCommands`, `dirTree`, `dirExpand`, `readPreview`,
