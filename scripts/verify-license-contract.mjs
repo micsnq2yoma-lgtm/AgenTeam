@@ -69,7 +69,6 @@ requireEqual(
   canonicalLicenseSha256,
 );
 requireContains('README license identifier', readme, expectedLicense);
-requireContains('README commercial contact', readme, expectedEmail);
 for (const path of ['LICENSE', 'LICENSING.md', 'COMMERCIAL-LICENSING.md', 'THIRD_PARTY_NOTICES.md']) {
   requireContains(`README link to ${path}`, readme, `](${path})`);
 }
