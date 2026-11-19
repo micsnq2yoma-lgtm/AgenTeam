@@ -663,7 +663,7 @@ describe('GlobalSidebar rail flyout', () => {
     expect(search).toHaveAttribute('title', String(i18n.t('settings:about.desktopOnly')));
   });
 
-  it('opens 智能体团队 from directly below 创建新对话', () => {
+  it('opens 智能体团队 from directly below 创建新任务', () => {
     mocks.forcedRail = false;
     const onOpenTeamOffice = vi.fn();
     const { container } = renderSidebar({ onOpenTeamOffice });

@@ -67,7 +67,7 @@ describe('SessionMenuButton', () => {
   it('shows the frozen Runtime above the copyable SessionID without a switch action', () => {
     renderMenu();
 
-    fireEvent.click(screen.getByRole('button', { name: '对话操作' }));
+    fireEvent.click(screen.getByRole('button', { name: '任务操作' }));
 
     const runtimeName = screen.getByText('AgenTeam (DeepSeek Harness)');
     const sessionIdLabel = screen.getByText('SessionID:');
@@ -80,7 +80,7 @@ describe('SessionMenuButton', () => {
 
   it('distinguishes a managed Codex Session from the external Codex CLI', () => {
     const view = renderMenu({ runtime: 'codex', runtimeSource: 'managed-provider' });
-    fireEvent.click(screen.getByRole('button', { name: '对话操作' }));
+    fireEvent.click(screen.getByRole('button', { name: '任务操作' }));
     expect(screen.getByText('Managed Codex')).toBeInTheDocument();
 
     view.rerender(
@@ -107,7 +107,7 @@ describe('SessionMenuButton', () => {
 
   it('waits for the Session identity before naming its Runtime', () => {
     renderMenu({ runtime: null });
-    fireEvent.click(screen.getByRole('button', { name: '对话操作' }));
+    fireEvent.click(screen.getByRole('button', { name: '任务操作' }));
 
     expect(screen.getByText('运行环境加载中…')).toBeInTheDocument();
     expect(screen.queryByText('AgenTeam (DeepSeek Harness)')).not.toBeInTheDocument();
@@ -116,20 +116,20 @@ describe('SessionMenuButton', () => {
   it('hides the trigger tooltip while the session menu is open', () => {
     renderMenu();
 
-    const trigger = screen.getByRole('button', { name: '对话操作' });
+    const trigger = screen.getByRole('button', { name: '任务操作' });
     fireEvent.mouseEnter(trigger.parentElement!);
-    expect(screen.getByRole('tooltip', { name: '对话操作' })).toBeInTheDocument();
+    expect(screen.getByRole('tooltip', { name: '任务操作' })).toBeInTheDocument();
 
     fireEvent.click(trigger);
 
-    expect(screen.queryByRole('tooltip', { name: '对话操作' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tooltip', { name: '任务操作' })).not.toBeInTheDocument();
     expect(screen.getByText('SessionID:')).toBeInTheDocument();
   });
 
   it('copies the AI-ready SessionID text', async () => {
     renderMenu();
 
-    fireEvent.click(screen.getByRole('button', { name: '对话操作' }));
+    fireEvent.click(screen.getByRole('button', { name: '任务操作' }));
     fireEvent.click(screen.getByRole('button', { name: '复制 SessionID' }));
 
     await waitFor(() => {
@@ -165,8 +165,8 @@ describe('SessionMenuButton', () => {
     });
     renderMenu({ availableChannels: [privateTarget, groupTarget] });
 
-    fireEvent.click(screen.getByRole('button', { name: '对话操作' }));
-    const continueInBot = screen.getByRole('button', { name: '在聊天机器人继续此对话' });
+    fireEvent.click(screen.getByRole('button', { name: '任务操作' }));
+    const continueInBot = screen.getByRole('button', { name: '在聊天机器人继续此任务' });
     expect(continueInBot.querySelector('[data-session-menu-submenu-chevron]')).toHaveClass('h-4', 'w-4');
     fireEvent.click(continueInBot);
     fireEvent.click(screen.getByText('群聊 · Product Crew'));
@@ -200,7 +200,7 @@ describe('SessionMenuButton', () => {
 
     renderMenu({ availableChannels: [groupTarget] });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Chat actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Task actions' }));
     fireEvent.click(screen.getByRole('button', { name: 'Continue in chat bot' }));
 
     expect(screen.getByText('Group · Product Crew')).toBeInTheDocument();
@@ -212,8 +212,8 @@ describe('SessionMenuButton', () => {
     mocks.deleteSession.mockResolvedValue({ deleted: true });
     renderMenu();
 
-    fireEvent.click(screen.getByRole('button', { name: '对话操作' }));
-    fireEvent.click(screen.getByText('删除对话'));
+    fireEvent.click(screen.getByRole('button', { name: '任务操作' }));
+    fireEvent.click(screen.getByText('删除任务'));
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
 
     await waitFor(() => {
@@ -225,23 +225,23 @@ describe('SessionMenuButton', () => {
     mocks.deleteSession.mockResolvedValue({ deleted: false, reason: 'in-use' });
     renderMenu({ deleteProtected: true });
 
-    fireEvent.click(screen.getByRole('button', { name: '对话操作' }));
-    fireEvent.click(screen.getByText('删除对话'));
+    fireEvent.click(screen.getByRole('button', { name: '任务操作' }));
+    fireEvent.click(screen.getByText('删除任务'));
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
 
     await waitFor(() => expect(mocks.deleteSession).toHaveBeenCalledWith(SESSION_ID));
-    expect(await screen.findByText(/该对话仍在使用中/)).toBeInTheDocument();
+    expect(await screen.findByText(/该任务仍在使用中/)).toBeInTheDocument();
   });
 
   it('explains that an uncertain activity check kept the chat', async () => {
     mocks.deleteSession.mockResolvedValue({ deleted: false, reason: 'activity-unavailable' });
     renderMenu();
 
-    fireEvent.click(screen.getByRole('button', { name: '对话操作' }));
-    fireEvent.click(screen.getByText('删除对话'));
+    fireEvent.click(screen.getByRole('button', { name: '任务操作' }));
+    fireEvent.click(screen.getByText('删除任务'));
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
 
     await waitFor(() => expect(mocks.deleteSession).toHaveBeenCalledWith(SESSION_ID));
-    expect(await screen.findByText(/暂时无法确认该对话是否仍在运行/)).toBeInTheDocument();
+    expect(await screen.findByText(/暂时无法确认该任务是否仍在运行/)).toBeInTheDocument();
   });
 });

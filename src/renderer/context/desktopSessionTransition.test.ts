@@ -49,7 +49,7 @@ describe('transitionDesktopSession', () => {
 
     expect(mocks.adoptMigratedSession).not.toHaveBeenCalled();
     expect(mocks.releaseMigratedTabOwner).not.toHaveBeenCalled();
-    expect(mocks.reportError).toHaveBeenCalledWith('新对话创建失败');
+    expect(mocks.reportError).toHaveBeenCalledWith('新任务创建失败');
   });
 
   it('releases the migrated Tab owner when renderer adoption is refused', async () => {
@@ -59,7 +59,7 @@ describe('transitionDesktopSession', () => {
     await expect(runTransition()).resolves.toBe(false);
 
     expect(mocks.releaseMigratedTabOwner).toHaveBeenCalledWith('new-session', 'tab-1');
-    expect(mocks.reportError).toHaveBeenCalledWith('新对话创建失败');
+    expect(mocks.reportError).toHaveBeenCalledWith('新任务创建失败');
   });
 
   it('fails closed without owner cleanup when migration never committed', async () => {
@@ -68,7 +68,7 @@ describe('transitionDesktopSession', () => {
     await expect(runTransition()).resolves.toBe(false);
 
     expect(mocks.releaseMigratedTabOwner).not.toHaveBeenCalled();
-    expect(mocks.reportError).toHaveBeenCalledWith('新对话创建失败');
+    expect(mocks.reportError).toHaveBeenCalledWith('新任务创建失败');
   });
   it('consumes admitted background completion even when the old turn finishes before the UI callback', async () => {
     const background = vi.fn(async () => true);

@@ -20,18 +20,20 @@ Every project is a team. You set the direction and make the calls; AI employees 
 
 ## How it works
 
-| ① New project | ② New chat | ③ Employees do the work | ④ You decide |
+| ① New project | ② New task | ③ Employees do the work | ④ You decide |
 | --- | --- | --- | --- |
-| Pick a folder (new, existing, or the default location) and optionally turn on assistant mode | Each chat is an employee of the project, starting with the workspace as context | Claude Agent SDK, DeepSeek Harness or Codex read and write files and run commands on your machine | Steer at any time; hand recurring work to automations |
+| Pick a folder (new, existing, or the default location) and optionally turn on assistant mode | Each task starts with the workspace as context and appears as an employee in Agent Team | Claude Agent SDK, DeepSeek Harness or Codex read and write files and run commands on your machine | Steer at any time; hand recurring work to automations |
 
-In the sidebar's **Agent Team** view, every project is a department: the assistant sits at the head desk and employees at their desks, acting out what their chat is really doing (working, on schedule, on chat duty, standing by, resting). Click an employee to open the chat; click "New employee" to start a new chat in that project.
+In the sidebar's **Agent Team** view, every project is a department: the assistant sits at the head desk and employees at their desks, acting out what their task is really doing (working, on schedule, on chat duty, standing by, resting). Click an employee to open the task; click "New employee" to create a new task in that project.
+
+> The structure is **project → assistant → tasks**. A task and an employee are the same thing: Agent Team calls it an employee, everywhere else calls it a task.
 
 ## Who it is for
 
-- ✅ You want to organise many AI chats by project instead of scrolling one long thread
+- ✅ You want to organise many AI tasks by project instead of scrolling one long thread
 - ✅ You already have Claude / Codex subscriptions or model APIs and want them working on your own computer
 - ✅ You want daily checks, tidying and reports to run on a schedule and only wake you when needed
-- ❌ Not a multi-user SaaS: one install per computer, with workspaces and chats stored locally
+- ❌ Not a multi-user SaaS: one install per computer, with workspaces and tasks stored locally
 
 ## Features
 
@@ -41,7 +43,7 @@ In the sidebar's **Agent Team** view, every project is a department: the assista
 | 🤖 **Runtimes** Claude Agent SDK, DeepSeek Harness, managed Codex, or the Claude Code / Codex CLI on your system | 🔑 **Subscriptions and APIs** Sign in with a subscription or use any model API, chosen per Agent |
 | ⏰ **Automations** One-off, interval and Cron schedules; run a script first and wake the Agent only when a condition is met | 🧰 **Skills and tools** Skills capture your methods; MCP connects tools and data (STDIO / HTTP / SSE) |
 | 💬 **Chat bots** Built-in Feishu, DingTalk and Telegram, more platforms via plugins | 🛰️ **Multi-device network** Self-hosted AgentNet hands work across devices, end-to-end encrypted |
-| 🔍 **Full-text search** The sidebar search bar finds any chat by title or content | 🧑‍💻 **CLI** Agents use the `myagents` CLI to create tasks and call other Agents; authorised external Agents can too |
+| 🔍 **Full-text search** The sidebar search bar finds any task by title or content | 🧑‍💻 **CLI** Agents use the `myagents` CLI to create tasks and call other Agents; authorised external Agents can too |
 
 ## Quick start
 
@@ -66,7 +68,7 @@ Once it is running:
 
 1. **Connect a model**: Settings → Model Providers, sign in to a subscription or enter an API, then pick the Runtime and model. See the [models and Runtime guide](bundled-skills/myagents-docs/references/models-providers-runtimes.md).
 2. **Create a project**: click **+** next to "Projects" in the sidebar, choose the folder location and whether to turn on assistant mode.
-3. **Start a chat**: open a chat in the project, share the material and the goal; for ongoing work, ask the Agent to set up an automation.
+3. **Create a task**: create a task in the project, share the material and the goal; for ongoing work, ask the Agent to set up an automation.
 
 App data lives in `~/.myagents` (the upstream MyAgents directory name, kept on purpose; do not rename it).
 

@@ -1832,7 +1832,7 @@ describe('TabProvider session activity ownership', () => {
     emit('chat:message-replay', { replayKind: 'live-user-echo', sessionId: 'pending-reset-rejected', message: { id: 'retained-user', role: 'user', content: 'retain this', timestamp: new Date(0).toISOString() } });
     expect(readActivity().historyCount).toBe(1);
     fireEvent.click(screen.getByRole('button', { name: 'reset session' }));
-    await waitFor(() => expect(screen.getByTestId('agent-error')).toHaveTextContent('新对话创建失败'));
+    await waitFor(() => expect(screen.getByTestId('agent-error')).toHaveTextContent('新任务创建失败'));
     expect(readActivity().historyCount).toBe(1);
     expect(readActivity().sessionId).toBe('pending-reset-rejected');
   });
@@ -1874,7 +1874,7 @@ describe('TabProvider session activity ownership', () => {
     render(<TabProvider tabId="reset-lost" agentDir="/tmp/workspace" sessionId="pending-reset-lost" onSessionIdChange={onSessionIdChange} claimSessionOpeningTransition={allowSessionOpening}><Probe /></TabProvider>);
     await waitFor(() => expect(sseHarness.state.eventHandler).not.toBeNull());
     fireEvent.click(screen.getByRole('button', { name: 'reset session' }));
-    await waitFor(() => expect(screen.getByTestId('agent-error')).toHaveTextContent('新对话创建失败'));
+    await waitFor(() => expect(screen.getByTestId('agent-error')).toHaveTextContent('新任务创建失败'));
     expect(readActivity().sessionId).toBe('pending-reset-lost');
     expect(onSessionIdChange).not.toHaveBeenCalled();
     expect(tauriHarness.proxyFetch).not.toHaveBeenCalled();
