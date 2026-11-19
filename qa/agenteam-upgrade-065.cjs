@@ -230,6 +230,7 @@ async function main(){
   old=await connect('0.6.0');
   await poll('restored pending version',async()=>await invoke('check_pending_update')==='0.6.5');
   assert.equal(await digest(pendingFile),expected);
+  await old.page.getByText('Version v0.6.5 has been downloaded. Install now?',{exact:true}).waitFor({state:'visible',timeout:30000});
   event('pending update survives exit and restart','0.6.5');
   async function tryInstalling() {
     const result=await poll('install attempt finished',async()=>{
