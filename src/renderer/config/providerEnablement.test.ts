@@ -32,12 +32,13 @@ describe('provider enablement and ordering helpers', () => {
     ])).toEqual(['gamma', 'alpha', 'beta']);
   });
 
-  it('places a newly added OpenCode Go card immediately before Claude API', () => {
+  it('places a newly added OpenCode Go card before Claude API in a saved order', () => {
     const ids = PRESET_PROVIDERS.map(provider => provider.id);
     const assertGoBeforeClaudeApi = (ordered: string[]) => {
       expect(ordered.indexOf('opencode-go')).toBe(ordered.indexOf('anthropic-api') - 1);
     };
-    assertGoBeforeClaudeApi(normalizeProviderOrder(ids));
+    // With no saved order the default keeps the subscription/API pairs together instead.
+    expect(normalizeProviderOrder(ids).indexOf('opencode-go')).toBeGreaterThan(normalizeProviderOrder(ids).indexOf('anthropic-api'));
     assertGoBeforeClaudeApi(normalizeProviderOrder(ids, ids.filter(id => id !== 'opencode-go')));
     // A saved user order is an explicit choice and still takes precedence.
     const custom = normalizeProviderOrder(ids, ['anthropic-api', 'opencode-go']);

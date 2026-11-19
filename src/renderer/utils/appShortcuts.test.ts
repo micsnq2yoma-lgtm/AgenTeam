@@ -42,21 +42,6 @@ describe('matchAppShortcut — characterization of every existing binding', () =
     expect(id(ev({ metaKey: true, altKey: true, key: 'r' }), MAC)).toBeNull();
   });
 
-  it('cycles tabs with Ctrl+Tab / Ctrl+Shift+Tab on both platforms', () => {
-    expect(id(ev({ ctrlKey: true, key: 'Tab' }), MAC)).toBe('cycle-tab');
-    expect(id(ev({ ctrlKey: true, key: 'Tab' }), WIN)).toBe('cycle-tab');
-    expect(id(ev({ ctrlKey: true, shiftKey: true, key: 'Tab' }), MAC)).toBe('cycle-tab');
-    // ⌘+Tab (mac system shortcut) is NOT ours
-    expect(id(ev({ metaKey: true, key: 'Tab' }), MAC)).toBeNull();
-  });
-
-  it('jumps to tab on ⌘/Ctrl+1~9 (digit only, no shift)', () => {
-    expect(id(ev({ metaKey: true, key: '1' }), MAC)).toBe('jump-to-tab');
-    expect(id(ev({ ctrlKey: true, key: '9' }), WIN)).toBe('jump-to-tab');
-    expect(id(ev({ metaKey: true, key: '0' }), MAC)).toBeNull();
-    expect(id(ev({ metaKey: true, shiftKey: true, key: '1' }), MAC)).toBeNull();
-  });
-
   it('new-tab on ⌘/Ctrl+T but NOT ⌘+Shift+T (mode-toggle chord flows through)', () => {
     expect(id(ev({ metaKey: true, key: 't' }), MAC)).toBe('new-tab');
     expect(id(ev({ ctrlKey: true, key: 'T' }), WIN)).toBe('new-tab');
@@ -74,11 +59,10 @@ describe('matchAppShortcut — characterization of every existing binding', () =
     expect(id(ev({ metaKey: true, shiftKey: true, key: 'w' }), MAC)).toBe('close-tab');
   });
 
-  it('bracket switch on ⌘/Ctrl+Shift+[ and ]', () => {
-    expect(id(ev({ metaKey: true, shiftKey: true, code: 'BracketLeft' }), MAC)).toBe('switch-tab-bracket');
-    expect(id(ev({ ctrlKey: true, shiftKey: true, code: 'BracketRight' }), WIN)).toBe('switch-tab-bracket');
-    // without Shift → no match
-    expect(id(ev({ metaKey: true, code: 'BracketLeft' }), MAC)).toBeNull();
+  it('has no tab-switching shortcuts in the single-page shell', () => {
+    expect(id(ev({ ctrlKey: true, key: 'Tab' }), WIN)).toBeNull();
+    expect(id(ev({ ctrlKey: true, key: '2' }), WIN)).toBeNull();
+    expect(id(ev({ metaKey: true, shiftKey: true, code: 'BracketRight' }), MAC)).toBeNull();
   });
 
   it('platform isolation: the non-canonical modifier never triggers', () => {
@@ -95,9 +79,6 @@ describe('matchAppShortcut — characterization of every existing binding', () =
 
 function mkCtx(over: Partial<AppShortcutContext> = {}): AppShortcutContext {
   return {
-    tabs: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
-    activeTabId: 'a',
-    setActiveTabId: vi.fn(),
     newTab: vi.fn(),
     closeCurrentTab: vi.fn(),
     dismissTopmost: vi.fn(() => false),
@@ -109,35 +90,6 @@ function mkCtx(over: Partial<AppShortcutContext> = {}): AppShortcutContext {
 }
 
 describe('shortcut run() side effects', () => {
-  it('jump-to-tab: 9 → last, N → Nth, out-of-range → no-op', () => {
-    const ctx = mkCtx();
-    dispatchAppShortcut(ev({ metaKey: true, key: '9' }), MAC, ctx);
-    expect(ctx.setActiveTabId).toHaveBeenCalledWith('c');
-    dispatchAppShortcut(ev({ metaKey: true, key: '2' }), MAC, ctx);
-    expect(ctx.setActiveTabId).toHaveBeenCalledWith('b');
-    (ctx.setActiveTabId as ReturnType<typeof vi.fn>).mockClear();
-    dispatchAppShortcut(ev({ metaKey: true, key: '5' }), MAC, ctx); // idx 4 ≥ len → no-op
-    expect(ctx.setActiveTabId).not.toHaveBeenCalled();
-  });
-
-  it('cycle-tab wraps; bracket does not', () => {
-    const fwd = mkCtx();
-    dispatchAppShortcut(ev({ ctrlKey: true, key: 'Tab' }), MAC, fwd);
-    expect(fwd.setActiveTabId).toHaveBeenCalledWith('b'); // a → b
-
-    const back = mkCtx({ activeTabId: 'a' });
-    dispatchAppShortcut(ev({ ctrlKey: true, shiftKey: true, key: 'Tab' }), MAC, back);
-    expect(back.setActiveTabId).toHaveBeenCalledWith('c'); // a → wrap → c
-
-    const bl = mkCtx({ activeTabId: 'a' });
-    dispatchAppShortcut(ev({ metaKey: true, shiftKey: true, code: 'BracketLeft' }), MAC, bl);
-    expect(bl.setActiveTabId).not.toHaveBeenCalled(); // no wrap at the edge
-
-    const br = mkCtx({ activeTabId: 'a' });
-    dispatchAppShortcut(ev({ metaKey: true, shiftKey: true, code: 'BracketRight' }), MAC, br);
-    expect(br.setActiveTabId).toHaveBeenCalledWith('b');
-  });
-
   it('close-tab: dismiss overlay first, then guard on backdrop', () => {
     const dismissed = mkCtx({ dismissTopmost: vi.fn(() => true) });
     dispatchAppShortcut(ev({ metaKey: true, key: 'w' }), MAC, dismissed);
@@ -150,19 +102,6 @@ describe('shortcut run() side effects', () => {
     const closes = mkCtx({ dismissTopmost: vi.fn(() => false), hasBlockingBackdrop: vi.fn(() => false) });
     dispatchAppShortcut(ev({ metaKey: true, key: 'w' }), MAC, closes);
     expect(closes.closeCurrentTab).toHaveBeenCalledTimes(1);
-  });
-
-  it('jump-to-tab also works on Windows (Ctrl modifier)', () => {
-    const ctx = mkCtx();
-    dispatchAppShortcut(ev({ ctrlKey: true, key: '9' }), WIN, ctx);
-    expect(ctx.setActiveTabId).toHaveBeenCalledWith('c');
-  });
-
-  it('tab-switch is a no-op when the active tab is missing from the list', () => {
-    const ctx = mkCtx({ activeTabId: 'gone' });
-    dispatchAppShortcut(ev({ ctrlKey: true, key: 'Tab' }), MAC, ctx);
-    dispatchAppShortcut(ev({ metaKey: true, shiftKey: true, code: 'BracketRight' }), MAC, ctx);
-    expect(ctx.setActiveTabId).not.toHaveBeenCalled();
   });
 
   it('new-tab / task-center / settings delegate to ctx', () => {

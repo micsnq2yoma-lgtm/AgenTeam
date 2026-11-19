@@ -1,17 +1,13 @@
 /**
  * BrandSection - Left panel of the Launcher page
- * Layout: owns the whole Launcher page. A 对话 / 记录 ModeSegment is pinned to
- * the top edge as the page-level switch. Below it, a three-row grid anchors the
+ * Layout: owns the whole Launcher page. A three-row grid anchors the
  * composition to a fixed line at 42% of the page height: the brand sits on
- * that line and the input hangs from it. Neither moves when the mode switches
- * or the input grows — extra height only ever extends downward.
+ * that line and the input hangs from it. Neither moves when the input grows —
+ * extra height only ever extends downward.
  *
- * Switching to 「记录」 repurposes the input as a freeform Record entry
- * (persisted to ~/.agenteam/thoughts/ via `thoughtCreate`), bypassing the full
- * Chat launch flow. Switching back to 「对话」 restores the default behavior.
+ * The pixel team office is its own page (sidebar → 智能体团队), not a mode here.
  */
 
-import { isImeComposingEvent } from '@/utils/imeKeyboard';
 import {
   memo,
   useCallback,
@@ -37,23 +33,11 @@ import CronTaskSettingsModal, {
 } from '@/components/cron/CronTaskSettingsModal';
 import LauncherInputContextRow from './LauncherInputContextRow';
 import type { RuntimeDetections } from '../../../shared/types/runtime';
-import ModeSegment, {
-  type InputMode,
-} from '@/components/task-center/ModeSegment';
-import RecentThoughtsRow from '@/components/task-center/RecentThoughtsRow';
-import {
-  ThoughtInput,
-  type ThoughtInputHandle,
-} from '@/components/task-center/ThoughtInput';
 import { useToast } from '@/components/Toast';
 import { track } from '@/analytics';
-import { thoughtList, taskCenterAvailable } from '@/api/taskCenter';
-import { useThoughtTagCandidates } from '@/hooks/useThoughtTagCandidates';
 import { useFileDropZone } from '@/hooks/useFileDropZone';
 import { useTauriFileDrop } from '@/hooks/useTauriFileDrop';
-import { hasOverlayLayer } from '@/utils/closeLayer';
 import { shouldShowBuiltinSdkSlashCommands } from '@/utils/runtimeUiProjection';
-import { CUSTOM_EVENTS } from '@/../shared/constants';
 import {
   type Project,
   type Provider,
@@ -65,7 +49,6 @@ import type {
   RuntimeModelInfo,
   RuntimePermissionMode,
 } from '../../../shared/types/runtime';
-import type { Thought } from '../../../shared/types/thought';
 import type {
   OfficialToolDefinition,
   OfficialToolId,
@@ -92,8 +75,6 @@ interface BrandSectionProps {
     cron?: import('@/types/tab').InitialMessageCron,
     context?: import('../../../shared/agentMentions').QueryMentionContext,
   ) => void;
-  onStartRecording: () => void | Promise<void>;
-  onOpenRecord: (recordId: string) => void;
   recordingBusy?: boolean;
   /** Pending session id used for launcher-staged user attachments. */
   attachmentSessionId?: string | null;
@@ -178,8 +159,6 @@ export default memo(function BrandSection({
   onAddFolder,
   onSetDefaultWorkspace,
   onSend,
-  onStartRecording,
-  onOpenRecord,
   recordingBusy = false,
   attachmentSessionId,
   isStarting,
@@ -247,7 +226,6 @@ export default memo(function BrandSection({
   useEffect(() => {
     tRef.current = t;
   }, [t]);
-  const [mode, setMode] = useState<InputMode>('chat');
   // PRD 0.2.7 D1 + C6: cron settings staged in the launcher. The actual
   // `cmd_create_cron_task` does NOT run here — we only collect the params,
   // then carry them forward to Chat via InitialMessage.cron at send time.
@@ -256,11 +234,6 @@ export default memo(function BrandSection({
   const [stagedCron, setStagedCron] = useState<CronSettingsResult | null>(null);
   const [cronOpenPreset, setCronOpenPreset] =
     useState<CronInitialConfig | null>(null);
-  // Bumped after each successful thoughtCreate so the Recent Thoughts strip
-  // re-fetches and the just-saved note slides in as the first chip.
-  const [thoughtRefreshKey, setThoughtRefreshKey] = useState(0);
-  // Gracefully degrade in browser dev mode — ModeSegment is Tauri-only.
-  const modeSegmentEnabled = taskCenterAvailable();
 
   // `runtime` is present for user-managed external CLIs. Managed Codex keeps
   // provider-style input chrome, so its execution Runtime comes from the
@@ -272,67 +245,10 @@ export default memo(function BrandSection({
       ? provider.execution.runtime
       : 'builtin');
 
-  // Thought history — fetched once per mount (and after a just-created
-  // thought, via the explicit reload below) to feed the `#` autocomplete
-  // candidate list. Deliberately independent from `thoughtRefreshKey`:
-  // that key is used for the RecentThoughtsRow, and coupling the two
-  // would create a state dance (optimistic prepend → refreshKey bump →
-  // fetch races prepend → potential "flash and reappear" if a concurrent
-  // external change landed between).
-  //
-  // Skipped entirely in 对话 mode on mount so user's steady state (most
-  // sessions) doesn't pay a full `thoughtList()` round-trip for a `#`
-  // picker they never open. The moment the user flips to 记录, this
-  // effect re-runs and populates the list before they can open the
-  // picker.
-  const [thoughts, setThoughts] = useState<Thought[]>([]);
-  const reloadThoughts = useCallback(async () => {
-    try {
-      const list = await thoughtList({});
-      setThoughts(list);
-    } catch (err) {
-      // Keep the previous list as a cache; tag candidates stay usable
-      // (minus the very latest thought's tags). Non-critical path —
-      // don't toast.
-      console.warn('[BrandSection] thoughtList failed for tag candidates', err);
-    }
-  }, []);
-  useEffect(() => {
-    if (!modeSegmentEnabled) return;
-    if (mode !== 'record') return;
-    let cancelled = false;
-    void (async () => {
-      if (cancelled) return;
-      await reloadThoughts();
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [modeSegmentEnabled, mode, reloadThoughts]);
-
-  // Feed the # picker with `projects` (the same data backing the Agent
-  // Workspace panel on the right) rather than `config.agents` — the
-  // latter skips plain workspaces not yet upgraded to Agents AND leaks
-  // internal workspaces like `~/.agenteam`, producing a candidate list
-  // that didn't match what the user sees on screen.
-  const tagCandidates = useThoughtTagCandidates(thoughts, projects);
-
-  // Refs for imperative focus. Both inputs stay mounted (hidden via CSS
-  // when the other mode is active) so typed-but-not-yet-sent text
-  // survives mode switches — cross-review found the prior conditional
-  // render silently dropped drafts. Focus is driven by a mode-effect
-  // below (not by the old mount-time one-shot) so the caret follows the
-  // visible editor.
-  //
-  // ModeSegment buttons use `retainFocusOnMouseDown` (see
-  // `utils/focusRetention.ts`) so the textarea never loses focus on
-  // click in the first place — no rAF, no race with macOS WebKit
-  // touchpad-tap synthesis. The effect below handles the programmatic
-  // hand-off when a keyboard chord (Tab / Cmd+Shift+T) switches modes.
+  // Ref for imperative focus; the composer takes the caret on mount.
   const inputRef = useRef<SimpleChatInputHandle>(null);
-  const thoughtInputRef = useRef<ThoughtInputHandle>(null);
   const inputDropZoneRef = useRef<HTMLDivElement>(null);
-  const canAcceptFileDrop = isActive && mode === 'chat';
+  const canAcceptFileDrop = isActive;
 
   const handleDroppedFiles = useCallback((files: File[]) => {
     void inputRef.current?.processDroppedFiles(files);
@@ -371,48 +287,10 @@ export default memo(function BrandSection({
     (isHtmlFileDragActive ||
       (isNativeFileDragging &&
         nativeDropZoneId === LAUNCHER_INPUT_DROP_ZONE_ID));
-  // Single helper for BOTH the segment click path (explicit mode) and
-  // the keyboard paths (Tab / Cmd+Shift+T toggle). Without this the
-  // two call sites diverged on `setMode(next)` vs `setMode((m) => …)`
-  // and future work added to one would silently skip the other.
-  //
-  // `modeRef` mirrors `mode` so we can read the current value outside
-  // a setState updater — track() fires once per real switch, even though
-  // React strict-mode invokes the updater function twice.
-  const modeRef = useRef<InputMode>(mode);
-  useEffect(() => {
-    modeRef.current = mode;
-  }, [mode]);
-  const setModeAndFocus = useCallback((next: InputMode | 'toggle') => {
-    const prev = modeRef.current;
-    const resolved: InputMode =
-      next === 'toggle' ? (prev === 'chat' ? 'record' : 'chat') : next;
-    if (resolved !== prev) {
-      track('launcher_mode_switch', {
-        to: resolved,
-        via: next === 'toggle' ? 'shortcut' : 'click',
-      });
-    }
-    if (next === 'toggle') {
-      setMode((m) => (m === 'chat' ? 'record' : 'chat'));
-    } else {
-      setMode(next);
-    }
-  }, []);
 
-  // Focus handoff — follows the visible input. Fires on mount (initial
-  // mode) and every mode change; `retainFocusOnMouseDown` already keeps
-  // focus on the correct textarea for mouse-driven ModeSegment clicks,
-  // so this effect's job is the keyboard-chord path (Tab / Cmd+Shift+T).
-  // Running in an effect keeps it out of the click-handler frame — no
-  // touchpad-tap race.
   useEffect(() => {
-    if (mode === 'record') {
-      thoughtInputRef.current?.focus();
-    } else {
-      inputRef.current?.focus();
-    }
-  }, [mode]);
+    inputRef.current?.focus();
+  }, []);
 
   // PRD 0.2.7 D3: switching workspaces in the launcher invalidates any
   // workspace-bound draft state — `@myagents_files/...` references point to
@@ -446,9 +324,6 @@ export default memo(function BrandSection({
   }, [selectedProject?.path]);
 
   // Dialogue-mode submit is a straight pass-through to the parent's `onSend`.
-  // Thought-mode submit is owned entirely by ThoughtInput (below) — it
-  // calls `thoughtCreate` itself and fires `handleThoughtCreated`, so
-  // this handler never sees thought content anymore.
   const handleSend = useCallback(
     (text: string, images?: ImageAttachment[], _permissionMode?: PermissionMode, context?: import('../../../shared/agentMentions').QueryMentionContext) => {
       if (recordingBusy) return;
@@ -531,106 +406,18 @@ export default memo(function BrandSection({
     setShowCronSettings(true);
   }, []);
 
-  // Called from ThoughtInput after a successful thoughtCreate. Mirrors the
-  // TaskCenter pattern (prepend locally so the tag-candidate count updates
-  // immediately) plus the Launcher-specific bits — refresh the Recent
-  // Thoughts strip and toast so the user sees visible confirmation on the
-  // otherwise mostly-empty launcher canvas.
-  //
-  // The thoughts list and the refreshKey are intentionally on different
-  // rhythms: thoughts is optimistically prepended (authoritative for tag
-  // candidates), and refreshKey only drives RecentThoughtsRow's own
-  // independent fetch. Previously we bumped both, which meant the tag
-  // candidate list would briefly re-fetch and could "undo" a concurrent
-  // change made from Task Center.
-  const handleThoughtCreated = useCallback((t: Thought) => {
-    setThoughts((prev) => [t, ...prev]);
-    setThoughtRefreshKey((k) => k + 1);
-    toastRef.current.success(tRef.current('toasts.thoughtSaved'));
-  }, []);
-
-  const openTaskCenter = useCallback(() => {
-    window.dispatchEvent(new CustomEvent(CUSTOM_EVENTS.OPEN_TASK_CENTER));
-  }, []);
-
-  // Scoping ref for the Tab handler below — we only hijack Tab when the
-  // focus is inside this Launcher subtree, so Chat tabs / settings /
-  // modals keep their native focus navigation.
-  const sectionRef = useRef<HTMLElement | null>(null);
-
-  // PRD §4.1.1 hotkeys:
-  //   • Cmd/Ctrl+Shift+T toggles mode globally while the Launcher is
-  //     mounted — an explicit chord, safe to listen on `window`.
-  //   • Plain Tab toggles too, and — crucially — fires even when the
-  //     textarea is focused. The tooltip on the ModeSegment buttons
-  //     ("按 Tab 切换到「对话」") promises this behaviour; guarding
-  //     against editable targets like earlier iterations did made the
-  //     tooltip a lie the moment mount-time focus landed the caret in
-  //     the textarea. Child components that legitimately need to
-  //     consume Tab (SimpleChatInput's slash-menu / file-search
-  //     autocomplete) call `event.stopPropagation()` inside their
-  //     onKeyDown handlers — React's `stopPropagation` halts the
-  //     underlying native bubble, so this window listener truly won't
-  //     fire when a child has first claim on the Tab keystroke.
-  useEffect(() => {
-    if (!modeSegmentEnabled) return;
-    const handler = (e: KeyboardEvent) => {
-      if (isImeComposingEvent(e)) return;
-      if (
-        (e.metaKey || e.ctrlKey) &&
-        e.shiftKey &&
-        (e.key === 'T' || e.key === 't')
-      ) {
-        e.preventDefault();
-        setModeAndFocus('toggle');
-        return;
-      }
-      if (
-        e.key !== 'Tab' ||
-        e.metaKey ||
-        e.ctrlKey ||
-        e.altKey ||
-        e.shiftKey ||
-        hasOverlayLayer()
-      ) {
-        return;
-      }
-      const section = sectionRef.current;
-      const target = e.target as Node | null;
-      const inScope =
-        !target ||
-        target === document.body ||
-        (section?.contains(target) ?? false);
-      if (!inScope) return;
-      e.preventDefault();
-      setModeAndFocus('toggle');
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [modeSegmentEnabled, setModeAndFocus]);
 
   return (
     <section
-      ref={sectionRef}
       className="theme-launcher-hero relative grid h-full w-full grid-rows-[minmax(10rem,42%)_auto_minmax(0,1fr)] justify-items-center px-12"
       style={heroStyle}
       data-theme-hero={resolvedTheme.themeId}
     >
-      {/* Page-level mode switch: 对话 / 记录 (see DESIGN.md §5.6, PRD §4.1).
-          Out of flow so it never takes a grid row. */}
-      {modeSegmentEnabled && (
-        <div className="absolute inset-x-0 top-6 z-10 flex justify-center">
-          <ModeSegment
-            value={mode}
-            onChange={setModeAndFocus}
-            disabled={recordingBusy}
-          />
-        </div>
-      )}
-
       {/* Row 1 — brand group, bottom-aligned on the anchor line; `pb-8`
           separates "who we are" from the input below. */}
-      <div className="flex min-h-0 flex-col items-center justify-end pb-8">
+      <div
+        className="flex min-h-0 flex-col items-center justify-end pb-8"
+      >
         <h1 className="theme-product-wordmark theme-launcher-hero-title">
           <ProductWordmark name={resolvedTheme.hero.productName} showMark={false} />
         </h1>
@@ -641,25 +428,15 @@ export default memo(function BrandSection({
         </p>
       </div>
 
-      {/* Row 2 — input, top edge on the anchor line. The context row (对话)
-          or Recent Records strip (记录) is absolute-positioned below it so it
-          hangs in row 3 without affecting the anchor (PRD §4.2). */}
+      {/* Row 2 — input, top edge on the anchor line. The context row is
+          absolute-positioned below it so it hangs in row 3 without affecting
+          the anchor (PRD §4.2). */}
       <div className="w-full max-w-[640px]">
         <div className="relative w-full">
-          {/* Both inputs stay mounted so each mode's draft (text +
-           * caret + images for SimpleChatInput) survives the
-           * switch — conditional render would unmount and drop
-           * them. The inactive one is taken out of layout via
-           * `hidden` (display:none) so only the active mode
-           * contributes to the wrapper height; cards in 对话 vs
-           * 记录 size to their own content independently.
-           */}
           <div className="grid *:col-start-1 *:row-start-1">
             <div
               ref={inputDropZoneRef}
-              className={mode === 'record' ? 'hidden' : 'relative'}
-              aria-hidden={mode === 'record'}
-              inert={mode === 'record'}
+              className="relative"
               {...(canAcceptFileDrop ? htmlFileDragHandlers : {})}
             >
               <SimpleChatInput
@@ -715,57 +492,25 @@ export default memo(function BrandSection({
               />
               <DropZoneOverlay isVisible={showInputDropOverlay} />
             </div>
-            {modeSegmentEnabled && (
-              <div
-                className={mode === 'record' ? '' : 'hidden'}
-                aria-hidden={mode !== 'record'}
-                inert={mode !== 'record'}
-              >
-                <ThoughtInput
-                  ref={thoughtInputRef}
-                  existingTags={tagCandidates}
-                  onCreated={handleThoughtCreated}
-                  onStartRecording={onStartRecording}
-                  recordingBusy={recordingBusy}
-                  variant="launcher"
-                  minLines={3}
-                  maxLines={9}
-                />
-              </div>
-            )}
           </div>
-          {mode === 'record' && modeSegmentEnabled && (
-            <div className="launcher-below-input-stack absolute left-0 right-0 top-full mt-3 flex flex-col gap-4">
-              <RecentThoughtsRow
-                refreshKey={thoughtRefreshKey}
-                onOpenTaskCenter={openTaskCenter}
-                onOpenRecord={onOpenRecord}
+          {/* PRD 0.2.7 Phase F: launcher-only chip row that surfaces
+           *  the project + Runtime below the composer. */}
+          <div className="launcher-below-input-stack absolute left-0 right-0 top-full mt-2 flex flex-col gap-4">
+            <div className="w-full">
+              <LauncherInputContextRow
+                projects={projects}
+                selectedProject={selectedProject}
+                defaultWorkspacePath={defaultWorkspacePath}
+                onSelectWorkspace={onSelectWorkspace}
+                onAddFolder={onAddFolder}
+                onSetDefaultWorkspace={onSetDefaultWorkspace}
+                showRuntime={!!runtimeSelectorAvailable}
+                runtime={activeRuntime}
+                runtimeDetections={runtimeDetections}
+                onRuntimeChange={onRuntimeChange}
               />
             </div>
-          )}
-          {/* PRD 0.2.7 Phase F: launcher-only chip row that surfaces
-           *  the Agent workspace + Runtime in the same screen slot the
-           *  thought-mode `RecentThoughtsRow` uses. Mutually exclusive
-           *  with that strip — dialogue mode shows this, thought mode
-           *  shows recent thoughts. */}
-          {mode === 'chat' && (
-            <div className="launcher-below-input-stack absolute left-0 right-0 top-full mt-2 flex flex-col gap-4">
-              <div className="w-full">
-                <LauncherInputContextRow
-                  projects={projects}
-                  selectedProject={selectedProject}
-                  defaultWorkspacePath={defaultWorkspacePath}
-                  onSelectWorkspace={onSelectWorkspace}
-                  onAddFolder={onAddFolder}
-                  onSetDefaultWorkspace={onSetDefaultWorkspace}
-                  showRuntime={!!runtimeSelectorAvailable}
-                  runtime={activeRuntime}
-                  runtimeDetections={runtimeDetections}
-                  onRuntimeChange={onRuntimeChange}
-                />
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
 

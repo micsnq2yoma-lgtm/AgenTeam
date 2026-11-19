@@ -1,6 +1,6 @@
 # Third-Party Notices / 第三方声明
 
-The AgenTeam brand artwork is © 2026 AgenTeam contributors ([MIT license](src/renderer/assets/brand/AgenTeam-LICENSE.txt)). The bundled Cormorant Garamond wordmark font is © 2015 The Cormorant Project Authors ([SIL Open Font License 1.1](src/renderer/assets/brand/CormorantGaramond-OFL.txt)). Both notices are included in the desktop bundle’s legal directory.
+The AgenTeam brand artwork is © 2026 AgenTeam contributors ([MIT license](src/renderer/assets/brand/AgenTeam-LICENSE.txt)). The bundled Cormorant Garamond wordmark font is © 2015 The Cormorant Project Authors ([SIL Open Font License 1.1](src/renderer/assets/brand/CormorantGaramond-OFL.txt)). Both notices are included in the desktop bundle’s legal directory. The pixel employees and office in `src/renderer/features/team-office/pixel/` are ported from AgenTeam `packages/pixel-office` under the same MIT license; the DeepSeek whale keeps the silhouette from [claude-code-pixel-pet](https://github.com/zhizunbao-studio/claude-code-pixel-pet), and the Gemini, Kimi, GLM, Qwen, MiniMax and Grok characters are original, unofficial pixel designs inspired by public brand cues. No official logo files are bundled, and the MIT notice does not license those providers’ marks.
 
 ## English
 

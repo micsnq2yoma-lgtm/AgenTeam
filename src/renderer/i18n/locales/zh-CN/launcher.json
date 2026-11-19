@@ -28,12 +28,12 @@
     "remove": "移除"
   },
   "rightRail": {
-    "workspaceTitle": "智能体团队",
+    "workspaceTitle": "项目管理",
     "logsTitle": "查看 Rust 日志",
     "loading": "加载中...",
-    "emptyWorkspaceTitle": "还没有团队",
-    "emptyWorkspaceDescription": "新建一个团队：选择文件夹位置，按需开启助理模式",
-    "addFolder": "新建团队",
+    "emptyWorkspaceTitle": "还没有项目",
+    "emptyWorkspaceDescription": "新建一个项目：选择文件夹位置，按需开启助理模式",
+    "addFolder": "新建项目",
     "createFromTemplate": "从模板创建",
     "collapse": "收起",
     "expandMore": "展开更多 {{count}} 个",
@@ -97,14 +97,14 @@
     "emptyThought": "（空记录）"
   },
   "newAgentPanel": {
-    "title": "新建智能体团队",
+    "title": "新建项目",
     "close": "关闭",
     "back": "返回",
     "recommended": "推荐",
     "myTemplates": "我的模板",
     "noDescription": "暂无描述",
     "addTemplate": "添加模板",
-    "addTemplateDescription": "把一个本地文件夹保存为模板，之后可以反复用它创建团队",
+    "addTemplateDescription": "把一个本地文件夹保存为模板，之后可以反复用它创建项目",
     "pickTemplateDirTitle": "选择文件夹作为模板（将复制到模板库）",
     "pickParentDirTitle": "选择保存位置",
     "local": {
@@ -155,11 +155,11 @@
     "capChannelsTitle": "住进你的聊天工具",
     "capChannelsDescription": "创建后可在 Agent 设置里接入飞书、微信等 IM",
     "capabilitiesTitle": "它能做什么",
-    "nameLabel": "团队名称",
-    "namePlaceholder": "给团队起个名字",
+    "nameLabel": "项目名称",
+    "namePlaceholder": "给项目起个名字",
     "changeIcon": "更换图标",
     "changePath": "更改",
-    "create": "创建团队",
+    "create": "创建项目",
     "errors": {
       "exists": "该文件夹已经存在",
       "archived": "该文件夹已在归档中，可以从归档恢复",
@@ -170,28 +170,28 @@
       "deleteTemplateFailed": "删除模板失败：{{message}}"
     },
     "team": {
-      "title": "新建团队",
+      "title": "新建项目",
       "description": "选择文件夹位置，按需开启助理模式",
-      "detailTitle": "新建智能体团队",
+      "detailTitle": "新建项目",
       "locationLabel": "位置",
       "locationDefault": "默认位置",
       "locationNew": "新建文件夹",
       "locationExisting": "已有文件夹",
       "assistantTitle": "助理模式",
-      "assistantDescription": "为团队配一位常驻助理：有名字、性格和记忆",
-      "assistantIntro": "团队会有一位常驻助理。第一次对话时，你们会花大约 5 分钟一起确定它的名字和性格，之后它会越来越懂你。",
-      "plainIntro": "团队直接在这个文件夹里工作，不启用助理的角色与记忆。你提的每个要求，它都会全力完成。",
+      "assistantDescription": "为项目配一位常驻助理：有名字、性格和记忆",
+      "assistantIntro": "项目会有一位常驻助理。第一次对话时，你们会花大约 5 分钟一起确定它的名字和性格，之后它会越来越懂你。",
+      "plainIntro": "项目直接在这个文件夹里工作，不启用助理的角色与记忆。你提的每个要求，它都会全力完成。",
       "capKeepFilesTitle": "保留已有文件",
       "capKeepFilesDescription": "助理的人格与记忆文件只会补充进来，不会覆盖文件夹里已有的同名文件"
     }
   },
   "workspaceSelector": {
-    "selectWorkspace": "选择团队",
-    "title": "智能体团队",
+    "selectWorkspace": "选择项目",
+    "title": "项目管理",
     "defaultBadge": "默认",
     "setDefault": "设为默认",
-    "setDefaultTitle": "设为默认团队",
-    "setDefaultAria": "设为默认团队：{{name}}"
+    "setDefaultTitle": "设为默认项目",
+    "setDefaultAria": "设为默认项目：{{name}}"
   },
   "workspaceEdit": {
     "title": "编辑工作区",
@@ -202,5 +202,45 @@
     "saving": "保存中...",
     "save": "保存",
     "cancel": "取消"
+  },
+  "teamOffice": {
+    "title": "团队",
+    "legend": "状态说明",
+    "status": {
+      "working": "工作中",
+      "scheduled": "定时值守",
+      "on-call": "值守聊天",
+      "idle": "待命",
+      "resting": "休息中"
+    },
+    "more": "+{{count}}",
+    "emptyTitle": "还没有项目",
+    "emptyDescription": "新建一个项目后，它的员工会在这里上班。",
+    "skins": {
+      "office": {
+        "name": "现代办公室",
+        "description": "项目部、工位和电脑，默认的团队形象。",
+        "summary": "{{projects}} 个项目部 · {{employees}} 名员工 · {{working}} 名工作中",
+        "lead": "助理 · {{name}}",
+        "hire": "新员工",
+        "hireIn": "在「{{project}}」添加新员工"
+      },
+      "court": {
+        "name": "朝堂",
+        "description": "红墙金匾、案几奏折，助理是丞相，员工戴乌纱帽上朝。",
+        "summary": "{{projects}} 个衙门 · {{employees}} 位官员 · {{working}} 位当值",
+        "lead": "丞相 · {{name}}",
+        "hire": "招贤",
+        "hireIn": "为「{{project}}」招贤纳士"
+      },
+      "starship": {
+        "name": "星舰",
+        "description": "舷窗外星河流动，助理是舰长，员工戴通讯耳机执勤。",
+        "summary": "{{projects}} 个舱段 · {{employees}} 名舰员 · {{working}} 名执勤中",
+        "lead": "舰长 · {{name}}",
+        "hire": "招募",
+        "hireIn": "为「{{project}}」招募舰员"
+      }
+    }
   }
 }

@@ -16,7 +16,7 @@
 //  - Hydration creates normal live Tab shapes. App owns validation, merge,
 //    Session materialization, and rollback.
 
-import { MAX_TABS, type Tab } from '@/types/tab';
+import type { Tab } from '@/types/tab';
 import { builtinTabModules } from '@/tab-workspace/builtinComposition';
 import {
   hydrateRegisteredTab,
@@ -52,11 +52,10 @@ export interface PersistedTabState {
  *  - only restorable chat / Record tabs
  *  - field whitelist (no runtime-only fields leak to disk)
  *  - de-duped by Session / Record identity, first occurrence wins
- *  - live layouts capped at MAX_TABS; pending offers may exceed live capacity
  *  - activeTabId is preserved only if it survives filtering; otherwise falls
  *    back to the first surviving tab
  */
-export function serializeTabs(tabs: readonly Tab[], activeTabId: string | null, maxTabs = MAX_TABS): PersistedTabState | null {
+export function serializeTabs(tabs: readonly Tab[], activeTabId: string | null): PersistedTabState | null {
   const seenResources = new Set<string>();
   const seenIds = new Set<string>();
   const persisted: PersistedTab[] = [];
@@ -71,7 +70,6 @@ export function serializeTabs(tabs: readonly Tab[], activeTabId: string | null, 
     seenResources.add(identity);
     seenIds.add(tab.id);
     persisted.push(entry);
-    if (persisted.length >= maxTabs) break;
   }
   if (persisted.length === 0) return null;
 
@@ -92,10 +90,10 @@ function normalizePersistedTab(value: unknown): TabPersistenceProjection<Persist
  * Returns null on ANY problem (bad JSON, version mismatch, no valid tabs) so
  * the caller cleanly falls back to a fresh launcher tab — never throws.
  *
- * Re-applies dedup + cap defensively in case the stored payload was written by
+ * Re-applies dedup defensively in case the stored payload was written by
  * an older/buggy build or hand-edited.
  */
-export function deserializeTabs(raw: string | null, maxTabs = MAX_TABS): PersistedTabState | null {
+export function deserializeTabs(raw: string | null): PersistedTabState | null {
   if (!raw) return null;
   let parsed: unknown;
   try {
@@ -119,7 +117,6 @@ export function deserializeTabs(raw: string | null, maxTabs = MAX_TABS): Persist
     seenResources.add(projection.resourceIdentity);
     seenIds.add(tab.id);
     tabs.push(tab);
-    if (tabs.length >= maxTabs) break;
   }
   if (tabs.length === 0) return null;
 
@@ -138,7 +135,7 @@ export function saveOpenTabs(
 ): void {
   try {
     const state = serializeTabs(tabs, activeTabId);
-    const pending = pendingRestore && serializeTabs(pendingRestore.tabs, pendingRestore.activeTabId, Infinity);
+    const pending = pendingRestore && serializeTabs(pendingRestore.tabs, pendingRestore.activeTabId);
     if (state === null && !pending) {
       window.localStorage.removeItem(PERSIST_KEY);
     } else {
@@ -168,7 +165,7 @@ export function loadPersistedTabs(): PersistedTabState | null {
 export function loadPendingRestoredTabs(): ReturnType<typeof buildRestoredTabs> {
   try {
     const raw = window.localStorage.getItem(PERSIST_KEY);
-    const pending = raw && deserializeTabs(JSON.stringify(JSON.parse(raw).pendingRestore), Infinity);
+    const pending = raw && deserializeTabs(JSON.stringify(JSON.parse(raw).pendingRestore));
     return pending ? hydratePersistedState(pending) : null;
   } catch {
     return null;
@@ -185,7 +182,14 @@ export function hydratePersistedState(state: PersistedTabState): {
     const hydrated = hydrateRegisteredTab<Tab, typeof builtinTabModules>(builtinTabModules, tab);
     return hydrated ? [hydrated] : [];
   });
-  return { tabs, activeTabId: state.activeTabId };
+  // Single-page shell: only one page can be on screen, so a restore brings back
+  // the page the user was last on (or the last restorable one). Other
+  // conversations stay reachable from the sidebar history.
+  const active = tabs.find((tab) => tab.id === state.activeTabId);
+  const page = active && restoreResourceIdentity(active) !== null
+    ? active
+    : [...tabs].reverse().find((tab) => restoreResourceIdentity(tab) !== null) ?? active;
+  return page ? { tabs: [page], activeTabId: page.id } : { tabs: [], activeTabId: null };
 }
 
 /** Read + hydrate the localStorage-persisted tabs. Returns null when there's
@@ -254,7 +258,7 @@ function restoreResourceIdentity(tab: Tab): string | null {
 /** Plan how clicking the restore pill (Issue #309) merges the previous tabs
  *  into the currently-open tabs. Replaces a still-pristine lone launcher (the
  *  boot default); otherwise APPENDS candidate tabs — de-duped by Session or
- *  Record identity and capped at MAX_TABS — so it never
+ *  Record identity — so it never
  *  disturbs work the user already started.
  *
  *  Crucially the merged list AND the surviving `activeTabId` are computed from
@@ -267,7 +271,6 @@ function restoreResourceIdentity(tab: Tab): string | null {
 export function planRestoreTabs(
   prev: readonly Tab[],
   candidate: { tabs: readonly Tab[]; activeTabId: string | null },
-  maxTabs: number = MAX_TABS,
 ): { tabs: Tab[]; activeTabId: string } | null {
   if (candidate.tabs.length === 0) return null;
   const onlyPristineLauncher = prev.length === 1 && prev[0]?.view === 'launcher' && !prev[0].launcherWorkspacePath;
@@ -285,11 +288,8 @@ export function planRestoreTabs(
   });
   if (toAdd.length === 0) return null; // everything is already open — nothing to bring back
 
-  const tabs = [...base, ...toAdd].slice(0, maxTabs);
+  const tabs = [...base, ...toAdd];
   const addedIds = new Set(toAdd.map((t) => t.id));
-  // If the cap left no room for ANY restored tab (base already at maxTabs),
-  // the restore would be a visual no-op → signal "nothing happened".
-  if (!tabs.some((t) => addedIds.has(t.id))) return null;
 
   const inList = (id: string | null | undefined): id is string => id != null && tabs.some((t) => t.id === id);
   // Active id from the SAME merge: candidate's active if it survived dedup+cap,

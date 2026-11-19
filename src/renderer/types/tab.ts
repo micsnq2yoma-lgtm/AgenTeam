@@ -1,5 +1,7 @@
 import type { TeamAiTab } from '@/features/team-ai/tabContract';
 import type { AgentNetworkTab } from '@/features/agent-network/tabContract';
+import type { TeamOfficeTab } from '@/features/team-office/tabContract';
+import type { BotsTab } from '@/features/bots/tabContract';
 // Builtin-edition Tab model and shared constructors.
 
 import type { ChatTab, InitialMessage, SidecarConfigDisposition } from '@/features/chat/tabContract';
@@ -30,7 +32,7 @@ export type { RecordTab } from '@/features/record/tabContract';
 
 /** Closed union for the builtin MyAgents edition. Downstream editions extend
  * their own closed union and composition explicitly. */
-export type Tab = LauncherTab | ChatTab | SettingsTab | CapabilitiesTab | TaskCenterTab | RecordTab | AgentNetworkTab | TeamAiTab;
+export type Tab = LauncherTab | ChatTab | SettingsTab | CapabilitiesTab | TaskCenterTab | RecordTab | AgentNetworkTab | TeamAiTab | TeamOfficeTab | BotsTab;
 
 export type TabKind = Tab['view'];
 export type TabOf<K extends TabKind> = Extract<Tab, { view: K }>;
@@ -40,7 +42,6 @@ export interface TabState {
   activeTabId: string | null;
 }
 
-export const MAX_TABS = 12;
 
 export function generateTabId(): string {
   return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

@@ -6,7 +6,6 @@ import type { LauncherTab } from '@/features/launcher/tabContract';
 import type { TabModuleDefinition } from '@/tab-workspace/contracts';
 import { PAGE_FALLBACK } from '@/tab-workspace/PageFallback';
 import { createPendingSessionId } from '@/../shared/constants';
-import type { RecordingSourceSelection } from '@/../shared/types/record';
 import type { AssistantEntry, EntryIntent, Surface } from '@/analytics';
 
 const Launcher = lazy(() => import('@/pages/Launcher'));
@@ -29,8 +28,6 @@ export interface LauncherRenderBinding {
     },
     sessionBirthHint?: LaunchSessionBirthHint,
   ) => Promise<boolean>;
-  onStartRecording: (tabId: string, selection: RecordingSourceSelection) => Promise<void>;
-  onOpenRecord: (recordId: string) => void;
   /** Opens the app-wide New Agent panel (the launcher's "add folder" entry). */
   onOpenNewAgentPanel: () => void;
 }
@@ -59,8 +56,6 @@ const LauncherTabRenderer = memo(function LauncherTabRenderer({
         attachmentSessionId={createPendingSessionId(tab.id)}
         selectedWorkspacePath={tab.launcherWorkspacePath}
         onWorkspaceSelectionChange={(workspacePath) => binding.onWorkspaceSelectionChange(tab.id, workspacePath)}
-        onStartRecording={(selection) => binding.onStartRecording(tab.id, selection)}
-        onOpenRecord={binding.onOpenRecord}
         onOpenNewAgentPanel={binding.onOpenNewAgentPanel}
         recordingBusy={binding.isStarting(tab.id)}
       />

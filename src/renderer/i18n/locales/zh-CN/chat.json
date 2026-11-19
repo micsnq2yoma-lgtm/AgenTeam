@@ -98,12 +98,6 @@
     "undoFilesAdded": "已撤销 {{count}} 个文件的添加",
     "undoFilesPartial": "已撤销 {{successCount}} 个文件，{{failCount}} 个文件删除失败",
     "undoReferenceOnly": "已移除引用，但文件删除失败",
-    "mode": {
-      "chat": "对话",
-      "record": "记录",
-      "switchToRecord": "按 Tab 切换到「记录」",
-      "switchToChat": "按 Tab 切换到「对话」"
-    },
     "mention": {
       "workspaceFiles": "工作区文件",
       "thoughts": "记录",
@@ -132,7 +126,7 @@
       "empty": "暂无内容",
       "failed": "暂时无法加载",
       "unavailable": "当前场景不可用",
-        "networkPartial": "网络 Agent 列表尚未完整加载",
+      "networkPartial": "网络 Agent 列表尚未完整加载",
       "partial": "仅展示部分结果，请缩小搜索范围"
     },
     "permissionModes": {
@@ -1243,9 +1237,20 @@
     "taskOffered": "开放给",
     "taskBlockedBy": "依赖",
     "interruptTurn": "中断当前轮次",
-    "nativeModes": { "one-shot": "一次性委派", "continuable": "可延续 Agent" },
-    "nativeStates": { "running": "执行中", "inactive": "未运行" },
-    "taskStates": { "pending": "待办", "in_progress": "进行中", "completed": "已完成", "cancelled": "已取消" },
+    "nativeModes": {
+      "one-shot": "一次性委派",
+      "continuable": "可延续 Agent"
+    },
+    "nativeStates": {
+      "running": "执行中",
+      "inactive": "未运行"
+    },
+    "taskStates": {
+      "pending": "待办",
+      "in_progress": "进行中",
+      "completed": "已完成",
+      "cancelled": "已取消"
+    },
     "title": "Agent 任务树",
     "close": "关闭",
     "unknown": "未知",

@@ -12,6 +12,8 @@ import {
 import { openExternal } from '@/utils/openExternal';
 import GrokSubscriptionProvider from './GrokSubscriptionProvider';
 
+const env = vi.hoisted(() => ({ tauri: true }));
+vi.mock('@/utils/browserMock', () => ({ isTauriEnvironment: () => env.tauri }));
 vi.mock('@/hooks/useCloseLayer', () => ({ useCloseLayer: vi.fn() }));
 vi.mock('@/utils/openExternal', () => ({ openExternal: vi.fn(async () => undefined) }));
 vi.mock('@/config/services/grokSubscriptionService', async importOriginal => {
@@ -31,6 +33,7 @@ describe('GrokSubscriptionProvider', () => {
   beforeEach(async () => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
+    env.tauri = true;
     await i18n.changeLanguage('en-US');
     vi.mocked(getGrokAuthStatus).mockResolvedValue({
       state: 'logged_out',
@@ -119,6 +122,20 @@ describe('GrokSubscriptionProvider', () => {
     await waitFor(() => expect(cancelGrokLogin).toHaveBeenCalledWith('late-session'));
     expect(openExternal).not.toHaveBeenCalled();
     expect(screen.queryByText('LATE')).not.toBeInTheDocument();
+  });
+
+  it('does not call the desktop host in the browser preview', async () => {
+    env.tauri = false;
+    const user = userEvent.setup();
+    render(<GrokSubscriptionProvider onAuthChanged={vi.fn(async () => undefined)} />);
+
+    await screen.findByText('Grok account not logged in');
+    expect(screen.queryByText(/reading 'invoke'/)).not.toBeInTheDocument();
+    expect(getGrokAuthStatus).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Log in' }));
+    expect(startGrokLogin).not.toHaveBeenCalled();
+    expect(await screen.findAllByText(String(i18n.t('settings:about.desktopOnly')))).not.toHaveLength(0);
   });
 
   it('keeps login failures visible inside the overlay with a retry action', async () => {

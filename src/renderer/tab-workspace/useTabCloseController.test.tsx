@@ -17,7 +17,6 @@ function useHarness(
     modules: builtinTabModules,
     initialTabs: [initialTab],
     initialActiveTabId: initialTab.id,
-    maxTabs: 12,
     createId: () => 'generated',
     isLastTabProtected: builtinTabWorkspacePolicy.isLastTabProtected,
   });

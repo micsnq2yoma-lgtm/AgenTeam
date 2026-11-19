@@ -11,18 +11,18 @@
     "title": "Settings",
     "logsTitle": "View Rust logs",
     "nav": {
-      "providers": "Model Providers",
+      "providers": "Models",
       "skills": "Skills",
       "plugins": "Plugins",
       "tools": "Tools",
       "bots": "Channel",
-      "floatingBall": "Desktop Pet",
+      "floatingBall": "Team look",
       "usageStats": "Usage",
       "general": "General",
       "proxy": "Network Proxy",
       "externalCli": "External Calls",
-      "shortcuts": "Shortcuts",
-      "about": "About",
+      "shortcuts": "Shortcut keys",
+      "about": "Version",
       "developer": "Developer"
     }
   },
@@ -164,7 +164,7 @@
     "scopeDialogManaged": "Managed"
   },
   "shortcuts": {
-    "title": "Shortcuts",
+    "title": "Shortcut keys",
     "description": "Manage message sending and the global summon shortcut",
     "desktopOnly": "Desktop app only",
     "toasts": {
@@ -205,13 +205,10 @@
       "title": "App Shortcuts",
       "description": "These shortcuts work globally inside the app and cannot be customized yet.",
       "items": {
-        "cycle-tab": "Cycle tabs (Shift reverses)",
-        "jump-to-tab": "Jump to tab 1-9 (9 means last)",
         "new-tab": "New tab",
         "open-task-center": "Open Task Center",
         "open-settings": "Open Settings",
-        "close-tab": "Close current tab / close overlay",
-        "switch-tab-bracket": "Previous / next tab"
+        "close-tab": "Close current tab / close overlay"
       }
     }
   },
@@ -396,7 +393,7 @@
         }
       }
     },
-    "title": "Model Providers",
+    "title": "Models",
     "cardTitles": {
       "claudeSubscription": "Claude (Subscription)",
       "claudeApi": "Claude (API)",
@@ -2170,6 +2167,13 @@
     "feedbackEmptyTip": "Describe the issue or add an image",
     "feedbackPlaceholder": "Describe the issue you ran into, or share feedback and suggestions"
   },
+  "teamAppearance": {
+    "title": "Team look",
+    "description": "Choose the scenery and outfits of the pixel employees in the launcher's Team view.",
+    "skinTitle": "Team skin",
+    "skinDescription": "A skin changes only the scenery, outfits and titles; employee statuses and actions keep their meaning.",
+    "saveFailed": "Failed to switch the team skin: {{message}}"
+  },
   "floatingBallPet": {
     "title": "Desktop Pet",
     "description": "Use a floating desktop pet to summon AgenTeam at any moment, talk with AI, or delegate a task.",
@@ -2257,10 +2261,10 @@
     "cliRegistryTitle": "CLI Tool Registry",
     "cliRegistryDescription": "Allow AI to create and register command-line tools, then manage them in Tools. New sessions can discover enabled tools automatically. MCP and built-in myagents CLI capabilities are not affected.",
     "desktopPetTitle": "Desktop Pet",
-    "desktopPetDescription": "Show the Desktop Pet entry in the Settings sidebar. The floating ball itself is controlled by the switch at the top of the Desktop Pet page.",
-    "desktopPetEnabled": "Desktop Pet entry shown",
-    "desktopPetDisabled": "Desktop Pet entry hidden",
-    "desktopPetToggleFailed": "Failed to {{action}} the Desktop Pet entry: {{message}}",
+    "desktopPetDescription": "Show the Desktop Pet settings on the Team look page. The floating ball itself is controlled by the Enable switch there.",
+    "desktopPetEnabled": "Desktop Pet settings shown",
+    "desktopPetDisabled": "Desktop Pet settings hidden",
+    "desktopPetToggleFailed": "Failed to {{action}} the Desktop Pet settings: {{message}}",
     "enableAction": "enable",
     "disableAction": "disable",
     "helperTitle": "AI Helper",

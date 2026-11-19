@@ -62,6 +62,18 @@ describe('MCP presets', () => {
 // (newly added), with explicit placement policies for recommended/subscription
 // providers. Drift here scrambles or drops providers from the picker.
 describe('normalizeProviderOrder', () => {
+  it('defaults to Token Dance, Claude subscription/API, ChatGPT, DeepSeek, Grok when nothing is saved', () => {
+    const ids = withManagedCodexProviderCatalog(PRESET_PROVIDERS, DEFAULT_CONFIG)
+      .map(provider => provider.id);
+    const ordered = normalizeProviderOrder(ids);
+    expect(ordered.slice(0, 6)).toEqual([
+      TOKENDANCE_PROVIDER_ID, SUBSCRIPTION_PROVIDER_ID, 'anthropic-api',
+      CODEX_SUBSCRIPTION_PROVIDER_ID, 'deepseek', XAI_SUBSCRIPTION_PROVIDER_ID,
+    ]);
+    expect(new Set(ordered)).toEqual(new Set(ids));
+    expect(normalizeProviderOrder(ids, [])).toEqual(ordered);
+  });
+
   it('honors the saved order, then appends known providers missing from it', () => {
     expect(normalizeProviderOrder(['a', 'b', 'c'], ['c', 'a'])).toEqual(['c', 'a', 'b']);
   });

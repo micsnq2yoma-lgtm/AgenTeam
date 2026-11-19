@@ -1654,7 +1654,7 @@ export default function TabProvider({
     setSessionRuntimeSource(null);
     clearInteractiveState();
 
-    // Reset tab title so SortableTabItem falls back to folder name.
+    // Reset tab title so the page falls back to the folder name.
     currentSessionTitleRef.current = 'New Chat';
     onTitleChangeRef.current?.('New Chat');
   }, [

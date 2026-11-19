@@ -29,8 +29,10 @@ describe('SettingsSidebar i18n', () => {
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'General' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Model Providers' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Desktop Pet' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Models' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Team look' })).toBeInTheDocument();
+    // Channel bots are opened from the global sidebar, not listed here.
+    expect(screen.queryByRole('button', { name: 'Channel' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Network Proxy' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'External Calls' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Skills' })).not.toBeInTheDocument();
@@ -47,15 +49,14 @@ describe('SettingsSidebar i18n', () => {
       .getAllByRole('button')
       .map(button => button.textContent);
     expect(labels).toEqual([
-      'Model Providers',
+      'Models',
       'General',
-      'Channel',
-      'Desktop Pet',
+      'Team look',
       'Usage',
       'Network Proxy',
       'External Calls',
-      'Shortcuts',
-      'About',
+      'Shortcut keys',
+      'Version',
     ]);
   });
 
@@ -65,6 +66,6 @@ describe('SettingsSidebar i18n', () => {
     const labels = within(screen.getByRole('navigation'))
       .getAllByRole('button')
       .map(button => button.textContent);
-    expect(labels.slice(-2)).toEqual(['About', 'Developer']);
+    expect(labels.slice(-2)).toEqual(['Version', 'Developer']);
   });
 });

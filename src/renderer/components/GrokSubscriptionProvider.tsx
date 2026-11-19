@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import OverlayBackdrop from '@/components/OverlayBackdrop';
 import SubscriptionProviderCardContent from '@/components/SubscriptionProviderCardContent';
 import { useCloseLayer } from '@/hooks/useCloseLayer';
+import { isTauriEnvironment } from '@/utils/browserMock';
 import { openExternal } from '@/utils/openExternal';
 import { copyPlainText } from '@/utils/clipboard';
 import {
@@ -67,6 +68,12 @@ export default function GrokSubscriptionProvider({ onAuthChanged }: GrokSubscrip
   }, []);
 
   const refreshStatus = useCallback(async () => {
+    // Grok auth lives in the Rust host; the browser preview has no `invoke`,
+    // so show the signed-out card instead of a raw IPC TypeError.
+    if (!isTauriEnvironment()) {
+      if (mountedRef.current) setLoadingStatus(false);
+      return;
+    }
     try {
       const next = await getGrokAuthStatus();
       if (mountedRef.current) {
@@ -226,6 +233,10 @@ export default function GrokSubscriptionProvider({ onAuthChanged }: GrokSubscrip
   }, [clearPollTimer, runVerification, syncProviderState]);
 
   const beginLogin = useCallback(async () => {
+    if (!isTauriEnvironment()) {
+      setOperationError(t('about.desktopOnly'));
+      return;
+    }
     const generation = loginGenerationRef.current + 1;
     loginGenerationRef.current = generation;
     dialogOpenRef.current = true;
@@ -265,7 +276,7 @@ export default function GrokSubscriptionProvider({ onAuthChanged }: GrokSubscrip
     } finally {
       if (mountedRef.current && loginGenerationRef.current === generation) setBusy(false);
     }
-  }, [clearPollTimer, pollLogin, runVerification]);
+  }, [clearPollTimer, pollLogin, runVerification, t]);
 
   const handleLogout = useCallback(async () => {
     setBusy(true);

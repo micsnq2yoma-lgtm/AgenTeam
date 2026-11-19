@@ -71,7 +71,6 @@ export type {
   TaskRunParams,
   TaskStopParams,
   TaskDeleteParams,
-  LauncherModeSwitchParams,
   RecordCreateParams,
   RecordingStartResultParams,
   RecordingFinishParams,

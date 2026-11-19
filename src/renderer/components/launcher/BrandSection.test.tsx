@@ -122,24 +122,6 @@ vi.mock('./LauncherInputContextRow', () => ({
   default: () => <div data-testid="launcher-context-row">context row</div>,
 }));
 
-vi.mock('@/components/task-center/ModeSegment', () => ({
-  default: ({ onChange }: { onChange: (mode: 'task' | 'thought') => void }) => (
-    <button type="button" onClick={() => onChange('thought')}>
-      thought mode
-    </button>
-  ),
-}));
-
-vi.mock('@/components/task-center/RecentThoughtsRow', () => ({
-  default: () => null,
-}));
-
-vi.mock('@/components/task-center/ThoughtInput', () => ({
-  ThoughtInput: forwardRef<HTMLTextAreaElement>(function ThoughtInputMock() {
-    return <textarea aria-label="thought input" />;
-  }),
-}));
-
 vi.mock('@/components/Toast', () => ({
   useToast: () => ({
     error: vi.fn(),
@@ -149,12 +131,7 @@ vi.mock('@/components/Toast', () => ({
 }));
 
 vi.mock('@/api/taskCenter', () => ({
-  thoughtList: vi.fn(async () => []),
   taskCenterAvailable: () => taskCenterMock.available,
-}));
-
-vi.mock('@/hooks/useThoughtTagCandidates', () => ({
-  useThoughtTagCandidates: () => [],
 }));
 
 const project: Project = {
@@ -176,8 +153,6 @@ function renderBrandSection(
       onSelectWorkspace={vi.fn()}
       onAddFolder={vi.fn()}
       onSend={vi.fn()}
-      onStartRecording={vi.fn()}
-      onOpenRecord={vi.fn()}
       isActive={true}
       providers={[]}
       apiKeys={{}}
@@ -254,21 +229,13 @@ describe('BrandSection', () => {
     expect(simpleInputHandle.processDroppedFiles).not.toHaveBeenCalled();
   });
 
-  it('stops accepting drops while the thought input is visible', () => {
+  it('has no 对话 / 团队 switch; the team office lives on its own page', () => {
     taskCenterMock.available = true;
     renderBrandSection({ isActive: true });
-    const input = screen.getByTestId('launcher-input');
-    const file = new File(['report'], 'report.pdf', {
-      type: 'application/pdf',
-    });
 
-    fireEvent.click(screen.getByRole('button', { name: 'thought mode' }));
-
-    expect(nativeFileDrop.options?.enabled).toBe(false);
-    expect(input).toHaveAttribute('data-active', 'false');
-    fireEvent.drop(input, { dataTransfer: { files: [file] } });
-
-    expect(simpleInputHandle.processDroppedFiles).not.toHaveBeenCalled();
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(团队|Team)$/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId('launcher-input')).toHaveAttribute('data-active', 'true');
   });
 
   it('keeps the launcher context row in the below-input stack without a provider CTA', () => {

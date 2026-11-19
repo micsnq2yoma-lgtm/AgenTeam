@@ -91,8 +91,6 @@ function bindings(overrides: Partial<BuiltinTabBindings> = {}): BuiltinTabBindin
       startError: () => null,
       onWorkspaceSelectionChange: vi.fn(),
       onLaunchProject: vi.fn(async () => true),
-      onStartRecording: startRecordingSpy,
-      onOpenRecord: vi.fn(),
       onOpenNewAgentPanel: vi.fn(),
     },
     chat: {
@@ -122,6 +120,8 @@ function bindings(overrides: Partial<BuiltinTabBindings> = {}): BuiltinTabBindin
     },
     agentnetwork: null,
     teamai: { onSelectProject: vi.fn(), onCreate: vi.fn(), onOpenSession: vi.fn() },
+    teamoffice: { onOpenEmployee: vi.fn(), onHireEmployee: vi.fn() },
+    bots: null,
     record: {
       onRecordingSnapshotChange: vi.fn(),
       onTitleChange: vi.fn(),

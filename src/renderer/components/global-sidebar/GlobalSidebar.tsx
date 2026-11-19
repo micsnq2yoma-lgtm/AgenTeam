@@ -64,6 +64,7 @@ import {
   SettingsIcon,
   SidebarIcon,
   TasksIcon,
+  TeamIcon,
   FolderIcon,
 } from '@/components/icons';
 import UnreadNotificationIndicator from '@/components/UnreadNotificationIndicator';
@@ -178,6 +179,8 @@ interface GlobalSidebarProps {
   sessionNotificationBadgeCounts?: ReadonlyMap<string, number>;
   onNewTab: () => void;
   onOpenTaskCenter: () => void;
+  /** 智能体团队: the pixel office of every project. */
+  onOpenTeamOffice?: () => void;
   onCreateTask: () => void;
   onOpenAgentNetwork?: () => void;
   onOpenTeamAi?: () => void;
@@ -185,7 +188,9 @@ interface GlobalSidebarProps {
   onTeamAiCreated?: (project: Project) => void;
   onOpenAppRoute?: (route: AppRoute) => Promise<boolean> | boolean;
   onOpenCapabilities: (section?: CapabilitySection) => void;
-  onOpenSettings: (section?: 'agent') => void;
+  onOpenSettings: () => void;
+  /** 聊天机器人: its own page, not a Settings section. */
+  onOpenBots?: () => void;
   onOpenBugReport: () => void;
   onOpenWorkspace: (
     project: Project,
@@ -416,6 +421,8 @@ export default memo(function GlobalSidebar({
   sessionNotificationBadgeCounts,
   onNewTab,
   onOpenTaskCenter,
+  onOpenTeamOffice,
+  onOpenBots,
   onCreateTask,
   onOpenAgentNetwork,
   onOpenTeamAi,
@@ -1013,8 +1020,6 @@ export default memo(function GlobalSidebar({
     && navigator.platform.toLowerCase().includes('win');
   const tree = (
     <WorkspaceTree
-      onSearch={expanded && searchAvailable ? handleSearchOpen : undefined}
-      searchOpen={searchOpen}
       fadeBottom={expanded}
       projects={activeProjects}
       archivedProjects={archivedProjects}
@@ -1168,7 +1173,34 @@ export default memo(function GlobalSidebar({
           )}
         </div>
 
-        {expanded && <div className="mx-3 mb-3 mt-1 h-px shrink-0 bg-[var(--line)] opacity-70" aria-hidden="true" data-global-sidebar-divider />}
+        {/* Always shown when expanded; history search needs the desktop backend,
+            so the browser preview shows it disabled instead of hiding it. */}
+        {expanded && (
+          <div className="shrink-0 px-3 pb-2 pt-3" data-global-sidebar-search-bar>
+            <button
+              type="button"
+              disabled={!searchAvailable}
+              title={searchAvailable ? undefined : t('about.desktopOnly', { ns: 'settings' })}
+              onPointerEnter={() => { void loadHistorySearchOverlayContent(); }}
+              onFocus={() => { void loadHistorySearchOverlayContent(); }}
+              onClick={handleSearchOpen}
+              aria-label={t('globalSidebar.search')}
+              aria-haspopup="dialog"
+              aria-expanded={searchOpen}
+              className={`flex h-9 w-full items-center gap-2 rounded-xl border px-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60 ${
+                searchOpen
+                  ? 'border-[var(--line-strong)] bg-[var(--paper-elevated)] text-[var(--ink)]'
+                  : 'border-[var(--line)] bg-[var(--paper-inset)] text-[var(--ink-muted)] hover:border-[var(--line-strong)] hover:text-[var(--ink)]'
+              }`}
+              data-global-sidebar-search-trigger
+            >
+              <SearchIcon className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 truncate">{t('globalSidebar.searchBarPlaceholder')}</span>
+            </button>
+          </div>
+        )}
+
+        {expanded && <div className="mx-3 mb-3 mt-2 h-px shrink-0 bg-[var(--line)] opacity-70" aria-hidden="true" data-global-sidebar-divider />}
 
         <nav
           className={`shrink-0 ${expanded ? 'flex flex-col gap-1 px-3 pb-1 pt-0' : 'global-sidebar-rail-stack pb-1 pt-0'}`}
@@ -1179,6 +1211,14 @@ export default memo(function GlobalSidebar({
             icon={<ComposeIcon className="h-4 w-4" />}
             label={t('globalSidebar.newChat')}
             onClick={onNewTab}
+          />
+          <SidebarNavButton
+            expanded={expanded}
+            active={activeView === 'teamoffice'}
+            disabled={!onOpenTeamOffice}
+            icon={<TeamIcon className="h-4 w-4" />}
+            label={t('globalSidebar.teamOffice')}
+            onClick={() => onOpenTeamOffice?.()}
           />
           <div className="group/task-create relative">
             <SidebarNavButton
@@ -1229,7 +1269,9 @@ export default memo(function GlobalSidebar({
             expanded={expanded}
             icon={<MessageIcon className="h-4 w-4" />}
             label={t('sidebar.nav.bots', { ns: 'settings' })}
-            onClick={() => onOpenSettings('agent')}
+            active={activeView === 'bots'}
+            disabled={!onOpenBots}
+            onClick={() => onOpenBots?.()}
           />
           {config.teamAiPanelEnabled === true && onOpenTeamAi && (
             <SidebarNavButton
@@ -1527,9 +1569,6 @@ export default memo(function GlobalSidebar({
 });
 
 interface WorkspaceTreeProps {
-  /** Present only while the sidebar is expanded; rail mode keeps search beside the brand. */
-  onSearch?: () => void;
-  searchOpen?: boolean;
   fadeBottom: boolean;
   projects: Project[];
   archivedProjects: Project[];
@@ -1639,8 +1678,6 @@ function WorkspaceSessionBranch({
 }
 
 function WorkspaceTree({
-  onSearch,
-  searchOpen = false,
   fadeBottom,
   projects,
   archivedProjects,
@@ -1804,27 +1841,6 @@ function WorkspaceTree({
             onClick={() => { onToggleAutomation(); setViewMenu(false); }}
           />
         </Popover>
-        {onSearch && (
-          <Tip label={t('globalSidebar.search')} position="bottom" align="end" disabled={searchOpen}>
-            <button
-              type="button"
-              onPointerEnter={() => { void loadHistorySearchOverlayContent(); }}
-              onFocus={() => { void loadHistorySearchOverlayContent(); }}
-              onClick={onSearch}
-              aria-label={t('globalSidebar.search')}
-              aria-haspopup="dialog"
-              aria-expanded={searchOpen}
-              className={`global-sidebar-action-button flex items-center justify-center rounded-lg transition-colors ${
-                searchOpen
-                  ? 'bg-[var(--paper-inset)] text-[var(--ink)]'
-                  : 'text-[var(--ink-muted)] hover:bg-[var(--paper-inset)] hover:text-[var(--ink)]'
-              }`}
-              data-global-sidebar-search-trigger
-            >
-              <SearchIcon className="h-4 w-4" />
-            </button>
-          </Tip>
-        )}
         <Tip label={tLauncher('newAgentPanel.title')} position="bottom" align="end">
           <button
             type="button"

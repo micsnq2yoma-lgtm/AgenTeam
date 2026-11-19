@@ -53,7 +53,6 @@ import { DispatchTaskDialog } from '@/components/task-center/DispatchTaskDialog'
 import CustomTitleBar from '@/components/CustomTitleBar';
 import GlobalSidebar from '@/components/global-sidebar/GlobalSidebar';
 import LinkContextMenuProvider from '@/components/LinkContextMenuProvider';
-import TabBar from '@/components/TabBar';
 import { SessionDeletionContext } from '@/context/SessionDeletionContext';
 import type { AdoptMigratedSessionOptions } from '@/context/TabContext';
 import { useToast } from '@/components/Toast';
@@ -62,7 +61,6 @@ import { useUpdater } from '@/hooks/useUpdater';
 import { useTrayEvents } from '@/hooks/useTrayEvents';
 import { useHelperAgentModelDefaults } from '@/hooks/useHelperAgentModelDefaults';
 import { useConfig } from '@/hooks/useConfig';
-import { useTabSwipeGesture } from '@/hooks/useTabSwipeGesture';
 import { actions as taskCenterActions } from '@/hooks/taskCenterStore';
 import { isProjectVisibleToUser, type Project } from '@/config/types';
 import {
@@ -78,7 +76,6 @@ import {
   getFolderName,
   buildChatFlipPatch,
   generateTabId,
-  MAX_TABS,
 } from '@/types/tab';
 import { BuiltinTabSlot } from '@/tab-workspace/BuiltinTabSlot';
 import {
@@ -438,10 +435,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
-  const handleTabCapacityRejected = useCallback(() => {
-    toastRef.current.info(t('appChrome.maxTabsReached'));
-  }, [t]);
-
   // Cold launches keep the opt-in restore policy. A native Renderer
   // replacement resumes the currently-live layout automatically.
   const [restoreCandidate] = useState(() => buildRestoredTabs());
@@ -457,8 +450,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       modules: builtinTabModules,
       initialTabs: initialWorkspace.tabs,
       initialActiveTabId: initialWorkspace.activeTabId,
-      maxTabs: MAX_TABS,
-      onCapacityRejected: handleTabCapacityRejected,
       createId: generateTabId,
       isLastTabProtected: builtinTabWorkspacePolicy.isLastTabProtected,
     });
@@ -919,6 +910,18 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     onCleanupError: (tab, error) =>
       console.error(`[App] Tab cleanup failed for ${tab.id}`, error),
   });
+
+  // Single-page shell: there is no tab strip, so the visible page is the only
+  // page. When another page becomes active, every other tab leaves through the
+  // normal close lifecycle (file flush, recording guard, Session release or
+  // background completion). Keyed on the active id only: launch/fork flows
+  // append an inactive tab, prepare it, then activate it.
+  useEffect(() => {
+    const snapshot = tabWorkspaceController.getSnapshot();
+    for (const tab of snapshot.tabs) {
+      if (tab.id !== snapshot.activeTabId) requestCloseTab(tab.id, 'replaced');
+    }
+  }, [activeTabId, requestCloseTab, tabWorkspaceController]);
 
   // Content container ref for tab swipe gesture
   const contentRef = useRef<HTMLDivElement>(null);
@@ -1711,13 +1714,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     [tabWorkspaceController],
   );
 
-  const performCloseTab = useCallback(
-    (tabId: string) => requestCloseTab(tabId, 'user'),
-    [requestCloseTab],
-  );
-
-  const closeTabWithConfirmation = performCloseTab;
-
   const closeCurrentTab = useCallback(() => {
     requestCloseTab(tabWorkspaceController.getSnapshot().activeTabId, 'user');
   }, [requestCloseTab, tabWorkspaceController]);
@@ -1732,9 +1728,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       const isMac = navigator.platform.toLowerCase().includes('mac');
       if (
         dispatchAppShortcut(e, isMac, {
-          tabs: tabWorkspaceController.getSnapshot().tabs,
-          activeTabId: tabWorkspaceController.getSnapshot().activeTabId,
-          setActiveTabId,
           newTab: handleNewTab,
           closeCurrentTab,
           dismissTopmost,
@@ -1879,10 +1872,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
           `[App][launch] persistent-owner-check ${activeTab?.view === 'chat' && activeTab.sessionId ? `present=${currentSessionHasPersistentOwners}` : 'skipped(no-session)'}`,
         );
         if (currentSessionHasPersistentOwners) {
-          if (tabWorkspaceController.getSnapshot().tabs.length >= MAX_TABS) {
-            toastRef.current.info(t('appChrome.maxTabsReached'));
-            return false;
-          }
           const newTab = createNewTab();
           tabWorkspaceController.append(newTab, {
             activate: false,
@@ -2210,10 +2199,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       },
       title: string,
     ): Promise<string | null> => {
-      if (tabWorkspaceController.getSnapshot().tabs.length >= MAX_TABS) {
-        toastRef.current.info(t('appChrome.maxTabsReached'));
-        return null;
-      }
 
       const launchTab = createNewTab();
       if (!openLaunchTabNow(launchTab)) return null;
@@ -2259,7 +2244,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       handleLaunchProject,
       openLaunchTabNow,
       removeUnusedPrecreatedLaunchTab,
-      t,
       tabWorkspaceController,
     ],
   );
@@ -2372,11 +2356,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       initialMessage?: string,
       context?: import("../shared/agentMentions").QueryMentionContext,
     ) => {
-      // Check tab limit
-      if (tabWorkspaceController.getSnapshot().tabs.length >= MAX_TABS) {
-        toastRef.current.info(t('appChrome.maxTabsReached'));
-        return false;
-      }
       const releaseTransition = tryClaimSessionResourceTransition(
         sessionResourceTransitionsRef.current,
         newSessionId,
@@ -2446,7 +2425,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
         releaseTransition();
       }
     },
-    [setActiveTabId, t, tabWorkspaceController],
+    [setActiveTabId, tabWorkspaceController],
   );
 
   /**
@@ -2579,10 +2558,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       title: string,
       opts?: { pendingFilePreview?: FilePreviewIntent },
     ): Promise<boolean> => {
-      if (tabWorkspaceController.getSnapshot().tabs.length >= MAX_TABS) {
-        toastRef.current.info(t('appChrome.maxTabsReached'));
-        return false;
-      }
       const newTab: ChatTab = {
         id: generateTabId(),
         agentDir: sessionAgentDir,
@@ -2625,7 +2600,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       }
       return true;
     },
-    [materializeExistingSessionTab, t, tabWorkspaceController],
+    [materializeExistingSessionTab, tabWorkspaceController],
   );
 
   /** Open a history session from any surface using an explicit target workspace. */
@@ -2844,26 +2819,15 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     let restoreResult:
       | ReturnType<typeof tabWorkspaceController.restoreWithPolicy>
       | undefined;
-    let restoreBlockedByCapacity = false;
     flushSync(() => {
       restoreResult = tabWorkspaceController.restoreWithPolicy(
         { tabs: validTabs, activeTabId: validActiveTabId },
-        (currentTabs, restoreCandidate) => {
-          const plan = planRestoreTabs(currentTabs, restoreCandidate);
-          restoreBlockedByCapacity =
-            plan === null &&
-            currentTabs.length >= MAX_TABS &&
-            planRestoreTabs(currentTabs, restoreCandidate, Infinity) !== null;
-          return plan;
-        },
+        (currentTabs, restoreCandidate) => planRestoreTabs(currentTabs, restoreCandidate),
       );
     });
     const committedRestore = restoreResult;
     if (!committedRestore || committedRestore.kind === 'no-op') {
       validated.forEach(({ releaseTransition }) => releaseTransition?.());
-      if (restoreBlockedByCapacity) {
-        toastRef.current.info(t('appChrome.maxTabsReached'));
-      }
       return remainingCandidate();
     }
 
@@ -2977,7 +2941,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
         const combined = serializeTabs(
           [...remaining.tabs, ...(pending?.tabs ?? [])],
           remaining.activeTabId ?? pending?.activeTabId ?? null,
-          Infinity,
         );
         restoreCandidateRef.current = combined ? hydratePersistedState(combined) : null;
       }
@@ -3147,26 +3110,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     }
   }, [acknowledgeNotificationTarget, activeTabView]);
 
-  // Trackpad two-finger horizontal swipe to switch tabs (follow-along animation)
-  useTabSwipeGesture({
-    contentRef,
-    getTabs: () => tabWorkspaceController.getSnapshot().tabs,
-    getActiveTabId: () => tabWorkspaceController.getSnapshot().activeTabId,
-    onSwitchTab: handleSelectTab,
-  });
-
-  const handleCloseTab = useCallback((tabId: string) => {
-    // Special case: If only one launcher tab, do nothing
-    const currentTabs = tabWorkspaceController.getSnapshot().tabs;
-    const tab = currentTabs.find((t) => t.id === tabId);
-    if (currentTabs.length === 1 && tab?.view === 'launcher') {
-      return;
-    }
-
-    void closeTabWithConfirmation(tabId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- workspace commands and callbacks are stable
-  }, []);
-
   const handleNewTab = useCallback(() => {
     const currentLength = tabWorkspaceController.getSnapshot().tabs.length;
     const result = tabWorkspaceController.open('launcher', {
@@ -3197,10 +3140,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       initialMessage?: InitialMessage,
       entryIntent: 'open_workspace' | 'workspace_init' = 'open_workspace',
     ): Promise<boolean> => {
-      if (tabWorkspaceController.getSnapshot().tabs.length >= MAX_TABS) {
-        toastRef.current.info(t('appChrome.maxTabsReached'));
-        return false;
-      }
 
       const launchTab = createNewTab();
       if (!openLaunchTabNow(launchTab)) return false;
@@ -3225,24 +3164,25 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       handleLaunchProject,
       openLaunchTabNow,
       removeUnusedPrecreatedLaunchTab,
-      t,
       tabWorkspaceController,
     ],
-  );
-
-  // Handle tab reordering via drag and drop
-  const handleReorderTabs = useCallback(
-    (activeId: string, overId: string) => {
-      tabWorkspaceController.reorder(activeId, overId);
-    },
-    [tabWorkspaceController],
   );
 
   // Open Settings as a new tab (or switch to existing one)
   // Optional initialSection parameter to open a specific section (e.g., 'providers')
   // Optional initialSelect to open a specific item's detail (skill/command/agent)
+  // 聊天机器人 is its own page; 'agent' is the retired Settings section id
+  // it used to live under, kept so any stale deep link still lands there.
+  const handleOpenBots = useCallback(() => {
+    tabWorkspaceController.open('bots', { title: t('tabs.bots') });
+  }, [t, tabWorkspaceController]);
+
   const handleOpenSettings = useCallback(
     async (initialSection?: string) => {
+      if (initialSection === 'agent') {
+        handleOpenBots();
+        return;
+      }
       // Track settings_open event
       track('settings_open', { section: initialSection ?? null });
       tabWorkspaceController.open('settings', {
@@ -3253,7 +3193,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
         },
       });
     },
-    [t, tabWorkspaceController],
+    [handleOpenBots, t, tabWorkspaceController],
   );
 
   const handleOpenCapabilities = useCallback(
@@ -3394,10 +3334,8 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
             (tab) => tab.view === 'launcher' || tab.view === 'taskcenter',
           )
         : undefined;
-      const mustReuseStopSurface =
-        Boolean(options.activeRecording) && currentTabs.length >= MAX_TABS;
       const reusable =
-        options.openInNewTab && !mustReuseStopSurface
+        options.openInNewTab
           ? undefined
           : (sourceTab ??
             (options.activeRecording &&
@@ -3422,18 +3360,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
         );
         if (replaced.kind === 'rejected') return false;
       } else {
-        if (currentTabs.length >= MAX_TABS) {
-          if (!options.activeRecording) {
-            toastRef.current.info(t('appChrome.maxTabsReached'));
-            return false;
-          }
-          // The active capture must always keep a stop/save surface. When a
-          // full tab strip contains no reusable Launcher/Task Center tab, one
-          // bounded emergency Record tab is safer than replacing a live Chat.
-        }
-        const opened = tabWorkspaceController.open('record', intent, {
-          allowOverCapacity: Boolean(options.activeRecording),
-        });
+        const opened = tabWorkspaceController.open('record', intent);
         if (opened.kind === 'rejected') return false;
       }
 
@@ -3731,12 +3658,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       ) {
         return true;
       }
-      const currentTabs = tabWorkspaceController.getSnapshot().tabs;
-      const existing = currentTabs.find((tab) => tab.view === 'taskcenter');
-      if (!existing && currentTabs.length >= MAX_TABS) {
-        toastRef.current.info(t('appChrome.maxTabsReached'));
-        return false;
-      }
       if (nativeGeneration !== undefined) {
         lastNativeAppRouteGenerationRef.current = nativeGeneration;
       }
@@ -3751,7 +3672,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       if (!opened) return false;
       return true;
     },
-    [handleOpenTaskCenter, t, tabWorkspaceController],
+    [handleOpenTaskCenter, t],
   );
 
   useEffect(() => {
@@ -3824,11 +3745,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       }
 
       try {
-        const currentTabs = tabWorkspaceController.getSnapshot().tabs;
-        if (currentTabs.length >= MAX_TABS) {
-          toastRef.current.info(t('appChrome.maxTabsReached'));
-          return false;
-        }
 
         const projects = configProjectsRef.current.filter(
           isProjectVisibleToUser,
@@ -4147,13 +4063,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
           return;
         }
 
-        if (tabWorkspaceController.getSnapshot().tabs.length >= MAX_TABS) {
-          console.warn(
-            `[App] Max tabs (${MAX_TABS}) reached, cannot open bug report`,
-          );
-          toastRef.current.info(t('appChrome.maxTabsReached'));
-          return;
-        }
 
         // Ensure ~/.myagents registered as internal project
         // (CLAUDE.md + skills are synced at startup via cmd_sync_admin_agent)
@@ -4560,16 +4469,11 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       startError: (tabId) => tabErrors[tabId] ?? null,
       onWorkspaceSelectionChange: handleLauncherWorkspaceSelectionChange,
       onLaunchProject: handleLaunchProject,
-      onStartRecording: handleStartRecording,
-      onOpenRecord: (recordId) =>
-        handleOpenRecord(recordId, undefined, 'launcher_input'),
       onOpenNewAgentPanel: () => setNewAgentPanelOpen(true),
     }),
     [
       handleLaunchProject,
       handleLauncherWorkspaceSelectionChange,
-      handleOpenRecord,
-      handleStartRecording,
       loadingTabs,
       tabErrors,
     ],
@@ -4708,14 +4612,20 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       capabilities: capabilitiesBinding,
       taskcenter: taskCenterBinding,
       agentnetwork: null,
+      bots: null,
       teamai: { onCreate: () => { setNewAgentPurpose('team-ai'); setNewAgentPanelOpen(true); }, onOpenSession: handleOpenSidebarSession,
         onSelectProject: (tabId, projectId) => tabWorkspaceController.update(tabId, 'teamai', tab => ({ ...tab, projectId })) },
       record: recordBinding,
+      teamoffice: {
+        onOpenEmployee: handleOpenSidebarSession,
+        onHireEmployee: (project) => handleOpenWorkspaceFromSidebar(project),
+      },
     }),
     [
       capabilitiesBinding,
       chatBinding,
       handleOpenSidebarSession,
+      handleOpenWorkspaceFromSidebar,
       launcherBinding,
       recordBinding,
       settingsBinding,
@@ -4741,6 +4651,8 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
             onOpenTaskCenter={handleOpenTaskCenter}
             onCreateTask={handleSidebarCreateTask}
             onOpenTeamAi={() => tabWorkspaceController.open('teamai', { title: t('tabs.teamAi') })}
+            onOpenTeamOffice={() => tabWorkspaceController.open('teamoffice', { title: t('tabs.teamOffice') })}
+            onOpenBots={handleOpenBots}
             onOpenAgentNetwork={() => tabWorkspaceController.open('agentnetwork', { title: t('tabs.agentNetwork') })}
             onOpenAppRoute={handleOpenAppRoute}
             onOpenCapabilities={handleOpenCapabilities}
@@ -4763,16 +4675,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
               restoreCount={restorePillCount}
               onRestoreSession={handleRestoreLastSession}
               onDismissRestore={handleDismissRestore}
-            >
-              <TabBar
-                tabs={tabs}
-                activeTabId={activeTabId}
-                onSelectTab={handleSelectTab}
-                onCloseTab={handleCloseTab}
-                onNewTab={handleNewTab}
-                onReorderTabs={handleReorderTabs}
-              />
-            </CustomTitleBar>
+            />
 
             {/* Tab content - only Chat views need TabProvider for sidecar communication */}
             <div

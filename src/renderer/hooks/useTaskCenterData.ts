@@ -113,4 +113,28 @@ export function usePassiveSessionMetadata(
     return data.sessions.find((session) => session.id === sessionId);
 }
 
+/**
+ * Passive multi-workspace Session projection for read-only overview surfaces
+ * (the team office). Shares the one metadata watcher, ref-counts each
+ * workspace's demand, and only tops up the background-run tags once on mount
+ * instead of starting the Task Center polling lifecycle.
+ */
+export function usePassiveWorkspaceSessions(workspacePaths: readonly string[]): TaskCenterData {
+    const data = useSyncExternalStore(subscribePassive, getSnapshot);
+    const workspaceKey = workspacePaths.join('\n');
+
+    useEffect(() => {
+        const releases = workspaceKey
+            ? workspaceKey.split('\n').map((path) => registerPassiveWorkspaceSessionDemand(path))
+            : [];
+        return () => releases.forEach((release) => release());
+    }, [workspaceKey]);
+
+    useEffect(() => {
+        refresh('backgroundSessions', { silent: true, minIntervalMs: TASK_CENTER_FRESHNESS_TTL_MS });
+    }, []);
+
+    return data;
+}
+
 export { isSessionDeleted } from './taskCenterStore';

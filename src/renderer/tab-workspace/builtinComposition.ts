@@ -1,5 +1,7 @@
 import { teamAiTabModule } from '@/features/team-ai/tabModule';
 import { agentNetworkTabModule } from '@/features/agent-network/tabModule';
+import { teamOfficeTabModule } from '@/features/team-office/tabModule';
+import { botsTabModule } from '@/features/bots/tabModule';
 import { createNewTab, type Tab } from '@/types/tab';
 import type { ModuleBinding, ModuleTab } from '@/tab-workspace/contracts';
 import { defineTabModules } from '@/tab-workspace/registry';
@@ -21,6 +23,8 @@ export const builtinTabModules = defineTabModules<Tab>()({
   taskcenter: taskCenterTabModule,
   agentnetwork: agentNetworkTabModule,
   teamai: teamAiTabModule,
+  teamoffice: teamOfficeTabModule,
+  bots: botsTabModule,
   record: recordTabModule,
 });
 

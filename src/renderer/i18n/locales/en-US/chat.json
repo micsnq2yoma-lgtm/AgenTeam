@@ -98,12 +98,6 @@
     "undoFilesAdded": "Undid adding {{count}} file(s).",
     "undoFilesPartial": "Undid {{successCount}} file(s); {{failCount}} file(s) could not be deleted.",
     "undoReferenceOnly": "Reference removed, but file deletion failed.",
-    "mode": {
-      "chat": "Chat",
-      "record": "Records",
-      "switchToRecord": "Press Tab to switch to Records",
-      "switchToChat": "Press Tab to switch to Chat"
-    },
     "mention": {
       "workspaceFiles": "Workspace files",
       "thoughts": "Records",
@@ -132,7 +126,7 @@
       "empty": "Nothing here yet",
       "failed": "Could not load results",
       "unavailable": "Unavailable in this context",
-        "networkPartial": "Network Agent list is incomplete",
+      "networkPartial": "Network Agent list is incomplete",
       "partial": "Partial results. Refine your search."
     },
     "permissionModes": {
@@ -1243,9 +1237,20 @@
     "taskOffered": "Offered to",
     "taskBlockedBy": "Blocked by",
     "interruptTurn": "Interrupt current turn",
-    "nativeModes": { "one-shot": "One-time delegation", "continuable": "Continuable Agent" },
-    "nativeStates": { "running": "Running", "inactive": "Inactive" },
-    "taskStates": { "pending": "Pending", "in_progress": "In progress", "completed": "Completed", "cancelled": "Cancelled" },
+    "nativeModes": {
+      "one-shot": "One-time delegation",
+      "continuable": "Continuable Agent"
+    },
+    "nativeStates": {
+      "running": "Running",
+      "inactive": "Inactive"
+    },
+    "taskStates": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
     "title": "Agent work tree",
     "close": "Close",
     "unknown": "Unknown",

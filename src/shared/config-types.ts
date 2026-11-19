@@ -272,10 +272,36 @@ const MISSING_PROVIDER_INSERT_AFTER: Record<string, string> = {
   [ANTIGRAVITY_SUBSCRIPTION_PROVIDER_ID]: XAI_SUBSCRIPTION_PROVIDER_ID,
 };
 
+/**
+ * Default card order when the user has never saved one (Settings → 模型设置):
+ * Token Dance, then each vendor's subscription next to its API, then the rest
+ * in preset order. Saved orders keep the insertion rules below for new ids.
+ */
+const DEFAULT_PROVIDER_ORDER: readonly string[] = [
+  TOKENDANCE_PROVIDER_ID,
+  SUBSCRIPTION_PROVIDER_ID,
+  'anthropic-api',
+  CODEX_SUBSCRIPTION_PROVIDER_ID,
+  'deepseek',
+  XAI_SUBSCRIPTION_PROVIDER_ID,
+  ANTIGRAVITY_SUBSCRIPTION_PROVIDER_ID,
+  OPENCODE_GO_PROVIDER_ID,
+];
+
 export function normalizeProviderOrder(
   providerIds: string[],
   providerOrder?: string[],
 ): string[] {
+  if (!providerOrder?.length) {
+    const rank = (id: string) => {
+      const index = DEFAULT_PROVIDER_ORDER.indexOf(id);
+      return index < 0 ? DEFAULT_PROVIDER_ORDER.length : index;
+    };
+    return [...new Set(providerIds)]
+      .map((id, index) => ({ id, index }))
+      .sort((a, b) => rank(a.id) - rank(b.id) || a.index - b.index)
+      .map(({ id }) => id);
+  }
   const known = new Set(providerIds);
   // Token Dance has a fixed display position; user order starts after it.
   const ordered: string[] = known.has(TOKENDANCE_PROVIDER_ID) ? [TOKENDANCE_PROVIDER_ID] : [];
@@ -1021,6 +1047,9 @@ export interface AppConfig {
   /** 鼠标悬停悬浮球时自动展开半透明伴侣窗。缺省视同 true；关闭后点击
    *  悬浮球仍会打开 pin 态窗口。 */
   floatingBallHoverPeekEnabled?: boolean;
+  /** 启动页「团队」像素办公室的皮肤（设置 → 团队形象）。缺省视同 'office'；
+   *  未知值（旧版本/手改配置）同样回落到 'office'，见 normalizeTeamOfficeSkin。 */
+  teamOfficeSkin?: TeamOfficeSkinId;
   /** 开发者：定期从 LiteLLM (GitHub) 拉取 model_prices_and_context_window.json，
    *  作为模型 contextLength/maxOutputTokens 的最低优先级兜底数据源。缺省视同 true。
    *  抓取在 Rust 侧（启动条件检查 + 24h interval，ETag/If-None-Match 增量）。 */
@@ -2874,6 +2903,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   floatingBallDevGate: true,
   floatingBallEnabled: false,
   floatingBallHoverPeekEnabled: true,
+  teamOfficeSkin: 'office',
   liteLLMModelDataRefresh: true, // 默认开启 LiteLLM 模型数据兜底刷新（开发者可关）
   claudeTranscriptCleanupPeriodDays:
     DEFAULT_CLAUDE_TRANSCRIPT_CLEANUP_PERIOD_DAYS,
@@ -2890,3 +2920,11 @@ export const DEFAULT_CONFIG: AppConfig = {
 /** Default accelerator string for the global summon shortcut (PRD 0.2.16).
  *  Mirrors the Rust constant `global_shortcut::DEFAULT_ACCELERATOR`. */
 export const DEFAULT_SUMMON_ACCELERATOR = 'CmdOrCtrl+Shift+M';
+
+/** 像素团队皮肤。新增皮肤时同时补 renderer `features/team-office/pixel/skins.ts` 的绘制实现。 */
+export const TEAM_OFFICE_SKIN_IDS = ['office', 'court', 'starship'] as const;
+export type TeamOfficeSkinId = typeof TEAM_OFFICE_SKIN_IDS[number];
+
+export function normalizeTeamOfficeSkin(value: unknown): TeamOfficeSkinId {
+  return (TEAM_OFFICE_SKIN_IDS as readonly unknown[]).includes(value) ? value as TeamOfficeSkinId : 'office';
+}
