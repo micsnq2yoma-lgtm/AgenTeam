@@ -1,0 +1,47 @@
+name: Verify the Windows Check for Updates button
+on:
+  push:
+    branches: [codex/qa-upgrade-060-061]
+    paths: [.github/workflows/qa-check-update-062.yml]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  check:
+    runs-on: windows-2022
+    timeout-minutes: 18
+    env:
+      QA_LATEST: '0.6.1'
+      QA_PACKAGE_DIGEST: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download the original signed 0.6.1 installer build
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'agenteam-062-qa'
+          "QA_ROOT=$root" >> $env:GITHUB_ENV
+          gh run download 44326075488 --repo micsnq2yoma-lgtm/AgenTeam --name AgenTeam-Windows-x64-2cc9afb367a6b9ff15807efd4cd0e6438c76b127 --dir $root
+      - name: Install 0.6.1 and exercise the public updater from Settings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $package=Join-Path $env:QA_ROOT 'AgenTeam_0.6.1_x64-setup.exe'
+          if ((Get-FileHash -LiteralPath $package).Hash -ne 'AC001C0358942E474C72413E4CBF76C86A6635E0E3B5F8B0E3D85722726E5714') {throw 'Unexpected 0.6.1 installer digest'}
+          $installer=Start-Process -FilePath $package -ArgumentList '/S' -PassThru -Wait -WindowStyle Hidden
+          if ($installer.ExitCode -ne 0) {throw "Installer exit code $($installer.ExitCode)"}
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=19222 --remote-debugging-address=127.0.0.1'
+          $policy='HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
+          New-Item -Path $policy -Force | Out-Null
+          New-ItemProperty -Path $policy -Name 'AgenTeam.exe' -Value $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS -PropertyType String -Force | Out-Null
+          node ./qa/check-update-062.cjs
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: AgenTeam-Windows-manual-update
+          path: ${{ runner.temp }}/agenteam-062-qa/evidence/
+          retention-days: 30
