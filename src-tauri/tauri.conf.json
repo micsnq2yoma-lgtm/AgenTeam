@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "AgenTeam",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "identifier": "io.github.micsnq2yoma-lgtm.agenteam",
   "build": {
     "frontendDist": "../dist",
