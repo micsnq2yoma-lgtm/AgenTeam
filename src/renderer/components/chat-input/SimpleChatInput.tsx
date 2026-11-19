@@ -125,6 +125,36 @@ function ModelSelectionScrollSync({
   return null;
 }
 
+/**
+ * Bottom fade inside the model list while more providers sit below the fold.
+ * Scrollbars are hidden app-wide, so without it a long first group (e.g. a
+ * subscription with many Claude models) hides every provider after it.
+ */
+function ModelListMoreHint({ listRef }: { listRef: RefObject<HTMLDivElement | null> }) {
+  const [hasMoreBelow, setHasMoreBelow] = useState(false);
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const update = () => setHasMoreBelow(list.scrollTop + list.clientHeight < list.scrollHeight - 2);
+    list.addEventListener('scroll', update, { passive: true });
+    // ResizeObserver reports once on observe, covering the initial measurement.
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(list);
+    return () => {
+      list.removeEventListener('scroll', update);
+      observer?.disconnect();
+    };
+  }, [listRef]);
+  if (!hasMoreBelow) return null;
+  return (
+    <div
+      aria-hidden="true"
+      data-model-list-more
+      className="pointer-events-none sticky bottom-0 -mt-8 h-8 bg-gradient-to-t from-[var(--paper-elevated)] to-[var(--paper-elevated-a0)]"
+    />
+  );
+}
+
 const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputProps>(function SimpleChatInput({
   value: externalValue,
   onChange: _externalOnChange,
@@ -1434,11 +1464,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
               onPaste={handlePaste}
               onCompositionStart={handleCompositionStart}
               onCompositionEnd={handleCompositionEnd}
-              placeholder={
-                isLauncherMode
-                  ? t('input.launcherPlaceholder')
-                  : t('input.placeholder')
-              }
+              placeholder={t('input.placeholder')}
               rows={effectiveMinLines}
               className="block w-full resize-none bg-transparent text-base leading-relaxed text-[var(--ink)] outline-none placeholder:text-[var(--ink-muted)]"
               style={{
@@ -2013,7 +2039,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                 <div
                   ref={modelListRef}
                   data-model-list
-                  className="relative max-h-[260px] overflow-y-auto py-1"
+                  className="relative max-h-[min(420px,55vh)] overflow-y-auto py-1"
                 >
                 {isExternalRuntime && runtimeModels ? (
                   <>
@@ -2122,6 +2148,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                     </div>
                   ));
                 })()}
+                <ModelListMoreHint listRef={modelListRef} />
                 </div>
                 <ModelSelectionScrollSync
                   listRef={modelListRef}

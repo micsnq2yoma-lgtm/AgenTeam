@@ -2254,7 +2254,7 @@
     "installing": "Installing...",
     "restartInstall": "Restart to Install",
     "developerLabel": "About AgenTeam",
-    "developerParagraph1": "AgenTeam is built on the open-source MyAgents project. Work with agents in a local project and use scheduled tasks for ongoing work.",
+    "developerParagraph1": "AgenTeam is built on the open-source MyAgents project.",
     "labTitle": "Lab",
     "teamAiPanelTitle": "Team AI panel",
     "teamAiPanelDescription": "Show the Team AI management panel under More in the sidebar. Turning this off hides the entry; existing Agents and Channels keep running.",

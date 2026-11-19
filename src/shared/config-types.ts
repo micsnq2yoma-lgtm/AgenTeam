@@ -13,7 +13,7 @@ import type {
   RuntimeSource,
   RuntimeType,
 } from './types/runtime';
-import type { UiLanguage } from './i18n';
+import type { SupportedLocale, UiLanguage } from './i18n';
 import type { OfficialToolId, OfficialToolSettings } from './official-tools';
 import type { SubscriptionVerifyFailureKind } from './subscription';
 import managedCodexRuntimeLock from './managed-codex-runtime.json';
@@ -699,17 +699,32 @@ export function isProjectActiveForUser(
 /** The default assistant's name and icon (the T from the AgenTeam wordmark). */
 export const DEFAULT_ASSISTANT_NAME = '小 T';
 export const DEFAULT_ASSISTANT_ICON = 'agenteam-t';
+/**
+ * The project created on first launch. It is the user's general-purpose
+ * starting place, so it reads as a plain project (folder icon), not as the
+ * assistant persona its bundled files describe.
+ */
+export const DEFAULT_PROJECT_NAMES: Readonly<Record<SupportedLocale, string>> = {
+  'zh-CN': '默认项目',
+  'en-US': 'Default project',
+};
+export const DEFAULT_PROJECT_ICON = 'project';
 
+/**
+ * `displayName` is persisted, not translated at render time, so callers pass
+ * the UI locale in effect when the project is created.
+ */
 export function getSystemPresetProjectMetadata(
   presetId: SystemPresetWorkspaceId,
+  locale: SupportedLocale = 'zh-CN',
 ): ProjectPatch {
   switch (presetId) {
     case 'atmer':
       return {
         workspaceType: 'system-preset',
         systemPresetId: 'atmer',
-        icon: DEFAULT_ASSISTANT_ICON,
-        displayName: DEFAULT_ASSISTANT_NAME,
+        icon: DEFAULT_PROJECT_ICON,
+        displayName: DEFAULT_PROJECT_NAMES[locale],
         templateId: DEFAULT_BUNDLED_WORKSPACE_TEMPLATE_ID,
         templateSource: 'builtin',
       };
@@ -719,8 +734,9 @@ export function getSystemPresetProjectMetadata(
 export function getSystemPresetProjectMetadataPatch(
   project: Project,
   presetId: SystemPresetWorkspaceId,
+  locale?: SupportedLocale,
 ): ProjectPatch {
-  const metadata = getSystemPresetProjectMetadata(presetId);
+  const metadata = getSystemPresetProjectMetadata(presetId, locale);
   const patch: ProjectPatch = {};
 
   if (
@@ -2803,6 +2819,54 @@ export const PRESET_MCP_SERVERS: McpServerDefinition[] = [
     requiresConfig: ['GEMINI_API_KEY'],
     websiteUrl: 'https://aistudio.google.com/apikey',
     configHint: '在 Google AI Studio 一键创建 API Key',
+  },
+  {
+    id: 'github',
+    name: 'GitHub',
+    description: '读写仓库、Issue 与 Pull Request，查看 Actions 运行结果（GitHub 官方远程 MCP）',
+    type: 'http',
+    url: 'https://api.githubcopilot.com/mcp/',
+    headers: { Authorization: 'Bearer {{GITHUB_PERSONAL_ACCESS_TOKEN}}' },
+    isBuiltin: true,
+    requiresConfig: ['GITHUB_PERSONAL_ACCESS_TOKEN'],
+    websiteUrl: 'https://github.com/settings/personal-access-tokens/new',
+    configHint: '创建 Fine-grained 令牌，只勾选需要的仓库与权限',
+  },
+  {
+    id: 'figma',
+    name: 'Figma',
+    description:
+      '读取设计稿、组件与样式，辅助还原页面。需在 Figma 桌面版的 Dev Mode 中开启 MCP 服务（Dev 或 Full 席位）',
+    type: 'http',
+    url: 'http://127.0.0.1:3845/mcp',
+    isBuiltin: true,
+    websiteUrl:
+      'https://help.figma.com/hc/en-us/articles/35281186390679-Figma-MCP-collection-How-to-setup-the-Figma-desktop-MCP-server',
+    configHint: '打开 Figma 桌面版 → 切到 Dev Mode → 在右侧面板开启 MCP 服务器',
+  },
+  {
+    id: 'amap-maps',
+    name: '高德地图',
+    description: '地点搜索、路线规划、天气与周边查询（高德官方 MCP）',
+    type: 'stdio',
+    command: 'npx',
+    args: ['-y', '@amap/amap-maps-mcp-server'],
+    isBuiltin: true,
+    requiresConfig: ['AMAP_MAPS_API_KEY'],
+    websiteUrl: 'https://console.amap.com/dev/key/app',
+    configHint: '在高德开放平台创建应用，申请「Web 服务」类型的 Key',
+  },
+  {
+    id: 'feishu',
+    name: '飞书',
+    description: '读写飞书文档、多维表格与消息（飞书官方 OpenAPI MCP，Beta）',
+    type: 'stdio',
+    command: 'npx',
+    args: ['-y', '@larksuiteoapi/lark-mcp', 'mcp'],
+    isBuiltin: true,
+    requiresConfig: ['APP_ID', 'APP_SECRET'],
+    websiteUrl: 'https://open.feishu.cn/app',
+    configHint: '在飞书开发者后台创建自建应用，于「凭证与基础信息」获取 App ID 与 App Secret，并开通所需权限',
   },
   {
     id: 'edge-tts',

@@ -2,7 +2,7 @@
 name: support
 description: >-
   MyAgents 本地问题诊断、恢复与反馈升级流程。用户描述报错、崩溃、无响应、配置后仍不可用、状态或结果不符合预期、
-  Task/Goal/Channel/Provider/Runtime/MCP/Plugin/附件/Agent 网络等功能异常，或者前端“小助理诊断/问题反馈”注入诊断上下文时使用。
+  Task/Goal/Channel/Provider/Runtime/MCP/Plugin/附件/Agent 网络等功能异常，或者前端“助理诊断/问题反馈”注入诊断上下文时使用。
   先用 `/myagents-docs` 确认正确产品预期，再以本地状态、CLI、日志和必要 probe 分类、修复、验证；确认产品缺陷或功能建议后，
   在用户确认下形成并提交脱敏 Issue。普通“是什么/怎么用/入口在哪”不使用本 skill，直接使用 `/myagents-docs`。
 ---

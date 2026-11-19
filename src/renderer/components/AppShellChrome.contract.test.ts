@@ -346,6 +346,13 @@ describe('App Shell chrome contract', () => {
     expect(settings.slice(stickyTabsIndex - 180, stickyTabsIndex)).toContain(
       'sticky top-0',
     );
+    // Tab labels share the 32px inset of the header and section bodies:
+    // the sticky bar adds no padding, the nav adds 16px, each tab 16px.
+    const stickyClass = settings.slice(stickyTabsIndex - 180, stickyTabsIndex);
+    expect(stickyClass).not.toContain('px-8');
+    expect(settings.slice(stickyTabsIndex, stickyTabsIndex + 400)).toContain(
+      'className="mx-auto flex max-w-4xl gap-1 px-4"',
+    );
     expect(settings).toContain(
       'className="h-full flex-1 overflow-y-auto overscroll-contain"',
     );

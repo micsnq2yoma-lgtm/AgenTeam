@@ -1147,6 +1147,48 @@ describe('SimpleChatInput send paths', () => {
     expect(onModelChange).not.toHaveBeenCalled();
   });
 
+  it('hints at providers below the fold until the model list is scrolled to the end', async () => {
+    const user = userEvent.setup();
+    const claude = {
+      id: 'provider-a', name: 'Provider A', vendor: 'A', cloudProvider: '模型官方', type: 'api',
+      primaryModel: 'model-0', isBuiltin: false, config: { baseUrl: 'https://a.example.com' },
+      models: Array.from({ length: 12 }, (_, index) => ({ model: `model-${index}`, modelName: `Model ${index}` })),
+    } as Provider;
+    const deepseek = {
+      id: 'provider-b', name: 'Provider B', vendor: 'B', cloudProvider: '模型官方', type: 'api',
+      primaryModel: 'b-1', isBuiltin: false, config: { baseUrl: 'https://b.example.com' },
+      models: [{ model: 'b-1', modelName: 'B One' }],
+    } as Provider;
+    const clientHeight = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-model-list') ? 100 : 0;
+    });
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-model-list') ? 500 : 0;
+    });
+    try {
+      renderInput({
+        runtime: 'builtin',
+        provider: claude,
+        providers: [claude, deepseek],
+        selectedModel: 'model-0',
+        apiKeys: { 'provider-a': 'key-a', 'provider-b': 'key-b' },
+      });
+      await user.click(screen.getByTitle('切换模型'));
+      // The second provider is rendered, just below the fold.
+      expect(await screen.findByText('Provider B')).toBeInTheDocument();
+      const list = document.querySelector<HTMLElement>('[data-model-list]')!;
+      list.scrollTop = 0;
+      fireEvent.scroll(list);
+      expect(list.querySelector('[data-model-list-more]')).not.toBeNull();
+      list.scrollTop = 400;
+      fireEvent.scroll(list);
+      expect(list.querySelector('[data-model-list-more]')).toBeNull();
+    } finally {
+      clientHeight.mockRestore();
+      scrollHeight.mockRestore();
+    }
+  });
+
   it('centers the selected model inside the menu scroll container when opened', async () => {
     const user = userEvent.setup();
     const provider = {
@@ -1252,7 +1294,7 @@ describe('SimpleChatInput send paths', () => {
     const user = userEvent.setup();
     const onSend = renderInput({ mode: 'launcher' });
 
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
     await user.type(textarea, 'launcher hello');
     await user.click(screen.getByTitle(/发送/));
 
@@ -1264,7 +1306,7 @@ describe('SimpleChatInput send paths', () => {
     const user = userEvent.setup();
     renderInput({ mode: 'launcher', providerAvailable: true });
 
-    expect(screen.getByPlaceholderText('What do you want to do today?')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Message AgenTeam, use @ for Agents and / for skills...')).toBeInTheDocument();
     expect(screen.getByTitle('Add context')).toBeInTheDocument();
     expect(screen.getByTitle('Switch execution mode')).toBeInTheDocument();
     expect(screen.getByTitle('Switch model')).toBeInTheDocument();
@@ -1284,7 +1326,7 @@ describe('SimpleChatInput send paths', () => {
 
   it('accepts pasted image attachments without routing through workspace file IO for external runtimes', async () => {
     renderInput({ mode: 'launcher' });
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
     const image = new File(['png'], 'clip.png', { type: 'image/png' });
 
     fireEvent.paste(textarea, {
@@ -1307,7 +1349,7 @@ describe('SimpleChatInput send paths', () => {
   it('opens the image preview with a single click on a pasted attachment', async () => {
     const user = userEvent.setup();
     renderInput({ mode: 'launcher' });
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
     const image = new File(['png'], 'clip.png', { type: 'image/png' });
 
     fireEvent.paste(textarea, {
@@ -1329,7 +1371,7 @@ describe('SimpleChatInput send paths', () => {
 
   it('accepts up to eight pasted image attachments', async () => {
     renderInput({ mode: 'launcher' });
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
     const images = Array.from(
       { length: 9 },
       (_, index) => new File(['png'], `clip-${index + 1}.png`, { type: 'image/png' }),
@@ -1350,7 +1392,7 @@ describe('SimpleChatInput send paths', () => {
 
   it('pastes non-image attachments as workspace file references', async () => {
     renderInput({ mode: 'launcher', workspacePath: '/workspace' });
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
     const file = new File(['hello'], 'pasted.txt', { type: 'text/plain' });
 
     fireEvent.paste(textarea, {
@@ -1500,7 +1542,7 @@ describe('SimpleChatInput send paths', () => {
     );
 
     renderInput({ mode: 'launcher', workspacePath: '/workspace' });
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
     const file = new File(['hello'], 'pasted.txt', { type: 'text/plain' });
 
     fireEvent.paste(textarea, {
@@ -1530,7 +1572,7 @@ describe('SimpleChatInput send paths', () => {
   it('copies dropped filesystem paths as workspace file references through the imperative handle', async () => {
     const ref = createRef<SimpleChatInputHandle>();
     renderInput({ mode: 'launcher', ref, workspacePath: '/workspace' });
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
 
     await act(async () => {
       const handle = ref.current;
@@ -1557,7 +1599,7 @@ describe('SimpleChatInput send paths', () => {
     );
 
     renderInput({ mode: 'launcher', ref, workspacePath: '/workspace' });
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
 
     const handle = ref.current;
     if (!handle?.processDroppedFilePaths) throw new Error('SimpleChatInput ref was not mounted');
@@ -1600,7 +1642,7 @@ describe('SimpleChatInput send paths', () => {
       </ToastProvider>
     );
     const view = render(renderComposer('/workspace-a'));
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
 
     const handle = ref.current;
     if (!handle?.processDroppedFilePaths) throw new Error('SimpleChatInput ref was not mounted');

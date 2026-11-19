@@ -1011,7 +1011,7 @@ pub fn cmd_copy_folder_to_templates(
 
 // ============= Admin Agent Sync =============
 
-const ADMIN_AGENT_VERSION: &str = "30";
+const ADMIN_AGENT_VERSION: &str = "31";
 
 /// Helper-bundled paths (relative to `~/.agenteam/`) that previous versions
 /// shipped but that have since been retired.
@@ -1870,7 +1870,7 @@ mod system_skills_tests {
 
     #[test]
     fn helper_routes_product_knowledge_diagnosis_and_tool_install() {
-        assert_eq!(ADMIN_AGENT_VERSION, "30");
+        assert_eq!(ADMIN_AGENT_VERSION, "31");
         let helper = include_str!("../../bundled-agents/myagents_helper/CLAUDE.md");
         let support =
             include_str!("../../bundled-agents/myagents_helper/.claude/skills/support/SKILL.md");

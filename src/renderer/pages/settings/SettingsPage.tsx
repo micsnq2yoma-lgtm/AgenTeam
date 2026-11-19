@@ -4672,11 +4672,13 @@ export default function Settings({
               </div>
             </header>
             <div
-              className="sticky top-0 z-20 mt-5 border-b border-[var(--line)] bg-[var(--paper)]/95 px-8 backdrop-blur-sm"
+              className="sticky top-0 z-20 mt-5 border-b border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur-sm"
               data-capabilities-sticky-tabs
             >
+              {/* nav px-4 + tab px-4 puts the labels at 32px, the same inset as
+                  the px-8 header and section bodies. */}
               <nav
-                className="mx-auto flex max-w-4xl gap-1"
+                className="mx-auto flex max-w-4xl gap-1 px-4"
                 role="tablist"
                 aria-label={tSettings('capabilities.navigation')}
               >

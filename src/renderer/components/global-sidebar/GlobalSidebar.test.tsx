@@ -293,7 +293,7 @@ describe('GlobalSidebar rail flyout', () => {
     expect(footer.lastElementChild).toBe(row);
     expect(row.contains(notification)).toBe(true);
     expect(row.contains(screen.getByRole('button', { name: '设置' }))).toBe(false);
-    expect(row.contains(screen.getByRole('button', { name: '小助理' }))).toBe(false);
+    expect(row.contains(screen.getByRole('button', { name: '助理' }))).toBe(false);
     expect(mocks.notificationRefresh).not.toHaveBeenCalled();
     fireEvent.click(notification);
     expect(mocks.notificationRefresh).toHaveBeenCalledOnce();
@@ -611,6 +611,11 @@ describe('GlobalSidebar rail flyout', () => {
     // The header "+" and the empty-state button share the "new project" name; DOM order tells them apart.
     const [headerAdd, emptyStateAdd] = screen.getAllByRole('button', { name: String(i18n.t('launcher:newAgentPanel.title')) });
     expect(emptyStateAdd).toHaveTextContent(String(i18n.t('launcher:rightRail.addFolder')));
+    // Empty-state copy shares the header's 24px inset (scroll px-2 + pl-4); compact button.
+    const emptyState = document.querySelector('[data-global-sidebar-empty-projects]');
+    expect(emptyState).toHaveClass('pl-4');
+    expect(emptyState).not.toHaveClass('pl-6');
+    expect(emptyStateAdd).toHaveClass('py-1.5');
     fireEvent.click(headerAdd);
     fireEvent.click(emptyStateAdd);
 
@@ -1024,8 +1029,8 @@ describe('GlobalSidebar rail flyout', () => {
     expect(taskTip).not.toHaveClass('delay-500', 'transition-opacity');
 
     fireEvent.mouseLeave(taskButton.parentElement!);
-    fireEvent.click(screen.getByRole('button', { name: '小助理' }));
-    expect(screen.queryByRole('tooltip', { name: '小助理' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '助理' }));
+    expect(screen.queryByRole('tooltip', { name: '助理' })).not.toBeInTheDocument();
   });
 
   it('keeps the hover Task-create tooltip trigger inside an absolute row overlay', () => {

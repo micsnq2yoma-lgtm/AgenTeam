@@ -1886,13 +1886,14 @@ function WorkspaceTree({
             </div>
           </div>
         ) : projects.length === 0 && archivedProjects.length === 0 ? (
-          <div className="px-3 py-6 text-left pl-6">
+          <div className="py-6 pl-4 pr-3 text-left" data-global-sidebar-empty-projects>
+            {/* Scroll container adds px-2; pl-4 lands the copy on the header's pl-6. */}
             <p className="text-sm font-medium text-[var(--ink)]">{tLauncher('rightRail.emptyWorkspaceTitle')}</p>
             <p className="mt-1 text-xs text-[var(--ink-muted)]">{tLauncher('rightRail.emptyWorkspaceDescription')}</p>
             <button
               type="button"
               onClick={(event) => onCreateAgent(event.currentTarget)}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-[10px] bg-[var(--button-primary-bg)] px-3 py-2 text-sm font-medium text-[var(--button-primary-text)] hover:bg-[var(--button-primary-bg-hover)]"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-[10px] bg-[var(--button-primary-bg)] px-3 py-1.5 text-sm font-medium text-[var(--button-primary-text)] hover:bg-[var(--button-primary-bg-hover)]"
             >
               <PlusIcon className="h-3.5 w-3.5" />
               <span className="global-sidebar-label">{tLauncher('rightRail.addFolder')}</span>

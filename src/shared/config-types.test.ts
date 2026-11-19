@@ -56,6 +56,36 @@ describe('MCP presets', () => {
     });
     expect(tavily?.url).not.toContain('TAVILY_API_KEY');
   });
+
+  it('presets GitHub, Figma, Amap and Feishu without putting credentials in URLs or argv', () => {
+    const byId = (id: string) => PRESET_MCP_SERVERS.find(server => server.id === id);
+    expect(byId('github')).toMatchObject({
+      type: 'http',
+      url: 'https://api.githubcopilot.com/mcp/',
+      headers: { Authorization: 'Bearer {{GITHUB_PERSONAL_ACCESS_TOKEN}}' },
+      requiresConfig: ['GITHUB_PERSONAL_ACCESS_TOKEN'],
+    });
+    // Figma's desktop server is local and needs no secret.
+    expect(byId('figma')).toMatchObject({ type: 'http', url: 'http://127.0.0.1:3845/mcp' });
+    expect(byId('figma')?.requiresConfig).toBeUndefined();
+    // stdio presets read their secrets from env (mcpServerEnv), never from args.
+    expect(byId('amap-maps')).toMatchObject({
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', '@amap/amap-maps-mcp-server'],
+      requiresConfig: ['AMAP_MAPS_API_KEY'],
+    });
+    expect(byId('feishu')).toMatchObject({
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', '@larksuiteoapi/lark-mcp', 'mcp'],
+      requiresConfig: ['APP_ID', 'APP_SECRET'],
+    });
+    for (const server of PRESET_MCP_SERVERS) {
+      expect(server.url ?? '', server.id).not.toMatch(/\{\{/);
+      expect((server.args ?? []).join(' '), server.id).not.toMatch(/\{\{/);
+    }
+  });
 });
 
 // normalizeProviderOrder reconciles a persisted provider order against the set
@@ -477,14 +507,19 @@ describe('model aliases', () => {
 describe('default assistant identity', () => {
   const preset = { id: 'p', path: '/w', name: 'atmer' } as Parameters<typeof getSystemPresetProjectMetadataPatch>[0];
 
-  it('gives the atmer preset the name 小 T and the wordmark T', () => {
+  it('names the first-launch preset 默认项目 with the folder icon', () => {
     const patch = getSystemPresetProjectMetadataPatch(preset, 'atmer');
     expect(patch).toMatchObject({
       systemPresetId: 'atmer',
       templateId: 'atmer',
-      displayName: '小 T',
-      icon: 'agenteam-t',
+      displayName: '默认项目',
+      icon: 'project',
     });
+  });
+
+  it('names the first-launch project in the UI locale it is created under', () => {
+    expect(getSystemPresetProjectMetadataPatch(preset, 'atmer', 'zh-CN').displayName).toBe('默认项目');
+    expect(getSystemPresetProjectMetadataPatch(preset, 'atmer', 'en-US').displayName).toBe('Default project');
   });
 
   it('finds the default assistant folder under projects/atmer', () => {

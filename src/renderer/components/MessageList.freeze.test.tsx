@@ -86,7 +86,9 @@ vi.mock('react-virtuoso', () => ({
 
 // Heavy children — stub so jsdom doesn't pull Markdown / tool / prompt trees.
 vi.mock('@/components/Message', () => ({
-  default: () => <div data-testid="msg" />,
+  default: ({ isLoading }: { isLoading?: boolean }) => (
+    <div data-testid="msg" data-loading={isLoading ? 'true' : 'false'} />
+  ),
 }));
 vi.mock('@/components/PermissionPrompt', () => ({
   PermissionPrompt: () => null,
@@ -510,6 +512,40 @@ describe('MessageList — freeze data while inactive (Virtuoso cache-poisoning r
       />,
     );
     expect(streamingText(lastData())).toBe('abcdefghi');
+  });
+
+  it('delivers row inputs of the current commit through context, matching the streaming row by id', () => {
+    const user = msg('u1', 'question', 'user');
+    const stream = msg('stream', 'a');
+    const { rerender } = renderList({
+      messages: [user, stream],
+      streamingMessage: stream,
+      isLoading: true,
+      isActive: true,
+    });
+    const loadingFlags = () =>
+      screen.getAllByTestId('msg').map((node) => node.getAttribute('data-loading'));
+    expect(loadingFlags()).toEqual(['false', 'true']);
+
+    // A reveal tick hands over a fresh object with the same id.
+    const grown = msg('stream', 'ab');
+    const props = {
+      messages: [user, grown],
+      streamingMessage: { ...grown },
+      sessionId: 's1',
+      isActive: true,
+      firstItemIndex: 1_000_000,
+      virtuosoRef: { current: null },
+      ...createFollowProps(),
+      scrollToBottom: vi.fn(),
+      handleAtBottomChange: vi.fn(),
+    };
+    rerender(<MessageList {...props} isLoading />);
+    expect(loadingFlags()).toEqual(['false', 'true']);
+
+    // Finishing the turn reaches the row in the same commit.
+    rerender(<MessageList {...props} isLoading={false} />);
+    expect(loadingFlags()).toEqual(['false', 'false']);
   });
 
   it('freezes row-action context while inactive and publishes the live context on re-activation', () => {

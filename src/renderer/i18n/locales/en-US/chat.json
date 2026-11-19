@@ -13,7 +13,6 @@
     "cancel": "Cancel answer"
   },
   "input": {
-    "launcherPlaceholder": "What do you want to do today?",
     "placeholder": "Message AgenTeam, use @ for Agents and / for skills...",
     "companionPlaceholder": "Ask 小 T or delegate a task...",
     "addScreenshot": "Add screenshot",
@@ -1207,28 +1206,7 @@
       "starting": "Starting AI... first launch may take a while.",
       "loadingHistory": "Loading chat history...",
       "waitingForInteraction": "Waiting for your response",
-      "streaming": {
-        "0": "Thinking hard...",
-        "1": "Thinking it through...",
-        "2": "Catching a spark...",
-        "3": "Working through it...",
-        "4": "Thoughts are moving fast...",
-        "5": "Turning the gears...",
-        "6": "Firing neurons...",
-        "7": "Connecting ideas...",
-        "8": "Organizing a response...",
-        "9": "Searching the knowledge sea...",
-        "10": "Flipping through the universe library...",
-        "11": "Letting the answer take shape...",
-        "12": "Brewing some insight...",
-        "13": "Thinking recursively...",
-        "14": "Exploring the possibilities...",
-        "15": "Loading the wisdom module...",
-        "16": "Let me think...",
-        "17": "One moment...",
-        "18": "Worth taking a little time...",
-        "19": "Taking your question seriously..."
-      }
+      "thinking": "Thinking…"
     }
   },
   "agentTree": {

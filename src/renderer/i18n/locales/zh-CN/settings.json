@@ -174,7 +174,7 @@
     },
     "messageSend": {
       "title": "消息发送",
-      "description": "设置在对话、AI 小助理、问题反馈中如何用键盘发送消息",
+      "description": "设置在对话、AI 助理、问题反馈中如何用键盘发送消息",
       "shortcutTitle": "发送快捷键",
       "modEnterSummary": "{{mod}} + Enter 发送，Enter 换行",
       "enterSummary": "Enter 发送，Shift + Enter 换行"
@@ -1990,7 +1990,7 @@
         "descriptionPrefix": "此 MCP 服务依赖",
         "descriptionSuffix": "运行，请先安装后再启用。",
         "downloadOfficial": "去官网下载",
-        "askHelperInstall": "让 AI 小助理安装"
+        "askHelperInstall": "让 AI 助理安装"
       }
     },
     "cliTools": {
@@ -2155,9 +2155,9 @@
     }
   },
   "helper": {
-    "title": "AI 小助理",
+    "title": "AI 助理",
     "history": "历史",
-    "placeholder": "告诉 AI 小助理想做什么，配模型、加 MCP、查问题、吐槽反馈，提出你的要求，附上网页链接或截图，小助理都能帮你直接搞定！",
+    "placeholder": "告诉 AI 助理想做什么，配模型、加 MCP、查问题、吐槽反馈，提出你的要求，附上网页链接或截图，助理都能帮你直接搞定！",
     "emptyTip": "请输入想做的事或附上图片",
     "configureModelTip": "请先配置模型",
     "send": "发送",
@@ -2254,7 +2254,7 @@
     "installing": "安装中…",
     "restartInstall": "重启安装",
     "developerLabel": "关于 AgenTeam",
-    "developerParagraph1": "AgenTeam 基于开源项目 MyAgents 构建。你可以在本机项目与 Agent 协作，把持续性工作交给任务系统。",
+    "developerParagraph1": "AgenTeam 基于开源项目 MyAgents 构建。",
     "labTitle": "实验室",
     "teamAiPanelTitle": "Team AI 面板",
     "teamAiPanelDescription": "在侧栏「更多」中显示 Team AI 管理面板入口。关闭只隐藏入口，已有 Agent 和 Channel 继续运行。",
@@ -2267,8 +2267,8 @@
     "desktopPetToggleFailed": "{{action}}桌面宠物设置失败：{{message}}",
     "enableAction": "启用",
     "disableAction": "关闭",
-    "helperTitle": "AI 小助理",
-    "helperDescription": "AI 小助理将分析本地日志进行功能答疑、上报问题或建议",
+    "helperTitle": "AI 助理",
+    "helperDescription": "AI 助理将分析本地日志进行功能答疑、上报问题或建议",
     "feedback": "反馈问题",
     "developerSection": "开发者",
     "developer": {

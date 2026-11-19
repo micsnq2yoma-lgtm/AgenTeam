@@ -34,7 +34,7 @@
     "tasks": "自动化任务",
     "createTask": "创建任务",
     "capabilities": "技能与工具",
-    "helper": "小助理",
+    "helper": "助理",
     "settings": "设置",
     "workspaces": "项目管理",
     "workspaceSection": "项目管理",
@@ -50,9 +50,9 @@
     "agentNetwork": "多设备组网"
   },
   "titlebar": {
-    "helper": "小助理",
+    "helper": "助理",
     "feedbackTitle": "帮助与反馈",
-    "helperDescription": "不会使用、反馈问题或提出建议，都可以找小助理。",
+    "helperDescription": "不会使用、反馈问题或提出建议，都可以找助理。",
     "task": "任务",
     "taskCenterTitle": "任务中心 ({{shortcut}})",
     "settings": "设置",

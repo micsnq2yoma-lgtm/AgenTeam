@@ -243,6 +243,21 @@ describe('MessageList footer status positioning', () => {
     ).toBeTruthy();
   });
 
+  it('shows one plain thinking label instead of injected flavour text', () => {
+    const { rerender } = renderList({ isLoading: true });
+    const label = () => document.querySelector('[data-chat-status-row]')?.textContent ?? '';
+    expect(label()).toMatch(/思考中…|Thinking…/);
+    const first = label();
+    // A new turn (more messages) keeps the same label rather than picking another line.
+    rerender(
+      <MessageList
+        {...createBaseProps({ isLoading: true })}
+        messages={[msg('h1', 'hello', 'user'), msg('h2', 'again', 'user')]}
+      />,
+    );
+    expect(label()).toBe(first);
+  });
+
   it('uses the same footer slot for idle system notices', () => {
     renderList({
       systemNotice: { kind: 'compact', level: 'success', message: 'Saved' },

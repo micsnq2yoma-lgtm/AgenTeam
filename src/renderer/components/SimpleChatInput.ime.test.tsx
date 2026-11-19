@@ -38,7 +38,7 @@ describe('SimpleChatInput IME submission guard', () => {
   it.each([{ isComposing: true, keyCode: 13 }, { isComposing: false, keyCode: 229 }])('does not invoke slash commands from a composition Enter: %j', async ime => {
     const onAction = vi.fn();
     renderInput(vi.fn(), onAction);
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
     fireEvent.change(textarea, { target: { value: '/', selectionStart: 1 } });
     fireEvent.change(textarea, { target: { value: '/goal', selectionStart: 5 } });
     await screen.findByText('/goal', { selector: 'span' });
@@ -54,7 +54,7 @@ describe('SimpleChatInput IME submission guard', () => {
 
   it('does not send from the button while IME composition is active', () => {
     const onSend = renderInput();
-    const textarea = screen.getByPlaceholderText('今天，想干点啥？');
+    const textarea = screen.getByPlaceholderText('输入消息，使用 @ 提及 Agent，/ 使用技能...');
 
     fireEvent.change(textarea, { target: { value: '输入法提交测试' } });
     fireEvent.compositionStart(textarea);

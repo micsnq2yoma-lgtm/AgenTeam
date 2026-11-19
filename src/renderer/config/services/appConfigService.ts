@@ -28,7 +28,7 @@ import {
 import { normalizeStringifiedJsonFields, promoteAgentMcpJsonToGlobal } from './configNormalize';
 import { workspacePathsEqual } from '../../../shared/workspacePath';
 import { type ImBotConfig, DEFAULT_IM_BOT_CONFIG } from '../../../shared/types/im';
-import { normalizeUiLanguage } from '../../../shared/i18n';
+import { normalizeUiLanguage, resolveEffectiveLocale } from '../../../shared/i18n';
 import { normalizeThemeConfigRecord } from '../../../shared/theme';
 // Agent migration is triggered from ConfigProvider after both config + projects are loaded
 import { isDebugMode } from '@/utils/debug';
@@ -373,10 +373,16 @@ export async function ensureBundledWorkspace(): Promise<boolean> {
         }
 
         const project = await addProject(result.path);
-        // Set Atmer icon and display name for the bundled workspace
+        // Name the first-launch project in the UI language in effect right now
+        // (displayName is stored, so it is not re-translated later).
         const { patchProject } = await import('./projectService');
         try {
-            const metadataPatch = getSystemPresetProjectMetadataPatch(project, DEFAULT_SYSTEM_PRESET_WORKSPACE_ID);
+            const config = await loadAppConfig();
+            const systemLocale = typeof navigator === 'undefined'
+                ? undefined
+                : navigator.languages?.[0] ?? navigator.language;
+            const locale = resolveEffectiveLocale(config.uiLanguage, systemLocale);
+            const metadataPatch = getSystemPresetProjectMetadataPatch(project, DEFAULT_SYSTEM_PRESET_WORKSPACE_ID, locale);
             await patchProject(project.id, metadataPatch);
         } catch (e) {
             if (isLockBusyError(e)) throw e;
