@@ -1,0 +1,41 @@
+name: Attach and verify the signed 0.6.2 Windows release
+on:
+  push:
+    branches: [codex/qa-upgrade-060-061]
+    paths: [.github/workflows/qa-attach-062.yml]
+permissions: {}
+env:
+  REPO: micsnq2yoma-lgtm/AgenTeam
+  SOURCE: 370ae9d92b738a416abfa26228a24bb73b4fa189
+  BUILD: '44449456072'
+  PACKAGE: AgenTeam_0.6.2_x64-setup.exe
+jobs:
+  assemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Match the selected build and the locally signed draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/actions/runs/$BUILD" | jq -e --arg sha "$SOURCE" '.head_sha==$sha and .conclusion=="success"'
+          gh release view v0.6.2 --repo "$REPO" --json isDraft,targetCommitish | jq -e --arg sha "$SOURCE" '.isDraft and .targetCommitish==$sha'
+          mkdir -p payload metadata
+          gh run download "$BUILD" --repo "$REPO" --name "AgenTeam-Windows-x64-$SOURCE" --dir payload
+          gh release download v0.6.2 --repo "$REPO" --pattern "$PACKAGE.sig" --pattern 'latest.json' --pattern 'SHA256SUMS' --dir metadata
+          cp metadata/* payload/
+          (cd payload && sha256sum --check --strict SHA256SUMS)
+          if ! gh release view v0.6.2 --repo "$REPO" --json assets --jq '.assets[].name' | grep -Fxq "$PACKAGE"; then
+            gh release upload v0.6.2 "payload/$PACKAGE" --repo "$REPO"
+          fi
+          id=$(gh api "repos/$REPO/releases" --jq '.[]|select(.tag_name=="v0.6.2" and .draft)|.id')
+          gh api "repos/$REPO/releases/$id" > release.json
+          jq -e --arg sha "$SOURCE" '.draft and .target_commitish==$sha and (.assets|length)==4' release.json
+          for file in "$PACKAGE" "$PACKAGE.sig" latest.json SHA256SUMS; do
+            digest=$(sha256sum "payload/$file" | cut -d ' ' -f1)
+            jq -e --arg name "$file" --arg digest "sha256:$digest" 'any(.assets[]; .name==$name and .digest==$digest and .state=="uploaded")' release.json
+          done
