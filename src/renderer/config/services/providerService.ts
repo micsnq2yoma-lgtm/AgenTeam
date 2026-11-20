@@ -311,6 +311,21 @@ export async function rebuildAndPersistAvailableProviders(): Promise<void> {
     }
 }
 
+/**
+ * Save the reasoning effort new tasks use for this provider when their project
+ * has no explicit effort. Read-modify-write under the config lock; 'default'
+ * removes the override.
+ */
+export async function saveProviderDefaultReasoningEffort(providerId: string, effort: string): Promise<void> {
+    await atomicModifyConfig(c => {
+        const next = { ...(c.providerDefaultReasoningEfforts ?? {}) };
+        if (!effort || effort === 'default') delete next[providerId];
+        else next[providerId] = effort;
+        return { ...c, providerDefaultReasoningEfforts: next };
+    });
+}
+
+
 // ===== Provider Availability (shared logic — used by Chat, Launcher, SimpleChatInput, etc.) =====
 
 /**

@@ -31,6 +31,7 @@ export {
     isProviderAvailable,
     getFirstAvailableProvider,
     resolveProvider,
+    saveProviderDefaultReasoningEffort,
     resolveBuiltinSelection,
     pairBuiltinSelection,
     isImageUnderstandingSelectionAvailable,

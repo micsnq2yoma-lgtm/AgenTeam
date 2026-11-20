@@ -676,6 +676,16 @@
       "urlCopyFailed": "复制登录地址失败",
       "claudeLoginSucceeded": "Claude 登录成功",
       "claudeLoginFailed": "Claude 登录失败：{{message}}"
+    },
+    "defaults": {
+      "title": "自定义默认设置",
+      "description": "新建任务时（包括聊天机器人的 /new 和定时任务），项目没有单独设置的模型和推理强度，会使用这里的默认值。",
+      "defaultProvider": "设为默认供应商",
+      "defaultModel": "默认模型",
+      "defaultEffort": "默认推理强度",
+      "effortFollowProvider": "跟随服务商",
+      "saved": "已保存默认设置",
+      "saveFailed": "保存默认设置失败"
     }
   },
   "agentSettings": {

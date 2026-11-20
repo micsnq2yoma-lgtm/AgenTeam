@@ -103,6 +103,7 @@ import {
   isImageUnderstandingSelectionAvailable,
   isProviderAvailable,
   rebuildAndPersistAvailableProviders,
+  saveProviderDefaultReasoningEffort,
   shouldInvalidateProviderAfterVerification,
 } from '@/config/configService';
 import { useConfig } from '@/hooks/useConfig';
@@ -199,6 +200,7 @@ import CustomProviderDialog from './components/CustomProviderDialog';
 import { useSettingsNavigation } from './hooks/useSettingsNavigation';
 import { SettingsSidebar } from './components/SettingsSidebar';
 import { SkillsAgentsSection } from './sections/SkillsAgentsSection';
+import { ProviderDefaultsSection } from './sections/ProviderDefaultsSection';
 import { ToolboxSection } from './sections/ToolboxSection';
 import { ExternalCliSettingsSection } from './sections/ExternalCliSettingsSection';
 import codexModelSelectorOnboarding from '@/assets/onboarding/codex-model-selector.png';
@@ -8903,6 +8905,37 @@ export default function Settings({
                   />
                 )}
               </div>
+
+              {/* 自定义默认设置: what new tasks use when their project has no explicit choice. */}
+              {(() => {
+                const providerId = editingProvider.provider.id;
+                const liveProvider =
+                  providers.find((p) => p.id === providerId) ?? editingProvider.provider;
+                return (
+                  <ProviderDefaultsSection
+                    provider={liveProvider}
+                    isDefaultProvider={config.defaultProviderId === providerId}
+                    defaultModel={config.providerPrimaryModels?.[providerId] ?? liveProvider.primaryModel}
+                    defaultEffort={config.providerDefaultReasoningEfforts?.[providerId]}
+                    onDefaultProviderChange={(isDefault) => {
+                      void updateConfig({ defaultProviderId: isDefault ? providerId : undefined })
+                        .then(() => toast.success(tSettings('providers.defaults.saved')))
+                        .catch(() => toast.error(tSettings('providers.defaults.saveFailed')));
+                    }}
+                    onDefaultModelChange={(model) => {
+                      void savePrimaryModel(providerId, model)
+                        .then(() => toast.success(tSettings('providers.defaults.saved')))
+                        .catch(() => toast.error(tSettings('providers.defaults.saveFailed')));
+                    }}
+                    onDefaultEffortChange={(effort) => {
+                      void saveProviderDefaultReasoningEffort(providerId, effort)
+                        .then(() => refreshConfig())
+                        .then(() => toast.success(tSettings('providers.defaults.saved')))
+                        .catch(() => toast.error(tSettings('providers.defaults.saveFailed')));
+                    }}
+                  />
+                );
+              })()}
 
               {/* 云服务商标签 - only for custom providers */}
               {!editingProvider.provider.isBuiltin && (

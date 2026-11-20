@@ -23,6 +23,21 @@ export const REASONING_EFFORT_DEFAULT = 'default';
 
 export type ModelReasoningCapabilities = Pick<RuntimeModelInfo, 'supportedReasoningEfforts' | 'defaultReasoningEffort'>;
 
+/**
+ * A provider's 自定义默认设置 effort, used when neither the Session nor its
+ * Agent chose one. Shared by the Launcher (desktop new task) and the sidecar
+ * config resolver (IM /new, Cron, other headless births) so both agree.
+ * Absent, blank or 'default' means follow the provider.
+ */
+export function resolveProviderDefaultReasoningEffort(
+  efforts: Readonly<Record<string, string>> | undefined,
+  providerId: string | undefined,
+): string | undefined {
+  if (!providerId) return undefined;
+  const effort = efforts?.[providerId];
+  return typeof effort === 'string' && effort.trim() && effort !== REASONING_EFFORT_DEFAULT ? effort : undefined;
+}
+
 /** Catalog absence means unknown, never permission to erase a saved choice. */
 export function reasoningEffortAfterModelChange(
   value: string | null | undefined,

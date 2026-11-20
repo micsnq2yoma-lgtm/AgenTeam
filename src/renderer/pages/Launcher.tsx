@@ -40,6 +40,7 @@ import {
   resolveProvider,
   pairBuiltinSelection,
 } from '@/config/configService';
+import { resolveProviderDefaultReasoningEffort } from '../../shared/reasoningEffort';
 import {
   patchAgentConfig,
   patchAgentProjectConfig,
@@ -639,7 +640,16 @@ export default function Launcher({
       setLauncherSelectedModel(
         selectedAgent?.model ?? selectedWorkspace.model ?? undefined,
       );
-      setLauncherReasoningEffort((selectedAgentUsesManagedCodexProvider ? agentRuntimeReasoningEffort : selectedAgent?.reasoningEffort) ?? 'default');
+      // A project without its own effort uses its provider's 自定义默认设置.
+      const providerDefaultEffort = resolveProviderDefaultReasoningEffort(
+        config.providerDefaultReasoningEfforts,
+        selectedAgent?.providerId ?? selectedWorkspace.providerId ?? config.defaultProviderId,
+      );
+      setLauncherReasoningEffort(
+        (selectedAgentUsesManagedCodexProvider ? agentRuntimeReasoningEffort : selectedAgent?.reasoningEffort)
+          ?? providerDefaultEffort
+          ?? 'default',
+      );
     }
     setLauncherProviderId(
       selectedAgent?.providerId ?? selectedWorkspace.providerId ?? undefined,
@@ -679,6 +689,8 @@ export default function Launcher({
     selectedWorkspace?.enabledOfficialToolIds,
     config.defaultPermissionMode,
     config.defaultIntegratedRuntime,
+    config.defaultProviderId,
+    config.providerDefaultReasoningEfforts,
     isExternalRuntime,
     launcherRuntime,
   ]);
@@ -827,6 +839,9 @@ export default function Launcher({
     [selectedWorkspace?.agentId, t],
   );
 
+  const selectedAgentReasoningEffort = selectedAgent?.reasoningEffort;
+  const hasSelectedAgent = !!selectedAgent;
+  const providerDefaultReasoningEfforts = config.providerDefaultReasoningEfforts;
   const handleLauncherProviderChange = useCallback(
     (providerId: string | undefined, targetModel?: string) => {
       setLauncherProviderId(providerId);
@@ -837,9 +852,12 @@ export default function Launcher({
       if (model) {
         setLauncherSelectedModel(model);
       }
+      // Without a project-level effort, follow the newly chosen provider's default.
       const nextEffort = newProvider && isRuntimeBackedProvider(newProvider)
         ? reasoningEffortAfterModelChange(launcherReasoningEffort, newProvider.models?.find(item => item.model === model))
-        : launcherReasoningEffort;
+        : selectedAgentReasoningEffort
+          ?? resolveProviderDefaultReasoningEffort(providerDefaultReasoningEfforts, providerId)
+          ?? (hasSelectedAgent ? 'default' : launcherReasoningEffort);
       setLauncherReasoningEffort(nextEffort);
       if (nextEffort !== launcherReasoningEffort) toastRef.current.info(t('chat:input.reasoningModelReset'));
       if (selectedWorkspace) {
@@ -877,6 +895,9 @@ export default function Launcher({
       launcherReasoningEffort,
       t,
       isExternalRuntime,
+      selectedAgentReasoningEffort,
+      providerDefaultReasoningEfforts,
+      hasSelectedAgent,
     ],
   );
 

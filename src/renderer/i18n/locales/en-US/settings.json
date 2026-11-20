@@ -676,6 +676,16 @@
       "urlCopyFailed": "Failed to copy login URL",
       "claudeLoginSucceeded": "Claude login succeeded",
       "claudeLoginFailed": "Claude login failed: {{message}}"
+    },
+    "defaults": {
+      "title": "Custom defaults",
+      "description": "New tasks, including chat bot /new and scheduled tasks, use these defaults for model and reasoning effort when their project has no setting of its own.",
+      "defaultProvider": "Use as default provider",
+      "defaultModel": "Default model",
+      "defaultEffort": "Default reasoning effort",
+      "effortFollowProvider": "Follow provider",
+      "saved": "Defaults saved",
+      "saveFailed": "Could not save defaults"
     }
   },
   "agentSettings": {

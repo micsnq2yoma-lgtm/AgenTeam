@@ -70,7 +70,7 @@ import {
   type RuntimeType,
 } from '../../shared/types/runtime';
 import type { SessionMetadata } from '../types/session';
-import { coerceReasoningEffortSettingForRuntime } from '../../shared/reasoningEffort';
+import { coerceReasoningEffortSettingForRuntime, resolveProviderDefaultReasoningEffort } from '../../shared/reasoningEffort';
 import { ensureDirSync } from './fs-utils';
 import { withFileLock, FileBusyError } from './file-lock';
 import {
@@ -181,6 +181,8 @@ export interface AdminAppConfig {
   officialToolSettings?: OfficialToolSettings;
   // Provider
   defaultProviderId?: string;
+  /** Provider ID → reasoning effort used when neither Session nor Agent chose one. */
+  providerDefaultReasoningEfforts?: Record<string, string>;
   providerApiKeys?: Record<string, string>;
   providerVerifyStatus?: Record<string, ProviderVerifyStatus>;
   providerOrder?: string[];
@@ -1987,12 +1989,20 @@ export function resolveWorkspaceConfig(
   // hold the literal 'default' — that is a meaningful value ("session reverted
   // to default") and must win over a non-default agent value, which the ??
   // chain handles naturally.
-  const rawReasoningEffort = snapshotOwnsConfig
+  const explicitReasoningEffort = snapshotOwnsConfig
     ? sessionMeta?.reasoningEffort
     : (sessionMeta?.reasoningEffort ??
       (usesIntegratedProvider
         ? (agent?.reasoningEffort as string | undefined)
         : agentRuntimeConfig?.reasoningEffort));
+  // Neither the Session nor its Agent chose an effort (an explicit 'default'
+  // still wins): integrated providers fall back to the provider's 自定义默认设置,
+  // the same fallback the Launcher applies, so IM /new, Cron and other headless
+  // births match a desktop new task.
+  const rawReasoningEffort = explicitReasoningEffort
+    ?? (usesIntegratedProvider
+      ? resolveProviderDefaultReasoningEffort(config.providerDefaultReasoningEfforts, providerId)
+      : undefined);
   const reasoningEffort = usesIntegratedProvider
     ? rawReasoningEffort
     : coerceReasoningEffortSettingForRuntime(

@@ -1118,6 +1118,11 @@ export interface AppConfig {
   // Maps provider ID → user's preferred primary model (overrides preset primaryModel)
   providerPrimaryModels?: Record<string, string>;
 
+  // ===== Provider Default Reasoning Effort (user overrides) =====
+  // Maps provider ID → reasoning effort a new task uses when its project/Agent
+  // has no explicit effort. Absent or 'default' = follow the provider.
+  providerDefaultReasoningEfforts?: Record<string, string>;
+
   // ===== Provider Model Aliases (user overrides) =====
   // Maps provider ID → user-configured model alias overrides (merged with preset defaults)
   providerModelAliases?: Record<string, ModelAliases>;
