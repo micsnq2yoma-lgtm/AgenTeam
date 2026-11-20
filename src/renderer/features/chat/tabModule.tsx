@@ -52,6 +52,8 @@ export interface ChatRenderBinding {
       providerExecutionIdentity: RuntimeBackedProviderIdentity;
     },
     title: string,
+    /** Optional first turn sent as soon as the new Session opens. */
+    firstTurn?: Pick<InitialMessage, 'text' | 'primaryContext'>,
   ) => Promise<string | null>;
   onUpdateGenerating: (tabId: string, isGenerating: boolean) => void;
   onUpdateTitle: (tabId: string, title: string) => void;

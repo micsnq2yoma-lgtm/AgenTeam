@@ -3,9 +3,41 @@ import {
   activeAgentSnapshots,
   queryAgentSelectors,
   composeQueryReminder,
+  desktopPrimaryContextSchema,
   type AgentMentionSnapshot,
 } from "./agentMentions";
-import { parseLeadingSystemReminder, GOAL_CONTEXT_TAG } from "./systemReminder";
+import { parseLeadingSystemReminder, GOAL_CONTEXT_TAG, PROVIDER_HANDOFF_TAG } from "./systemReminder";
+
+describe("provider handoff primary context", () => {
+  const context = {
+    kind: "provider-handoff" as const,
+    input: {
+      previousSessionId: "session-old",
+      previousProviderName: "Anthropic",
+      previousModel: "claude-sonnet",
+      visibleUserMessage: "接着之前的对话继续。",
+    },
+  };
+
+  it("is admitted by the query-context schema and rejects an empty Session id", () => {
+    expect(desktopPrimaryContextSchema.safeParse(context).success).toBe(true);
+    expect(
+      desktopPrimaryContextSchema.safeParse({
+        ...context,
+        input: { ...context.input, previousSessionId: "" },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("composes the handoff envelope with the typed visible text", () => {
+    const parsed = parseLeadingSystemReminder(
+      composeQueryReminder({ visibleText: "接着之前的对话继续。", primaryContext: context }),
+    );
+    expect(parsed.kind).toBe(PROVIDER_HANDOFF_TAG);
+    expect(parsed.visibleText).toBe("接着之前的对话继续。");
+    expect(parsed.body).toContain("previousSessionId: session-old");
+  });
+});
 const selector =
   "ma-agent:1:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002:00000000-0000-0000-0000-000000000003";
 const snapshot: AgentMentionSnapshot = {

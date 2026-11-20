@@ -1020,7 +1020,11 @@
       },
       "crossProvider": {
         "message": "当前会话是在「{{currentProviderName}}」下创建的，切到「{{targetProviderName}}」后历史上下文不能可靠复用。将保留当前会话，并在新 Tab 使用目标模型。"
-      }
+      },
+      "keepContext": "保留上下文",
+      "startBlank": "新建空白会话",
+      "keepContextHint": "选择「保留上下文」，新会话会先读取当前会话的对话记录再接着工作。",
+      "handoffMessage": "接着之前的对话继续。"
     },
     "dialogs": {
       "crossRuntime": {

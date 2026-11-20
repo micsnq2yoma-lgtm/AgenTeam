@@ -2198,14 +2198,17 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
         providerExecutionIdentity: RuntimeBackedProviderIdentity;
       },
       title: string,
+      firstTurn?: Pick<InitialMessage, 'text' | 'primaryContext'>,
     ): Promise<string | null> => {
 
       const launchTab = createNewTab();
       if (!openLaunchTabNow(launchTab)) return null;
       try {
+        // A kept-context switch opens with a first turn; execution identity
+        // still comes from the birth hint (initialMessage fields would win).
         const opened = await handleLaunchProject(
           project,
-          undefined,
+          firstTurn ? { text: firstTurn.text, primaryContext: firstTurn.primaryContext } : undefined,
           { surface: 'unknown', entryIntent: 'fork' },
           sessionBirthHint,
         );

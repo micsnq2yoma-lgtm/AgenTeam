@@ -303,7 +303,8 @@
       "taskComment": "Task 评论",
       "goalMode": "目标模式",
       "sessionRequest": "跨会话请求",
-      "agentMentions": "Agent"
+      "agentMentions": "Agent",
+      "providerHandoff": "保留上下文"
     },
     "systemInfo": "系统信息",
     "expand": "展开"

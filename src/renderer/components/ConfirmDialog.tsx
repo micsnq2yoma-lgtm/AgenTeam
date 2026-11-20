@@ -25,6 +25,9 @@ interface ConfirmDialogProps {
      * Escape-to-cancel stays on, button clicks still work.
      */
     disableEnterShortcut?: boolean;
+    /** Optional middle action, styled as secondary; Enter still triggers onConfirm. */
+    secondaryText?: string;
+    onSecondary?: () => void;
     onConfirm: () => void;
     onCancel: () => void;
 }
@@ -40,6 +43,8 @@ export default function ConfirmDialog({
     danger = false,
     loading = false,
     disableEnterShortcut = false,
+    secondaryText,
+    onSecondary,
     onConfirm,
     onCancel
 }: ConfirmDialogProps) {
@@ -95,6 +100,17 @@ export default function ConfirmDialog({
                     >
                         {finalCancelText}
                     </button>
+                    {secondaryText && onSecondary && (
+                        <button
+                            type="button"
+                            onClick={onSecondary}
+                            disabled={loading}
+                            data-confirm-dialog-secondary
+                            className="rounded-full border border-[var(--line-strong)] px-4 py-1.5 text-sm font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--hover-bg)] disabled:opacity-50"
+                        >
+                            {secondaryText}
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={onConfirm}

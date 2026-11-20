@@ -1020,7 +1020,11 @@
       },
       "crossProvider": {
         "message": "This chat was created under \"{{currentProviderName}}\". After switching to \"{{targetProviderName}}\", the history context cannot be reliably reused. The current chat will stay open and the target model will open in a new tab."
-      }
+      },
+      "keepContext": "Keep context",
+      "startBlank": "Start blank",
+      "keepContextHint": "Choose \"Keep context\" and the new session reads this conversation first, then carries on.",
+      "handoffMessage": "Pick up where the previous conversation left off."
     },
     "dialogs": {
       "crossRuntime": {

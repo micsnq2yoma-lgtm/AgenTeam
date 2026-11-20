@@ -33,6 +33,7 @@ import type { ContentBlock, Message as MessageType } from '@/types/chat';
 import { SOURCE_LABELS, type MessageSource } from '../../shared/types/im';
 import {
   FLOATING_BALL_CONTEXT_TAG,
+  PROVIDER_HANDOFF_TAG,
   GOAL_CONTEXT_TAG,
   GOAL_CONTINUATION_TAG,
   SESSION_EVENT_TAG,
@@ -257,6 +258,7 @@ function systemTagLabel(kind: string, t: (key: string) => string): string | null
   if (kind === FLOATING_BALL_CONTEXT_TAG) return t('message.systemTags.floatingContext');
   if (kind === SPACE_ISSUE_CONTEXT_TAG) return t('message.systemTags.spaceIssue');
   if (kind === TASK_COMMENT_TAG) return t('message.systemTags.taskComment');
+  if (kind === PROVIDER_HANDOFF_TAG) return t('message.systemTags.providerHandoff');
   if (kind === GOAL_CONTINUATION_TAG || kind === GOAL_CONTEXT_TAG) return t('message.systemTags.goalMode');
   return null;
 }

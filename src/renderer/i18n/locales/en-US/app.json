@@ -303,7 +303,8 @@
       "taskComment": "Task comment",
       "goalMode": "Goal Mode",
       "sessionRequest": "Session request",
-      "agentMentions": "Agent"
+      "agentMentions": "Agent",
+      "providerHandoff": "Context kept"
     },
     "systemInfo": "System info",
     "expand": "Expand"

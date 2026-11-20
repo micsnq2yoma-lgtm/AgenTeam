@@ -13,6 +13,8 @@ import {
   parseLeadingSystemReminder,
   buildTaskDiscussionReminder,
   buildFloatingBallContextReminder,
+  buildProviderHandoffReminder,
+  type ProviderHandoffReminderInput,
   type TaskDiscussionReminderInput,
   type FloatingBallContextReminderInput,
   type GoalContextReminderInput,
@@ -83,6 +85,15 @@ export const desktopPrimaryContextSchema = z.discriminatedUnion("kind", [
     }),
   }),
   z.strictObject({
+    kind: z.literal("provider-handoff"),
+    input: z.strictObject({
+      previousSessionId: z.string().min(1).max(256),
+      previousProviderName: z.string().max(256).optional(),
+      previousModel: z.string().max(256).optional(),
+      visibleUserMessage: z.string(),
+    }),
+  }),
+  z.strictObject({
     kind: z.literal("floating-context"),
     input: z.strictObject({
       appName: z.string().max(4096).nullable().optional(),
@@ -94,6 +105,7 @@ export const desktopPrimaryContextSchema = z.discriminatedUnion("kind", [
 ]);
 export type DesktopPrimaryContext =
   | { kind: "task-discussion"; input: TaskDiscussionReminderInput }
+  | { kind: "provider-handoff"; input: ProviderHandoffReminderInput }
   | { kind: "floating-context"; input: FloatingBallContextReminderInput };
 export type QueryPrimaryContext =
   | {
@@ -138,6 +150,12 @@ function primaryReminder(
       primaryReminder(primary.desktopContext, visibleText),
     ).body;
     return `<system-reminder>\n${goalBody}\n${desktopBody}\n</system-reminder>\n${visibleText}`;
+  }
+  if (primary.kind === "provider-handoff") {
+    return buildProviderHandoffReminder({
+      ...primary.input,
+      visibleUserMessage: visibleText,
+    });
   }
   return primary.kind === "task-discussion"
     ? buildTaskDiscussionReminder({

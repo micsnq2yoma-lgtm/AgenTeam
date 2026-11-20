@@ -612,6 +612,8 @@ interface ChatProps {
       providerExecutionIdentity: RuntimeBackedProviderIdentity;
     },
     title: string,
+    /** Optional first turn sent as soon as the new Session opens. */
+    firstTurn?: Pick<InitialMessage, 'text' | 'primaryContext'>,
   ) => Promise<string | null>;
   /** Runtime-only request from App/floating-ball to open a file preview once. */
   pendingFilePreview?: FilePreviewIntent;
@@ -5055,6 +5057,10 @@ export default function Chat({
     model?: string;
   } | null>(null);
 
+  // Only a materialized Session with history has a transcript worth handing off.
+  const canKeepProviderContext =
+    !!sessionId && !isPendingSessionId(sessionId) && messages.length > 0;
+
   const providerSwitchDialogCopy = useMemo(() => {
     if (!pendingProviderSwitch) return null;
     const targetProvider = providers.find(
@@ -5113,7 +5119,9 @@ export default function Chat({
   // families. The new session gets an owned snapshot, and the user's latest
   // provider/model choice is still written upward to Project/Agent defaults
   // without mutating the old session snapshot.
-  const confirmProviderSwitch = useCallback(async () => {
+  // `keepContext` sends a first turn that points the new Session at this one's
+  // transcript (PROVIDER_HANDOFF); this Session stays the owner of its history.
+  const confirmProviderSwitch = useCallback(async (keepContext = false) => {
     if (guardCronConfigMutation()) {
       setPendingProviderSwitch(null);
       return;
@@ -5121,6 +5129,23 @@ export default function Chat({
     const pending = pendingProviderSwitch;
     setPendingProviderSwitch(null);
     if (!pending || !agentDir) return;
+    const previousSessionId = sessionIdRef.current;
+    const handoffText = t('shell.providerSwitch.handoffMessage');
+    const firstTurn =
+      keepContext && previousSessionId && !isPendingSessionId(previousSessionId)
+        ? {
+            text: handoffText,
+            primaryContext: {
+              kind: 'provider-handoff' as const,
+              input: {
+                previousSessionId,
+                previousProviderName: currentProvider?.name,
+                previousModel: isExternalRuntime ? (runtimeModel ?? selectedModel) : selectedModel,
+                visibleUserMessage: handoffText,
+              },
+            },
+          }
+        : undefined;
     const boundChannel = channelSurfaceRef.current;
 
     let forkTabOpened = false;
@@ -5164,6 +5189,7 @@ export default function Chat({
             origin: DESKTOP_SESSION_FORK_ORIGIN,
           },
           sessionTitle,
+          firstTurn,
         );
         if (!launchedSessionId) {
           throw new Error('App failed to open runtime-backed provider Session');
@@ -5197,7 +5223,11 @@ export default function Chat({
           ...birth.opts,
           origin: DESKTOP_SESSION_FORK_ORIGIN,
         });
-        const opened = await onForkSession(session.id, agentDir, sessionTitle);
+        const opened = firstTurn
+          ? await onForkSession(session.id, agentDir, sessionTitle, firstTurn.text, {
+              primaryContext: firstTurn.primaryContext,
+            })
+          : await onForkSession(session.id, agentDir, sessionTitle);
         if (!opened) {
           throw new Error('Fork tab failed to open');
         }
@@ -5293,6 +5323,10 @@ export default function Chat({
     refreshConfig,
     guardCronConfigMutation,
     t,
+    currentProvider?.name,
+    isExternalRuntime,
+    runtimeModel,
+    selectedModel,
   ]);
 
   // Issue #231: snapshot the current input value at the moment the user opens
@@ -7423,14 +7457,26 @@ export default function Chat({
           }
           message={
             (providerSwitchDialogCopy?.message ?? t('shell.providerSwitch.defaultMessage'))
+            + (canKeepProviderContext ? `\n\n${t('shell.providerSwitch.keepContextHint')}` : '')
             + (surfaces.channel ? `\n\n${t('shell.providerSwitch.channelTransferNotice')}` : '')
           }
+          // Keeping context is the primary (Enter) action when there is history
+          // to hand off; a blank session stays available as the secondary action.
           confirmText={
-            providerSwitchDialogCopy?.confirmText ??
-            t('shell.providerSwitch.createNewSession')
+            canKeepProviderContext
+              ? t('shell.providerSwitch.keepContext')
+              : (providerSwitchDialogCopy?.confirmText ??
+                t('shell.providerSwitch.createNewSession'))
           }
           cancelText={t('shell.common.cancel')}
-          onConfirm={confirmProviderSwitch}
+          secondaryText={
+            canKeepProviderContext
+              ? (providerSwitchDialogCopy?.confirmText ??
+                t('shell.providerSwitch.startBlank'))
+              : undefined
+          }
+          onSecondary={canKeepProviderContext ? () => void confirmProviderSwitch(false) : undefined}
+          onConfirm={() => void confirmProviderSwitch(canKeepProviderContext)}
           onCancel={() => setPendingProviderSwitch(null)}
         />
       )}
