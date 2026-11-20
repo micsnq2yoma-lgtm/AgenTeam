@@ -298,6 +298,7 @@ fn start_tab_sidecar_admitted<R: Runtime>(
         cmd.env("MYAGENTS_MANAGEMENT_PORT", mgmt_port.to_string());
     }
     crate::external_cli::inject_internal_token(&mut cmd);
+    crate::proxy_config::stamp_model_egress_policy(&mut cmd);
     // Reserve generation identity only after all fallible filesystem setup.
     // Replacement keeps its old manager entry fenced by the private lease.
     // Initial creation inserts a process-less reservation into the same

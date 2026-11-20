@@ -1,6 +1,7 @@
 import { agentMentionToken, activeAgentSnapshots, type AgentMentionSnapshot, type QueryMentionContext } from '../../../shared/agentMentions';
 import { isRuntimeBackedProvider } from '../../../shared/providerExecution';
 import { isImeComposingEvent } from '@/utils/imeKeyboard';
+import { RestrictedModelHint } from '@/components/EgressRestriction';
 import {
   AlertIcon,
   SlashCommandIcon,
@@ -2041,6 +2042,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                   data-model-list
                   className="relative max-h-[min(420px,55vh)] overflow-y-auto py-1"
                 >
+                <RestrictedModelHint />
                 {isExternalRuntime && runtimeModels ? (
                   <>
                     <div className="px-3 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)]/60">

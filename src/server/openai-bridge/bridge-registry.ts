@@ -62,6 +62,8 @@ export interface BridgeCacheAffinity {
 }
 
 export interface UpstreamBridgeConfig {
+  /** Allow only the raw, verified Anthropic Messages route for this token. */
+  restrictedAnthropic?: boolean;
   /** Provider owner for provider-scoped proxy policy. */
   providerId: string;
   baseUrl: string;

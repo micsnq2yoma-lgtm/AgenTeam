@@ -4279,6 +4279,16 @@ impl TaskStore {
         id: &str,
         expected_status: TaskStatus,
     ) -> Result<Option<Task>, String> {
+        self.record_scheduled_check_at_if_status(id, expected_status, now_ms())
+            .await
+    }
+
+    pub(crate) async fn record_scheduled_check_at_if_status(
+        &self,
+        id: &str,
+        expected_status: TaskStatus,
+        checked_at: i64,
+    ) -> Result<Option<Task>, String> {
         self.ensure_writable()?;
         let mut inner = self.inner.write().await;
         let existing = inner
@@ -4289,9 +4299,12 @@ impl TaskStore {
             return Ok(None);
         }
         let mut updated = existing;
-        let checked_at = now_ms();
-        updated.last_scheduled_at = Some(checked_at);
-        updated.updated_at = checked_at;
+        updated.last_scheduled_at = Some(
+            updated
+                .last_scheduled_at
+                .map_or(checked_at, |last| last.max(checked_at)),
+        );
+        updated.updated_at = now_ms();
         let mut next = inner.clone();
         next.insert(updated.id.clone(), updated.clone());
         Self::persist_locked(&self.jsonl_path, &next)?;

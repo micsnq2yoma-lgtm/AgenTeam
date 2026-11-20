@@ -17,6 +17,7 @@ import { createGuardedSdkQuery } from './utils/sdk-child-launch-guard';
 import { sdkSubprocessUserMessage } from './utils/sdk-subprocess-diagnostics';
 import { getLastBridgeError } from './openai-bridge';
 import { getProxyForProviderUrl } from './proxy-state';
+import { assertRestrictedProvider, modelSdkSettingSources, usesSdkModelBridge } from './egress-model-policy';
 import { SUBSCRIPTION_PROVIDER_ID } from '../shared/config-types';
 import type { Provider } from '../shared/config-types';
 import { TOKENDANCE_PROVIDER_ID } from '../shared/tokendance';
@@ -467,6 +468,11 @@ export async function verifyProviderViaSdk(
     upstreamFormat,
     credentialSource,
   };
+  try {
+    assertRestrictedProvider(providerEnv);
+  } catch (error) {
+    return { success: false, error: (error as Error).message, retryable: false };
+  }
   const verificationConversationId = randomUUID();
   const startVerificationBridge: typeof startOneShotBridge = (env, bridgeModel, description) =>
     startOneShotBridge(
@@ -512,7 +518,7 @@ export async function verifyProviderViaSdk(
 
   // Only OpenAI-protocol providers route through the bridge. Anthropic-protocol
   // providers (and subscription) hit their baseUrl directly — no token needed.
-  const bridge = apiProtocol === 'openai'
+  const bridge = usesSdkModelBridge(providerEnv)
     ? startVerificationBridge(providerEnv, model, `provider-verify:${baseUrl}`)
     : null;
   try {
@@ -532,7 +538,7 @@ export async function verifyProviderViaSdk(
       // Match chat sessions: use 'project' to read .claude/ from cwd.
       // MUST NOT use 'user' — it reads ~/.claude/settings.json which may contain
       // enabledPlugins causing 30s+ initialization and triggering our timeout.
-      settingSources: ['project'],
+      settingSources: modelSdkSettingSources(),
       // Scope bridge-error diagnostics to this provider's real upstream — but
       // ONLY when the OpenAI bridge is actually in play. Anthropic-protocol
       // providers call their baseUrl directly (no bridge), so any bridge error
@@ -546,7 +552,7 @@ export async function verifyProviderViaSdk(
       // provider's real status+body. Never flips the verdict (Node undici ≠ SDK
       // native binary on proxy semantics). OpenAI is already covered by the
       // authoritative pre-probe.
-      diagnostic: apiProtocol === 'openai'
+      diagnostic: bridge
         ? undefined
         : (signal) => probeAnthropicProviderDirect({ providerEnv, model, getProxyForProviderUrl, signal, conversationId: verificationConversationId }),
       requireTerminalResult: credentialSource?.kind === 'managed-oauth' || providerId === OPENCODE_GO_PROVIDER_ID,

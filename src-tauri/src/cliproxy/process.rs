@@ -143,6 +143,12 @@ impl Instance {
         account_generation: &str,
         component_identity: &str,
     ) -> Result<Arc<Self>> {
+        if crate::egress_restriction::restriction_enabled() {
+            return Err(Error::new(
+                "egress_restricted",
+                crate::proxy_config::UNVERIFIED_MODEL_EGRESS,
+            ));
+        }
         let port = std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
             .map_err(|_| Error::new("local_port", "无法分配组件本机端口"))?
             .local_addr()

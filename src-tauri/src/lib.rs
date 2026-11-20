@@ -13,6 +13,8 @@ pub mod cli;
 pub mod cliproxy;
 mod commands;
 pub mod config_io;
+pub mod egress_restriction;
+mod egress_shell;
 mod crash_artifact_retention;
 pub mod cron_task;
 mod cuse_skill;
@@ -295,6 +297,12 @@ pub fn run() {
     // Distribution composition is build-owned and must fail before any
     // window, Sidecar, or user state can observe an invalid policy.
     let _ = runtime_distribution_policy::policy();
+    let admitted = tauri::async_runtime::block_on(egress_restriction::verify_for_startup());
+    let restriction_access = egress_restriction::subscribe_access();
+    let boot_restriction = restriction_access.borrow().clone();
+    if !admitted {
+        return egress_shell::run_recovery(restriction_access, boot_restriction);
+    }
 
     // NOTE: cleanup_stale_sidecars() was moved into .setup() callback below.
     // This ensures it only runs for the PRIMARY app instance, not when a second
@@ -461,7 +469,10 @@ pub fn run() {
         // filesystem watchers (one debouncer per workspace, ref-counted).
         .manage(std::sync::Arc::new(workspace_files::watcher::WorkspaceWatchers::default()))
         // SearchEngine will be added as managed state in .setup()
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(egress_shell::guard_invoke(tauri::generate_handler![
+            egress_restriction::cmd_get_egress_restriction,
+            egress_restriction::cmd_set_egress_restriction,
+            egress_restriction::cmd_recheck_egress_restriction,
             main_renderer::cmd_attach_main_renderer,
             // Legacy commands (backward compatibility)
             commands::cmd_start_sidecar,
@@ -855,8 +866,9 @@ pub fn run() {
 
             // PRD 0.2.35 — global "always-on" wake-lock toggle
             wake_lock::cmd_set_force_wake_lock,
-        ])
+        ]))
         .setup(move |app| {
+            egress_shell::monitor(app.handle().clone(), restriction_access, false, boot_restriction);
             // Initialize logging before acquire_lock() and cleanup_stale_sidecars()
             // because those paths need a logger backend for log::warn!/info! calls.
             use tauri_plugin_log::{Target, TargetKind};

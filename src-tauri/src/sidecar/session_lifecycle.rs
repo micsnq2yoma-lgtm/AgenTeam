@@ -859,6 +859,9 @@ fn ensure_session_sidecar_attempt<R: Runtime>(
             expected_runtime_identity = identity;
         }
     }
+    if expected_runtime_identity.runtime != "builtin" {
+        crate::proxy_config::ensure_unverified_provider_allowed()?;
+    }
     if expected_recovery_epoch.is_some_and(|epoch| {
         !manager_guard.recovery_attempt_is_authorized(session_id, epoch, &owner)
     }) {
@@ -1415,6 +1418,7 @@ fn create_new_session_sidecar<'a, R: Runtime>(
         cmd.env("MYAGENTS_MANAGEMENT_PORT", mgmt_port.to_string());
     }
     crate::external_cli::inject_internal_token(&mut cmd);
+    crate::proxy_config::stamp_model_egress_policy(&mut cmd);
 
     // Reuse validation and process spawn consume the same identity snapshot for
     // this ensure attempt. In particular, missing Session metadata is not an

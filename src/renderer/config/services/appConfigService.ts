@@ -39,15 +39,13 @@ function isValidAppConfig(data: unknown): data is AppConfig {
     return data !== null && typeof data === 'object' && !Array.isArray(data);
 }
 
-// Rust owns this private credential envelope. It must never enter the ordinary
-// Renderer AppConfig projection, where unrelated settings consumers and React
-// dev tooling could observe it. Writes preserve the latest on-disk envelope
-// under the same config lock below.
-const PRIVATE_EXTERNAL_CLI_CONFIG_KEY = 'externalCliAccess';
+// Native commands own credentials and network admission. Unrelated Renderer
+// settings must never project or overwrite those fields from an old snapshot.
+const NATIVE_CONFIG_KEYS = ['externalCliAccess', 'egressRestriction'] as const;
 
-function omitPrivateConfigEnvelope(config: AppConfig): AppConfig {
+function omitNativeConfig(config: AppConfig): AppConfig {
     const projected = { ...config } as AppConfig & Record<string, unknown>;
-    delete projected[PRIVATE_EXTERNAL_CLI_CONFIG_KEY];
+    for (const key of NATIVE_CONFIG_KEYS) delete projected[key];
     return projected;
 }
 
@@ -144,7 +142,7 @@ export function migrateUiLanguageField(config: AppConfig): AppConfig {
 function normalizeLoadedConfig(config: AppConfig): AppConfig {
     normalizeStringifiedJsonFields(config);
     promoteAgentMcpJsonToGlobal(config);
-    return omitPrivateConfigEnvelope(normalizeDeveloperSettings(
+    return omitNativeConfig(normalizeDeveloperSettings(
         normalizeThemeConfigRecord(config as unknown as Record<string, unknown>) as unknown as AppConfig,
     ));
 }
@@ -239,7 +237,7 @@ export async function loadAppConfig(): Promise<AppConfig> {
             normalizeStringifiedJsonFields(migrated);
             promoteAgentMcpJsonToGlobal(migrated);
             const merged = normalizeDeveloperSettings({ ...dynamicDefault, ...migrated });
-            return migrateImBotConfig(merged);
+            return omitNativeConfig(migrateImBotConfig(merged));
         }
         return normalizeLoadedConfig(dynamicDefault);
     } catch (error) {
@@ -325,15 +323,12 @@ async function _writeAppConfigLocked(config: AppConfig): Promise<void> {
     const dir = await getConfigDir();
     const configPath = await join(dir, CONFIG_FILE);
     const latest = await safeLoadJson<AppConfig>(configPath, isValidAppConfig);
-    const privateEnvelope = latest
-        ? (latest as AppConfig & Record<string, unknown>)[PRIVATE_EXTERNAL_CLI_CONFIG_KEY]
-        : undefined;
-    await safeWriteJson(configPath, {
-        ...normalized,
-        ...(privateEnvelope === undefined
-            ? {}
-            : { [PRIVATE_EXTERNAL_CLI_CONFIG_KEY]: privateEnvelope }),
-    });
+    const current = latest as (AppConfig & Record<string, unknown>) | null;
+    const next: AppConfig & Record<string, unknown> = { ...normalized };
+    for (const key of NATIVE_CONFIG_KEYS) {
+        if (current && Object.hasOwn(current, key)) next[key] = current[key];
+    }
+    await safeWriteJson(configPath, next);
 }
 
 // ============= Available Providers Cache =============

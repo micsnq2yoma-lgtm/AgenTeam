@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { Popover } from '@/components/ui/Popover';
 import Tip from '@/components/Tip';
 import { RUNTIME_PRESENTATION } from '@/components/runtimePresentation';
+import { RestrictedModelHint } from '@/components/EgressRestriction';
 import RuntimeIcon from '@/components/RuntimeIcon';
 import { useCloseLayer } from '@/hooks/useCloseLayer';
 import type { RuntimeType, RuntimeDetections } from '../../shared/types/runtime';
@@ -169,6 +170,7 @@ export default memo(function RuntimeSelector({
             </button>
           )}
         </div>
+        <RestrictedModelHint />
         {availableOptions.map((opt, index) => {
           const detection = detections[opt.type];
           const installed = opt.type === 'builtin' || (detection?.installed && IMPLEMENTED_RUNTIMES.has(opt.type));

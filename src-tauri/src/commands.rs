@@ -3054,6 +3054,7 @@ pub async fn cmd_probe_provider_network(
     url: String,
     provider_id: String,
 ) -> Result<NetworkProbeResult, String> {
+    crate::proxy_config::ensure_unverified_provider_allowed()?;
     let parsed = match reqwest::Url::parse(&url) {
         Ok(parsed) if parsed.scheme() == "http" || parsed.scheme() == "https" => parsed,
         Ok(_) => {
@@ -3279,6 +3280,7 @@ pub async fn cmd_fetch_provider_models(
     auth_header_value: Option<String>,
     extra_headers: Option<HashMap<String, String>>,
 ) -> Result<serde_json::Value, String> {
+    crate::proxy_config::ensure_unverified_provider_allowed()?;
     ulog_info!(
         "[model-discovery] Fetching models from {} provider={}",
         url,

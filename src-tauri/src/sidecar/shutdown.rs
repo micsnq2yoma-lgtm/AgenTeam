@@ -129,6 +129,10 @@ impl LifecycleQuiesce {
 }
 
 pub fn begin_lifecycle_spawn_permit() -> Result<LifecycleSpawnPermit, String> {
+    if crate::egress_shell::restarting() {
+        return Err("egress_restriction_locked".into());
+    }
+    crate::egress_restriction::ensure_allowed()?;
     LIFECYCLE_QUIESCE.begin_spawn()
 }
 

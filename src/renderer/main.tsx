@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 import AppErrorBoundary from './components/AppErrorBoundary';
+import { EgressRestrictionGate } from './components/EgressRestriction';
 import { ConfigProvider } from './config/ConfigProvider';
 import { ToastProvider } from './components/Toast';
 import { ImagePreviewProvider } from './context/ImagePreviewContext';
@@ -18,6 +19,7 @@ import { installMacFunctionKeyGuard } from './utils/macFunctionKeyGuard';
 import { installTextCorrectionPolicy } from './utils/textCorrectionPolicy';
 import { dispatchNativeHistoryCommand, type NativeHistoryCommand } from './utils/nativeHistoryCommands';
 import { listenWithCleanup } from './utils/tauriListen';
+import { isBrowserDevMode } from './utils/browserMock';
 
 import { attachMainRenderer } from './utils/mainRenderer';
 import { describeRendererError as describeBootError, reportRendererBootEvent as reportBootEvent } from './utils/rendererDiagnostics';
@@ -91,6 +93,20 @@ function BootCommitMarker() {
   return null;
 }
 
+function renderWindow(content: React.ReactNode) {
+  const recoveryOnly = (window as Window & { __AGENTEAM_RECOVERY_ONLY__?: boolean }).__AGENTEAM_RECOVERY_ONLY__ === true;
+  root.render(
+    <AppErrorBoundary>
+      <BootCommitMarker />
+      {recoveryOnly || !isBrowserDevMode() ? (
+        <EgressRestrictionGate auxiliary={tauriWindowLabel?.startsWith('fb-')} recoveryOnly={recoveryOnly}>
+          {content}
+        </EgressRestrictionGate>
+      ) : content}
+    </AppErrorBoundary>
+  );
+}
+
 function bootstrapFloatingWindowLogSink(label: string): void {
   console.info(`[${label}] window boot`);
   void import('./api/tauriClient')
@@ -115,6 +131,11 @@ function bootstrapFloatingWindowLogSink(label: string): void {
     });
 }
 
+function FloatingWindowLogSink({ label }: { label: string }) {
+  React.useEffect(() => bootstrapFloatingWindowLogSink(label), [label]);
+  return null;
+}
+
 // Floating ball windows (PRD 0.2.35): the ball + companion are separate Tauri
 // WebviewWindows loading this same bundle. Route by window label — they mount
 // their own minimal trees (no App / ConfigProvider; they read config via the
@@ -124,12 +145,11 @@ function bootstrapFloatingWindowLogSink(label: string): void {
 
 if (tauriWindowLabel === 'fb-ball') {
   setRendererLogLabel('fb-ball');
-  bootstrapFloatingWindowLogSink('fb-ball');
   const BallWindow = React.lazy(() => import('./floating-ball/BallWindow'));
   document.documentElement.classList.add('fb-transparent');
-  root.render(
-    <AppErrorBoundary>
-      <BootCommitMarker />
+  renderWindow(
+    <>
+      <FloatingWindowLogSink label="fb-ball" />
       <FloatingThemeRuntime>
         <FloatingI18nBootstrap>
           <React.Suspense fallback={null}>
@@ -137,16 +157,15 @@ if (tauriWindowLabel === 'fb-ball') {
           </React.Suspense>
         </FloatingI18nBootstrap>
       </FloatingThemeRuntime>
-    </AppErrorBoundary>
+    </>
   );
 } else if (tauriWindowLabel === 'fb-companion') {
   setRendererLogLabel('fb-companion');
-  bootstrapFloatingWindowLogSink('fb-companion');
   const CompanionWindow = React.lazy(() => import('./floating-ball/CompanionWindow'));
   document.documentElement.classList.add('fb-transparent');
-  root.render(
-    <AppErrorBoundary>
-      <BootCommitMarker />
+  renderWindow(
+    <>
+      <FloatingWindowLogSink label="fb-companion" />
       <FloatingThemeRuntime>
         <FloatingI18nBootstrap>
           <ToastProvider>
@@ -158,21 +177,18 @@ if (tauriWindowLabel === 'fb-ball') {
           </ToastProvider>
         </FloatingI18nBootstrap>
       </FloatingThemeRuntime>
-    </AppErrorBoundary>
+    </>
   );
 } else if (tauriWindowLabel === 'fb-shield') {
   setRendererLogLabel('fb-shield');
   const ShieldWindow = React.lazy(() => import('./floating-ball/ShieldWindow'));
   document.documentElement.classList.add('fb-transparent');
-  root.render(
-    <AppErrorBoundary>
-      <BootCommitMarker />
-      <FloatingThemeRuntime>
-        <React.Suspense fallback={null}>
-          <ShieldWindow />
-        </React.Suspense>
-      </FloatingThemeRuntime>
-    </AppErrorBoundary>
+  renderWindow(
+    <FloatingThemeRuntime>
+      <React.Suspense fallback={null}>
+        <ShieldWindow />
+      </React.Suspense>
+    </FloatingThemeRuntime>
   );
 } else {
   const App = React.lazy(async () => {
@@ -183,21 +199,18 @@ if (tauriWindowLabel === 'fb-ball') {
   });
   // Note: React.StrictMode removed to prevent double-rendering of SSE effects in development
   // StrictMode causes useEffect to run twice, which duplicates SSE events and thinking blocks
-  root.render(
-    <AppErrorBoundary>
-      <BootCommitMarker />
-      <ConfigProvider>
-        <ConfiguredThemeRuntime>
-          <I18nLanguageSync />
-          <ToastProvider>
-            <ImagePreviewProvider>
-              <React.Suspense fallback={null}>
-                <App />
-              </React.Suspense>
-            </ImagePreviewProvider>
-          </ToastProvider>
-        </ConfiguredThemeRuntime>
-      </ConfigProvider>
-    </AppErrorBoundary>
+  renderWindow(
+    <ConfigProvider>
+      <ConfiguredThemeRuntime>
+        <I18nLanguageSync />
+        <ToastProvider>
+          <ImagePreviewProvider>
+            <React.Suspense fallback={null}>
+              <App />
+            </React.Suspense>
+          </ImagePreviewProvider>
+        </ToastProvider>
+      </ConfiguredThemeRuntime>
+    </ConfigProvider>
   );
 }

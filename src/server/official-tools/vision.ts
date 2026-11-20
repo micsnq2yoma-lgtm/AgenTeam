@@ -10,6 +10,7 @@ import {
   USER_IMAGE_ATTACHMENT_MAX_BYTES,
 } from '../../shared/fileTypes';
 import { IMAGE_UNDERSTANDING_TOOL_ID } from '../../shared/official-tools';
+import { usesSdkModelBridge } from '../egress-model-policy';
 import {
   buildClaudeSessionEnv,
   resolveClaudeCodeCli,
@@ -378,7 +379,7 @@ async function runVisionQuery(args: {
   conversationId?: string;
 }): Promise<string> {
   const requestConversationId = args.conversationId ?? randomUUID();
-  const bridge = args.providerEnv?.apiProtocol === 'openai'
+  const bridge = usesSdkModelBridge(args.providerEnv)
     ? startOneShotBridge(args.providerEnv, args.model, `official-vision:${args.providerEnv.baseUrl ?? args.providerId}`, undefined, requestConversationId)
     : null;
   const controller = new AbortController();

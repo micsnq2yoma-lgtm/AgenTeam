@@ -2224,6 +2224,9 @@ async function main() {
           if (!cfg) {
             throw new Error(`Unknown bridge token: ${token}`);
           }
+          if (cfg.restrictedAnthropic) {
+            throw new Error('This bridge token belongs to the verified Anthropic Messages route');
+          }
           // Per-request modelMapping bound to THIS token's aliases —
           // ensures concurrent bridges with different sub-agent rules
           // don't cross-pollinate (the original #124 bug class).
@@ -11371,6 +11374,12 @@ description: >
       // the token via `bridge-registry` and routes to that subprocess's own
       // upstream — no shared global state, no cross-pollination between
       // concurrent SDK invocations.
+      const nativeBridge = /^\/bridge\/([^/]+)\/anthropic\/v1\/(messages(?:\/count_tokens)?)$/.exec(pathname);
+      if (nativeBridge && request.method === 'POST') {
+        const { handleVerifiedAnthropicRoute } = await import('./openai-bridge/verified-anthropic-route');
+        const operation = nativeBridge[2] === 'messages' ? 'messages' : 'messages/count_tokens';
+        return handleVerifiedAnthropicRoute(request, nativeBridge[1], operation);
+      }
       const bridgeMessagesMatch = pathname.match(
         /^\/bridge\/([^/]+)\/v1\/messages$/,
       );

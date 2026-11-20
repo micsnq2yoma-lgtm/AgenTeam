@@ -26,6 +26,7 @@
 import { fetch as undiciFetch, ProxyAgent, type Dispatcher } from 'undici';
 import { withAbortSignal } from './utils/cancellation';
 import type { ProviderEnv } from './provider-types';
+import { requireUnrestrictedModelPath } from './egress-model-policy';
 import { TOKENDANCE_APP_URL, TOKENDANCE_PROVIDER_ID } from '../shared/tokendance';
 import { opencodeGoConversationId, opencodeGoHeaders } from './opencode-go-request';
 
@@ -332,6 +333,7 @@ export async function probeAnthropicProviderDirect(args: {
   conversationId?: string;
 }): Promise<ProbeOutcome> {
   const { providerEnv, model, getProxyForProviderUrl, signal, conversationId } = args;
+  requireUnrestrictedModelPath();
   const baseUrl = providerEnv.baseUrl;
   if (!baseUrl) return { connectError: 'no baseUrl' };
   if (!providerEnv.providerId) return { connectError: 'missing providerId' };

@@ -31,6 +31,17 @@ MyAgents 的代理不是一个 process-global 开关，而是按网络请求 own
 
 代理范围弹窗在打开时固定本次编辑的配置目录，而不是使用 CLIProxy 卡片的实时展示过滤；后台目录变化在下次打开时体现，避免编辑期间选项消失或准入集合变化。初始化保留不可见 ID，全选/取消全选只编辑当前展示项；保存通过 `patchProxySettings(partial, editableScopeProviderIds)` 在配置锁内保留不可编辑项的最新磁盘选择，包括从 `all` 转为 `custom` 时仍存在的隐藏内置 Provider。自定义范围即使勾选了当前所有项目仍为 `custom`；只有显式“全部”设置 `all`，原有 `all` 无修改保存仍保留。已经被旧版本删除的选择无法推断还原，需要用户重新勾选。
 
+## 出口 IP 限制模式
+
+「设置 → 网络代理 → 限制模式」由 Rust 单独保存到 `config.json.egressRestriction`。允许的 IP 填写远端看到的公网出口地址。普通代理开关和供应商范围继续决定各自的网络路径。
+
+- 桌面启动前核验电脑出口。Windows 使用当前用户的系统网络设置，按填写地址的协议族访问 ipify 的 IPv4 或 IPv6 端点。运行中每 15 秒复核，匹配结果最多有效 25 秒。未知、过期或不匹配都会阻止业务。锁定时只启动本地恢复窗口，允许修改地址、重新检测或关闭限制。
+- 切换策略或电脑出口失效时，客户端会停止使用先前网络的模型进程，暂停活动中的 Goal，并记录被打断的 Task。恢复后不会自动重跑这一次任务；周期任务保留后续计划。
+- 电脑通过后，内置 Claude Agent SDK 可通过本地 Bridge 使用 OpenAI 或 Anthropic 官方 API Key。每次实际模型请求先通过该供应商的选定路径向同一域名的 `/cdn-cgi/trace` 发送不含密钥或提示词的检查。供应商边缘返回的域名和出口 IP 必须匹配，且 Rust 仍须确认电脑出口。模型 POST 复用这条经过证书校验的 TLS 连接。中途换连接、重定向、检查不可用、目标不受支持均拒绝。重试重新核验。Anthropic 的消息和 token 计数使用原生 Messages 协议。
+- Claude 订阅、外部 CLI、Integrated DSH 和第三方模型中转目前均无法提供上述证明，限制模式会拒绝它们的模型调用。保护范围是客户端接管的模型请求。用户终端、第三方工具自行建立的连接以及系统 DNS 不在模型出口校验范围内。
+
+实现入口为 `src-tauri/src/egress_restriction.rs`、`src-tauri/src/egress_shell.rs`、`src/server/egress-model-policy.ts` 和 `src/server/openai-bridge/verified-egress.ts`。
+
 ## Owner 模型
 
 ```text

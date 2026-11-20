@@ -26,6 +26,9 @@ pub struct TaskSchedulerController {
     executions: ActiveExecutions,
     app_handle: Arc<RwLock<Option<AppHandle>>>,
     shutting_down: Arc<AtomicBool>,
+    // A stopped worker no longer owns an execution row. Retain its exact queue
+    // while a failed durable interruption is retried before restricted restart.
+    interrupted_by_egress: tokio::sync::Mutex<HashMap<String, (String, Option<i64>)>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -37,6 +40,7 @@ pub struct TaskTriggerCheckNowResult {
 
 #[derive(Debug)]
 struct ActiveTaskExecution {
+    scheduled_at: Option<i64>,
     notification_policy: Option<crate::task::NotificationConfig>,
     queue_id: String,
     canceled: bool,
@@ -269,6 +273,7 @@ impl TaskSchedulerController {
             executions: Arc::new(RwLock::new(HashMap::new())),
             app_handle: Arc::new(RwLock::new(None)),
             shutting_down: Arc::new(AtomicBool::new(false)),
+            interrupted_by_egress: tokio::sync::Mutex::new(HashMap::new()),
         }
     }
 
@@ -534,6 +539,61 @@ impl TaskSchedulerController {
                 );
             }
         }
+        self.abort_timers().await;
+    }
+
+    /// Capture every interrupted identity before one slow stop can delay its
+    /// peers. The process owner can now force-close Sidecars without losing
+    /// the Task queues and timer firings that still need durable settlement.
+    pub async fn capture_egress_interruptions(&self) {
+        let mut interrupted = self.interrupted_by_egress.lock().await;
+        let mut executions = self.executions.write().await;
+        self.shutting_down.store(true, Ordering::SeqCst);
+        for (id, claim) in executions.iter_mut() {
+            interrupted
+                .entry(id.clone())
+                .or_insert_with(|| (claim.queue_id.clone(), claim.scheduled_at));
+            claim.canceled = true;
+            claim.state = TaskExecutionState::Stopping;
+            if let Some(detector) = claim.detector.as_ref() {
+                detector.cancellation.cancel();
+            }
+        }
+    }
+
+    pub async fn shutdown_for_egress_restriction(&self) -> Result<(), String> {
+        self.capture_egress_interruptions().await;
+        let mut interrupted = self.interrupted_by_egress.lock().await;
+        let ids: Vec<_> = interrupted.keys().cloned().collect();
+        let mut failures = Vec::new();
+        for id in ids {
+            let control = acquire_task_control(&id).await;
+            let Some((queue_id, scheduled_at)) = interrupted.get(&id) else {
+                continue;
+            };
+            if let Err(error) = self.stop_with_control_held(&id, &control).await {
+                failures.push(error);
+                continue;
+            }
+            if let Some(store) = crate::task::get_task_store() {
+                if let Err(error) =
+                    settle_interrupted_firing(store, &id, queue_id, *scheduled_at, &control).await
+                {
+                    failures.push(error);
+                    continue;
+                }
+            }
+            interrupted.remove(&id);
+        }
+        self.abort_timers().await;
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(failures.join("; "))
+        }
+    }
+
+    async fn abort_timers(&self) {
         let mut handles = self.handles.write().await;
         for (_, handle) in handles.drain() {
             handle.abort();
@@ -690,7 +750,7 @@ impl TaskSchedulerController {
         }
         crate::memory_evolution::reconcile_prompt_before_start(store, &task, &control).await?;
         let queue_id =
-            claim_execution_if_open(&self.executions, &self.shutting_down, task_id).await?;
+            claim_execution_if_open(&self.executions, &self.shutting_down, task_id, None).await?;
         let reserved_session = match reserve_claimed_execution_session(
             &self.executions,
             store,
@@ -804,7 +864,7 @@ impl TaskSchedulerController {
         }
         let schedule_wakeup = self.wakeups.read().await.get(task_id).cloned();
         let (queue_id, detector) =
-            claim_detector_invocation(&self.executions, &self.shutting_down, task_id).await?;
+            claim_detector_invocation(&self.executions, &self.shutting_down, task_id, None).await?;
 
         let task_id_owned = task_id.to_string();
         let queue_id_owned = queue_id.clone();
@@ -930,7 +990,7 @@ impl TaskSchedulerController {
             checkpoint_updated_at,
         };
         let (queue_id, detector) =
-            match claim_detector_invocation(&self.executions, &self.shutting_down, task_id).await {
+            match claim_detector_invocation(&self.executions, &self.shutting_down, task_id, None).await {
                 Ok(value) => value,
                 Err(error) => {
                     return Err(crate::task_trigger::DetectorRunFailure::from_message(
@@ -1022,7 +1082,7 @@ impl TaskSchedulerController {
         let owner_id =
             owner_task_id.unwrap_or_else(|| format!("detector-spec-test:{}", uuid::Uuid::new_v4()));
         let (queue_id, detector) =
-            match claim_detector_invocation(&self.executions, &self.shutting_down, &owner_id).await
+            match claim_detector_invocation(&self.executions, &self.shutting_down, &owner_id, None).await
             {
                 Ok(claim) => claim,
                 Err(error) => {
@@ -1254,6 +1314,7 @@ async fn claim_execution(executions: &ActiveExecutions, task_id: &str) -> Result
     active.insert(
         task_id.to_string(),
         ActiveTaskExecution {
+            scheduled_at: None,
             notification_policy: None,
             queue_id: queue_id.clone(),
             canceled: false,
@@ -1271,6 +1332,7 @@ async fn claim_execution_if_open(
     executions: &ActiveExecutions,
     shutting_down: &AtomicBool,
     task_id: &str,
+    scheduled_at: Option<i64>,
 ) -> Result<String, String> {
     let mut active = executions.write().await;
     if shutting_down.load(Ordering::SeqCst) {
@@ -1283,6 +1345,7 @@ async fn claim_execution_if_open(
     active.insert(
         task_id.to_string(),
         ActiveTaskExecution {
+            scheduled_at,
             notification_policy: None,
             queue_id: queue_id.clone(),
             canceled: false,
@@ -1300,6 +1363,7 @@ async fn claim_detector_invocation(
     executions: &ActiveExecutions,
     shutting_down: &AtomicBool,
     task_id: &str,
+    scheduled_at: Option<i64>,
 ) -> Result<(String, DetectorExecutionLifecycle), String> {
     let mut active = executions.write().await;
     if shutting_down.load(Ordering::SeqCst) {
@@ -1313,6 +1377,7 @@ async fn claim_detector_invocation(
     active.insert(
         task_id.to_string(),
         ActiveTaskExecution {
+            scheduled_at,
             notification_policy: None,
             queue_id: queue_id.clone(),
             canceled: false,
@@ -1331,6 +1396,7 @@ async fn claim_pending_activation(
     shutting_down: &AtomicBool,
     task_id: &str,
     persisted_queue_id: Option<&str>,
+    scheduled_at: Option<i64>,
 ) -> Result<PendingActivationClaim, String> {
     let mut active = executions.write().await;
     if shutting_down.load(Ordering::SeqCst) {
@@ -1350,6 +1416,7 @@ async fn claim_pending_activation(
     active.insert(
         task_id.to_string(),
         ActiveTaskExecution {
+            scheduled_at,
             notification_policy: None,
             queue_id: queue_id.clone(),
             canceled: false,
@@ -2142,7 +2209,7 @@ async fn run_one(
 
     if task.effective_trigger().is_command() {
         let (queue_id, detector) =
-            match claim_detector_invocation(executions, shutting_down, task_id).await {
+            match claim_detector_invocation(executions, shutting_down, task_id, Some(scheduled_at)).await {
                 Ok(claim) => claim,
                 Err(_) => {
                     ulog_warn!("[task-scheduler] detector overlap skipped task={}", task_id);
@@ -2190,7 +2257,7 @@ async fn run_one(
             .map_err(|error| format!("Detector worker failed: {error}"))?;
     }
 
-    let queue_id = match claim_execution_if_open(executions, shutting_down, task_id).await {
+    let queue_id = match claim_execution_if_open(executions, shutting_down, task_id, Some(scheduled_at)).await {
         Ok(queue_id) => queue_id,
         Err(_) => {
             ulog_warn!("[task-scheduler] overlap skipped task={}", task_id);
@@ -2609,6 +2676,7 @@ async fn dispatch_pending_activation(
         shutting_down,
         &task.id,
         current_pending.queue_id.as_deref(),
+        (execution_trigger == TaskExecutionTrigger::Scheduled).then_some(current_pending.detected_at),
     )
     .await?
     {
@@ -3060,6 +3128,48 @@ async fn block_task_with_control_held(
         .map(|_| ())
 }
 
+async fn settle_interrupted_firing(
+    store: &crate::task::TaskStore,
+    id: &str,
+    queue_id: &str,
+    scheduled_at: Option<i64>,
+    control: &TaskControlGuard,
+) -> Result<(), String> {
+    let Some(task) = store.get(id).await else {
+        return Ok(());
+    };
+    if task.effective_trigger().is_command() {
+        if let Some(event) = store
+            .read_trigger_state(id)
+            .await?
+            .pending_activation
+            .filter(|pending| pending.queue_id.as_deref() == Some(queue_id))
+        {
+            store.settle_pending_activation(id, &event.event.id).await?;
+        }
+    }
+    if let Some(at) = scheduled_at.filter(|_| task.status == TaskStatus::Running) {
+        match task.execution_mode {
+            TaskExecutionMode::Recurring => {
+                store
+                    .record_scheduled_check_at_if_status(id, TaskStatus::Running, at)
+                    .await?;
+            }
+            TaskExecutionMode::Scheduled | TaskExecutionMode::Once => {
+                block_task_with_control_held(
+                    store,
+                    &task,
+                    "网络限制中断了本次执行，可手动重新运行".to_string(),
+                    control,
+                )
+                .await?;
+            }
+            TaskExecutionMode::Loop => {}
+        }
+    }
+    Ok(())
+}
+
 fn end_condition_reached(task: &Task) -> bool {
     let Some(conditions) = task.end_conditions.as_ref() else {
         return false;
@@ -3372,6 +3482,45 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn egress_shutdown_consumes_only_the_interrupted_timer_firing() {
+        for (mode, scheduled_at, expected) in [
+            (TaskExecutionMode::Scheduled, Some(50), TaskStatus::Blocked),
+            (TaskExecutionMode::Scheduled, None, TaskStatus::Running),
+            (TaskExecutionMode::Recurring, Some(50), TaskStatus::Running),
+            (TaskExecutionMode::Recurring, None, TaskStatus::Running),
+        ] {
+            let mut task = matrix_task(mode);
+            task.last_scheduled_at = Some(10);
+            let (dir, store) = store_with_task(&task);
+            let control = acquire_task_control(&task.id).await;
+            settle_interrupted_firing(&store, &task.id, "interrupted", scheduled_at, &control)
+                .await
+                .unwrap();
+            let reopened = crate::task::TaskStore::new(dir.path().join("data"));
+            let persisted = reopened.get(&task.id).await.unwrap();
+            assert_eq!(persisted.status, expected);
+            assert_eq!(persisted.execution_count, 0);
+            let anchor = if mode == TaskExecutionMode::Recurring {
+                scheduled_at.unwrap_or(10)
+            } else {
+                10
+            };
+            assert_eq!(persisted.last_scheduled_at, Some(anchor));
+        }
+    }
+
+    #[tokio::test]
+    async fn egress_capture_retains_exact_queue_after_sidecar_teardown() {
+        let scheduler = TaskSchedulerController::new();
+        let queue = claim_execution_if_open(&scheduler.executions, &scheduler.shutting_down, "scheduled", Some(123)).await.unwrap();
+        scheduler.capture_egress_interruptions().await;
+        release_execution(&scheduler.executions, "scheduled", &queue).await;
+        scheduler.capture_egress_interruptions().await;
+        assert_eq!(scheduler.interrupted_by_egress.lock().await.get("scheduled"), Some(&(queue, Some(123))));
+        assert!(claim_execution_if_open(&scheduler.executions, &scheduler.shutting_down, "fresh", None).await.is_err());
+    }
+
+    #[tokio::test]
     async fn admitted_single_session_continues_and_accepts_comments_without_product_publication() {
         let mut task = matrix_task(TaskExecutionMode::Recurring);
         task.id = format!("unpublished-task-{}", uuid::Uuid::new_v4());
@@ -3581,14 +3730,16 @@ mod tests {
         assert!(claim_execution_if_open(
             &controller.executions,
             &controller.shutting_down,
-            "run-now"
+            "run-now",
+            None
         )
         .await
         .is_err());
         assert!(claim_detector_invocation(
             &controller.executions,
             &controller.shutting_down,
-            "detector"
+            "detector",
+            None
         )
         .await
         .is_err());
@@ -3596,6 +3747,7 @@ mod tests {
             &controller.executions,
             &controller.shutting_down,
             "pending",
+            None,
             None
         )
         .await
@@ -3623,7 +3775,7 @@ mod tests {
         let task_id = "draft-detector-owner";
         let control = try_acquire_task_control(task_id).await.unwrap();
         let (queue_id, detector) =
-            claim_detector_invocation(&controller.executions, &controller.shutting_down, task_id)
+            claim_detector_invocation(&controller.executions, &controller.shutting_down, task_id, None)
                 .await
                 .unwrap();
         let worker = tauri::async_runtime::spawn(run_test_detector_claimed(
@@ -3718,7 +3870,7 @@ mod tests {
         let shutting_down = Arc::new(AtomicBool::new(false));
         let owner_id = "detector-request-abort".to_string();
         let (queue_id, detector) =
-            claim_detector_invocation(&executions, &shutting_down, &owner_id)
+            claim_detector_invocation(&executions, &shutting_down, &owner_id, None)
                 .await
                 .unwrap();
         let dir = tempfile::tempdir().unwrap();
@@ -3807,7 +3959,7 @@ mod tests {
 
         let quiet = r#"{"protocolVersion":1,"control":{"decision":"quiet","reason":{"code":"request_recovered","message":"recovered"}}}"#;
         let (next_queue_id, next_detector) =
-            claim_detector_invocation(&executions, &shutting_down, "detector-request-abort")
+            claim_detector_invocation(&executions, &shutting_down, "detector-request-abort", None)
                 .await
                 .expect("a later test must be admitted after exact cleanup");
         let next_result = run_test_detector_claimed(
@@ -3855,6 +4007,7 @@ mod tests {
             &shutting_down,
             "task-detached-check",
             Some("queue-check-now"),
+            None,
         )
         .await
         .unwrap()
@@ -3869,6 +4022,7 @@ mod tests {
                 &shutting_down,
                 "task-detached-check",
                 Some("queue-check-now"),
+                None,
             )
             .await
             .unwrap(),
@@ -4260,6 +4414,7 @@ mod tests {
         executions.write().await.insert(
             "task-1".to_string(),
             ActiveTaskExecution {
+                scheduled_at: None,
                 notification_policy: None,
                 queue_id: "queue-1".to_string(),
                 canceled: false,
@@ -4622,7 +4777,7 @@ mod tests {
         let executions: ActiveExecutions = Arc::new(RwLock::new(HashMap::new()));
         let shutting_down = Arc::new(AtomicBool::new(false));
         let app_handle: Arc<RwLock<Option<AppHandle>>> = Arc::new(RwLock::new(None));
-        let (queue_id, detector) = claim_detector_invocation(&executions, &shutting_down, &task.id)
+        let (queue_id, detector) = claim_detector_invocation(&executions, &shutting_down, &task.id, None)
             .await
             .unwrap();
 
@@ -5171,6 +5326,7 @@ mod tests {
     async fn parent_notification_policy_requires_the_exact_live_execution() {
         let scheduler = TaskSchedulerController::new();
         scheduler.executions.write().await.insert("parent".into(), ActiveTaskExecution {
+            scheduled_at: None,
             notification_policy: Some(crate::task::NotificationConfig { desktop: false, im: Some(crate::task::notification::NotificationTarget::Off), events: Some(vec![]), ..Default::default() }),
             queue_id: "q1".into(), canceled: false, session_id: Some("B".into()), pending_session_birth: None,
             state: TaskExecutionState::Running, error: None, detector: None,

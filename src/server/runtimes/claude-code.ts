@@ -13,6 +13,7 @@ import type { RuntimeDetection, RuntimeModelInfo, RuntimePermissionMode, Runtime
 import { CC_PERMISSION_MODES } from '../../shared/types/runtime';
 import { isSdkEffortLevel } from '../../shared/reasoningEffort';
 import type { AgentRuntime, RuntimeConfigCapabilities, RuntimeProcess, SessionStartOptions, UnifiedEvent, UnifiedEventCallback, ResolvedImagePayload } from './types';
+import { requireUnrestrictedModelPath } from '../egress-model-policy';
 import { augmentedProcessEnv, resolveCommand, stripAnsi } from './env-utils';
 import { ensureDirSync } from '../utils/fs-utils';
 import { ensureShellPath } from '../utils/shell';
@@ -325,6 +326,7 @@ export class ClaudeCodeRuntime implements AgentRuntime {
     options: SessionStartOptions,
     onEvent: UnifiedEventCallback,
   ): Promise<RuntimeProcess> {
+    requireUnrestrictedModelPath();
     // Clear stale state from previous sessions (singleton instance, maps persist)
     this.nativeMessageIds.clear();
     this.blockIndexToToolUseId.clear();

@@ -81,6 +81,13 @@ fn get_sidecar_state() -> Option<&'static crate::sidecar::ManagedSidecarManager>
 
 async fn require_internal_cli_request(request: Request, next: Next) -> Response {
     if crate::external_cli::internal_request_is_valid(request.headers()) {
+        if crate::egress_shell::restarting() || !crate::egress_restriction::is_allowed() {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"ok": false, "code": "egress_restricted", "error": "egress_restriction_locked"})),
+            )
+                .into_response();
+        }
         return next.run(request).await;
     }
     (
@@ -92,6 +99,15 @@ async fn require_internal_cli_request(request: Request, next: Next) -> Response 
         })),
     )
         .into_response()
+}
+
+// A bridge about to release a model request must check the current native
+// verdict. A successful check in an earlier generation may already be stale.
+async fn model_egress_admission() -> Json<serde_json::Value> {
+    match crate::egress_restriction::required_exit_ip() {
+        Ok(Some(expected_ip)) => Json(serde_json::json!({"ok": true, "expectedIp": expected_ip})),
+        _ => Json(serde_json::json!({"ok": false, "code": "egress_restricted"})),
+    }
 }
 
 fn request_sidecar_generation(headers: &HeaderMap) -> Result<u64, Json<serde_json::Value>> {
@@ -126,6 +142,7 @@ pub async fn start_management_api() -> Result<u16, String> {
         .map_err(|_| "Management API already started".to_string())?;
 
     let app = Router::new()
+        .route("/api/model-egress/admission", get(model_egress_admission))
         .route("/api/app/config-changed", post(app_config_changed_handler))
         .route("/api/external-cli/admit", post(external_cli_admit_handler))
         .route("/api/session/text-page", post(session_text_page_handler))

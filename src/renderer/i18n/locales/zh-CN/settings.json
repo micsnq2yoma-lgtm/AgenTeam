@@ -161,7 +161,29 @@
     "scopeDialogSave": "保存",
     "scopeDialogSubscription": "订阅",
     "scopeDialogApi": "API",
-    "scopeDialogManaged": "Managed"
+    "scopeDialogManaged": "Managed",
+    "restriction": {
+      "title": "限制模式",
+      "description": "电脑的公网出口 IP 与指定地址一致时才可使用 AgenTeam。每次模型请求也会单独核验出口。",
+      "modelHint": "限制模式仅支持内置 Claude Agent SDK，通过 API 密钥连接 OpenAI 或 Anthropic 官方 API。",
+      "desktopOnly": "请在桌面客户端中设置允许使用 AgenTeam 的公网出口 IP。",
+      "target": "允许的公网出口 IP",
+      "placeholder": "输入 IPv4 或 IPv6 地址",
+      "enable": "启用限制",
+      "save": "保存并检测",
+      "restartHint": "更改限制设置会重启 AgenTeam，可能中断正在运行的任务。",
+      "retry": "重新检测",
+      "checking": "正在核验电脑的出口 IP…",
+      "loading": "正在读取网络限制设置…",
+      "matched": "电脑的公网出口 {{ip}} 已通过核验。",
+      "mismatch": "当前公网出口为 {{ip}}，需要使用 {{expected}}。切换到对应网络后可重新检测。",
+      "unavailable": "无法核验电脑的公网出口。请检查网络后重新检测。",
+      "locked": "AgenTeam 已锁定",
+      "reopening": "正在重新打开 AgenTeam…",
+      "invalidIp": "请输入单个公网 IPv4 或 IPv6 地址。",
+      "readError": "无法读取限制模式状态，请重试。",
+      "saveError": "操作未完成，请重试。"
+    }
   },
   "shortcuts": {
     "title": "快捷按键",

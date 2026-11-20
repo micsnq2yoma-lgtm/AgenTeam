@@ -1945,6 +1945,7 @@ fn login_output_indicates_cancelled(output: &str) -> bool {
 }
 
 fn managed_codex_command(args: &[&str]) -> Result<std::process::Command, String> {
+    crate::proxy_config::ensure_unverified_provider_allowed()?;
     let platform = platform_key().ok_or_else(|| {
         format!(
             "Managed Codex does not support {}-{}",

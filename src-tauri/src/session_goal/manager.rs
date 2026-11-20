@@ -313,6 +313,38 @@ impl SessionGoalManager {
         Ok(updated)
     }
 
+    /// Persist the pause before process exit. Normal startup automatically
+    /// resumes Active goals, including the interval between two native turns.
+    pub async fn pause_active_for_egress_shutdown(&self) -> Result<(), String> {
+        let mut state = self.state.write().await;
+        let current = state.ready_mut().map_err(|error| error.to_string())?;
+        let mut next = current.clone();
+        let mut paused = Vec::new();
+        let now = Utc::now();
+        for goal in next
+            .values_mut()
+            .filter(|goal| goal.status == GoalStatus::Active)
+        {
+            goal.status = GoalStatus::Paused;
+            goal.updated_at = now;
+            goal.bump_control_revision();
+            goal.bump_revision();
+            paused.push(goal.id.clone());
+        }
+        if paused.is_empty() {
+            return Ok(());
+        }
+        store::persist(&self.storage_path, &next)
+            .await
+            .map_err(|error| error.to_string())?;
+        *current = next;
+        drop(state);
+        for id in paused {
+            self.cancel_continuation(&id).await;
+        }
+        Ok(())
+    }
+
     pub async fn pause_goal_and_stop(
         &self,
         goal_id: &str,
@@ -2259,6 +2291,24 @@ mod tests {
             .unwrap();
         let paused = manager.pause_goal(&goal.id).await.unwrap();
         assert!(paused.control_revision > goal.control_revision);
+    }
+
+    #[tokio::test]
+    async fn egress_shutdown_prevents_active_goal_continuation_after_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("goals.json");
+        let manager = SessionGoalManager::with_storage_path(path.clone());
+        let active = manager.create_goal(config("active", "work")).await.unwrap();
+        let waiting = manager
+            .create_goal_waiting_for_turn(config("waiting", "work"))
+            .await
+            .unwrap();
+        manager.pause_active_for_egress_shutdown().await.unwrap();
+        let restored = SessionGoalManager::with_storage_path(path);
+        let paused = restored.get(&active.id).await.unwrap().unwrap();
+        assert_eq!(paused.status, GoalStatus::Paused);
+        assert!(paused.control_revision > active.control_revision);
+        assert_eq!(restored.get(&waiting.id).await.unwrap().unwrap(), waiting);
     }
 
     #[tokio::test]

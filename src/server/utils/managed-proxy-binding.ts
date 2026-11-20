@@ -3,6 +3,7 @@ import type { ManagedProxyBinding } from '../../shared/cliproxy';
 import { cliproxySdkSystemPrompt } from '../../shared/cliproxy';
 import { completeModelAliases } from '../../shared/config-types';
 import type { ProviderEnv } from '../provider-types';
+import { assertRestrictedProvider } from '../egress-model-policy';
 import { managementApi } from './management-api-client';
 
 export class ManagedProxyError extends Error {
@@ -83,6 +84,7 @@ export async function prepareProviderBinding(args: {
   onDrain?: () => void;
 }): Promise<PreparedProvider> {
   const { providerEnv, controller } = args;
+  assertRestrictedProvider(providerEnv);
   if (!providerEnv?.endpointSource) {
     return { providerEnv, beforeTurn: async () => {}, reportTerminal: async () => {}, release: async () => {} };
   }

@@ -61,6 +61,7 @@ import { planRetraction } from './utils/message-retraction';
 import type { TransientProviderTextRetryDecision } from './session-core/turn-result-policy';
 import { diagnoseSdkSubprocessFailure } from './utils/sdk-subprocess-diagnostics';
 import { createGuardedSdkQuery } from './utils/sdk-child-launch-guard';
+import { assertRestrictedProvider, modelSdkSettingSources, sealRestrictedSdkRoute, UNVERIFIED_MODEL_EGRESS, usesSdkModelBridge } from './egress-model-policy';
 import { assertManagedProviderPrepared, getPreparedModelPolicy, ManagedProxyError, prepareProviderBinding, type PreparedProvider } from './utils/managed-proxy-binding';
 import { InactivityWatchdog } from './utils/inactivity-watchdog';
 import {
@@ -1682,6 +1683,7 @@ async function resolveActiveSessionUpstreamConfig(request?: Request): Promise<Up
   const activeProviderEnv = configState.currentProviderEnv
     ? canonicalizeManagedProviderEnv(configState.currentProviderEnv)
     : undefined;
+  const restricted = assertRestrictedProvider(activeProviderEnv);
   const aliases = resolveSessionModelAliases(activeProviderEnv?.modelAliases, configState.currentModel);
   const credentialSource = activeProviderEnv?.credentialSource;
   const managedCredential = credentialSource
@@ -1693,6 +1695,7 @@ async function resolveActiveSessionUpstreamConfig(request?: Request): Promise<Up
     : undefined;
   return {
     providerId: activeProviderEnv?.providerId ?? SUBSCRIPTION_PROVIDER_ID,
+    ...(restricted && activeProviderEnv?.apiProtocol !== 'openai' ? { restrictedAnthropic: true } : {}),
     baseUrl: activeProviderEnv?.baseUrl ?? '',
     apiKey: managedCredential?.accessToken ?? activeProviderEnv?.apiKey ?? '',
     credentialVersion: managedCredential?.credentialVersion,
@@ -1757,7 +1760,7 @@ async function resolveActiveSessionUpstreamConfig(request?: Request): Promise<Up
  * subprocess that will see a (possibly different) URL.
  */
 function ensureActiveSessionBridgeRegistered(opts?: { freshToken?: boolean }): void {
-  if (configState.currentProviderEnv?.apiProtocol !== 'openai') {
+  if (!usesSdkModelBridge(configState.currentProviderEnv)) {
     // Provider is not OpenAI-protocol — no bridge needed. If a stale token
     // is registered (e.g., from a previous OpenAI provider before a switch),
     // tear it down here so subsequent SDK launches don't route through it.
@@ -1820,8 +1823,8 @@ export function startOneShotBridge(
   managedPurpose: ManagedOAuthPurpose = { purpose: 'execution' },
   conversationId?: string,
 ): { token: string; release: () => void } {
-  if (providerEnv.apiProtocol !== 'openai') {
-    throw new Error('startOneShotBridge called with non-OpenAI provider — caller should not need a bridge');
+  if (!usesSdkModelBridge(providerEnv)) {
+    throw new Error('This provider does not use the local model bridge');
   }
   providerEnv = canonicalizeManagedProviderEnv(providerEnv);
   const token = randomUUID();
@@ -1839,9 +1842,13 @@ export function startOneShotBridge(
   };
   // Static routing snapshot; managed bearer resolution remains request-scoped.
   registerBridgeInRegistry(token, async (request) => {
+    const restricted = assertRestrictedProvider(providerEnv);
     const credentialSource = providerEnv.credentialSource;
     if (!credentialSource) {
-      return { ...snapshot, apiKey: providerEnv.apiKey ?? '' };
+      return {
+        ...snapshot, apiKey: providerEnv.apiKey ?? '',
+        ...(restricted && providerEnv.apiProtocol !== 'openai' ? { restrictedAnthropic: true } : {}),
+      };
     }
     const credential = await resolveManagedOAuthCredential(
       credentialSource.providerId,
@@ -4053,28 +4060,6 @@ function checkMcpToolPermission(toolName: string, server?: McpServerProvenance):
 }
 
 /**
- * Build SDK settingSources
- *
- * settingSources controls where SDK reads settings from:
- * - 'user': reads from CLAUDE_CONFIG_DIR (default ~/.claude/)
- * - 'project': <cwd>/.claude/ (project-level config)
- *
- * We use 'project' only:
- * - Enabled MyAgents global Skills are projected into <cwd>/.claude/skills/ at Query birth
- * - Avoids setting CLAUDE_CONFIG_DIR which would break Keychain credential lookup
- * - Project-level: SDK reads project's .claude/skills/, .claude/commands/, CLAUDE.md
- *
- * We exclude 'user' because:
- * - 'user' reads from ~/.claude/ (Claude CLI's directory, not ours)
- * - Our product uses ~/.agenteam/ for user-level config
- * - Setting CLAUDE_CONFIG_DIR to redirect would break Anthropic subscription OAuth
- *   (SDK derives Keychain service names from CLAUDE_CONFIG_DIR path hash)
- */
-function buildSettingSources(): ('user' | 'project')[] {
-  return ['project'];
-}
-
-/**
  * Convert McpServerDefinition to SDK mcpServers format.
  *
  * Three MCP injection patterns:
@@ -6224,6 +6209,10 @@ export function buildClaudeSessionEnv(
   // "host owns auth", which blocks fallback to the local Claude Code
   // subscription store. Anthropic-sub must leave this unset so CC owns OAuth.
   const effectiveProviderEnv = providerEnv ?? configState.currentProviderEnv;
+  const restrictedModel = assertRestrictedProvider(effectiveProviderEnv);
+  if (restrictedModel && (!opts?.bridgeToken || getSidecarPort() <= 0)) {
+    throw new Error(UNVERIFIED_MODEL_EGRESS);
+  }
   assertManagedProviderPrepared(effectiveProviderEnv);
   const boundModelPolicy = getPreparedModelPolicy(effectiveProviderEnv);
   if (boundModelPolicy && modelOverride && modelOverride !== boundModelPolicy.id) {
@@ -6447,7 +6436,7 @@ export function buildClaudeSessionEnv(
   // unique token in `bridge-registry`; the URL path lets the route
   // handler look up that subprocess's specific upstream without any
   // shared global state. No more `currentOpenAiBridgeConfig` mutation.
-  if (effectiveProviderEnv?.apiProtocol === 'openai' && sidecarPort > 0) {
+  if (effectiveProviderEnv && (restrictedModel || effectiveProviderEnv.apiProtocol === 'openai') && sidecarPort > 0) {
     const bridgeToken = opts?.bridgeToken;
     if (!bridgeToken) {
       // This is a programming error: caller built env for an OpenAI-protocol
@@ -6462,7 +6451,8 @@ export function buildClaudeSessionEnv(
     }
     // SDK requests go to sidecar's /bridge/<token>/v1/messages route, which
     // translates to OpenAI format and forwards to the per-token upstream.
-    env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${sidecarPort}/bridge/${bridgeToken}`;
+    const nativePath = restrictedModel && effectiveProviderEnv.apiProtocol !== 'openai' ? '/anthropic' : '';
+    env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${sidecarPort}/bridge/${bridgeToken}${nativePath}`;
     env.ANTHROPIC_API_KEY = effectiveProviderEnv.credentialSource
       ? 'myagents-managed-oauth'
       : (effectiveProviderEnv.apiKey ?? '');
@@ -6494,6 +6484,9 @@ export function buildClaudeSessionEnv(
     // string. Defense-in-depth against stale `.env` placeholders surfacing
     // as "Not logged in · Please run /login" — see CC_AUTH_ENV_VARS_TO_SEAL
     // above for full rationale.
+    if (restrictedModel) {
+      sealRestrictedSdkRoute(env, env.ANTHROPIC_BASE_URL);
+    }
     sealCcAuthEnv(env);
     return env;
   }
@@ -11383,10 +11376,11 @@ async function startStreamingSession(preWarm = false): Promise<void> {
       enableFileCheckpointing: true,
       thinking: thinkingConfig,
       ...(sdkEffort !== undefined ? { effort: sdkEffort } : {}),
-      // Load settings from project scope only (.claude/)
+      // Ordinary sessions load project settings. Restricted sessions exclude
+      // filesystem settings so only the host controls their model routing.
       // Enabled global Skills are projected into <cwd>/.claude/skills/ before Query launch.
       // CLAUDE_CONFIG_DIR is NOT set — preserves Anthropic subscription Keychain lookup
-      settingSources: buildSettingSources(),
+      settingSources: modelSdkSettingSources(),
       // SDK-level allowlist is the execution gate for both project and global
       // Skills. Disk projection remains the compatibility bridge for Commands.
       skills: [...new Set(enabledSkillAllowlist)].sort(),

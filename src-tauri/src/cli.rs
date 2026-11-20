@@ -132,6 +132,13 @@ pub fn run(args: &[String]) -> i32 {
         }
     }
 
+    // A terminal launcher is a separate process from the desktop and cannot
+    // inherit the desktop monitor's last successful observation.
+    if !tauri::async_runtime::block_on(crate::egress_restriction::verify_for_startup()) {
+        eprintln!("AgenTeam 已锁定，请在网络代理设置中检查限制模式的出口 IP。");
+        return 1;
+    }
+
     let runtime = match resolve_cli_runtime() {
         Ok(runtime) => runtime,
         Err(error) => {

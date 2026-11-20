@@ -40,6 +40,27 @@ pub const LOCALHOST_NO_PROXY: &str = "localhost,localhost.localdomain,127.0.0.1,
 pub const PROXY_INJECTED_MARKER_ENV: &str = "MYAGENTS_PROXY_INJECTED";
 pub const PROXY_INHERITED_ENV_JSON: &str = "MYAGENTS_PROXY_INHERITED_ENV_JSON";
 
+// The sidecar reads this immutable launch identity alongside the current
+// settings before model admission. A malformed snapshot always blocks it.
+pub(crate) fn stamp_model_egress_policy(cmd: &mut Command) {
+    let expected = match crate::egress_restriction::required_exit_ip() {
+        Ok(None) => String::new(),
+        Ok(Some(ip)) => ip.to_string(),
+        Err(_) => "blocked".to_string(),
+    };
+    cmd.env("MYAGENTS_EGRESS_EXPECTED_IP", expected);
+}
+
+pub(crate) const UNVERIFIED_MODEL_EGRESS: &str =
+    "限制模式无法核验此模型连接的出口 IP。请使用内置 Claude Agent SDK 和 Anthropic 或 OpenAI 的官方 API Key。";
+
+pub(crate) fn ensure_unverified_provider_allowed() -> Result<(), String> {
+    if crate::egress_restriction::restriction_enabled() {
+        return Err(UNVERIFIED_MODEL_EGRESS.to_string());
+    }
+    Ok(())
+}
+
 const PROXY_ENV_KEYS: &[&str] = &[
     "HTTP_PROXY",
     "HTTPS_PROXY",
@@ -461,6 +482,7 @@ pub fn build_client_with_proxy_for_provider(
     builder: reqwest::ClientBuilder,
     provider_id: &str,
 ) -> Result<reqwest::Client, String> {
+    ensure_unverified_provider_allowed()?;
     let final_builder = if let Some(proxy_settings) = read_proxy_settings_for_provider(provider_id)
     {
         let proxy_url = get_proxy_url(&proxy_settings)?;
@@ -496,6 +518,7 @@ pub fn build_blocking_client_with_proxy_for_provider(
     builder: reqwest::blocking::ClientBuilder,
     provider_id: &str,
 ) -> Result<reqwest::blocking::Client, String> {
+    ensure_unverified_provider_allowed()?;
     let final_builder = if let Some(proxy_settings) = read_proxy_settings_for_provider(provider_id)
     {
         let proxy_url = get_proxy_url(&proxy_settings)?;

@@ -55,6 +55,7 @@ import { UnifiedLogsPanel } from '@/components/UnifiedLogsPanel';
 import GlobalPluginsPanel from '@/components/GlobalPluginsPanel';
 import CronTaskDebugPanel from '@/components/dev/CronTaskDebugPanel';
 import ProxyScopeDialog from '@/components/ProxyScopeDialog';
+import { EgressRestrictionSettings, useEgressRestrictionEnabled } from '@/components/EgressRestriction';
 import ModelManagementPanel from '@/components/ModelManagementPanel';
 import GrokSubscriptionProvider from '@/components/GrokSubscriptionProvider';
 import CliProxySubscriptionProvider from '@/components/CliProxySubscriptionProvider';
@@ -340,6 +341,7 @@ export default function Settings({
   onRestartAndUpdate,
 }: SettingsProps) {
   const linuxDesktop = isLinuxDesktop();
+  const restrictEgress = useEgressRestrictionEnabled();
   const cliProxy = useCliProxyStatus();
   const {
     apiKeys,
@@ -2714,7 +2716,9 @@ export default function Settings({
       });
 
       try {
-        const networkResult = await invoke<NetworkProbeResult>(
+        // The restricted provider transport verifies its own path. A separate
+        // Rust connectivity probe cannot provide evidence for that request.
+        const networkResult = restrictEgress ? null : await invoke<NetworkProbeResult>(
           'cmd_probe_provider_network',
           {
             url: provider.config.baseUrl,
@@ -2730,7 +2734,7 @@ export default function Settings({
           return;
         }
 
-        if (!networkResult.ok) {
+        if (networkResult && !networkResult.ok) {
           await saveProviderVerifyStatus(provider.id, 'invalid');
           const detailParts = [
             `stage=${networkResult.stage}`,
@@ -2820,7 +2824,7 @@ export default function Settings({
         }
       }
     },
-    [saveProviderVerifyStatus, tSettings],
+    [restrictEgress, saveProviderVerifyStatus, tSettings],
   );
 
   // Auto-verify when API key changes (with debounce)
@@ -5738,6 +5742,7 @@ export default function Settings({
                   </div>
                 )}
               </div>
+              <EgressRestrictionSettings />
             </div>
           )}
 

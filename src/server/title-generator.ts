@@ -18,6 +18,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { resolveClaudeCodeCli, buildClaudeSessionEnv, startOneShotBridge } from './agent-session';
+import { modelSdkSettingSources, usesSdkModelBridge } from './egress-model-policy';
 import type { ProviderEnv } from './provider-types';
 import { applyContextWindowSuffixForContextLength } from './utils/model-capabilities';
 import { SUBSCRIPTION_PROVIDER_ID } from '../shared/config-types';
@@ -198,7 +199,7 @@ export async function generateTitle(
   // OpenAI-protocol — the SDK subprocess routes to ITS upstream via a
   // dedicated /bridge/<token> path, fully isolated from the active session.
   // For Anthropic-direct / subscription title-gen, no token is needed.
-  const bridge = providerEnv?.apiProtocol === 'openai'
+  const bridge = usesSdkModelBridge(providerEnv)
     ? startOneShotBridge(providerEnv, model, `title-gen:${providerEnv.baseUrl ?? 'anthropic'}`, undefined, requestConversationId)
     : null;
   const controller = new AbortController();
@@ -264,7 +265,7 @@ async function generateTitleInner(
         maxTurns: 1,
         sessionId,
         cwd,
-        settingSources: ['project'],
+        settingSources: modelSdkSettingSources(),
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
         pathToClaudeCodeExecutable: cliPath,

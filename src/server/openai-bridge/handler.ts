@@ -31,6 +31,8 @@ import { TOKENDANCE_APP_URL, TOKENDANCE_PROVIDER_ID } from '../../shared/tokenda
 import { resolveProviderPromptCacheCapabilities } from '../../shared/provider-prompt-cache';
 import { resolveBridgeModel } from './translate/model';
 import { opencodeGoHeaders } from '../opencode-go-request';
+import { getRestrictedModelExpectedIp } from '../egress-model-policy';
+import { fetchWithVerifiedModelEgress, ModelEgressError } from './verified-egress';
 
 const DEFAULT_TIMEOUT = 300_000; // 5 minutes
 const THOUGHT_SIG_CACHE_MAX = 500; // Max cached thought_signatures to prevent unbounded growth
@@ -611,14 +613,18 @@ export function createBridgeHandler(config: BridgeConfig): BridgeHandler {
           body: requestBody,
           signal: controller.signal,
         };
-        if (proxyUrl) {
+        const expectedIp = getRestrictedModelExpectedIp();
+        if (!expectedIp && proxyUrl) {
           fetchInit.dispatcher = getDispatcherForProxy(proxyUrl);
         }
         // Cast to global Response — undici.Response is structurally identical at
         // runtime; the type drift is only in @types/node vs undici/types Headers
         // iterators. Downstream handlers (handleStreamResponse etc.) treat the
         // body as a ReadableStream<Uint8Array>, which works for both shapes.
-        const upstreamResp = await fetch(upstreamUrl, fetchInit as Parameters<typeof fetch>[1]) as unknown as Response;
+        const options = fetchInit as NonNullable<Parameters<typeof fetch>[1]>;
+        const upstreamResp = (expectedIp
+          ? await fetchWithVerifiedModelEgress(upstreamUrl, options, proxyUrl, expectedIp)
+          : await fetch(upstreamUrl, options)) as unknown as Response;
         // fetch() resolves when response headers arrive. End the headers-only
         // timeout here for every status, before any success or error body read.
         clearTimeout(headersTimer);
@@ -627,6 +633,9 @@ export function createBridgeHandler(config: BridgeConfig): BridgeHandler {
         clearTimeout(headersTimer);
         if (request.signal) {
           request.signal.removeEventListener('abort', onDownstreamAbort);
+        }
+        if (err instanceof ModelEgressError) {
+          return { ok: false, response: jsonError(403, 'permission_error', upstream.providerId + ' · ' + err.message) };
         }
         const isTimeout = didHeadersTimeout;
         // undici surfaces the real reason on `err.cause` (TypeError: fetch failed

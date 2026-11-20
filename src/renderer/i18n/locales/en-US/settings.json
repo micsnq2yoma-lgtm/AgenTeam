@@ -161,7 +161,29 @@
     "scopeDialogSave": "Save",
     "scopeDialogSubscription": "Subscription",
     "scopeDialogApi": "API",
-    "scopeDialogManaged": "Managed"
+    "scopeDialogManaged": "Managed",
+    "restriction": {
+      "title": "Restricted mode",
+      "description": "Allow AgenTeam to run only when this computer’s public IP matches the address below. Each model request must also pass its own exit check.",
+      "modelHint": "Restricted mode supports the built-in Claude Agent SDK with an API key for the official OpenAI or Anthropic API.",
+      "desktopOnly": "Open the desktop app to restrict access by public IP.",
+      "target": "Allowed public IP",
+      "placeholder": "Enter an IPv4 or IPv6 address",
+      "enable": "Enable restriction",
+      "save": "Save and check",
+      "restartHint": "Changing the restriction restarts AgenTeam and can interrupt active work.",
+      "retry": "Check again",
+      "checking": "Checking this computer’s public IP…",
+      "loading": "Reading network restriction settings…",
+      "matched": "This computer’s public IP {{ip}} is verified.",
+      "mismatch": "The current public IP is {{ip}}. Switch to the network with exit IP {{expected}} and check again.",
+      "unavailable": "The public IP could not be verified. Check your network and try again.",
+      "locked": "AgenTeam is locked",
+      "reopening": "Reopening AgenTeam…",
+      "invalidIp": "Enter a single public IPv4 or IPv6 address.",
+      "readError": "The restriction status could not be read. Try again.",
+      "saveError": "The operation could not be completed. Try again."
+    }
   },
   "shortcuts": {
     "title": "Shortcut keys",

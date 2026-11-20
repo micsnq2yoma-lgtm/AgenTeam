@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n";
 
 import { ToastProvider } from "@/components/Toast";
+import { EgressRestrictionGate } from '@/components/EgressRestriction';
 import { DEFAULT_CONFIG, PROXY_DEFAULTS, type AppConfig, type Provider, type Project } from "@/config/types";
 import Settings from "./SettingsPage";
 
@@ -245,6 +246,18 @@ describe('proxy scope remains user configuration', () => {
     expect(settingsMocks.patchProxySettings).toHaveBeenCalledWith({ scope: {
       mode: 'custom', generalRequests: true, providerIds: ['vision-provider', 'codex-sub'],
     } }, ['vision-provider', 'codex-sub', 'antigravity-sub']);
+  });
+
+  it('uses the authenticated provider transport without a separate unverified probe in restricted mode', async () => {
+    const existing = settingsMocks.invoke.getMockImplementation()!;
+    settingsMocks.invoke.mockImplementation(async (command, ...args) => command === 'cmd_get_egress_restriction'
+      ? { enabled: true, expectedIp: '203.0.113.4', observedIp: '203.0.113.4', state: 'matched' }
+      : existing(command, ...args));
+    render(<EgressRestrictionGate><ToastProvider><Settings mode="settings" initialSection="providers" isActive /></ToastProvider></EgressRestrictionGate>);
+    fireEvent.click(await screen.findByTitle('Verify again'));
+    await waitFor(() => expect(settingsMocks.apiPostJson).toHaveBeenCalledWith('/api/provider/verify',
+      expect.objectContaining({ providerId: visionProvider.id })));
+    expect(settingsMocks.invoke).not.toHaveBeenCalledWith('cmd_probe_provider_network', expect.anything());
   });
 
 });

@@ -12,6 +12,7 @@ import { INTERNAL_CLI_TOKEN_ENV } from '../../shared/externalCliCapabilities';
 import { ensureDirSync } from '../utils/fs-utils';
 import { ensureShellPath } from '../utils/shell';
 import { applyProviderProxyPolicyToEnv } from '../proxy-state';
+import { requireUnrestrictedModelPath } from '../egress-model-policy';
 import { augmentedProcessEnv, resolveCommand } from './env-utils';
 
 export interface CodexCommandContext {
@@ -353,6 +354,7 @@ export async function resolveCodexCommandContext(args: {
   source?: RuntimeSource;
   envPolicy?: RuntimeEnvPolicy;
 } = {}): Promise<CodexCommandContext> {
+  requireUnrestrictedModelPath();
   await ensureShellPath();
   const source = args.source ?? 'system-cli';
   if (source === 'managed-provider') {

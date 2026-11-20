@@ -1,4 +1,10 @@
 import * as browserMock from '@/utils/browserMock';
+vi.mock('@tauri-apps/api/path', async importOriginal => ({
+  ...await importOriginal<typeof import('@tauri-apps/api/path')>(),
+  join: async (...parts: string[]) => parts.join('/'),
+}));
+import * as configStore from './configStore';
+import { DEFAULT_CONFIG } from '../types';
 import { emit } from '@tauri-apps/api/event';
 vi.mock('@tauri-apps/api/event', () => ({ emit: vi.fn(async () => undefined) }));
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -8,6 +14,7 @@ import {
   CONFIG_CHANGED_EVENT,
   ensureManagedCodexProviderDevGateDefault,
   loadAppConfig,
+  saveAppConfig,
 } from './appConfigService';
 
 // Issue #303: env-only edits (e.g. user saves MINERU_API_KEY via Settings) used
@@ -75,6 +82,20 @@ describe('atomicModifyConfig — CONFIG_CHANGED_EVENT dispatch (issue #303)', ()
     const loaded = await loadAppConfig();
 
     expect(loaded).not.toHaveProperty('externalCliAccess');
+  });
+
+  it('preserves the native exit restriction when a desktop settings writer saves an older snapshot', async () => {
+    const policy = { enabled: true, expectedIp: '203.0.113.4' };
+    vi.spyOn(configStore, 'isBrowserDevMode').mockReturnValue(false);
+    vi.spyOn(configStore, 'withConfigLock').mockImplementation(fn => fn());
+    vi.spyOn(configStore, 'ensureConfigDir').mockResolvedValue();
+    vi.spyOn(configStore, 'getConfigDir').mockResolvedValue('/test');
+    vi.spyOn(configStore, 'safeLoadJson').mockResolvedValue({ ...DEFAULT_CONFIG, egressRestriction: policy });
+    const write = vi.spyOn(configStore, 'safeWriteJson').mockResolvedValue();
+    const stale = { ...DEFAULT_CONFIG, egressRestriction: { enabled: false, expectedIp: '' } };
+    expect(await loadAppConfig()).not.toHaveProperty('egressRestriction');
+    await saveAppConfig(stale);
+    expect(write).toHaveBeenCalledWith('/test/config.json', expect.objectContaining({ egressRestriction: policy }));
   });
 
   it('defaults unset or invalid reading preferences to standard and preserves saved large', async () => {
