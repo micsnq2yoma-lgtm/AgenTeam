@@ -6,7 +6,7 @@ name: Test
 on:
   pull_request:
   push:
-    branches: [main, "dev/**"]
+    branches: [main, "dev/**", "feat/kb-k1-store"]
 
 # Cancel superseded runs on the same ref to save CI minutes.
 concurrency:
@@ -101,6 +101,9 @@ jobs:
           printf 'ci placeholder\n' > src-tauri/resources/playwright-control/playwright-core/.ci-placeholder
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D clippy::disallowed_methods -D clippy::disallowed_macros
+      - name: Check the complete crate against the K1 acceptance threshold
+        if: ${{ !cancelled() && github.ref == 'refs/heads/feat/kb-k1-store' }}
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
 
   # `--all-targets` above covers Rust target kinds for Linux; it does not
   # type-check or execute `cfg(windows)`. Run workspace IO tests natively:
@@ -191,7 +194,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $testExecutable 'workspace_files::'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $testExecutable 'knowledge::'
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --lib knowledge
           exit $LASTEXITCODE
       - name: Inspect native test loader imports on failure
         if: failure()

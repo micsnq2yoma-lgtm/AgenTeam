@@ -304,6 +304,23 @@ impl KnowledgeStore {
         .map_err(|_| KbStoreUnavailable)?
     }
 
+    fn locked_kb<T>(
+        &self,
+        kb_id: &str,
+        source_id: Option<&str>,
+        action: impl FnOnce(&StoreFiles, &mut BTreeSet<KnowledgeBaseId>) -> StoreResult<T>,
+    ) -> StoreResult<T> {
+        if !is_knowledge_base_id(kb_id) || source_id.is_some_and(|id| !is_knowledge_source_id(id)) {
+            return Err(KbInvalidInput);
+        }
+        self.locked(|files, registry| {
+            if !registry.contains(kb_id) {
+                return Err(KbNotFound);
+            }
+            action(files, registry)
+        })
+    }
+
     pub fn list(&self) -> StoreResult<Vec<KnowledgeBase>> {
         self.locked(|files, registry| registry.iter().map(|id| files.read_kb(id)).collect())
     }
@@ -327,8 +344,7 @@ impl KnowledgeStore {
     }
 
     pub fn update(&self, kb_id: &str, patch: KnowledgeBasePatch) -> StoreResult<KnowledgeBase> {
-        self.locked(|files, registry| {
-            check_kb(registry, kb_id)?;
+        self.locked_kb(kb_id, None, |files, _| {
             let mut kb = files.read_kb(kb_id)?;
             kb.apply_patch(patch)?;
             files.write_json(&format!("{kb_id}/kb.json"), &kb)?;
@@ -337,8 +353,7 @@ impl KnowledgeStore {
     }
 
     pub fn delete(&self, kb_id: &str) -> StoreResult<()> {
-        self.locked(|files, registry| {
-            check_kb(registry, kb_id)?;
+        self.locked_kb(kb_id, None, |files, registry| {
             files.read_kb(kb_id)?;
             // kbs.json decides recovery if interrupted before or after publication.
             let tombstone = files.detach(&files.root, kb_id)?;
@@ -353,8 +368,7 @@ impl KnowledgeStore {
     }
 
     pub fn list_sources(&self, kb_id: &str) -> StoreResult<Vec<KnowledgeSource>> {
-        self.locked(|files, registry| {
-            check_kb(registry, kb_id)?;
+        self.locked_kb(kb_id, None, |files, _| {
             files.read_kb(kb_id)?;
             let Some(parent) = files.source_parent(kb_id)? else {
                 return Ok(Vec::new());
@@ -375,13 +389,14 @@ impl KnowledgeStore {
     }
 
     pub fn get_source(&self, kb_id: &str, source_id: &str) -> StoreResult<KnowledgeSource> {
-        self.locked(|files, registry| read_source(files, registry, kb_id, source_id))
+        self.locked_kb(kb_id, Some(source_id), |files, _| {
+            files.require_source(kb_id, source_id)
+        })
     }
 
     pub fn create_source(&self, kb_id: &str, facts: SourceFacts) -> StoreResult<KnowledgeSource> {
         facts.validate()?;
-        self.locked(|files, registry| {
-            check_kb(registry, kb_id)?;
+        self.locked_kb(kb_id, None, |files, _| {
             files.read_kb(kb_id)?;
             files.source_parent(kb_id)?;
             let parent = files.root.join(kb_id).join("sources");
@@ -410,8 +425,8 @@ impl KnowledgeStore {
         facts: SourceFacts,
     ) -> StoreResult<KnowledgeSource> {
         facts.validate()?;
-        self.locked(|files, registry| {
-            let mut source = read_source(files, registry, kb_id, source_id)?;
+        self.locked_kb(kb_id, Some(source_id), |files, _| {
+            let mut source = files.require_source(kb_id, source_id)?;
             source.facts = facts;
             files.write_json(&source_path(kb_id, source_id), &source)?;
             self.source_upserted(kb_id, &source);
@@ -420,8 +435,8 @@ impl KnowledgeStore {
     }
 
     pub fn remove_source(&self, kb_id: &str, source_id: &str) -> StoreResult<()> {
-        self.locked(|files, registry| {
-            read_source(files, registry, kb_id, source_id)?;
+        self.locked_kb(kb_id, Some(source_id), |files, _| {
+            files.require_source(kb_id, source_id)?;
             let parent = files.root.join(kb_id).join("sources");
             let tombstone = files.detach(&parent, source_id)?;
             let _ = self.changes.send(KnowledgeChange::SourceRemoved {
@@ -440,8 +455,8 @@ impl KnowledgeStore {
         actor: KnowledgeMetadataOrigin,
         fields: MetadataPatch,
     ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
-        self.locked(|files, registry| {
-            let mut source = read_source(files, registry, kb_id, source_id)?;
+        self.locked_kb(kb_id, Some(source_id), |files, _| {
+            let mut source = files.require_source(kb_id, source_id)?;
             let updated_at = Utc::now().to_rfc3339();
             let mut outcomes = BTreeMap::new();
             for (key, value) in fields {
@@ -496,31 +511,6 @@ impl KnowledgeStore {
             content_hash: source.facts.content_hash.clone(),
         });
     }
-}
-
-fn check_kb(registry: &BTreeSet<KnowledgeBaseId>, id: &str) -> StoreResult<()> {
-    if !is_knowledge_base_id(id) {
-        return Err(KbInvalidInput);
-    }
-    if !registry.contains(id) {
-        return Err(KbNotFound);
-    }
-    Ok(())
-}
-
-fn read_source(
-    files: &StoreFiles,
-    registry: &BTreeSet<KnowledgeBaseId>,
-    kb_id: &str,
-    source_id: &str,
-) -> StoreResult<KnowledgeSource> {
-    if !is_knowledge_source_id(source_id) {
-        return Err(KbInvalidInput);
-    }
-    check_kb(registry, kb_id)?;
-    files.read_kb(kb_id)?;
-    files.source_parent(kb_id)?;
-    files.read_source(kb_id, source_id)?.ok_or(KbNotFound)
 }
 
 fn allocate_id(
@@ -631,6 +621,12 @@ impl StoreFiles {
             return Err(KbStoreCorrupt);
         }
         Ok(kb)
+    }
+
+    fn require_source(&self, kb_id: &str, source_id: &str) -> StoreResult<KnowledgeSource> {
+        self.read_kb(kb_id)?;
+        self.source_parent(kb_id)?;
+        self.read_source(kb_id, source_id)?.ok_or(KbNotFound)
     }
 
     fn read_source(&self, kb_id: &str, id: &str) -> StoreResult<Option<KnowledgeSource>> {
