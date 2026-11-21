@@ -799,6 +799,10 @@ pub fn run() {
             knowledge::commands::cmd_kb_remove_source,
             knowledge::commands::cmd_kb_set_metadata,
             knowledge::commands::cmd_kb_resolve_ref,
+            knowledge::commands::cmd_kb_import_files,
+            knowledge::commands::cmd_kb_job_status,
+            knowledge::commands::cmd_kb_cancel_job,
+            knowledge::commands::cmd_kb_retry_source,
             // Canonical Record commands.
             record::cmd_record_create,
             record::cmd_record_list,
@@ -1651,9 +1655,19 @@ pub fn run() {
                 ulog_info!("[App] Sidecar terminal-event forwarder spawned");
             }
 
-            // KnowledgeStore opens files on demand on the blocking pool.
             if let Some(data_dir) = app_dirs::myagents_data_dir() {
-                app.manage(Arc::new(knowledge::store::KnowledgeStore::new(data_dir.clone())));
+                let store = Arc::new(knowledge::store::KnowledgeStore::new(data_dir.clone()));
+                let ingest = Arc::new(knowledge::ingest::KnowledgeIngestManager::new(
+                    Arc::clone(&store),
+                    document_processing::global().cloned(),
+                ));
+                app.manage(store);
+                app.manage(Arc::clone(&ingest));
+                tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(code) = ingest.recover() {
+                        ulog_error!("[knowledge] ingest recovery failed code={:?}", code);
+                    }
+                });
                 match search::SearchEngine::new(data_dir) {
                     Ok(engine) => {
                         engine.start_background_indexing(app.handle().clone());
@@ -1878,6 +1892,11 @@ pub fn run() {
                     };
                     if let Err(error) = tauri::async_runtime::block_on(cliproxy::shutdown()) {
                         ulog_error!("[cliproxy] shutdown failed code={}", error.code);
+                    }
+                    if let Some(ingest) = _app_handle.try_state::<Arc<knowledge::ingest::KnowledgeIngestManager>>() {
+                        if let Err(code) = ingest.shutdown() {
+                            ulog_error!("[knowledge] ingest shutdown failed code={:?}", code);
+                        }
                     }
                     if let Some(manager) = document_processing::global() {
                         if let Err(error) = manager.shutdown() {

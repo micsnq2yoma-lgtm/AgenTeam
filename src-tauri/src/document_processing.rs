@@ -26,8 +26,8 @@ use std::time::Duration as StdDuration;
 use tokio::sync::Notify;
 
 const QUEUE_LIMIT: usize = 16;
-const MAX_SOURCE_BYTES: u64 = 512 * 1024 * 1024;
-const MAX_OUTPUT_BYTES: u64 = 128 * 1024 * 1024;
+pub(crate) const MAX_SOURCE_BYTES: u64 = 512 * 1024 * 1024;
+pub(crate) const MAX_OUTPUT_BYTES: u64 = 128 * 1024 * 1024;
 const MIN_FREE_RESERVE_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_CONTROL_FRAME_BYTES: usize = 1024 * 1024;
 const MAX_WORKER_STDERR_DIAGNOSTIC_BYTES: usize = 64 * 1024;
@@ -2195,6 +2195,25 @@ fn open_snapshot_reader(source: &File) -> Result<File, &'static str> {
     Ok(unsafe { File::from_raw_handle(handle) })
 }
 
+/// Snapshot a held source into a fresh file in the Knowledge Store's private
+/// staging directory, with the same byte, version and digest checks as AnyDoc.
+pub(crate) fn copy_knowledge_original(
+    source: &mut File,
+    destination: &Path,
+    expected_size: u64,
+) -> Result<String, String> {
+    let metadata = source
+        .metadata()
+        .map_err(|_| "DOCUMENT_INPUT_READ_FAILED")?;
+    if !metadata.is_file() || metadata.len() != expected_size {
+        return Err("DOCUMENT_SOURCE_CHANGED".into());
+    }
+    if expected_size > MAX_SOURCE_BYTES {
+        return Err("DOCUMENT_RESOURCE_LIMIT".into());
+    }
+    copy_source(source, destination, expected_size, || Ok(()))
+}
+
 fn copy_source(
     source: &mut File,
     destination: &Path,
@@ -2608,7 +2627,10 @@ fn ensure_free_space(
     Ok(())
 }
 
-fn reject_link_ancestors(path: &Path, allow_missing: bool) -> Result<(), DocumentServiceError> {
+pub(crate) fn reject_link_ancestors(
+    path: &Path,
+    allow_missing: bool,
+) -> Result<(), DocumentServiceError> {
     let mut current = PathBuf::new();
     for component in path.components() {
         match component {
@@ -2719,7 +2741,7 @@ fn looks_like_file_output(path: &Path) -> bool {
         })
 }
 
-fn supported_extension(path: &Path) -> Option<&'static str> {
+pub(crate) fn supported_extension(path: &Path) -> Option<&'static str> {
     match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
         "doc" => Some("doc"),
         "docx" => Some("docx"),

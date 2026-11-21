@@ -9,6 +9,8 @@ use serde_json::Value;
 use tokio::sync::broadcast;
 use uuid::Uuid;
 
+pub mod ingest;
+
 use crate::durable_fs::{rename_directory_noreplace, sync_directory};
 use crate::utils::file_lock::{with_file_lock_blocking, FileLockOptions};
 use crate::workspace_files::path_safety::{
@@ -165,7 +167,12 @@ pub enum SourceKind {
 #[serde(rename_all = "kebab-case")]
 pub enum SourceStatus {
     Queued,
+    Converting,
+    Chunking,
     Ready,
+    Failed,
+    Cancelled,
+    Interrupted,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -225,6 +232,16 @@ pub struct KnowledgeSource {
     #[serde(flatten)]
     pub facts: SourceFacts,
     pub metadata: BTreeMap<MetadataKey, KnowledgeMetadataField<Value>>,
+}
+
+// Ingestion metadata shares source.json's commit with the public source facts.
+// Tauri returns only the public projection.
+#[derive(Serialize, Deserialize)]
+struct SourceRecord {
+    #[serde(flatten)]
+    source: KnowledgeSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ingest: Option<ingest::ImportRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -373,6 +390,7 @@ impl KnowledgeStore {
             let Some(parent) = files.source_parent(kb_id)? else {
                 return Ok(Vec::new());
             };
+            files.recover_source_publications(&parent)?;
             files.cleanup_sources(&parent)?;
             let mut sources = Vec::new();
             for entry in fs::read_dir(parent).map_err(|_| KbStoreUnavailable)? {
@@ -398,8 +416,11 @@ impl KnowledgeStore {
         facts.validate()?;
         self.locked_kb(kb_id, None, |files, _| {
             files.read_kb(kb_id)?;
-            files.source_parent(kb_id)?;
+            if let Some(parent) = files.source_parent(kb_id)? {
+                files.recover_source_publications(&parent)?;
+            }
             let parent = files.root.join(kb_id).join("sources");
+            ingest::check_source_limit(&parent)?;
             let id = allocate_id(&parent, |_| false, create_knowledge_source_id)?;
             let source = KnowledgeSource {
                 id,
@@ -426,11 +447,14 @@ impl KnowledgeStore {
     ) -> StoreResult<KnowledgeSource> {
         facts.validate()?;
         self.locked_kb(kb_id, Some(source_id), |files, _| {
-            let mut source = files.require_source(kb_id, source_id)?;
-            source.facts = facts;
-            files.write_json(&source_path(kb_id, source_id), &source)?;
-            self.source_upserted(kb_id, &source);
-            Ok(source)
+            let mut record = files.require_record(kb_id, source_id)?;
+            if record.ingest.is_some() {
+                return Err(KbInvalidInput);
+            }
+            record.source.facts = facts;
+            files.write_json(&source_path(kb_id, source_id), &record)?;
+            self.source_upserted(kb_id, &record.source);
+            Ok(record.source)
         })
     }
 
@@ -456,7 +480,8 @@ impl KnowledgeStore {
         fields: MetadataPatch,
     ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
         self.locked_kb(kb_id, Some(source_id), |files, _| {
-            let mut source = files.require_source(kb_id, source_id)?;
+            let mut record = files.require_record(kb_id, source_id)?;
+            let source = &mut record.source;
             let updated_at = Utc::now().to_rfc3339();
             let mut outcomes = BTreeMap::new();
             for (key, value) in fields {
@@ -488,7 +513,7 @@ impl KnowledgeStore {
                 .values()
                 .any(|outcome| *outcome == MetadataOutcome::Updated)
             {
-                files.write_json(&source_path(kb_id, source_id), &source)?;
+                files.write_json(&source_path(kb_id, source_id), &record)?;
                 let _ = self.changes.send(KnowledgeChange::MetadataChanged {
                     kb_id: kb_id.into(),
                     source_id: source_id.into(),
@@ -624,17 +649,32 @@ impl StoreFiles {
     }
 
     fn require_source(&self, kb_id: &str, source_id: &str) -> StoreResult<KnowledgeSource> {
+        self.require_record(kb_id, source_id)
+            .map(|record| record.source)
+    }
+
+    fn require_record(&self, kb_id: &str, source_id: &str) -> StoreResult<SourceRecord> {
         self.read_kb(kb_id)?;
         self.source_parent(kb_id)?;
-        self.read_source(kb_id, source_id)?.ok_or(KbNotFound)
+        self.read_record(kb_id, source_id)?.ok_or(KbNotFound)
     }
 
     fn read_source(&self, kb_id: &str, id: &str) -> StoreResult<Option<KnowledgeSource>> {
+        Ok(self.read_record(kb_id, id)?.map(|record| record.source))
+    }
+
+    fn read_record(&self, kb_id: &str, id: &str) -> StoreResult<Option<SourceRecord>> {
         let path = source_path(kb_id, id);
-        let source: Option<KnowledgeSource> = self.read_json(&path)?;
-        if let Some(source) = &source {
+        let parent = self.root.join(kb_id).join("sources");
+        self.recover_source_publication(&parent, id)?;
+        let record: Option<SourceRecord> = self.read_json(&path)?;
+        if let Some(record) = &record {
+            let source = &record.source;
             if source.id != id || source.facts.validate().is_err() {
                 return Err(KbStoreCorrupt);
+            }
+            if let Some(import) = &record.ingest {
+                import.validate(source)?;
             }
         } else {
             let target = self.root.join(path);
@@ -644,7 +684,7 @@ impl StoreFiles {
                 Err(_) => return Err(KbStoreUnavailable),
             }
         }
-        Ok(source)
+        Ok(record)
     }
 
     fn source_parent(&self, kb_id: &str) -> StoreResult<Option<PathBuf>> {

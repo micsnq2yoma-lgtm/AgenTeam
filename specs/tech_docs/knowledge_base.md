@@ -58,6 +58,8 @@ kb://<kb-id>/<source-id>[?page=<页码>][#<chunk-id>]
 | `KB_INVALID_INPUT` | ID、引用、设置或来源事实无效 |
 | `KB_STORE_CORRUPT` | 已持久化的 JSON、身份或目录结构无效 |
 | `KB_STORE_UNAVAILABLE` | 文件锁、读取或持久化失败，提交状态可能未确认 |
+| `KB_INSUFFICIENT_SPACE` | 托管副本或转换产物所在卷可用空间不足 |
+| `KB_JOB_CONFLICT` | 尝试已被取消、重试或结算，当前操作不能再提交 |
 
 错误和变更通知只携带调用方处理结果所需的字段。资料正文、凭据和路径之外的隐私数据不得进入错误、日志或通知事件。
 
@@ -131,9 +133,18 @@ kb://<kb-id>/<source-id>[?page=<页码>][#<chunk-id>]
 
 Windows CI 用应用 crate 执行知识库测试。目录重定向用例在 Windows 创建 NTFS junction，在 Unix 创建符号链接。测试覆盖被替换的库和来源目录，以及删除库时对库外原件的保护。
 
+## 摄取与中断恢复（K2）
+
+`cmd_kb_import_files(kbId, paths[])` 按输入顺序返回逐文件结果。接受的文件返回来源 ID、任务及重复标记；拒绝的文件返回稳定错误码和恢复提示键。通过 `cmd_kb_job_status(jobId)` 查询，`cmd_kb_cancel_job(jobId)` 取消，`cmd_kb_retry_source(kbId, sourceId)` 从托管原件开始一次新尝试。转换执行在阻塞工作线程上，Tauri 事件循环只负责调度。
+
+- Store 验证普通文件、输入类型和大小，检查可用空间后复制至托管的 `original.<ext>`。原始字节的 SHA-256 用于同库去重。来源记录保留文件大小、修改时间，以及发布后 `content.md` 的 SHA-256，供派生消费者识别内容版本。队列最多容纳 64 个排队或转换中的任务，每库最多 10,000 个来源。
+- UTF-8、带 BOM 的 UTF-16LE/BE 文本通过有界读取转换，文本输入上限 8 MiB。Office、PDF 和图片交给现有 `DocumentProcessingManager`。知识库任务保存其内部转换 ID 以便取消；转换错误映射为稳定的恢复提示键。
+- 新任务在 `queued` 等待。Store 在提交 `converting` 后提供本次尝试的原件和暂存目录，输出准备完成后，按当前任务 ID 原子发布 Markdown、资产和来源记录。K2 的成功终点为 `chunking`。失败或取消保留托管原件供重试，旧任务回调不能修改新尝试，人工元数据跨转换保留。
+- 当前转换尝试和状态随 `source.json` 同一次提交。库内 `jobs/<job-id>.json` 定位任务，`original-hashes/` 用于去重，知识库根的 `active-imports.json` 记录待恢复的任务。应用关闭时停止接收导入，并收敛转换。异常退出后重开，未完成的排队或转换任务记为 `interrupted`，已发布并等待切块的来源保留 `chunking`。
+
 ## 待接入章节
 
-### K2–K3 摄取、切块和引用定位
+### K3 切块和引用定位
 
 ### K4 检索、索引重建与权限过滤
 

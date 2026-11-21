@@ -1,9 +1,12 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tauri::{async_runtime::spawn_blocking, State};
 
+use super::ingest::{ImportFailure, ImportOutcome, KnowledgeIngestManager};
+use super::store::ingest::IngestJob;
 use super::store::{
     KnowledgeBase, KnowledgeBasePatch, KnowledgeSource, KnowledgeStore, MetadataKey,
     MetadataOutcome, MetadataPatch, ResolvedKnowledgeRef, StoreResult,
@@ -18,6 +21,55 @@ async fn run_store<T: Send + 'static>(
     spawn_blocking(move || operation(&store))
         .await
         .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+async fn run_ingest<T: Send + 'static>(
+    state: State<'_, Arc<KnowledgeIngestManager>>,
+    operation: impl FnOnce(Arc<KnowledgeIngestManager>) -> StoreResult<T> + Send + 'static,
+) -> Result<T, ImportFailure> {
+    let manager = Arc::clone(state.inner());
+    spawn_blocking(move || operation(manager))
+        .await
+        .map_err(|_| ImportFailure::from(KnowledgeErrorCode::KbStoreUnavailable))?
+        .map_err(ImportFailure::from)
+}
+
+#[tauri::command]
+pub async fn cmd_kb_import_files(
+    state: State<'_, Arc<KnowledgeIngestManager>>,
+    kb_id: String,
+    paths: Vec<PathBuf>,
+) -> Result<Vec<ImportOutcome>, ImportFailure> {
+    run_ingest(
+        state,
+        move |manager| Ok(manager.import_files(&kb_id, paths)),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_job_status(
+    state: State<'_, Arc<KnowledgeIngestManager>>,
+    job_id: String,
+) -> Result<IngestJob, ImportFailure> {
+    run_ingest(state, move |manager| manager.status(&job_id)).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_cancel_job(
+    state: State<'_, Arc<KnowledgeIngestManager>>,
+    job_id: String,
+) -> Result<IngestJob, ImportFailure> {
+    run_ingest(state, move |manager| manager.cancel(&job_id)).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_retry_source(
+    state: State<'_, Arc<KnowledgeIngestManager>>,
+    kb_id: String,
+    source_id: String,
+) -> Result<IngestJob, ImportFailure> {
+    run_ingest(state, move |manager| manager.retry(&kb_id, &source_id)).await
 }
 
 // Map invalid invocation bodies to the same stable code as Store validation.

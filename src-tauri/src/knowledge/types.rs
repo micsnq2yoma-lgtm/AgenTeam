@@ -38,6 +38,8 @@ pub enum KnowledgeErrorCode {
     KbInvalidInput,
     KbStoreCorrupt,
     KbStoreUnavailable,
+    KbInsufficientSpace,
+    KbJobConflict,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -324,6 +326,11 @@ mod tests {
                 KnowledgeErrorCode::KbStoreUnavailable,
                 "KB_STORE_UNAVAILABLE",
             ),
+            (
+                KnowledgeErrorCode::KbInsufficientSpace,
+                "KB_INSUFFICIENT_SPACE",
+            ),
+            (KnowledgeErrorCode::KbJobConflict, "KB_JOB_CONFLICT"),
         ];
         for (code, wire) in codes {
             assert_eq!(serde_json::to_value(code).unwrap(), serde_json::json!(wire));
