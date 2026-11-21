@@ -33,6 +33,7 @@ pub enum KnowledgeErrorCode {
     KbFieldLocked,
     KbLimitExceeded,
     KbSourceUnsupported,
+    KbSourceInUse,
     KbIndexing,
     KbCategoryNotAllowed,
     KbInvalidInput,
@@ -315,6 +316,7 @@ mod tests {
                 KnowledgeErrorCode::KbSourceUnsupported,
                 "KB_SOURCE_UNSUPPORTED",
             ),
+            (KnowledgeErrorCode::KbSourceInUse, "KB_SOURCE_IN_USE"),
             (KnowledgeErrorCode::KbIndexing, "KB_INDEXING"),
             (
                 KnowledgeErrorCode::KbCategoryNotAllowed,

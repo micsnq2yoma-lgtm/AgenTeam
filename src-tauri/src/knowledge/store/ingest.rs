@@ -7,11 +7,11 @@ use crate::document_processing::{
 use crate::knowledge::ingest::conversion::{source_limit, ConversionError};
 use crate::knowledge::types::{create_knowledge_job_id, is_knowledge_job_id};
 use crate::workspace_files::path_safety::{
-    metadata_is_link_like, open_workspace_regular_file_no_follow, validate_item_name,
+    metadata_is_link_like, open_workspace_regular_file_no_follow_classified, validate_item_name,
 };
 use chrono::{DateTime, Local};
 use tempfile::TempDir;
-use KnowledgeErrorCode::{KbInsufficientSpace, KbJobConflict};
+use KnowledgeErrorCode::{KbInsufficientSpace, KbJobConflict, KbSourceInUse};
 
 const MAX_SOURCES: usize = 10_000;
 const MAX_ACTIVE: usize = 64;
@@ -154,12 +154,18 @@ fn checked_input(path: &Path, limit: u64) -> StoreResult<(fs::File, fs::Metadata
         return Err(KbInvalidInput);
     }
     let parent = path.parent().ok_or(KbInvalidInput)?;
-    let (_, file) = open_workspace_regular_file_no_follow(
+    let (_, file) = open_workspace_regular_file_no_follow_classified(
         parent,
         path.to_str().ok_or(KbInvalidInput)?,
         "knowledge input",
     )
-    .map_err(|_| KbInvalidInput)?;
+    .map_err(|error| {
+        if error.is_in_use() {
+            KbSourceInUse
+        } else {
+            KbInvalidInput
+        }
+    })?;
     let meta = file.metadata().map_err(|_| KbInvalidInput)?;
     if meta.len() > limit {
         return Err(KbLimitExceeded);
@@ -170,6 +176,7 @@ fn checked_input(path: &Path, limit: u64) -> StoreResult<(fs::File, fs::Metadata
 fn copy_checked(file: &mut fs::File, dest: &Path, size: u64) -> StoreResult<String> {
     copy_knowledge_original(file, dest, size).map_err(|code| match code.as_str() {
         "DOCUMENT_RESOURCE_LIMIT" => KbLimitExceeded,
+        "DOCUMENT_SOURCE_IN_USE" => KbSourceInUse,
         "DOCUMENT_INPUT_READ_FAILED" | "DOCUMENT_SOURCE_CHANGED" => KbInvalidInput,
         _ => KbStoreUnavailable,
     })

@@ -33,6 +33,81 @@ fn wait_for_content(manager: &KnowledgeIngestManager, id: &str) {
     }
 }
 
+#[cfg(windows)]
+fn hold_writer(path: &Path, exclusive: bool) -> fs::File {
+    use std::os::windows::fs::OpenOptionsExt;
+    let mut options = fs::OpenOptions::new();
+    options.write(true);
+    if exclusive {
+        options.share_mode(0);
+    }
+    options.open(path).unwrap()
+}
+
+#[cfg(windows)]
+#[test]
+fn source_in_use_rejects_exclusive_and_shared_writers_then_allows_reimport() {
+    let (_data, manager, kb) = library();
+    let inputs = tempdir().unwrap();
+    let path = inputs.path().join("busy.md");
+    fs::write(&path, "ready after close").unwrap();
+    for exclusive in [true, false] {
+        let _writer = hold_writer(&path, exclusive);
+        let outcomes = manager.import_files(&kb, vec![path.clone()]);
+        let [ImportOutcome::Rejected { error }] = outcomes.as_slice() else {
+            panic!("expected the open writer to reject admission");
+        };
+        assert_eq!(error.code, KnowledgeErrorCode::KbSourceInUse);
+        assert_eq!(error.suggestion, "closeFileAndRetry");
+        assert!(manager.store.list_sources(&kb).unwrap().is_empty());
+    }
+    let receipt = manager.admit(&kb, &path).unwrap();
+    assert!(!receipt.duplicate);
+    wait_for_content(&manager, &receipt.job.unwrap().id);
+    manager.shutdown().unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn source_in_use_on_managed_text_persists_failure_and_allows_retry_after_close() {
+    let (data, manager, kb) = library();
+    let inputs = tempdir().unwrap();
+    let path = inputs.path().join("busy.txt");
+    fs::write(&path, "managed original").unwrap();
+    let receipt = manager.store.enqueue_file(&kb, &path).unwrap();
+    let source = &receipt.source_id;
+    let dir = data
+        .path()
+        .join("knowledge")
+        .join(&kb)
+        .join("sources")
+        .join(source);
+    let original = dir.join("original.txt");
+    let mut job = receipt.job.unwrap();
+    for exclusive in [true, false] {
+        // Exclusive sharing fails the bounded read. A writer sharing reads
+        // reaches publication, where the original must be copied again.
+        let writer = hold_writer(&original, exclusive);
+        manager.run_one(&job.id, &AtomicBool::new(false));
+        let failed = manager.status(&job.id).unwrap();
+        assert_eq!(failed.status, SourceStatus::Failed);
+        assert_eq!(failed.error, Some(KnowledgeErrorCode::KbSourceInUse));
+        assert_eq!(failed.suggestion.as_deref(), Some("closeFileAndRetry"));
+        assert!(!dir.join("content.md").exists());
+        drop(writer);
+        if exclusive {
+            job = manager.store.retry_ingest(&kb, source).unwrap();
+        }
+    }
+    let retry = manager.retry(&kb, source).unwrap();
+    wait_for_content(&manager, &retry.id);
+    assert_eq!(
+        fs::read_to_string(dir.join("content.md")).unwrap(),
+        "managed original"
+    );
+    manager.shutdown().unwrap();
+}
+
 #[test]
 fn mixed_import_returns_each_outcome_and_publishes_content_before_chunking() {
     let (data, manager, kb) = library();

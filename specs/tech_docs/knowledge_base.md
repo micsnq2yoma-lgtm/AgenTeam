@@ -53,6 +53,7 @@ kb://<kb-id>/<source-id>[?page=<页码>][#<chunk-id>]
 | `KB_FIELD_LOCKED` | Agent 尝试修改人工设置过的字段 |
 | `KB_LIMIT_EXCEEDED` | 超出容量或数量限制 |
 | `KB_SOURCE_UNSUPPORTED` | 来源类型或格式暂不支持 |
+| `KB_SOURCE_IN_USE` | 来源文件被占用；提示键为 `closeFileAndRetry` |
 | `KB_INDEXING` | 索引基线尚未可用 |
 | `KB_CATEGORY_NOT_ALLOWED` | 分类尚未纳入用户批准的分类体系 |
 | `KB_INVALID_INPUT` | ID、引用、设置或来源事实无效 |
@@ -139,6 +140,7 @@ Windows CI 用应用 crate 执行知识库测试。目录重定向用例在 Wind
 
 - Store 验证普通文件、输入类型和大小，检查可用空间后复制至托管的 `original.<ext>`。原始字节的 SHA-256 用于同库去重。来源记录保留文件大小、修改时间，以及发布后 `content.md` 的 SHA-256，供派生消费者识别内容版本。队列最多容纳 64 个排队或转换中的任务，每库最多 10,000 个来源。
 - UTF-8、带 BOM 的 UTF-16LE/BE 文本通过有界读取转换，文本输入上限 8 MiB。Office、PDF 和图片交给现有 `DocumentProcessingManager`。知识库任务保存其内部转换 ID 以便取消；转换错误映射为稳定的恢复提示键。
+- Windows 打开来源或从已持有的句柄复制快照时，共享冲突返回 `KB_SOURCE_IN_USE` 和 `closeFileAndRetry`。接收前被拒绝的文件在占用解除后重新导入。已接收的任务遇到同一错误时保存失败原因，可从托管原件重试。
 - 新任务在 `queued` 等待。Store 在提交 `converting` 后提供本次尝试的原件和暂存目录，输出准备完成后，按当前任务 ID 原子发布 Markdown、资产和来源记录。K2 的成功终点为 `chunking`。失败或取消保留托管原件供重试，旧任务回调不能修改新尝试，人工元数据跨转换保留。
 - 当前转换尝试和状态随 `source.json` 同一次提交。库内 `jobs/<job-id>.json` 定位任务，`original-hashes/` 用于去重，知识库根的 `active-imports.json` 记录待恢复的任务。应用关闭时停止接收导入，并收敛转换。异常退出后重开，未完成的排队或转换任务记为 `interrupted`，已发布并等待切块的来源保留 `chunking`。
 

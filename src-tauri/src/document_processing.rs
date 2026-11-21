@@ -7,9 +7,7 @@ use crate::local_inference::{
     LocalInferenceRuntimeRegistry,
 };
 use crate::process_cmd;
-use crate::workspace_files::path_safety::{
-    open_regular_file_no_follow_classified, RegularFileError,
-};
+use crate::workspace_files::path_safety::{file_is_in_use, open_regular_file_no_follow_classified};
 use chrono::{DateTime, Duration, Local, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -2144,7 +2142,7 @@ fn is_worker_failure_code(code: &str) -> bool {
 
 fn open_document_source(path: &Path) -> Result<File, DocumentServiceError> {
     open_regular_file_no_follow_classified(path, "document source").map_err(|error| {
-        if matches!(&error, RegularFileError::Open(io) if source_is_busy(io)) {
+        if error.is_in_use() {
             return DocumentServiceError::new(
                 "DOCUMENT_SOURCE_IN_USE",
                 "The source file is in use and cannot be copied.",
@@ -2159,18 +2157,11 @@ fn open_document_source(path: &Path) -> Result<File, DocumentServiceError> {
     })
 }
 
-fn source_is_busy(error: &std::io::Error) -> bool {
-    #[cfg(windows)]
-    {
-        use windows_sys::Win32::Foundation::{ERROR_LOCK_VIOLATION, ERROR_SHARING_VIOLATION};
-        matches!(
-            error.raw_os_error().map(|code| code as u32),
-            Some(ERROR_SHARING_VIOLATION | ERROR_LOCK_VIOLATION)
-        )
-    }
-    #[cfg(not(windows))]
-    {
-        error.kind() == std::io::ErrorKind::ResourceBusy
+fn source_read_error(error: std::io::Error) -> &'static str {
+    if file_is_in_use(&error) {
+        "DOCUMENT_SOURCE_IN_USE"
+    } else {
+        "DOCUMENT_INPUT_READ_FAILED"
     }
 }
 
@@ -2184,12 +2175,7 @@ fn open_snapshot_reader(source: &File) -> Result<File, &'static str> {
     // The read-only sharing restriction lasts exactly as long as this File.
     let handle = unsafe { ReOpenFile(source.as_raw_handle(), GENERIC_READ, FILE_SHARE_READ, 0) };
     if handle == INVALID_HANDLE_VALUE {
-        let error = std::io::Error::last_os_error();
-        return Err(if source_is_busy(&error) {
-            "DOCUMENT_SOURCE_IN_USE"
-        } else {
-            "DOCUMENT_INPUT_READ_FAILED"
-        });
+        return Err(source_read_error(std::io::Error::last_os_error()));
     }
     // ReOpenFile returned a new owned handle; File closes it on every exit.
     Ok(unsafe { File::from_raw_handle(handle) })
@@ -2246,9 +2232,7 @@ fn copy_source(
     let mut buffer = [0_u8; 128 * 1024];
     loop {
         checkpoint().map_err(str::to_string)?;
-        let read = source
-            .read(&mut buffer)
-            .map_err(|_| "DOCUMENT_INPUT_READ_FAILED".to_string())?;
+        let read = source.read(&mut buffer).map_err(source_read_error)?;
         if read == 0 {
             break;
         }

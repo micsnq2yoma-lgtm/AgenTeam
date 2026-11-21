@@ -14,11 +14,12 @@ use crate::durable_fs::rename_directory_noreplace;
 use crate::knowledge::types::KnowledgeErrorCode;
 use crate::workspace_files::path_safety::{
     create_workspace_file_no_follow, read_workspace_file_no_follow,
+    read_workspace_file_no_follow_classified,
 };
 
 use KnowledgeErrorCode::{
-    KbAccessDenied, KbInsufficientSpace, KbInvalidInput, KbLimitExceeded, KbSourceUnsupported,
-    KbStoreUnavailable,
+    KbAccessDenied, KbInsufficientSpace, KbInvalidInput, KbLimitExceeded, KbSourceInUse,
+    KbSourceUnsupported, KbStoreUnavailable,
 };
 
 const TEXT_LIMIT: u64 = 8 * 1024 * 1024;
@@ -38,6 +39,16 @@ const INVALID_TEXT: ConversionError = Failed(KbInvalidInput, "saveAsUnicodeText"
 const INVALID_PATH: ConversionError = Failed(KbInvalidInput, "chooseReadableRegularFile");
 const STORAGE_ERROR: ConversionError = Failed(KbStoreUnavailable, "checkStorageAndRetry");
 const MISSING_RESOURCES: ConversionError = Failed(KbStoreUnavailable, "installDocumentResources");
+const SOURCE_IN_USE: ConversionError = Failed(KbSourceInUse, super::CLOSE_FILE_AND_RETRY);
+
+impl ConversionError {
+    pub(super) fn store(code: KnowledgeErrorCode) -> Self {
+        match code {
+            KbSourceInUse => SOURCE_IN_USE,
+            _ => Failed(code, "checkStorageAndRetry"),
+        }
+    }
+}
 
 pub(crate) fn source_limit(path: &Path) -> Result<u64, ConversionError> {
     if path
@@ -87,7 +98,13 @@ pub(super) fn convert(
             return Err(Failed(KbLimitExceeded, "checkImportLimits"));
         }
         let (_, bytes) =
-            read_workspace_file_no_follow(parent, name, limit).map_err(|_| INVALID_PATH)?;
+            read_workspace_file_no_follow_classified(parent, name, limit).map_err(|error| {
+                if error.is_in_use() {
+                    SOURCE_IN_USE
+                } else {
+                    INVALID_PATH
+                }
+            })?;
         let text = decode_text(bytes)?;
         check_cancelled(cancelled)?;
         create_workspace_file_no_follow(stage, "content.md", text.as_bytes())
@@ -121,7 +138,7 @@ pub(super) fn convert(
             .map_err(|error| document_error(&error.code))?;
     }
     if let Some(code) = recording_error {
-        return Err(Failed(code, "checkStorageAndRetry"));
+        return Err(ConversionError::store(code));
     }
     check_cancelled(cancelled)?;
     match job.state {
@@ -182,6 +199,7 @@ fn document_error(code: &str) -> ConversionError {
         "DOCUMENT_CANCELLED" => ConversionError::Cancelled,
         "DOCUMENT_INTERRUPTED" | "DOCUMENT_MANAGER_SHUTTING_DOWN" => ConversionError::Interrupted,
         "DOCUMENT_UNSUPPORTED_FORMAT" => UNSUPPORTED,
+        "DOCUMENT_SOURCE_IN_USE" => SOURCE_IN_USE,
         "DOCUMENT_RESOURCE_LIMIT" | "DOCUMENT_TIMEOUT" => Failed(KbLimitExceeded, "splitDocument"),
         "DOCUMENT_QUEUE_FULL" => Failed(KbLimitExceeded, "waitForConversion"),
         "DOCUMENT_SOURCE_PERMISSION_DENIED" => Failed(KbAccessDenied, "chooseReadableRegularFile"),

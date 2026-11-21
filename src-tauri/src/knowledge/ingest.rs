@@ -18,6 +18,8 @@ use super::types::{
 use crate::document_processing::ManagedDocumentProcessing;
 use conversion::ConversionError;
 
+const CLOSE_FILE_AND_RETRY: &str = "closeFileAndRetry";
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportFailure {
@@ -30,6 +32,7 @@ impl From<KnowledgeErrorCode> for ImportFailure {
         use KnowledgeErrorCode::*;
         let suggestion = match code {
             KbSourceUnsupported => "chooseSupportedFile",
+            KbSourceInUse => CLOSE_FILE_AND_RETRY,
             KbLimitExceeded => "checkImportLimits",
             KbInsufficientSpace => "freeDiskSpace",
             KbJobConflict => "refreshJob",
@@ -175,8 +178,10 @@ impl KnowledgeIngestManager {
     }
 
     fn convert_one(&self, id: &str, cancelled: &AtomicBool) -> Result<(), ConversionError> {
-        let failure = |code| ConversionError::Failed(code, "checkStorageAndRetry");
-        let input = self.store.begin_ingest(id).map_err(failure)?;
+        let input = self
+            .store
+            .begin_ingest(id)
+            .map_err(ConversionError::store)?;
         conversion::convert(
             &input.original,
             input.stage.path(),
@@ -186,7 +191,7 @@ impl KnowledgeIngestManager {
         )?;
         self.store
             .publish_ingest(id, input.stage.path())
-            .map_err(failure)?;
+            .map_err(ConversionError::store)?;
         Ok(())
     }
 

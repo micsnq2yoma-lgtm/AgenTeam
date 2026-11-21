@@ -506,20 +506,48 @@ fn read_prefix(target: &Path, max_bytes: usize) -> Result<Vec<u8>, String> {
     Ok(current)
 }
 
-/// Keep the OS error from opening the leaf so owners can distinguish a
-/// sharing violation from other failures without parsing localized messages.
+/// Keep the leaf's OS error alongside the diagnostic for string-based callers.
 #[derive(Debug)]
 pub(crate) enum RegularFileError {
-    Open(std::io::Error),
+    Io(String, std::io::Error),
     Validation(String),
 }
 
 impl RegularFileError {
-    fn message(self, label: &str) -> String {
+    fn io(context: impl Into<String>, error: std::io::Error) -> Self {
+        Self::Io(context.into(), error)
+    }
+
+    pub(crate) fn is_in_use(&self) -> bool {
+        matches!(self, Self::Io(_, error) if file_is_in_use(error))
+    }
+
+    fn message(self) -> String {
         match self {
-            Self::Open(error) => format!("Failed to open {label}: {error}"),
+            Self::Io(context, error) => format!("{context}: {error}"),
             Self::Validation(message) => message,
         }
+    }
+}
+
+impl From<String> for RegularFileError {
+    fn from(message: String) -> Self {
+        Self::Validation(message)
+    }
+}
+
+pub(crate) fn file_is_in_use(error: &std::io::Error) -> bool {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Foundation::{ERROR_LOCK_VIOLATION, ERROR_SHARING_VIOLATION};
+        matches!(
+            error.raw_os_error().map(|code| code as u32),
+            Some(ERROR_SHARING_VIOLATION | ERROR_LOCK_VIOLATION)
+        )
+    }
+    #[cfg(not(windows))]
+    {
+        error.kind() == std::io::ErrorKind::ResourceBusy
     }
 }
 
@@ -528,7 +556,7 @@ impl RegularFileError {
 /// `read_workspace_file_no_follow`; this helper is the shared leaf primitive
 /// for user-selected local files such as avatars and Skill packages.
 pub fn open_regular_file_no_follow(path: &Path, label: &str) -> WfResult<fs::File> {
-    open_regular_file_no_follow_classified(path, label).map_err(|e| e.message(label))
+    open_regular_file_no_follow_classified(path, label).map_err(RegularFileError::message)
 }
 
 pub(crate) fn open_regular_file_no_follow_classified(
@@ -536,9 +564,9 @@ pub(crate) fn open_regular_file_no_follow_classified(
     label: &str,
 ) -> Result<fs::File, RegularFileError> {
     let file = open_regular_file_no_follow_platform(path, label)?;
-    let metadata = file.metadata().map_err(|e| {
-        RegularFileError::Validation(format!("Failed to inspect opened {}: {}", label, e))
-    })?;
+    let metadata = file
+        .metadata()
+        .map_err(|e| RegularFileError::io(format!("Failed to inspect opened {label}"), e))?;
     if !metadata.is_file() {
         return Err(RegularFileError::Validation(format!(
             "{} path must be a regular file",
@@ -551,7 +579,7 @@ pub(crate) fn open_regular_file_no_follow_classified(
 #[cfg(unix)]
 fn open_regular_file_no_follow_platform(
     path: &Path,
-    _label: &str,
+    label: &str,
 ) -> Result<fs::File, RegularFileError> {
     use std::os::unix::fs::OpenOptionsExt;
 
@@ -559,7 +587,9 @@ fn open_regular_file_no_follow_platform(
     options
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
-    options.open(path).map_err(RegularFileError::Open)
+    options
+        .open(path)
+        .map_err(|e| RegularFileError::io(format!("Failed to open {label}"), e))
 }
 
 #[cfg(windows)]
@@ -573,9 +603,9 @@ fn open_regular_file_no_follow_platform(
 #[cfg(all(not(unix), not(windows)))]
 fn open_regular_file_no_follow_platform(
     path: &Path,
-    _label: &str,
+    label: &str,
 ) -> Result<fs::File, RegularFileError> {
-    fs::File::open(path).map_err(RegularFileError::Open)
+    fs::File::open(path).map_err(|e| RegularFileError::io(format!("Failed to open {label}"), e))
 }
 
 /// Read a regular file beneath `workspace_root` without following any path
@@ -587,21 +617,30 @@ pub fn read_workspace_file_no_follow(
     requested: &str,
     max_bytes: u64,
 ) -> WfResult<(PathBuf, Vec<u8>)> {
+    read_workspace_file_no_follow_classified(workspace_root, requested, max_bytes)
+        .map_err(RegularFileError::message)
+}
+
+pub(crate) fn read_workspace_file_no_follow_classified(
+    workspace_root: &Path,
+    requested: &str,
+    max_bytes: u64,
+) -> Result<(PathBuf, Vec<u8>), RegularFileError> {
     let (canonical, mut file) =
-        open_workspace_regular_file_no_follow(workspace_root, requested, "attachment")?;
+        open_workspace_regular_file_no_follow_classified(workspace_root, requested, "attachment")?;
     let metadata = file
         .metadata()
-        .map_err(|e| format!("Failed to inspect opened attachment: {}", e))?;
+        .map_err(|e| RegularFileError::io("Failed to inspect opened attachment", e))?;
     if metadata.len() > max_bytes {
-        return Err(format!("Attachment exceeds {} bytes", max_bytes));
+        return Err(format!("Attachment exceeds {} bytes", max_bytes).into());
     }
     let mut bytes = Vec::with_capacity(metadata.len().min(max_bytes) as usize);
     (&mut file)
         .take(max_bytes + 1)
         .read_to_end(&mut bytes)
-        .map_err(|e| format!("Failed to read attachment: {}", e))?;
+        .map_err(|e| RegularFileError::io("Failed to read attachment", e))?;
     if bytes.len() as u64 > max_bytes {
-        return Err(format!("Attachment exceeds {} bytes", max_bytes));
+        return Err(format!("Attachment exceeds {} bytes", max_bytes).into());
     }
     Ok((canonical, bytes))
 }
@@ -615,6 +654,15 @@ pub fn open_workspace_regular_file_no_follow(
     requested: &str,
     label: &str,
 ) -> WfResult<(PathBuf, fs::File)> {
+    open_workspace_regular_file_no_follow_classified(workspace_root, requested, label)
+        .map_err(RegularFileError::message)
+}
+
+pub(crate) fn open_workspace_regular_file_no_follow_classified(
+    workspace_root: &Path,
+    requested: &str,
+    label: &str,
+) -> Result<(PathBuf, fs::File), RegularFileError> {
     let canonical_root = fs::canonicalize(workspace_root)
         .map_err(|e| format!("Failed to resolve workspace path: {}", e))?;
     let lexical = if Path::new(requested).is_absolute() {
@@ -622,21 +670,21 @@ pub fn open_workspace_regular_file_no_follow(
     } else {
         resolve_inside_workspace(&canonical_root, requested)?
     };
-    let lexical_metadata =
-        fs::symlink_metadata(&lexical).map_err(|e| format!("Attachment not found: {}", e))?;
+    let lexical_metadata = fs::symlink_metadata(&lexical)
+        .map_err(|e| RegularFileError::io("Attachment not found", e))?;
     if lexical_metadata.file_type().is_symlink() {
-        return Err("Attachment path must not be a symlink".to_string());
+        return Err("Attachment path must not be a symlink".to_string().into());
     }
     if !lexical_metadata.is_file() {
-        return Err("Attachment path must be a regular file".to_string());
+        return Err("Attachment path must be a regular file".to_string().into());
     }
     let canonical =
-        fs::canonicalize(&lexical).map_err(|e| format!("Attachment not found: {}", e))?;
+        fs::canonicalize(&lexical).map_err(|e| RegularFileError::io("Attachment not found", e))?;
     let relative = canonical
         .strip_prefix(&canonical_root)
         .map_err(|_| "Attachment path escapes the current workspace".to_string())?;
     if relative.as_os_str().is_empty() {
-        return Err("Attachment path must be a regular file".to_string());
+        return Err("Attachment path must be a regular file".to_string().into());
     }
 
     #[cfg(unix)]
@@ -646,17 +694,20 @@ pub fn open_workspace_regular_file_no_follow(
     #[cfg(all(not(unix), not(windows)))]
     let file = {
         let metadata = fs::symlink_metadata(&canonical)
-            .map_err(|e| format!("Failed to inspect attachment: {}", e))?;
+            .map_err(|e| RegularFileError::io("Failed to inspect attachment", e))?;
         if metadata.file_type().is_symlink() || !metadata.is_file() {
-            return Err("Attachment path must be a regular, non-symlink file".to_string());
+            return Err("Attachment path must be a regular, non-symlink file"
+                .to_string()
+                .into());
         }
-        fs::File::open(&canonical).map_err(|e| format!("Failed to open attachment: {}", e))?
+        fs::File::open(&canonical)
+            .map_err(|e| RegularFileError::io("Failed to open attachment", e))?
     };
     let metadata = file
         .metadata()
-        .map_err(|e| format!("Failed to inspect opened {}: {}", label, e))?;
+        .map_err(|e| RegularFileError::io(format!("Failed to inspect opened {label}"), e))?;
     if !metadata.is_file() {
-        return Err(format!("{} path must be a regular file", label));
+        return Err(format!("{} path must be a regular file", label).into());
     }
     #[cfg(windows)]
     verify_windows_workspace_parent(
@@ -825,7 +876,7 @@ fn open_relative_file_no_follow(
     root: &Path,
     relative: &Path,
     create_parents: bool,
-) -> WfResult<fs::File> {
+) -> Result<fs::File, RegularFileError> {
     use std::os::unix::fs::OpenOptionsExt;
 
     let mut root_options = fs::OpenOptions::new();
@@ -839,7 +890,7 @@ fn open_relative_file_no_follow(
     let components = relative.components().collect::<Vec<_>>();
     for component in components.iter().take(components.len().saturating_sub(1)) {
         let Component::Normal(name) = component else {
-            return Err("Unsafe workspace path component".to_string());
+            return Err("Unsafe workspace path component".to_string().into());
         };
         let name = component_cstring(name)?;
         let parent_fd = opened_dirs
@@ -864,7 +915,8 @@ fn open_relative_file_no_follow(
                 return Err(format!(
                     "Failed to create destination directory: {}",
                     std::io::Error::last_os_error()
-                ));
+                )
+                .into());
             }
             fd = unsafe {
                 libc::openat(
@@ -878,12 +930,13 @@ fn open_relative_file_no_follow(
             return Err(format!(
                 "Workspace path contains an inaccessible or symlinked directory: {}",
                 std::io::Error::last_os_error()
-            ));
+            )
+            .into());
         }
         opened_dirs.push(unsafe { fs::File::from_raw_fd(fd) });
     }
     let Some(Component::Normal(file_name)) = components.last() else {
-        return Err("Destination filename is invalid".to_string());
+        return Err("Destination filename is invalid".to_string().into());
     };
     let file_name = component_cstring(file_name)?;
     let fd = unsafe {
@@ -897,9 +950,9 @@ fn open_relative_file_no_follow(
         )
     };
     if fd < 0 {
-        return Err(format!(
-            "Failed to open attachment: {}",
-            std::io::Error::last_os_error()
+        return Err(RegularFileError::io(
+            "Failed to open attachment",
+            std::io::Error::last_os_error(),
         ));
     }
     Ok(unsafe { fs::File::from_raw_fd(fd) })
@@ -1389,7 +1442,11 @@ fn open_windows_regular_file_handle(
         )
     };
     if handle == INVALID_HANDLE_VALUE {
-        return Err(RegularFileError::Open(std::io::Error::last_os_error()));
+        let error = std::io::Error::last_os_error();
+        return Err(RegularFileError::io(
+            format!("Failed to open {label}"),
+            error,
+        ));
     }
     let file = unsafe { fs::File::from_raw_handle(handle as _) };
     let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
@@ -1509,7 +1566,7 @@ fn verify_windows_workspace_parent(
 fn open_windows_workspace_file_no_follow(
     root: &Path,
     relative: &Path,
-) -> WfResult<(fs::File, fs::File)> {
+) -> Result<(fs::File, fs::File), RegularFileError> {
     open_windows_workspace_file_no_follow_impl(root, relative, || {})
 }
 
@@ -1518,7 +1575,7 @@ fn open_windows_workspace_file_no_follow_impl<F: FnOnce()>(
     root: &Path,
     relative: &Path,
     after_parent_opened: F,
-) -> WfResult<(fs::File, fs::File)> {
+) -> Result<(fs::File, fs::File), RegularFileError> {
     use windows_sys::Wdk::Storage::FileSystem::{
         FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_REPARSE_POINT, FILE_SYNCHRONOUS_IO_NONALERT,
     };
@@ -1545,7 +1602,7 @@ fn open_windows_workspace_file_no_follow_impl<F: FnOnce()>(
         FILE_NON_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT,
         FILE_ATTRIBUTE_NORMAL,
     )
-    .map_err(|error| format!("Failed to open attachment: {}", error))?;
+    .map_err(|error| RegularFileError::io("Failed to open attachment", error))?;
     validate_windows_regular_file_handle(&file, "attachment")?;
     Ok((file, parent))
 }

@@ -95,6 +95,18 @@ fn source_admission_and_errors_share_the_anydoc_format_and_privacy_contracts() {
     );
 }
 
+#[test]
+fn source_in_use_keeps_the_same_recovery_at_admission_conversion_and_publication() {
+    let failure = crate::knowledge::ingest::ImportFailure::from(KbSourceInUse);
+    assert_eq!(
+        serde_json::to_value(failure).unwrap(),
+        serde_json::json!({"code": "KB_SOURCE_IN_USE", "suggestion": "closeFileAndRetry"})
+    );
+    let expected = Failed(KbSourceInUse, "closeFileAndRetry");
+    assert_eq!(document_error("DOCUMENT_SOURCE_IN_USE"), expected);
+    assert_eq!(ConversionError::store(KbSourceInUse), expected);
+}
+
 // Run with MYAGENTS_KB_TEST_RESOURCE_ROOT pointing at the prepared app resource
 // directory containing document-processing/v1 and the shared inference runtime.
 // cargo test --manifest-path src-tauri/Cargo.toml --lib resource_backed_document_ingest -- --ignored
