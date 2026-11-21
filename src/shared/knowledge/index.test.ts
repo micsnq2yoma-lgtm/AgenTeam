@@ -11,9 +11,14 @@ import {
   isKnowledgeJobId,
   isKnowledgePlanId,
   isKnowledgeSourceId,
+  KNOWLEDGE_ERROR_CODES,
   parseKnowledgeRef,
   type KnowledgeRef,
 } from './index';
+
+it('exposes the native oversized grapheme error to clients', () => {
+  expect(KNOWLEDGE_ERROR_CODES).toContain('KB_CHUNK_UNSPLITTABLE');
+});
 
 describe('knowledge references', () => {
   it('parses and formats the shared native fixture', () => {

@@ -74,6 +74,7 @@ uuid = { version = "1.11", features = ["v4"] }
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
 prost = "0.13"
 pulldown-cmark = "0.12"
+unicode-segmentation = "=1.13.2"
 quick-xml = "0.38.4"
 # YAML frontmatter parsing for slash command / skill SKILL.md files (workspace_files::slash)
 serde_yaml = "0.9"

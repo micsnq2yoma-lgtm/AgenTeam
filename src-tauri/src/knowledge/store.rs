@@ -9,6 +9,8 @@ use serde_json::Value;
 use tokio::sync::broadcast;
 use uuid::Uuid;
 
+mod chunks;
+pub use chunks::ResolvedFragment;
 pub mod ingest;
 
 use crate::durable_fs::{rename_directory_noreplace, sync_directory};
@@ -229,6 +231,8 @@ pub type MetadataPatch = BTreeMap<MetadataKey, Value>;
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeSource {
     pub id: KnowledgeSourceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     #[serde(flatten)]
     pub facts: SourceFacts,
     pub metadata: BTreeMap<MetadataKey, KnowledgeMetadataField<Value>>,
@@ -255,6 +259,8 @@ pub enum MetadataOutcome {
 pub struct ResolvedKnowledgeRef {
     pub reference: KnowledgeRef,
     pub source: KnowledgeSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fragment: Option<ResolvedFragment>,
 }
 
 /// An internal index notification. Only identities and content hashes cross this channel.
@@ -424,6 +430,7 @@ impl KnowledgeStore {
             let id = allocate_id(&parent, |_| false, create_knowledge_source_id)?;
             let source = KnowledgeSource {
                 id,
+                display_name: None,
                 facts,
                 metadata: BTreeMap::new(),
             };
@@ -526,7 +533,12 @@ impl KnowledgeStore {
     pub fn resolve_ref(&self, input: &str) -> StoreResult<ResolvedKnowledgeRef> {
         let reference = parse_knowledge_ref(input).ok_or(KbInvalidInput)?;
         let source = self.get_source(&reference.kb_id, &reference.source_id)?;
-        Ok(ResolvedKnowledgeRef { reference, source })
+        let fragment = self.resolve_fragment(&reference, &source)?;
+        Ok(ResolvedKnowledgeRef {
+            reference,
+            source,
+            fragment,
+        })
     }
 
     fn source_upserted(&self, kb_id: &str, source: &KnowledgeSource) {

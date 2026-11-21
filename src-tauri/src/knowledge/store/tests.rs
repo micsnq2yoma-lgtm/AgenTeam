@@ -53,6 +53,10 @@ fn knowledge_crud_survives_reopen_and_preserves_linked_originals() {
         )
         .unwrap();
     let linked_facts = SourceFacts {
+        content_hash: Some(format!(
+            "{:x}",
+            <sha2::Sha256 as sha2::Digest>::digest(b"managed copy")
+        )),
         current_path: Some(outside.clone()),
         kind: SourceKind::LinkedFile,
         ..note()

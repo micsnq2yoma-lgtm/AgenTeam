@@ -4,6 +4,7 @@ use std::{fs, thread, time::Instant};
 use tempfile::{tempdir, TempDir};
 
 mod acceptance;
+mod chunking;
 mod versions;
 
 fn library() -> (TempDir, Arc<KnowledgeIngestManager>, String) {
@@ -20,13 +21,13 @@ fn library() -> (TempDir, Arc<KnowledgeIngestManager>, String) {
     (data, manager, kb.id)
 }
 
-fn wait_for_content(manager: &KnowledgeIngestManager, id: &str) {
+fn wait_for_content(manager: &Arc<KnowledgeIngestManager>, id: &str) {
     let deadline = Instant::now() + Duration::from_secs(30);
     loop {
         let job = manager.status(id).unwrap();
         match job.status {
-            SourceStatus::Chunking => return,
-            SourceStatus::Queued | SourceStatus::Converting => {}
+            SourceStatus::Ready => return,
+            SourceStatus::Queued | SourceStatus::Converting | SourceStatus::Chunking => {}
             state => panic!("unexpected import status {state:?}"),
         }
         assert!(Instant::now() < deadline, "timed out waiting for {id}");
@@ -131,7 +132,7 @@ fn mixed_import_returns_each_outcome_and_publishes_content_before_chunking() {
         assert!(!receipt.duplicate);
         wait_for_content(&manager, &receipt.job.as_ref().unwrap().id);
         let src = manager.store.get_source(&kb, &receipt.source_id).unwrap();
-        assert_eq!(src.facts.status, SourceStatus::Chunking);
+        assert_eq!(src.facts.status, SourceStatus::Ready);
         let content = data
             .path()
             .join("knowledge")
@@ -173,7 +174,7 @@ fn restart_interrupts_the_old_attempt_and_retry_uses_the_managed_original() {
             .unwrap()
             .facts
             .status,
-        SourceStatus::Chunking
+        SourceStatus::Ready
     );
     reopened.shutdown().unwrap();
 }

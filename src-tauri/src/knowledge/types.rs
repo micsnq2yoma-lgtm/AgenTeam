@@ -34,6 +34,7 @@ pub enum KnowledgeErrorCode {
     KbLimitExceeded,
     KbSourceUnsupported,
     KbSourceInUse,
+    KbChunkUnsplittable,
     KbIndexing,
     KbCategoryNotAllowed,
     KbInvalidInput,
@@ -317,6 +318,10 @@ mod tests {
                 "KB_SOURCE_UNSUPPORTED",
             ),
             (KnowledgeErrorCode::KbSourceInUse, "KB_SOURCE_IN_USE"),
+            (
+                KnowledgeErrorCode::KbChunkUnsplittable,
+                "KB_CHUNK_UNSPLITTABLE",
+            ),
             (KnowledgeErrorCode::KbIndexing, "KB_INDEXING"),
             (
                 KnowledgeErrorCode::KbCategoryNotAllowed,

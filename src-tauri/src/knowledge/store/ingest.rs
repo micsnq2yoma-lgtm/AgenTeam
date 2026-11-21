@@ -1,5 +1,6 @@
 //! Managed imports. source.json is the commit record for each attempt. The
 //! small queue and lookup files contain identities and can precede publication.
+use super::super::chunker::ChunkPosition;
 use super::*;
 use crate::document_processing::{
     copy_knowledge_original, reject_link_ancestors, MAX_OUTPUT_BYTES,
@@ -31,6 +32,8 @@ pub struct IngestJob {
     pub error: Option<KnowledgeErrorCode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub suggestion: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<ChunkPosition>,
 }
 
 #[derive(Debug, Serialize)]
@@ -54,8 +57,10 @@ pub(super) struct ImportRecord {
     extension: String,
     original_sha256: String,
     document_job_id: Option<String>,
-    error: Option<KnowledgeErrorCode>,
-    suggestion: Option<String>,
+    pub(super) error: Option<KnowledgeErrorCode>,
+    pub(super) suggestion: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) position: Option<ChunkPosition>,
 }
 
 impl ImportRecord {
@@ -83,6 +88,7 @@ impl SourceRecord {
             status: self.source.facts.status,
             error: import.error,
             suggestion: import.suggestion.clone(),
+            position: import.position,
         })
     }
 }
@@ -95,7 +101,10 @@ fn valid_digest(value: &str) -> bool {
 }
 
 fn pending(status: SourceStatus) -> bool {
-    matches!(status, SourceStatus::Queued | SourceStatus::Converting)
+    matches!(
+        status,
+        SourceStatus::Queued | SourceStatus::Converting | SourceStatus::Chunking
+    )
 }
 
 #[derive(Serialize, Deserialize)]
@@ -244,7 +253,7 @@ impl StoreFiles {
         Err(KbNotFound)
     }
 
-    fn current(
+    pub(super) fn current(
         &self,
         registry: &BTreeSet<String>,
         id: &str,
@@ -324,7 +333,7 @@ impl StoreFiles {
         self.write_json(ACTIVE, &active)
     }
 
-    fn save_record(&self, kb: &str, record: &SourceRecord) -> StoreResult<()> {
+    pub(super) fn save_record(&self, kb: &str, record: &SourceRecord) -> StoreResult<()> {
         self.write_json(&source_path(kb, &record.source.id), record)
     }
 }
@@ -336,8 +345,13 @@ impl KnowledgeStore {
         self.locked(|files, registry| {
             let active = files.active_jobs(registry)?;
             let mut documents = Vec::new();
+            let mut resumable = Vec::new();
             for id in active {
                 let (kb, mut record) = files.current(registry, &id)?;
+                if record.source.facts.status == SourceStatus::Chunking {
+                    resumable.push(id);
+                    continue;
+                }
                 let import = record.ingest.as_ref().ok_or(KbStoreCorrupt)?;
                 if let Some(document) = &import.document_job_id {
                     documents.push(document.clone());
@@ -346,7 +360,7 @@ impl KnowledgeStore {
                 files.save_record(&kb, &record)?;
                 self.source_upserted(&kb, &record.source);
             }
-            files.write_json(ACTIVE, &Vec::<String>::new())?;
+            files.write_json(ACTIVE, &resumable)?;
             Ok(documents)
         })
     }
@@ -354,7 +368,14 @@ impl KnowledgeStore {
     /// Only reclaim private directories after producers relinquish them or
     /// during startup, before admission opens.
     pub fn reclaim_ingest_staging(&self) -> StoreResult<()> {
+        self.recover_ingest_staging().map(drop)
+    }
+
+    // K2 could already have removed a completed conversion from active-imports.
+    // Discover published Markdown by its authoritative source record on startup.
+    pub(crate) fn recover_ingest_staging(&self) -> StoreResult<Vec<String>> {
         self.locked(|files, registry| {
+            let mut owners = BTreeMap::new();
             for kb in registry.iter() {
                 files.read_kb(kb)?;
                 let Some(parent) = files.source_parent(kb)? else {
@@ -366,16 +387,58 @@ impl KnowledgeStore {
                     files.cleanup(&stage);
                 }
                 for source in valid_kb_source_folders(&parent)? {
-                    let dir = parent.join(source);
+                    let dir = parent.join(&source);
                     if !StoreFiles::is_plain_directory(&dir)? {
                         return Err(KbStoreCorrupt);
+                    }
+                    let record = files.require_record(kb, &source)?;
+                    if record.source.facts.status == SourceStatus::Chunking {
+                        if let Some(job) = record.ingest {
+                            if owners.insert(job.id, (kb.as_str(), source)).is_some() {
+                                return Err(KbStoreCorrupt);
+                            }
+                        }
                     }
                     for stage in StoreFiles::reserved_directories(&dir, WORK, valid_work_suffix)? {
                         files.cleanup(&stage);
                     }
                 }
             }
-            Ok(())
+            // K2 could remove a Chunking job from the active index. Restore its
+            // entry so new admissions also account for the resumed backlog.
+            // Older publications may be discoverable only through source.json. Recreate
+            // a missing locator for its unique current attempt, never an archived one.
+            for (id, (kb, source)) in &owners {
+                match files.locate(registry, id) {
+                    Ok((owner, link))
+                        if owner == *kb
+                            && link.source_id == source.as_str()
+                            && link.archived.is_none() => {}
+                    Ok(_) => return Err(KbStoreCorrupt),
+                    Err(KbNotFound) => files.write_json(
+                        &locator(kb, id),
+                        &JobLink {
+                            source_id: source.clone(),
+                            archived: None,
+                        },
+                    )?,
+                    Err(error) => return Err(error),
+                }
+            }
+            let resumable: Vec<_> = owners.into_keys().collect();
+            let mut active = files.active_jobs(registry)?;
+            let before = active.len();
+            let mut seen: BTreeSet<_> = active.iter().cloned().collect();
+            active.extend(
+                resumable
+                    .iter()
+                    .filter(|id| seen.insert((*id).clone()))
+                    .cloned(),
+            );
+            if active.len() != before {
+                files.write_json(ACTIVE, &active)?;
+            }
+            Ok(resumable)
         })
     }
 
@@ -528,6 +591,9 @@ impl KnowledgeStore {
             let record = SourceRecord {
                 source: KnowledgeSource {
                     id: source.clone(),
+                    display_name: path
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned()),
                     metadata: BTreeMap::new(),
                     facts: SourceFacts {
                         kind: SourceKind::File,
@@ -544,6 +610,7 @@ impl KnowledgeStore {
                     document_job_id: None,
                     error: None,
                     suggestion: None,
+                    position: None,
                 }),
             };
             files.reserve_job(registry, kb, &source, &id)?;
@@ -652,6 +719,7 @@ impl KnowledgeStore {
             import.document_job_id = None;
             import.error = None;
             import.suggestion = None;
+            import.position = None;
             record.source.facts.status = SourceStatus::Queued;
             files.save_record(kb, &record)?;
             self.source_upserted(kb, &record.source);
@@ -698,6 +766,7 @@ impl KnowledgeStore {
             let import = record.ingest.as_mut().ok_or(KbStoreCorrupt)?;
             import.error = error;
             import.suggestion = suggestion.map(str::to_owned);
+            import.position = None;
             files.save_record(&kb, &record)?;
             self.source_upserted(&kb, &record.source);
             record.job(&kb)

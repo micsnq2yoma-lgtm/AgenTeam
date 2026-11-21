@@ -72,7 +72,7 @@ fn two_restarts_preserve_attempt_history_and_only_one_concurrent_retry_wins() {
     let verified = open();
     assert_eq!(
         verified.status(&completed.id).unwrap().status,
-        SourceStatus::Chunking
+        SourceStatus::Ready
     );
     for id in history {
         assert_eq!(verified.cancel(&id), Err(KbJobConflict));
@@ -84,7 +84,7 @@ fn two_restarts_preserve_attempt_history_and_only_one_concurrent_retry_wins() {
     let sources = verified.store.list_sources(&kb).unwrap();
     assert_eq!(sources.len(), 1);
     assert_eq!(sources[0].id, source);
-    assert_eq!(sources[0].facts.status, SourceStatus::Chunking);
+    assert_eq!(sources[0].facts.status, SourceStatus::Ready);
     let dir = data
         .path()
         .join("knowledge")

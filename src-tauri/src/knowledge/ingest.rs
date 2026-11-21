@@ -11,7 +11,7 @@ use std::time::Duration;
 use serde::Serialize;
 
 use super::store::ingest::{ImportReceipt, IngestJob};
-use super::store::{KnowledgeStore, StoreResult};
+use super::store::{KnowledgeStore, SourceStatus, StoreResult};
 use super::types::{
     is_knowledge_base_id, is_knowledge_job_id, is_knowledge_source_id, KnowledgeErrorCode,
 };
@@ -82,20 +82,21 @@ impl KnowledgeIngestManager {
             .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)
     }
 
-    fn open_queue(&self) -> StoreResult<MutexGuard<'_, Queue>> {
+    fn open_queue(self: &Arc<Self>) -> StoreResult<MutexGuard<'_, Queue>> {
         let mut queue = self.queue()?;
         if queue.closed {
             return Err(KnowledgeErrorCode::KbStoreUnavailable);
         }
         if !queue.recovered {
             self.interrupt_unfinished()?;
-            self.store.reclaim_ingest_staging()?;
+            queue.pending.extend(self.store.recover_ingest_staging()?);
             queue.recovered = true;
+            self.start_next(&mut queue);
         }
         Ok(queue)
     }
 
-    pub fn recover(&self) -> StoreResult<()> {
+    pub fn recover(self: &Arc<Self>) -> StoreResult<()> {
         drop(self.open_queue()?);
         Ok(())
     }
@@ -159,8 +160,24 @@ impl KnowledgeIngestManager {
     fn run_one(&self, id: &str, cancelled: &AtomicBool) {
         // Each settlement checks the attempt ID and current phase under the
         // Store lock. A late worker cannot override a cancellation or retry.
-        match self.convert_one(id, cancelled) {
-            Ok(()) => {}
+        let conversion = match self.store.ingest_job(id) {
+            Ok(job) if job.status == SourceStatus::Chunking => Ok(()),
+            Ok(job) if job.status == SourceStatus::Queued => self.convert_one(id, cancelled),
+            Ok(_) => return,
+            Err(code) => Err(ConversionError::store(code)),
+        };
+        match conversion {
+            Ok(()) => {
+                if let Err(code) = self.store.finish_chunking(id, cancelled) {
+                    // Late results are expected after cancellation, removal or retry.
+                    if !matches!(
+                        code,
+                        KnowledgeErrorCode::KbJobConflict | KnowledgeErrorCode::KbNotFound
+                    ) {
+                        let _ = self.store.fail_ingest(id, code, "checkStorageAndRetry");
+                    }
+                }
+            }
             Err(ConversionError::Failed(code, suggestion)) => {
                 let _ = self.store.fail_ingest(id, code, suggestion);
             }
@@ -195,7 +212,7 @@ impl KnowledgeIngestManager {
         Ok(())
     }
 
-    pub fn status(&self, id: &str) -> StoreResult<IngestJob> {
+    pub fn status(self: &Arc<Self>, id: &str) -> StoreResult<IngestJob> {
         if !is_knowledge_job_id(id) {
             return Err(KnowledgeErrorCode::KbInvalidInput);
         }
@@ -203,7 +220,7 @@ impl KnowledgeIngestManager {
         self.store.ingest_job(id)
     }
 
-    pub fn cancel(&self, id: &str) -> StoreResult<IngestJob> {
+    pub fn cancel(self: &Arc<Self>, id: &str) -> StoreResult<IngestJob> {
         if !is_knowledge_job_id(id) {
             return Err(KnowledgeErrorCode::KbInvalidInput);
         }

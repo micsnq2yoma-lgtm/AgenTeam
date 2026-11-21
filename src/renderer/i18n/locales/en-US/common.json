@@ -1,4 +1,10 @@
 {
+  "knowledgeTable": {
+    "truncatedHeader": "… (Header truncated: showing the first {{shown}} of {{total}} columns. Full header: {{ref}})",
+    "rowPart": "(Row {{row}} · part {{part}}/{{total}})",
+    "cellPart": "(Row {{row}} · column “{{column}}” · part {{part}}/{{total}})",
+    "longColumn": "{{start}}… (column {{index}}, full name: {{ref}})"
+  },
   "actions": {
     "cancel": "Cancel",
     "close": "Close",

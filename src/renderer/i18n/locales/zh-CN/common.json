@@ -1,4 +1,10 @@
 {
+  "knowledgeTable": {
+    "truncatedHeader": "…（表头已截断：共 {{total}} 列，显示前 {{shown}} 列；完整表头见 {{ref}}）",
+    "rowPart": "（第 {{row}} 行 · 第 {{part}}/{{total}} 段）",
+    "cellPart": "（第 {{row}} 行 · 「{{column}}」列 · 第 {{part}}/{{total}} 段）",
+    "longColumn": "{{start}}…（第 {{index}} 列，完整列名见 {{ref}}）"
+  },
   "actions": {
     "cancel": "取消",
     "close": "关闭",

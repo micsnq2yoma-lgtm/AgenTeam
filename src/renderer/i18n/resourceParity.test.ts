@@ -18,6 +18,22 @@ function interpolationNames(value: string): string[] {
 }
 
 describe('renderer i18n resource parity', () => {
+  it('keeps knowledge table locators compatible with native chunk rendering', () => {
+    const expected = {
+      cellPart: ['column', 'part', 'row', 'total'],
+      longColumn: ['index', 'ref', 'start'],
+      rowPart: ['part', 'row', 'total'],
+      truncatedHeader: ['ref', 'shown', 'total'],
+    };
+    for (const locale of ['zh-CN', 'en-US'] as const) {
+      const templates = resources[locale].common.knowledgeTable;
+      for (const name of Object.keys(expected) as (keyof typeof expected)[]) {
+        expect(interpolationNames(templates[name])).toEqual(expected[name]);
+      }
+      expect(Object.keys(templates).sort()).toEqual(Object.keys(expected).sort());
+    }
+  });
+
   it.each(['chat', 'launcher', 'settings', 'task'] as const)('%s keeps zh-CN and en-US keys aligned', (namespace) => {
     const zh = flattenResource(resources['zh-CN'][namespace]);
     const en = flattenResource(resources['en-US'][namespace]);

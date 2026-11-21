@@ -112,7 +112,7 @@ fn source_in_use_keeps_the_same_recovery_at_admission_conversion_and_publication
 // cargo test --manifest-path src-tauri/Cargo.toml --lib resource_backed_document_ingest -- --ignored
 #[test]
 #[ignore = "requires the prepared native document Worker, PDFium and OCR resource bundle"]
-fn resource_backed_document_ingest_reaches_chunking_with_markdown_and_assets() {
+fn resource_backed_document_ingest_reaches_ready_with_markdown_and_assets() {
     let resources = std::env::var_os("MYAGENTS_KB_TEST_RESOURCE_ROOT")
         .expect("set MYAGENTS_KB_TEST_RESOURCE_ROOT to prepared native app resources");
     let resources = Path::new(&resources).canonicalize().unwrap();
@@ -176,15 +176,15 @@ fn resource_backed_document_ingest_reaches_chunking_with_markdown_and_assets() {
         loop {
             let job = manager.status(&id).unwrap();
             match job.status {
-                SourceStatus::Chunking => break,
-                SourceStatus::Queued | SourceStatus::Converting => {}
-                _ => panic!("fixture {name} stopped before chunking: {job:?}"),
+                SourceStatus::Ready => break,
+                SourceStatus::Queued | SourceStatus::Converting | SourceStatus::Chunking => {}
+                _ => panic!("fixture {name} stopped before ready: {job:?}"),
             }
             assert!(Instant::now() < deadline, "fixture {name} timed out");
             std::thread::sleep(Duration::from_millis(100));
         }
         let source = store.get_source(&kb.id, &receipt.source_id).unwrap();
-        assert_eq!(source.facts.status, SourceStatus::Chunking);
+        assert_eq!(source.facts.status, SourceStatus::Ready);
         let dir = data
             .path()
             .join("knowledge")

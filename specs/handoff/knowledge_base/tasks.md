@@ -130,7 +130,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
     - ID：`kb_<12 位小写 hex>`、`src_<16 位 hex>`、`job_<YYYYMMDD>_<12 hex>`、`plan_<YYYYMMDD>_<12 hex>`
     - ref：`kb://<kb-id>/<source-id>` 和 `kb://<kb-id>/<source-id>#<chunk-id>`；可选查询参数只允许 `page=<正整数>`。其他形式一律解析失败。
     - 元数据字段：`{ value, origin: 'agent' | 'user', updatedAt }`
-    - 错误码枚举：`KB_NOT_FOUND`、`KB_ACCESS_DENIED`、`KB_FIELD_LOCKED`、`KB_LIMIT_EXCEEDED`、`KB_SOURCE_UNSUPPORTED`、`KB_INDEXING`……（完整列表写进 tech doc）
+    - 错误码枚举：`KB_NOT_FOUND`、`KB_ACCESS_DENIED`、`KB_FIELD_LOCKED`、`KB_LIMIT_EXCEEDED`、`KB_SOURCE_UNSUPPORTED`、`KB_CHUNK_UNSPLITTABLE`、`KB_INDEXING`……（完整列表写进 tech doc）
   - Rust 侧同名类型与 ref 解析放在 `src-tauri/src/knowledge/types.rs`。
   - **跨语言 parity fixture**：`src/shared/knowledge/__fixtures__/refs.json`，TS 和 Rust 的测试读同一份 fixture。
 - **验收**：
@@ -194,16 +194,28 @@ K19 URL 导入；K20 全局搜索「知识库」分类
 - **范围**：
   - `src-tauri/src/knowledge/chunker.rs`：按 Markdown 结构切（标题、表格、代码块、列表不拆开）；目标约 600 token，上限 1000，重叠约 80。token 数用确定性的近似算法（CJK 字符计 1，拉丁单词计 1.3），写进 tech doc。
   - 每个 chunk：`chunk_id`、`ordinal`、`heading_path[]`、`page?`（来自 `## Page N`）、`text`、`prefix`（`<标题> › <H1> › <H2>`）、`byte_range`、`utf16_range`。
-  - `chunk_id = hex(sha256(source_id | heading_path | ordinal | content_hash))[..16]`。
-  - 单个表格或代码块超过上限时，按行切分，并给每段重复表头。
+  - `chunk_id = hex(sha256(source_id ‖ heading_path ‖ sha256(本块独有正文) ‖ 同标题路径内相同正文的出现序号))[..16]`。独有正文先将 CRLF 规范化为 LF，并移除每行行尾空白。上下文前缀和与相邻块的重叠文字不参与正文哈希。出现序号只在同一标题路径、同一正文哈希内递增。全局 ordinal 只用于排序和取相邻块，页码用于定位，来源 content_hash 用于版本检查。三者均不进入 ID，以便其他位置的编辑和重新分页后仍能打开原引用。
+  - 超过上限的代码块优先按行切分。以块的 1000 token 硬上限为准。表头占用不超过预算的 25% 时，续块重复所有列；单个超长列名在续块中沿用下述 48/32 显示规则。超过 25% 时，表的首块保留完整表头；表头单独超过上限则优先沿单元格边界顺序拆在连续的块中，保留全部列名。续块按原列顺序摘录能放入约 250 token 的显示列名，随后使用 i18n 固定模板标明总列数、显示列数和指向该表首块的规范引用。中文模板为“…（表头已截断：共 N 列，显示前 M 列；完整表头见 kb://<kb>/<source>#<首块 chunk-id>）”。超过一块的数据行按单元格顺序分段并标记“第 k/n 段”。
+  - 若单个单元格自身超过上限，或加上必要标记后超过上限，仅在该单元格内续分，保留该行的其他单元格。切分优先级依次为段落或换行、句子边界（含中文。！？；）、词边界、Unicode 扩展字素簇，组合字符和 emoji 序列保持完整。每段的本地化定位为“（第 r 行 · 「列名」列 · 第 k/n 段）”。续分块的表头摘录与定位标记合计最多 400 token，保证至少 600 token 可用于独有正文。正文尽量填满可用空间，仅末段允许少于 600 token。根据前缀所需空间，按完整表头摘录、仅本列名、仅定位标记的顺序收缩重复前缀。表头摘录、定位和分段标记均不参与正文哈希。分段与呈现分开，调整摘录长度或显示语言不能改变正文边界或片段 ID。原文范围按原字节记录，按序拼接同一单元格的各段正文必须得到完整原文。
+  - 表头摘录与定位标记共用列名显示函数。列名不超过 48 token 时完整显示，超过时在扩展字素簇边界取开头约 32 token，再添加“…”和本地化标记“（第 C 列，完整列名见 kb://<kb>/<source>#<首块 chunk-id>）”。摘录也可按此规则缩写单个列名。完整列名只出现在该表开头的表头块序列中。chunk 元数据记录 column_index 对应的首块 chunk-id，供 kb get/read 与 UI 定位。定位标记约 80 token 以内；48 和 32 只影响重复前缀，不进入 chunk ID。
+  - 单个扩展字素簇若超过 1000 token，来源进入 failed，任务返回 `KB_CHUNK_UNSPLITTABLE` 和字素起始的行、列及 UTF-8 字节偏移。保留托管原件和已发布的 `content.md`，队列继续处理下一份来源。此规则同时保留表格结构、1000 token 上限及可解析的稳定引用，避免长列名或重复说明挤占正文。
   - 将纯函数接入摄取，处理新导入以及 K2 已停在 `chunking` 的来源。由 Store 在对应内容完成切块后提交 `ready` 并广播。
 - **验收**：
   - AC-K3-1 `[自动]` golden fixtures ≥ 12 份（中文长文、英文、中英混合、多级标题、大表格、长代码块、PDF 的 `## Page N`、无标题纯文本、空文件、只有标题、emoji 和多字节字符），输出与快照一致。
   - AC-K3-2 `[自动]` 没有 chunk 超过上限；任何位置都不在 UTF-8 字符中间切断（性质测试：随机文本 1000 次）。🔒
-  - AC-K3-3 `[自动]` 相同输入得到相同的 chunk_id；只改一个段落时，其他段落的 chunk_id 不变。
+  - AC-K3-3 `[自动]` 相同输入得到相同的 chunk_id。必须分别验证四种编辑结果。
+    1. 扩写首段以致分块数增加时，未改块保留 ID。
+    2. 在两块之间插入新段落时，原有各块保留 ID。
+    3. 同标题路径下重复段落的 ID 互异，在其他位置增删不同正文后仍然稳定。
+    4. 改动块正文后查询旧 ref，返回来源仍在、片段不可用。K10 据此显示“片段已更新”并打开来源。
   - AC-K3-4 `[自动]` `page` 字段对 PDF fixture 正确。
   - AC-K3-5 `[自动]` 性能：5 MB Markdown 切块 < 1 秒（release 模式，`#[ignore]` 基准，交付报告里贴结果）。
   - AC-K3-6 `[自动]` 独立验证纯函数后，通过真实摄取验证新来源及此前等待切块的来源：切块成功后均到 `ready`，切块失败不能发布为 `ready`。
+  - AC-K3-7 `[自动]` 覆盖约 300 token 表头、超过 1000 token 的表头、超过 1000 token 的数据行；普通表格快照保持兼容；改变摘录长度时所有 chunk ID 保持一致；标记中的首块 ref 可通过 `cmd_kb_resolve_ref` 定位。
+  - AC-K3-8 `[自动]` 超长中文与英文单元格各段不超过 1000 token，按顺序拼接独有正文等于原文；没有空白与标点的长字符串在字素簇边界续分，含 emoji 组合与组合字符。覆盖长摘录按序收缩、至少 60% 预算留给正文、行号与列名及段号正确，以及改动一段时其他段 ID 保留。
+  - AC-K3-9 `[自动]` 用 1200 个“梨”的列名检查定位标记有界、正文预算至少 60%、首块序列完整保留原名且引用可解析。覆盖 48/49 token 边界、缩写不切开 emoji 和组合字符，以及摘录与定位标记对同一长列名的显示一致。
+  - AC-K3-10 `[自动]` 每个续分块的全部前缀最多 400 token，正文可用容量至少 600 token。1001 个“梨”的数据单元格恰好分成两块，整块各自不超过 1000 token，两段按源范围拼接与原文相等；按实际切分结果核验字数，末段可以短于 600 token。
+  - AC-K3-11 `[自动]` 构造单个估算超过 1000 token 的扩展字素簇，验证来源为 failed，错误码为 `KB_CHUNK_UNSPLITTABLE`，行、列、UTF-8 字节偏移均指向该字素。冷启动后仍能查询错误，原件及 `content.md` 字节完整，同批其余来源照常到达 ready。
 
 ### K4 KnowledgeIndex（BM25）
 
