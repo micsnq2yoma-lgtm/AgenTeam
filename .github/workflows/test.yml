@@ -114,14 +114,17 @@ jobs:
           base=$(git merge-base origin/main "$CANDIDATE_SHA")
           evidence="$RUNNER_TEMP/kb-clippy"
           mkdir -p "$evidence"
+          compiler=$(rustc --version)
+          clippy=$(cargo clippy --version)
           for revision in "$base" "$CANDIDATE_SHA"; do
             git switch --detach "$revision"
             pinned=$(python3 -c 'import tomllib; print(tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])')
             actual=$(rustc --version)
-            [[ "$actual" == "rustc $pinned "* ]]
+            [[ "$actual" == "rustc $pinned "* && "$actual" == "$compiler" && "$(cargo clippy --version)" == "$clippy" ]]
             echo "$revision $actual $(cargo clippy --version)"
             cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --message-format=json > "$evidence/$revision.jsonl"
           done
+          python3 scripts/compare-clippy-warnings.test.py
           python3 scripts/compare-clippy-warnings.py "$evidence/$base.jsonl" "$evidence/$CANDIDATE_SHA.jsonl"
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && startsWith(github.head_ref || github.ref_name, 'feat/kb-') }}
