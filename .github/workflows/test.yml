@@ -356,6 +356,17 @@ jobs:
           if (-not ($documentResults -match '^test result: ok\. [1-9][0-9]* passed; 0 failed;')) {
             throw 'Expected a nonempty passing document_processing:: suite'
           }
+      - name: Verify native K4 index rebuild and search on Windows
+        if: (github.head_ref || github.ref_name) == 'feat/kb-k4-index'
+        shell: pwsh
+        run: |
+          & cargo test --manifest-path src-tauri/Cargo.toml --locked --lib 'search::knowledge_indexer::' -- --color never |
+            Tee-Object -Variable indexResults
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $case = 'search::knowledge_indexer::tests::missing_segment_or_old_schema_rebuilds_only_the_knowledge_projection'
+          if ($indexResults -notcontains "test $case ... ok") {
+            throw 'Expected the native knowledge-index recovery test to execute successfully'
+          }
       - name: Inspect native test loader imports on failure
         if: failure()
         shell: pwsh
