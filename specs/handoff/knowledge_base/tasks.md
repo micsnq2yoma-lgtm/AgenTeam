@@ -166,7 +166,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
 - **必读**：`specs/tech_docs/document_processing.md` 全文；`src-tauri/src/document_processing.rs` 的公开接口
 - **目标**：把文件变成 `content.md`，状态可追踪、可取消、可恢复。
 - **范围**：
-  - `src-tauri/src/knowledge/ingest.rs`：`KnowledgeIngestManager`，状态机 `queued → converting → chunking → indexed → ready`，另有 `failed(code, suggestion)`、`cancelled`、`interrupted`。P0 没有 `embedding` 阶段，但状态枚举要预留。
+  - `KnowledgeIngestManager` 调度转换、取消与重试，`KnowledgeStore` 持久化来源内容状态 `queued → converting → chunking → ready` 及 `failed(code, suggestion)`、`cancelled`、`interrupted`。K2 将 Markdown 和资产原子发布后停在 `chunking` 等待切块。K3 完成切块才由 Store 提交 `ready`。
   - `.md`、`.markdown`、`.txt`：直接读取，复用 workspace_files 的 bounded read，检测编码，去 BOM，单文件上限 8 MiB。
   - Office、PDF、图片：在 Rust 内部调用 `DocumentProcessingManager`（**不走 CLI、不走 HTTP**）。如果它目前没有可供 Rust 内部调用的接口，就抽出一个 crate 内的公开函数，Management API 和知识库共用；不要复制转换流程。转换产物写入 `sources/<id>/content.md` 和 `assets/`。
   - 托管导入：先把原件复制到 `sources/<id>/original.<ext>`，再转换。复制前做容量检查（复用 `filesystem_capacity::available_space`）。
@@ -175,7 +175,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
   - Tauri 命令：`cmd_kb_import_files(kbId, paths[])`、`cmd_kb_job_status`、`cmd_kb_cancel_job`、`cmd_kb_retry_source`。
   - 队列上限 64 个 job；单个 KB 在 P0 最多 10,000 个 source。
 - **验收**：
-  - AC-K2-1 `[自动]` md / txt / docx / 文字型 PDF / 扫描 PDF（OCR）各一份，全部到 `ready`，`content.md` 内容正确（docx、PDF 用小型合成 fixture，需要 OCR 资源的测试按项目现有分类放进对应测试池）。
+  - AC-K2-1 `[自动]` md / txt / docx / 文字型 PDF / 扫描 PDF（OCR）各一份，五类文件真实转换后均处于等待切块的 `chunking`，已发布的 `content.md` 内容正确。docx、PDF 用小型合成 fixture，需要 OCR 资源的测试按项目现有分类放进对应测试池。
   - AC-K2-2 `[自动]` 不支持的格式返回 `KB_SOURCE_UNSUPPORTED`，带 suggestion。
   - AC-K2-3 `[自动]` 转换中途取消：状态为 `cancelled`，不留下半成品 `content.md`，原件副本按策略清理。
   - AC-K2-4 `[自动]` 模拟进程在 `converting` 阶段退出：重新打开后状态为 `interrupted`，`retry` 能成功。🔒
@@ -186,7 +186,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
 
 ### K3 切块器
 
-- **依赖**：K0（可与 K1、K2 并行）
+- **依赖**：纯函数使用 K0 契约；接入摄取及整体验收依赖 K2。
 - **必读**：PRD §6 切块策略
 - **目标**：纯函数，输入 `content.md` 文本，输出 chunk 列表。
 - **范围**：
@@ -194,11 +194,13 @@ K19 URL 导入；K20 全局搜索「知识库」分类
   - 每个 chunk：`chunk_id`、`ordinal`、`heading_path[]`、`page?`（来自 `## Page N`）、`text`、`prefix`（`<标题> › <H1> › <H2>`）、`byte_range`、`utf16_range`。
   - `chunk_id = hex(sha256(source_id | heading_path | ordinal | content_hash))[..16]`。
   - 单个表格或代码块超过上限时，按行切分，并给每段重复表头。
+  - 将纯函数接入摄取，处理新导入以及 K2 已停在 `chunking` 的来源。由 Store 在对应内容完成切块后提交 `ready` 并广播。
 - **验收**：
   - AC-K3-1 `[自动]` golden fixtures ≥ 12 份（中文长文、英文、中英混合、多级标题、大表格、长代码块、PDF 的 `## Page N`、无标题纯文本、空文件、只有标题、emoji 和多字节字符），输出与快照一致。
   - AC-K3-2 `[自动]` 没有 chunk 超过上限；任何位置都不在 UTF-8 字符中间切断（性质测试：随机文本 1000 次）。🔒
   - AC-K3-3 `[自动]` 相同输入得到相同的 chunk_id；只改一个段落时，其他段落的 chunk_id 不变。
   - AC-K3-4 `[自动]` `page` 字段对 PDF fixture 正确。
+  - AC-K3-6 `[自动]` 独立验证纯函数后，通过真实摄取验证新来源及此前等待切块的来源：切块成功后均到 `ready`，切块失败不能发布为 `ready`。
   - AC-K3-5 `[自动]` 性能：5 MB Markdown 切块 < 1 秒（release 模式，`#[ignore]` 基准，交付报告里贴结果）。
 
 ### K4 KnowledgeIndex（BM25）
@@ -208,6 +210,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
 - **目标**：在现有 `SearchEngine` 里新增知识库索引，模式与 Record 索引一致。
 - **范围**：
   - `src-tauri/src/search/knowledge_indexer.rs`；schema 加进 `schema.rs`，有独立的版本号。
+  - 订阅 Store 提交后的广播，按来源提供 `pending / indexed / failed` 的可检索状态查询。索引重建可改变该结果，不能写回 Store。UI 和 CLI 分别取得两项状态后组合展示。
   - **单一全局索引** `search_index/knowledge/`。文档分两类：`chunk` 和 `source_summary`（摘要、标题、标签，用于两段式检索）。
   - 字段：`kb_id`、`source_id`、`chunk_id`（STRING + FAST）、`doc_kind`、`title`、`prefix`、`text`、`tags`、`category`、`doc_type`（可过滤）。正文字段**必须**用 `chinese_text_options()`。
   - 先订阅 KnowledgeStore broadcast，再做 baseline 重建；之后增量 upsert / delete。索引失败不回写 Store。
@@ -223,6 +226,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
   - AC-K4-6 `[自动]` 删除 segment 文件模拟损坏 → 自动重建并成功返回。
   - AC-K4-7 `[自动]` schema 版本变化触发重建，且**不影响** Session、Record、文件索引。
   - AC-K4-8 `[自动]` 性能：10,000 个 chunk 时 BM25 查询 p95 < 100 ms（release，`#[ignore]` 基准，贴结果）。
+  - AC-K4-9 `[自动]` 导入 K2 的五类文件，切块完成后可分别检索到预期内容。重建索引期间可检索状态能独立变化，Store 的 `ready` 和来源记录保持一致。
 
 ### K5 Management API、Admin API 与 CLI
 

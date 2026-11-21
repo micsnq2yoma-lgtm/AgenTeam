@@ -7,8 +7,9 @@ K0 定义共享 wire、ID、引用和后续模块的边界。TypeScript 位于 `
 | 事实 | Owner | 写入与裁决 |
 |---|---|---|
 | 知识库清单、设置、来源记录、规范化 Markdown、来源元数据 | Rust `KnowledgeStore` | App 级单一写入权威。锁内读取最新状态并原子提交，提交成功后广播。字段已有人工值时，锁内拒绝 Agent 对该字段的写入。 |
-| 摄取队列、取消、重试 | Rust `KnowledgeIngestManager` | 作业归知识库域管理。Office、PDF、图片复用 `DocumentProcessingManager` 的转换。 |
-| 派生索引 | Rust `SearchEngine` 下的 `KnowledgeIndex` | 全局使用一个 Tantivy 索引和一个 writer，文档以 `kb_id` 过滤。同一查询下跨库 BM25 分数可比较。按提交后的广播增量更新，可从 Store 重建。 |
+| 来源内容状态 | Rust `KnowledgeStore` | `queued → converting → chunking → ready`，另有 `failed / cancelled / interrupted`。K2 原子发布内容后等待切块；K3 完成切块后提交 `ready`。 |
+| 摄取队列、取消、重试 | Rust `KnowledgeIngestManager` | 作业归知识库域管理。Office、PDF、图片复用 `DocumentProcessingManager` 的转换。通过 Store 提交内容和状态。 |
+| 可检索状态与派生索引 | Rust `SearchEngine` 下的 `KnowledgeIndex` | K4 提供按来源的 `pending / indexed / failed` 查询。全局一个 Tantivy 索引和一个 writer，文档以 `kb_id` 过滤，跨库 BM25 分数可比较。订阅 Store 广播增量更新；索引可重建，没有 Store 写权限。UI/CLI 将查询结果与来源内容状态组合展示。 |
 | Agent 默认绑定 | `AgentConfig.knowledgeBaseIds` | `config.json` 持久化，复用 `agent-config-intent.lock`。 |
 | Session 读取权限 | Session 配置快照 | 出生时固化。Rust 通过 Sidecar process generation 验证调用身份，再按快照裁决。 |
 | 元数据和 wiki 写权限 | `KnowledgeStore` | 默认 `agentWriteAccess = curator-only`，仅允许该库整理 Task 当前执行的 Session 写入。用户可改为 `bound-sessions`。 |
