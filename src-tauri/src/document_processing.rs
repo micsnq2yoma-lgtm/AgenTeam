@@ -4081,7 +4081,7 @@ mod tests {
 
         let source_path = data.path().join("source.pdf");
         fs::write(&source_path, b"data").unwrap();
-        let source_file = File::open(&source_path).unwrap();
+        let source_file = open_document_source(&source_path).unwrap();
         let mut pending = PendingJob {
             input: PendingInput::Original(same_file::Handle::from_file(source_file).unwrap()),
             password: Some(SecretString("retry-secret".into())),
