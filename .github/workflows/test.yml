@@ -106,7 +106,7 @@ jobs:
   # type-check or execute `cfg(windows)`. Run workspace IO tests natively:
   # compile-only checks cannot detect invalid OS rename parameters (#641).
   windows-rust:
-    name: Windows cargo check · workspace IO
+    name: Windows cargo check · workspace and knowledge IO
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -168,7 +168,7 @@ jobs:
           Copy-Item (Join-Path $env:WINDIR 'System32\vcruntime140.dll') src-tauri/resources/vcruntime140.dll
           Copy-Item (Join-Path $env:WINDIR 'System32\vcruntime140_1.dll') src-tauri/resources/vcruntime140_1.dll
       - run: cargo check --manifest-path src-tauri/Cargo.toml --locked
-      - name: Run native workspace IO tests with Tauri's application manifest
+      - name: Run native workspace and knowledge tests with Tauri's application manifest
         shell: pwsh
         run: |
           $messages = & cargo test --manifest-path src-tauri/Cargo.toml --locked --lib --no-run --message-format=json
@@ -190,6 +190,8 @@ jobs:
           & $mt -nologo -manifest $manifest "-outputresource:$testExecutable;#1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $testExecutable 'workspace_files::'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $testExecutable 'knowledge::'
           exit $LASTEXITCODE
       - name: Inspect native test loader imports on failure
         if: failure()
