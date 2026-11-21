@@ -1,0 +1,39 @@
+name: Validate 0.6.0 test-channel transport and profile
+on:
+  push:
+    branches: [codex/qa-upgrade-060-061]
+    paths: [.github/workflows/qa-preflight-060.yml]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  preflight:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare the original build and the release-mode localhost shell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'upgrade-qa'
+          "QA_ROOT=$root" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Force "$root/target" | Out-Null
+          gh release download v0.6.0 --repo micsnq2yoma-lgtm/AgenTeam --pattern 'latest.json' --pattern 'AgenTeam_0.6.0_x64-setup.exe.sig' --dir "$root/target"
+          if ($LASTEXITCODE -ne 0) {exit 1}
+          gh run download 44299783178 --repo micsnq2yoma-lgtm/AgenTeam --name 'AgenTeam-Windows-x64-8384e2d06013b68f36ed4ed256beeef9b4fb9566' --dir "$root/original"
+          if ($LASTEXITCODE -ne 0) {exit 1}
+          gh run download 44321078206 --repo micsnq2yoma-lgtm/AgenTeam --name baseline-060-loopback-shell --dir "$root/shell"
+      - name: Validate the release-mode updater against the local HTTPS feed
+        shell: pwsh
+        timeout-minutes: 9
+        run: ./qa/prepare.ps1 -Preflight
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: old-version-transport-check
+          path: ${{ runner.temp }}/upgrade-qa/evidence/
+          retention-days: 5

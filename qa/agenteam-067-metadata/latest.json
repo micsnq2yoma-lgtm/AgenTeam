@@ -1,0 +1,9 @@
+{
+  "version": "0.6.7",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUcGxVTUJvUVR5eFRFWFpjcFVwSzRQR0NNVHZseTlmZHVnZ0laZExFRVVyQVFaR3FrRzgwNXN3ZkRmWk5FSTJ0RGdhRUpRSTl2UW9nVm9aYnBaWlkrakhaT3dEL1dwWFFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MTk1Mjc2CWZpbGU6QWdlblRlYW1fMC42LjdfeDY0LXNldHVwLmV4ZQpadVFVVHhFUGZGTVFDZkhjNXZGeVRsNVM3ckxHL05yRlBKbmM3WmdXaDB0Y3lyUkpWQjhldXJJWHB5cGIzcmZLVncwZEkzaEtmcHJWaEJWUHpEWmNBZz09Cg==",
+      "url": "https://github.com/micsnq2yoma-lgtm/AgenTeam/releases/download/v0.6.7/AgenTeam_0.6.7_x64-setup.exe"
+    }
+  }
+}

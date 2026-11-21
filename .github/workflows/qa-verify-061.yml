@@ -1,0 +1,92 @@
+name: Verify signed Windows upgrade from 0.6.0 to 0.6.1
+on:
+  push:
+    branches: [codex/qa-upgrade-060-061]
+    paths: [.github/workflows/qa-verify-061.yml]
+permissions: {}
+env:
+  REPO: micsnq2yoma-lgtm/AgenTeam
+  SOURCE: 2cc9afb367a6b9ff15807efd4cd0e6438c76b127
+  BUILD: '44326075488'
+  PACKAGE: AgenTeam_0.6.1_x64-setup.exe
+jobs:
+  assemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Match the selected build and the locally signed draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/actions/runs/$BUILD" | jq -e --arg sha "$SOURCE" '.head_sha==$sha and .conclusion=="success"'
+          gh release view v0.6.1 --repo "$REPO" --json isDraft,targetCommitish | jq -e --arg sha "$SOURCE" '.isDraft and .targetCommitish==$sha'
+          mkdir -p payload metadata
+          gh run download "$BUILD" --repo "$REPO" --name "AgenTeam-Windows-x64-$SOURCE" --dir payload
+          gh release download v0.6.1 --repo "$REPO" --pattern "$PACKAGE.sig" --pattern 'latest.json' --pattern 'SHA256SUMS' --dir metadata
+          cp metadata/* payload/
+          (cd payload && sha256sum --check --strict SHA256SUMS)
+          if ! gh release view v0.6.1 --repo "$REPO" --json assets --jq '.assets[].name' | grep -Fxq "$PACKAGE"; then
+            gh release upload v0.6.1 "payload/$PACKAGE" --repo "$REPO"
+          fi
+          id=$(gh api "repos/$REPO/releases" --jq '.[]|select(.tag_name=="v0.6.1" and .draft)|.id')
+          gh api "repos/$REPO/releases/$id" > release.json
+          jq -e --arg sha "$SOURCE" '.draft and .target_commitish==$sha and (.assets|length)==4' release.json
+          for file in "$PACKAGE" "$PACKAGE.sig" latest.json SHA256SUMS; do
+            digest=$(sha256sum "payload/$file" | cut -d ' ' -f1)
+            jq -e --arg name "$file" --arg digest "sha256:$digest" 'any(.assets[]; .name==$name and .digest==$digest and .state=="uploaded")' release.json
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-candidate-metadata
+          path: metadata/
+          retention-days: 3
+  verify:
+    needs: assemble
+    runs-on: windows-2022
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download the two immutable installer artifacts and the 0.6.0 test-channel shell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'upgrade-qa'
+          "QA_ROOT=$root" >> $env:GITHUB_ENV
+          gh run download 44299783178 --repo $env:REPO --name 'AgenTeam-Windows-x64-8384e2d06013b68f36ed4ed256beeef9b4fb9566' --dir "$root/original"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          gh run download $env:BUILD --repo $env:REPO --name "AgenTeam-Windows-x64-$env:SOURCE" --dir "$root/target"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          gh run download 44321078206 --repo $env:REPO --name 'baseline-060-loopback-shell' --dir "$root/shell"
+      - uses: actions/download-artifact@v4
+        with:
+          name: signed-candidate-metadata
+          path: ${{ runner.temp }}/upgrade-qa/target
+      - name: Change preferences via the UI, then verify the signed upgrade and retained data
+        shell: pwsh
+        run: ./qa/prepare.ps1
+      - name: Collect limited updater diagnostics
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-Process -Name 'AgenTeam*','myagents*' -ErrorAction SilentlyContinue | Select-Object Name,Id,MainWindowTitle
+          $logs = Join-Path $env:USERPROFILE '.agenteam/logs'
+          if (Test-Path $logs) {
+            Get-ChildItem $logs -File -Recurse | Where-Object Length -lt 20MB | Select-String -Pattern '\[Updater\]' | Select-Object -Last 35 | ForEach-Object { $_.Line.Substring(0,[Math]::Min($_.Line.Length,430)) }
+          }
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: AgenTeam-0.6.0-to-0.6.1-upgrade-evidence
+          path: ${{ runner.temp }}/upgrade-qa/evidence/
+          retention-days: 30

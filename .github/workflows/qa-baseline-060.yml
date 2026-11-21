@@ -1,0 +1,47 @@
+name: Build 0.6.0 for isolated upgrade verification
+on:
+  push:
+    branches: [codex/qa-upgrade-060-061]
+    paths: [.github/workflows/qa-baseline-060.yml]
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: windows-2022
+    timeout-minutes: 180
+    env:
+      CARGO_INCREMENTAL: '0'
+      CMAKE_BUILD_PARALLEL_LEVEL: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8384e2d06013b68f36ed4ed256beeef9b4fb9566
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Configure only the dedicated loopback HTTPS channel
+        shell: pwsh
+        run: |
+          $path = (Resolve-Path src-tauri/tauri.conf.json).Path
+          $text = [IO.File]::ReadAllText($path)
+          $source = 'https://github.com/micsnq2yoma-lgtm/AgenTeam/releases/latest/download/latest.json'
+          if (($text.Split($source).Length -ne 2) -or ((Get-Content -Raw package.json | ConvertFrom-Json).version -ne '0.6.0')) { throw 'Unexpected baseline' }
+          [IO.File]::WriteAllText($path,$text.Replace($source,'https://localhost:18443/latest.json'))
+          git diff -- src-tauri/tauri.conf.json
+      - name: Build the release-mode 0.6.0 updater from the frozen source
+        shell: pwsh
+        run: |
+          . ./scripts/windows-build-environment.ps1
+          & ./scripts/download_nodejs.ps1
+          Use-BundledNodeBuildTools -ProjectDir $env:GITHUB_WORKSPACE
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          ./build_windows.ps1 -Candidate -SkipPortable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baseline-060-loopback-shell
+          # Install the original 0.6.0 package, then use only this shell to select the QA URL.
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
+          retention-days: 3
+          if-no-files-found: error

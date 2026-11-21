@@ -1,0 +1,66 @@
+name: Verify original 0.6.0 against the public Latest release
+on:
+  push:
+    branches: [codex/qa-upgrade-060-061]
+    paths: [.github/workflows/qa-public-061.yml]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    if: github.repository == 'micsnq2yoma-lgtm/AgenTeam'
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download the original 0.6.0 build
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'public-upgrade-qa'
+          "QA_ROOT=$root" >> $env:GITHUB_ENV
+          gh run download 44299783178 --repo micsnq2yoma-lgtm/AgenTeam --name 'AgenTeam-Windows-x64-8384e2d06013b68f36ed4ed256beeef9b4fb9566' --dir "$root/original"
+      - name: Check the unauthenticated public update manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $publicFeed = 'https://github.com/micsnq2yoma-lgtm/AgenTeam/releases/latest/download/latest.json'
+          $evidence = Join-Path $env:QA_ROOT 'evidence'
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          $manifestPath = Join-Path $evidence 'public-latest.json'
+          curl.exe -fLSs --retry 4 --retry-all-errors --max-time 45 -o $manifestPath $publicFeed
+          if ($LASTEXITCODE -ne 0) { throw 'The public manifest is unavailable' }
+          if ((Get-FileHash -LiteralPath $manifestPath).Hash -ne '1A7DCBBC65157112985BC8639BDD7D2668B4DAB735DC603438D381A56350CE53') {throw 'The public manifest differs from the approved bytes'}
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+          if ($manifest.version -ne '0.6.1' -or !$manifest.platforms.'windows-x86_64'.signature) {throw 'Wrong version, platform or signature'}
+          Write-Host "Anonymous public manifest reports v$($manifest.version)"
+      - name: Install original 0.6.0 and use its built-in update channel and desktop button
+        timeout-minutes: 16
+        shell: pwsh
+        run: ./qa/prepare-public.ps1
+      - name: Record selected native updater diagnostics
+        if: always()
+        shell: pwsh
+        run: |
+          $logs = Join-Path $env:USERPROFILE '.agenteam/logs'
+          if (Test-Path -LiteralPath $logs) {
+            $files = Get-ChildItem -LiteralPath $logs -File -Filter 'unified-*.log'
+            if ($files) {
+              $lines = $files | Select-String -Pattern '\[Updater\].*(Checking for updates|Found update|downloaded and ready|Network check succeeded|Installing v|Check failed|Background update failed|signature|Update install failed)' | ForEach-Object { $_.Line }
+              if ($lines) {
+                $lines | Set-Content -Encoding utf8 -LiteralPath (Join-Path $env:QA_ROOT 'evidence/native-updater.log')
+                $lines | Select-Object -Last 24
+              }
+            }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: AgenTeam-0.6.0-to-0.6.1-public-upgrade-evidence
+          path: ${{ runner.temp }}/public-upgrade-qa/evidence/
+          retention-days: 30
