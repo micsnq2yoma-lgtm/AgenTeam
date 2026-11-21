@@ -27,7 +27,7 @@ def warnings(log, root):
                 path = (manifest.parent / name).resolve()
                 if not path.exists() and (root / name).exists():
                     path = (root / name).resolve()
-                if path.is_relative_to(root):
+                if path == root or root in path.parents:
                     path = path.relative_to(root)
                 result.add((lint, path.as_posix(), diagnostic["message"]))
     if not complete:
