@@ -449,11 +449,11 @@ mod lifecycle_contract_tests {
         let release_manager = manager.clone();
         let (released_tx, released_rx) = std::sync::mpsc::channel();
         let release_thread = std::thread::spawn(move || {
-            let result = crate::sidecar::release_session_sidecar_from_blocking_thread(
+            let result = tauri::async_runtime::block_on(crate::sidecar::release_session_sidecar(
                 &release_manager,
                 "session-a",
                 &SidecarOwner::Tab("tab-a".to_string()),
-            );
+            ));
             released_tx.send(result).expect("report release result");
         });
 

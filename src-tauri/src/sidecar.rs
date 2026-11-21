@@ -93,13 +93,14 @@ use runtime_identity::{
 pub use runtime_identity::{
     resolve_session_runtime_identity, resolve_session_runtime_identity_full,
 };
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub(crate) use session_lifecycle::release_session_owner_everywhere;
 pub(crate) use session_lifecycle::{
     acquire_session_lifecycle, ensure_session_sidecar_with_lifecycle,
     ensure_session_sidecar_with_runtime_identity_override,
     ensure_session_sidecar_with_runtime_identity_override_lifecycle,
     ensure_session_sidecar_with_runtime_identity_override_lifecycle_held,
-    finish_session_owner_release, has_persisted_session_owner, release_session_owner_everywhere,
-    release_session_sidecar_from_blocking_thread, SessionLifecycleGuard,
+    finish_session_owner_release, has_persisted_session_owner, SessionLifecycleGuard,
 };
 #[allow(unused_imports)]
 pub use session_lifecycle::{
