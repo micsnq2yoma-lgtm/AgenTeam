@@ -86,6 +86,7 @@ impl KnowledgeIngestManager {
         }
         if !queue.recovered {
             self.interrupt_unfinished()?;
+            self.store.reclaim_ingest_staging()?;
             queue.recovered = true;
         }
         Ok(queue)
@@ -223,23 +224,26 @@ impl KnowledgeIngestManager {
     }
 
     pub fn shutdown(&self) -> StoreResult<()> {
+        self.shutdown_with_timeout(Duration::from_secs(30))
+    }
+
+    fn shutdown_with_timeout(&self, timeout: Duration) -> StoreResult<()> {
         let mut queue = self.queue()?;
         queue.closed = true;
-        queue.pending.clear();
         if let Some((_, cancelled)) = &queue.active {
             cancelled.store(true, Ordering::Release);
         }
+        self.interrupt_unfinished()?;
+        queue.pending.clear();
         // The converter may still own its staging directory and AnyDoc job.
         // Wait for it to relinquish both before reclaiming interrupted work.
         let (queue, _) = self
             .settled
-            .wait_timeout_while(queue, Duration::from_secs(30), |state| {
-                state.active.is_some()
-            })
+            .wait_timeout_while(queue, timeout, |state| state.active.is_some())
             .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?;
         if queue.active.is_some() {
             return Err(KnowledgeErrorCode::KbStoreUnavailable);
         }
-        self.interrupt_unfinished()
+        self.store.reclaim_ingest_staging()
     }
 }

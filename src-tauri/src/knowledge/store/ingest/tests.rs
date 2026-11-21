@@ -38,6 +38,8 @@ fn knowledge_ingest_restarts_with_original_and_fences_previous_attempt() {
         reopened.interrupt_ingests().unwrap(),
         ["20261121_0123456789ab"]
     );
+    assert!(abandoned.exists());
+    reopened.reclaim_ingest_staging().unwrap();
     assert!(!abandoned.exists());
     assert_eq!(
         reopened.ingest_job(&first.id).unwrap().status,

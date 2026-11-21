@@ -161,3 +161,44 @@ fn shutdown_interrupts_pending_and_converting_jobs_and_closes_admission() {
     }
     assert!(manager.admit(&kb, &second).is_err());
 }
+
+#[test]
+fn shutdown_timeout_interrupts_jobs_before_the_worker_relinquishes_its_stage() {
+    let (_data, manager, kb) = library();
+    let files = tempdir().unwrap();
+    let enqueue = |name: &str| {
+        let path = files.path().join(name);
+        fs::write(&path, name).unwrap();
+        manager.store.enqueue_file(&kb, &path).unwrap().job.unwrap()
+    };
+    let active = enqueue("active.md");
+    let pending = enqueue("queued.md");
+    let input = manager.store.begin_ingest(&active.id).unwrap();
+    let cancelled = Arc::new(AtomicBool::new(false));
+    {
+        let mut queue = manager.queue().unwrap();
+        queue.active = Some((active.id.clone(), Arc::clone(&cancelled)));
+        queue.pending.push_back(pending.id.clone());
+    }
+
+    assert_eq!(
+        manager.shutdown_with_timeout(Duration::ZERO),
+        Err(KnowledgeErrorCode::KbStoreUnavailable)
+    );
+    assert!(cancelled.load(Ordering::Acquire));
+    for job in [&active, &pending] {
+        assert_eq!(
+            manager.store.ingest_job(&job.id).unwrap().status,
+            SourceStatus::Interrupted
+        );
+    }
+    assert!(input.stage.path().is_dir());
+    assert_eq!(
+        manager.store.publish_ingest(&active.id, input.stage.path()),
+        Err(KnowledgeErrorCode::KbJobConflict)
+    );
+    let abandoned = input.stage.keep();
+    manager.queue().unwrap().active = None;
+    manager.shutdown().unwrap();
+    assert!(!abandoned.exists());
+}

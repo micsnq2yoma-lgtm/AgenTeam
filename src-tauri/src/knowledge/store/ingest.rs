@@ -323,8 +323,8 @@ impl StoreFiles {
 }
 
 impl KnowledgeStore {
-    /// Coordinate once at startup or after admission and all active producers
-    /// have stopped. Successful K2 work (chunking) is already durable.
+    /// Invalidate outstanding attempts before waiting for workers. Every final
+    /// publication checks the current attempt and phase under this same lock.
     pub fn interrupt_ingests(&self) -> StoreResult<Vec<String>> {
         self.locked(|files, registry| {
             let active = files.active_jobs(registry)?;
@@ -340,6 +340,14 @@ impl KnowledgeStore {
                 self.source_upserted(&kb, &record.source);
             }
             files.write_json(ACTIVE, &Vec::<String>::new())?;
+            Ok(documents)
+        })
+    }
+
+    /// Only reclaim private directories after producers relinquish them or
+    /// during startup, before admission opens.
+    pub fn reclaim_ingest_staging(&self) -> StoreResult<()> {
+        self.locked(|files, registry| {
             for kb in registry.iter() {
                 files.read_kb(kb)?;
                 let Some(parent) = files.source_parent(kb)? else {
@@ -360,7 +368,7 @@ impl KnowledgeStore {
                     }
                 }
             }
-            Ok(documents)
+            Ok(())
         })
     }
 
