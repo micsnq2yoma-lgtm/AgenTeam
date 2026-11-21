@@ -16,6 +16,8 @@ jobs:
   windows:
     if: github.repository == 'micsnq2yoma-lgtm/AgenTeam'
     runs-on: windows-2022
+    outputs:
+      sdk_sha256: ${{ steps.package.outputs.sdk_sha256 }}
     timeout-minutes: 240
     env:
       CARGO_INCREMENTAL: '0'
@@ -46,6 +48,7 @@ jobs:
         shell: pwsh
         run: ./build_windows.ps1 -Candidate -SkipPortable
       - name: Check package identity and record installer digest
+        id: package
         shell: pwsh
         env:
           VERSION: ${{ steps.identity.outputs.version }}
@@ -54,6 +57,8 @@ jobs:
           $installer = Get-Item -LiteralPath "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/$name"
           New-Item -ItemType Directory candidate | Out-Null
           Copy-Item -LiteralPath $installer.FullName -Destination candidate
+          $sdkHash = (Get-FileHash -LiteralPath 'src-tauri/resources/claude-agent-sdk/claude.exe').Hash
+          "sdk_sha256=$sdkHash" >> $env:GITHUB_OUTPUT
           (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + "  $name" | Set-Content candidate/SHA256SUMS -Encoding ascii
       - name: Check updater signing and profile import
         run: node --test scripts/agenteam-release.test.mjs
@@ -98,9 +103,27 @@ jobs:
           compression-level: 0
           retention-days: 14
 
+  upgrade:
+    needs: windows
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: AgenTeam-Windows-x64-${{ github.sha }}
+          path: candidate
+      - name: Upgrade the latest public Windows release to the candidate
+        shell: pwsh
+        env:
+          EXPECTED_SDK_SHA256: ${{ needs.windows.outputs.sdk_sha256 }}
+        run: ./qa/verify-windows-candidate-upgrade.ps1
+
   draft:
     if: github.ref_type == 'tag'
-    needs: windows
+    needs: upgrade
     runs-on: ubuntu-latest
     environment: agenteam-signing
     permissions:
