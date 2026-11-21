@@ -140,6 +140,7 @@ fn ipc_opens_the_first_table_header_chunk_and_reports_an_outdated_fragment() {
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .unwrap();
     let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+        .scroll_bar_style(crate::webview_policy::scroll_bar_style())
         .build()
         .unwrap();
     let resolve = |value: &str| {
