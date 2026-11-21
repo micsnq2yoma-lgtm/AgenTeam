@@ -82,7 +82,7 @@ queued/running/cancelling --App restart/shutdown--> interrupted
 - App shutdown 先关闭 admission，把所有非终态持久化为 `interrupted`，释放 queued handle，随后发送 cancel 并给 retained Worker tree 10 秒 cooperative settlement；force-stop 后最多再等 10 秒。Worker 已发合法 terminal 时允许最多 30 秒自然退出，terminal 后挂起也必须由同一 `ChildTree` deadline 收敛。
 - Worker crash 不自动重试；当前 job 失败为 `DOCUMENT_WORKER_CRASHED`，用户显式重试会创建新 ID。
 - 结构化解析、native PDF 文本提取和渲染不占本地推理名额。Worker 只有在确认图片或具体 PDF 页需要 PP-OCR 时才发送 exact-generation `ocr_lease_requested`；Manager 从 App-global `LocalComputeCoordinator` 取得 `DocumentOcr` lease 后才回复 `grant_ocr_lease`，Worker 在此之前不能加载 OCR session 或执行 tensor inference。
-- Record live ASR 到达时，lease 的只读 yield signal 立即触发 exact OCR Worker generation cancel；15 秒仍未退出才 force-stop，并最多再等 10 秒。Document job 保持原 ID，authenticated staging 中的未发布内容被清空，私有输入重新准备后回到 FIFO；该过程不写 failed terminal、不发布 partial artifact。非 live workload 只影响下一次 admission，不抢占已运行 OCR。用户 cancel / App shutdown 与 yield 竞态时仍由 Document Manager 当前状态裁决，用户 cancel 优先。
+- Record live ASR 到达时，lease 的只读 yield signal 立即触发 exact OCR Worker generation cancel；15 秒仍未退出才 force-stop，并最多再等 10 秒。Document job 保持原 ID，authenticated staging 中的未发布内容被清空，已完成的私有快照和首次读取时的 SHA-256 随同一 job 回到 FIFO。恢复时验证快照并将其交给下一代 Worker。首次复制成功即释放原件句柄，期间原文件可被改写或替换；该过程不写 failed terminal、不发布 partial artifact。非 live workload 只影响下一次 admission，不抢占已运行 OCR。用户 cancel / App shutdown 与 yield 竞态时仍由 Document Manager 当前状态裁决，用户 cancel 优先。
 
 ## 私有 framed protocol
 

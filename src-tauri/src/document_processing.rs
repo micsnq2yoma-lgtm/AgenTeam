@@ -316,8 +316,47 @@ impl DocumentServiceError {
     }
 }
 
+enum PendingInput {
+    Original(same_file::Handle),
+    Snapshot(SourceVersion),
+}
+
+impl PendingInput {
+    /// The original handle is released when the first private copy succeeds.
+    /// A later Worker generation can only reopen that copy.
+    fn prepare(
+        &mut self,
+        path: &Path,
+        size: u64,
+        mut checkpoint: impl FnMut() -> Result<(), &'static str>,
+    ) -> Result<Option<String>, String> {
+        let version = || -> Result<SourceVersion, String> {
+            reject_link_ancestors(path, false).map_err(|_| "DOCUMENT_INPUT_READ_FAILED")?;
+            let file = open_regular_file_no_follow_classified(path, "document snapshot")
+                .map_err(|_| "DOCUMENT_INPUT_READ_FAILED")?;
+            Ok(source_version(
+                &file.metadata().map_err(|_| "DOCUMENT_INPUT_READ_FAILED")?,
+            ))
+        };
+        match self {
+            Self::Original(handle) => {
+                let hash = copy_source(handle.as_file_mut(), path, size, checkpoint)?;
+                *self = Self::Snapshot(version()?);
+                Ok(Some(hash))
+            }
+            Self::Snapshot(expected) => {
+                checkpoint()?;
+                if version()? != *expected {
+                    return Err("DOCUMENT_SOURCE_CHANGED".into());
+                }
+                Ok(None)
+            }
+        }
+    }
+}
+
 struct PendingJob {
-    source: same_file::Handle,
+    input: PendingInput,
     password: Option<SecretString>,
     private_dir: PathBuf,
     staging_dir: PathBuf,
@@ -742,7 +781,7 @@ impl DocumentProcessingManager {
         state.pending.insert(
             job_id.clone(),
             PendingJob {
-                source,
+                input: PendingInput::Original(source),
                 password: request.password,
                 private_dir,
                 staging_dir,
@@ -997,11 +1036,9 @@ impl DocumentProcessingManager {
             .checked_add(std::time::Duration::from_secs(JOB_DEADLINE_SECONDS))
             .unwrap_or_else(std::time::Instant::now);
         let input_path = pending.private_dir.join("input").join("source.bin");
-        let source_hash = match copy_source(
-            pending.source.as_file_mut(),
-            &input_path,
-            job.source.size_bytes,
-            || {
+        match pending
+            .input
+            .prepare(&input_path, job.source.size_bytes, || {
                 if std::time::Instant::now() >= deadline {
                     Err("DOCUMENT_TIMEOUT")
                 } else if self.job_can_start_worker(&job.job_id, generation) {
@@ -1009,9 +1046,9 @@ impl DocumentProcessingManager {
                 } else {
                     Err("DOCUMENT_CANCELLED")
                 }
-            },
-        ) {
-            Ok(hash) => hash,
+            }) {
+            Ok(Some(hash)) => self.update_source_hash(&job.job_id, hash),
+            Ok(None) => {}
             Err(code) => {
                 if code == "DOCUMENT_CANCELLED" {
                     self.finish_cancelled_if_needed(&job.job_id, generation);
@@ -1026,8 +1063,7 @@ impl DocumentProcessingManager {
                 cleanup_pending(&pending);
                 return;
             }
-        };
-        self.update_source_hash(&job.job_id, source_hash);
+        }
         // Only process birth is covered by the app-wide lifecycle permit.
         // Admission copy is cancellable owner work and must never make update
         // or App exit wait before the Manager has a ChildTree it can settle.
@@ -3269,10 +3305,7 @@ fn prepare_pending_for_retry(pending: &mut PendingJob) -> Result<(), String> {
         sync_directory(parent)
             .map_err(|_| "staging retry reservation was not durable".to_string())?;
     }
-    cleanup_private_input(&pending.private_dir);
-    let input = pending.private_dir.join("input");
-    fs::create_dir(&input).map_err(|_| "private retry input unavailable".to_string())?;
-    set_private_permissions(&input).map_err(|_| "private retry input unavailable".to_string())
+    Ok(())
 }
 
 fn cleanup_private_input(private_dir: &Path) {
@@ -4005,7 +4038,7 @@ mod tests {
         fs::write(&source_path, b"data").unwrap();
         let source_file = File::open(&source_path).unwrap();
         let pending = PendingJob {
-            source: same_file::Handle::from_file(source_file).unwrap(),
+            input: PendingInput::Original(same_file::Handle::from_file(source_file).unwrap()),
             password: None,
             private_dir,
             staging_dir: staging.clone(),
@@ -4025,18 +4058,19 @@ mod tests {
     }
 
     #[test]
-    fn live_preemption_requeues_exact_document_job_without_partial_staging() {
+    fn live_preemption_requeues_same_job_with_first_snapshot_and_without_partial_staging() {
         let data = tempfile::tempdir().unwrap();
         let output = tempfile::tempdir().unwrap();
         let job_id = "20260815_7f3a91c2b6d4";
         let generation = 3;
-        let job = test_job(job_id, output.path(), DocumentJobState::Running);
+        let mut job = test_job(job_id, output.path(), DocumentJobState::Running);
+        job.source.size_bytes = 4;
         let manager = test_manager(data.path(), job, generation);
 
         let private_dir = data.path().join("jobs").join(job_id);
         let input_dir = private_dir.join("input");
         fs::create_dir(&input_dir).unwrap();
-        fs::write(input_dir.join("source.bin"), b"private input").unwrap();
+        let snapshot = input_dir.join("source.bin");
         let staging = output.path().join(format!(".{job_id}.staging"));
         fs::create_dir(&staging).unwrap();
         let token = "a".repeat(32);
@@ -4048,8 +4082,8 @@ mod tests {
         let source_path = data.path().join("source.pdf");
         fs::write(&source_path, b"data").unwrap();
         let source_file = File::open(&source_path).unwrap();
-        let pending = PendingJob {
-            source: same_file::Handle::from_file(source_file).unwrap(),
+        let mut pending = PendingJob {
+            input: PendingInput::Original(same_file::Handle::from_file(source_file).unwrap()),
             password: Some(SecretString("retry-secret".into())),
             private_dir: private_dir.clone(),
             staging_dir: staging.clone(),
@@ -4058,6 +4092,15 @@ mod tests {
             output_root_identity: same_file::Handle::from_path(output.path()).unwrap(),
         };
 
+        let digest = pending
+            .input
+            .prepare(&snapshot, 4, || Ok(()))
+            .unwrap()
+            .unwrap();
+        manager.update_source_hash(job_id, digest.clone());
+        // A save-by-replacement can proceed after admission even on Windows.
+        fs::rename(&source_path, data.path().join("prior.pdf")).unwrap();
+        fs::write(&source_path, b"edited after snapshot").unwrap();
         manager.settle_ocr_yield(job_id, generation, pending);
 
         let state = manager.state.lock().unwrap();
@@ -4073,7 +4116,23 @@ mod tests {
             token
         );
         assert!(input_dir.is_dir());
-        assert_eq!(fs::read_dir(input_dir).unwrap().count(), 0);
+        assert_eq!(fs::read_dir(input_dir).unwrap().count(), 1);
+        drop(state);
+        let (resumed, mut pending, next_generation) = manager.take_next_job().unwrap().unwrap();
+        assert_eq!(resumed.job_id, job_id);
+        assert_ne!(next_generation, generation);
+        assert_eq!(resumed.source.sha256.as_deref(), Some(digest.as_str()));
+        assert_eq!(
+            pending
+                .input
+                .prepare(&snapshot, resumed.source.size_bytes, || Ok(()))
+                .unwrap(),
+            None
+        );
+        assert_eq!(fs::read(&snapshot).unwrap(), b"data");
+        assert_eq!(fs::read(&source_path).unwrap(), b"edited after snapshot");
+        cleanup_pending(&pending);
+        assert!(!snapshot.exists());
     }
 
     #[test]
