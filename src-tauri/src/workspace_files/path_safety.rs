@@ -506,42 +506,76 @@ fn read_prefix(target: &Path, max_bytes: usize) -> Result<Vec<u8>, String> {
     Ok(current)
 }
 
+/// Keep the OS error from opening the leaf so owners can distinguish a
+/// sharing violation from other failures without parsing localized messages.
+#[derive(Debug)]
+pub(crate) enum RegularFileError {
+    Open(std::io::Error),
+    Validation(String),
+}
+
+impl RegularFileError {
+    fn message(self, label: &str) -> String {
+        match self {
+            Self::Open(error) => format!("Failed to open {label}: {error}"),
+            Self::Validation(message) => message,
+        }
+    }
+}
+
 /// Open one explicit regular file without following a symlink/reparse-point
 /// leaf. Workspace-contained reads need the stronger relative parent walk in
 /// `read_workspace_file_no_follow`; this helper is the shared leaf primitive
 /// for user-selected local files such as avatars and Skill packages.
 pub fn open_regular_file_no_follow(path: &Path, label: &str) -> WfResult<fs::File> {
+    open_regular_file_no_follow_classified(path, label).map_err(|e| e.message(label))
+}
+
+pub(crate) fn open_regular_file_no_follow_classified(
+    path: &Path,
+    label: &str,
+) -> Result<fs::File, RegularFileError> {
     let file = open_regular_file_no_follow_platform(path, label)?;
-    let metadata = file
-        .metadata()
-        .map_err(|e| format!("Failed to inspect opened {}: {}", label, e))?;
+    let metadata = file.metadata().map_err(|e| {
+        RegularFileError::Validation(format!("Failed to inspect opened {}: {}", label, e))
+    })?;
     if !metadata.is_file() {
-        return Err(format!("{} path must be a regular file", label));
+        return Err(RegularFileError::Validation(format!(
+            "{} path must be a regular file",
+            label
+        )));
     }
     Ok(file)
 }
 
 #[cfg(unix)]
-fn open_regular_file_no_follow_platform(path: &Path, label: &str) -> WfResult<fs::File> {
+fn open_regular_file_no_follow_platform(
+    path: &Path,
+    _label: &str,
+) -> Result<fs::File, RegularFileError> {
     use std::os::unix::fs::OpenOptionsExt;
 
     let mut options = fs::OpenOptions::new();
     options
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
-    options
-        .open(path)
-        .map_err(|e| format!("Failed to open {}: {}", label, e))
+    options.open(path).map_err(RegularFileError::Open)
 }
 
 #[cfg(windows)]
-fn open_regular_file_no_follow_platform(path: &Path, label: &str) -> WfResult<fs::File> {
+fn open_regular_file_no_follow_platform(
+    path: &Path,
+    label: &str,
+) -> Result<fs::File, RegularFileError> {
     open_windows_regular_file_handle(path, label)
 }
 
 #[cfg(all(not(unix), not(windows)))]
-fn open_regular_file_no_follow_platform(path: &Path, label: &str) -> WfResult<fs::File> {
-    fs::File::open(path).map_err(|e| format!("Failed to open {}: {}", label, e))
+fn open_regular_file_no_follow_platform(
+    path: &Path,
+    _label: &str,
+) -> Result<fs::File, RegularFileError> {
+    fs::File::open(path).map_err(RegularFileError::Open)
 }
 
 /// Read a regular file beneath `workspace_root` without following any path
@@ -1324,7 +1358,10 @@ fn validate_windows_regular_file_handle(file: &fs::File, label: &str) -> WfResul
 }
 
 #[cfg(windows)]
-fn open_windows_regular_file_handle(path: &Path, label: &str) -> WfResult<fs::File> {
+fn open_windows_regular_file_handle(
+    path: &Path,
+    label: &str,
+) -> Result<fs::File, RegularFileError> {
     use std::iter::once;
     use std::os::windows::ffi::OsStrExt;
     use std::os::windows::io::FromRawHandle;
@@ -1352,28 +1389,24 @@ fn open_windows_regular_file_handle(path: &Path, label: &str) -> WfResult<fs::Fi
         )
     };
     if handle == INVALID_HANDLE_VALUE {
-        return Err(format!(
-            "Failed to open {}: {}",
-            label,
-            std::io::Error::last_os_error()
-        ));
+        return Err(RegularFileError::Open(std::io::Error::last_os_error()));
     }
     let file = unsafe { fs::File::from_raw_handle(handle as _) };
     let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
     if unsafe { GetFileInformationByHandle(handle, &mut info) } == 0 {
-        return Err(format!(
+        return Err(RegularFileError::Validation(format!(
             "Failed to inspect opened {}: {}",
             label,
             std::io::Error::last_os_error()
-        ));
+        )));
     }
     if info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
         || info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0
     {
-        return Err(format!(
+        return Err(RegularFileError::Validation(format!(
             "{} path must be a regular, non-reparse file",
             label
-        ));
+        )));
     }
     Ok(file)
 }
