@@ -1049,7 +1049,7 @@
     },
     "permission": {
       "auto": "请求批准",
-      "plan": "规划",
+      "plan": "规划模式",
       "fullAgency": "完全自主",
       "autoDescription": "项目内行动，使用工具需审批",
       "planDescription": "Agent 仅研究信息并与你讨论规划",
@@ -2285,8 +2285,6 @@
     "updateReady": "发现新版本 v{{version}}",
     "installing": "安装中…",
     "restartInstall": "重启安装",
-    "developerLabel": "关于 AgenTeam",
-    "developerParagraph1": "AgenTeam 基于开源项目 MyAgents 构建。",
     "labTitle": "实验室",
     "teamAiPanelTitle": "Team AI 面板",
     "teamAiPanelDescription": "在侧栏「更多」中显示 Team AI 管理面板入口。关闭只隐藏入口，已有 Agent 和 Channel 继续运行。",

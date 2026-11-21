@@ -445,7 +445,7 @@ describe('SimpleChatInput send paths', () => {
     if (runtime === 'claude-code') {
       expect(screen.queryByText('Manual')).not.toBeInTheDocument();
       expect(screen.queryByText('行动')).not.toBeInTheDocument();
-      expect(screen.queryByText('规划')).not.toBeInTheDocument();
+      expect(screen.queryByText('规划模式')).not.toBeInTheDocument();
       expect(screen.getByText('Bypass Permissions')).toBeInTheDocument();
       expect(screen.getByText("Don't Ask")).toBeInTheDocument();
     }
@@ -477,7 +477,7 @@ describe('SimpleChatInput send paths', () => {
     renderInput({ runtime: 'builtin', provider: { id: 'codex-sub', name: 'Codex' } as Provider, permissionMode: 'auto' });
     await user.click(screen.getByTitle('切换执行模式'));
     expect(screen.getByText('由 Codex 自动审查审批请求，仅潜在不安全操作需确认')).toBeInTheDocument();
-    expect(screen.getByText('规划')).toBeInTheDocument();
+    expect(screen.getByText('规划模式')).toBeInTheDocument();
     expect(screen.getByText('完全自主')).toBeInTheDocument();
   });
 

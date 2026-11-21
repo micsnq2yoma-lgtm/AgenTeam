@@ -70,7 +70,7 @@ export const PERMISSION_MODES: {
   },
   {
     value: 'plan',
-    label: '规划',
+    label: '规划模式',
     icon: '📋',
     description: 'Agent 仅研究信息并与您讨论规划',
     sdkValue: 'plan',

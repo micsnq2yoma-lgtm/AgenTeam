@@ -5918,16 +5918,6 @@ export default function Settings({
                 </div>
               </div>
 
-              {/* Project origin */}
-              <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] px-7 py-6">
-                <p className="text-xs font-medium uppercase tracking-widest text-[var(--ink-muted)]/50">
-                  {tSettings('about.developerLabel')}
-                </p>
-                <p className="mt-4 text-sm leading-[1.9] text-[var(--ink-secondary)]">
-                  {tSettings('about.developerParagraph1')}
-                </p>
-              </div>
-
               {/* 实验室 */}
               <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">
                 <h3 className="text-base font-medium text-[var(--ink)]">
