@@ -88,11 +88,8 @@ fn multilingual_terms_and_summary_resolve_only_within_scope_and_filters() {
     let manager = Arc::new(KnowledgeIngestManager::new(Arc::clone(&store), None));
     let a = library(&store, "First");
     let b = library(&store, "Second");
-    let source = ingest(
-        &manager,
-        &a,
-        &write_fixture(&input, "notes.md", "跨境物流校验 blueberry 运输记录。"),
-    );
+    let body = format!("{}跨境物流校验 blueberry 运输记录。", "history ".repeat(70));
+    let source = ingest(&manager, &a, &write_fixture(&input, "notes.md", &body));
     let other = ingest(
         &manager,
         &b,
@@ -121,6 +118,9 @@ fn multilingual_terms_and_summary_resolve_only_within_scope_and_filters() {
         assert_eq!(hits.len(), 1, "{query}");
         assert_eq!(hits[0].kb_id, a);
         assert_eq!(hits[0].source_id, source);
+        if query == "BLUEBERRY" {
+            assert!(hits[0].snippet.contains("blueberry"));
+        }
         assert!(matches!(
             store.resolve_ref(&hits[0].reference).unwrap().fragment,
             Some(crate::knowledge::store::ResolvedFragment::Available { .. })

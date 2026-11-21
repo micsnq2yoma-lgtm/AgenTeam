@@ -665,6 +665,7 @@ impl IndexState {
             .map(|query| query.trim())
             .filter(|query| !query.is_empty())
         {
+            let needle = input.trim_matches('"').to_lowercase();
             let summary_query = self
                 .query(kb_ids, input, filters, SUMMARY, &[])
                 .map_err(QueryFailure::Invalid)?;
@@ -687,7 +688,7 @@ impl IndexState {
             {
                 let doc = searcher.doc::<TantivyDocument>(address)?;
                 candidates.push(
-                    self.hit(&doc, input)
+                    self.hit(&doc, &needle)
                         .ok_or(QueryFailure::Invalid(KnowledgeErrorCode::KbStoreCorrupt))?,
                 );
             }
@@ -697,7 +698,7 @@ impl IndexState {
         Ok(response)
     }
 
-    fn hit(&self, doc: &TantivyDocument, input: &str) -> Option<KnowledgeSearchHit> {
+    fn hit(&self, doc: &TantivyDocument, needle: &str) -> Option<KnowledgeSearchHit> {
         let f = &self.fields;
         let kb_id = text(doc, f.kb_id).to_string();
         let source_id = text(doc, f.source_id).to_string();
@@ -720,7 +721,7 @@ impl IndexState {
             title: text(doc, f.title).into(),
             prefix: text(doc, f.prefix).into(),
             page,
-            snippet: super::make_snippet(text(doc, f.text), input, 150),
+            snippet: super::make_snippet(text(doc, f.text), needle, 300),
             score: 0.0,
         })
     }
