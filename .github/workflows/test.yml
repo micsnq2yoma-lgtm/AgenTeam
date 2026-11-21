@@ -154,8 +154,16 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --ignore-scripts
-          node scripts/prepare-native-inference.mjs x86_64-unknown-linux-gnu --check-prerequisites
-          node scripts/prepare-native-inference.mjs x86_64-unknown-linux-gnu
+          node --input-type=module <<'NODE'
+          import { withResourcePrepareLock } from './scripts/document-processing-resource-cache.mjs';
+          import { prepareDocumentProcessing } from './scripts/prepare-document-processing.mjs';
+          import { parseNativeInferenceArgs } from './scripts/prepare-native-inference.mjs';
+          const options = parseNativeInferenceArgs(['x86_64-unknown-linux-gnu']);
+          await withResourcePrepareLock(
+            'src-tauri/resources/document-processing-cache',
+            () => prepareDocumentProcessing(options),
+          );
+          NODE
           export MYAGENTS_KB_TEST_RESOURCE_ROOT="$PWD/src-tauri/resources"
           test_name=search::knowledge_indexer::tests::resource_backed_ingestion_indexes_five_formats_end_to_end
           log="$RUNNER_TEMP/k4-resource-test.log"
