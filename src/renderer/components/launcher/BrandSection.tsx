@@ -400,6 +400,34 @@ export default memo(function BrandSection({
     setStagedCron(null);
   }, []);
 
+  // Memoized so the memo'd SimpleChatInput does not re-render on every
+  // BrandSection render just because a fresh element was created.
+  const contextHeader = useMemo(() => (
+    <LauncherInputContextRow
+      projects={projects}
+      selectedProject={selectedProject}
+      defaultWorkspacePath={defaultWorkspacePath}
+      onSelectWorkspace={onSelectWorkspace}
+      onAddFolder={onAddFolder}
+      onSetDefaultWorkspace={onSetDefaultWorkspace}
+      showRuntime={!!runtimeSelectorAvailable}
+      runtime={activeRuntime}
+      runtimeDetections={runtimeDetections}
+      onRuntimeChange={onRuntimeChange}
+    />
+  ), [
+    projects,
+    selectedProject,
+    defaultWorkspacePath,
+    onSelectWorkspace,
+    onAddFolder,
+    onSetDefaultWorkspace,
+    runtimeSelectorAvailable,
+    activeRuntime,
+    runtimeDetections,
+    onRuntimeChange,
+  ]);
+
   const handleSlashAction = useCallback((name: string) => {
     if (name !== 'goal' && name !== 'loop') return;
     setCronOpenPreset(GOAL_SLASH_PRESET);
@@ -428,9 +456,8 @@ export default memo(function BrandSection({
         </p>
       </div>
 
-      {/* Row 2 — input, top edge on the anchor line. The context row is
-          absolute-positioned below it so it hangs in row 3 without affecting
-          the anchor (PRD §4.2). */}
+      {/* Row 2 — input, top edge on the anchor line. Its first inner row is
+          the project/runtime context header; extra height extends downward. */}
       <div className="w-full max-w-[640px]">
         <div className="relative w-full">
           <div className="grid *:col-start-1 *:row-start-1">
@@ -487,28 +514,11 @@ export default memo(function BrandSection({
                 usesExternalRuntimeControls={usesExternalRuntimeControls}
                 runtimeModels={runtimeModels}
                 runtimePermissionModes={runtimePermissionModes}
-                /* PRD 0.2.7 Phase F: workspace + runtime selectors moved out of
-                 * the toolbar to the row below — toolbarPrefix dropped here. */
+                /* Project + runtime live in the composer's context header
+                 * (first row inside the frame), not in the toolbar. */
+                contextHeader={contextHeader}
               />
               <DropZoneOverlay isVisible={showInputDropOverlay} />
-            </div>
-          </div>
-          {/* PRD 0.2.7 Phase F: launcher-only chip row that surfaces
-           *  the project + Runtime below the composer. */}
-          <div className="launcher-below-input-stack absolute left-0 right-0 top-full mt-2 flex flex-col gap-4">
-            <div className="w-full">
-              <LauncherInputContextRow
-                projects={projects}
-                selectedProject={selectedProject}
-                defaultWorkspacePath={defaultWorkspacePath}
-                onSelectWorkspace={onSelectWorkspace}
-                onAddFolder={onAddFolder}
-                onSetDefaultWorkspace={onSetDefaultWorkspace}
-                showRuntime={!!runtimeSelectorAvailable}
-                runtime={activeRuntime}
-                runtimeDetections={runtimeDetections}
-                onRuntimeChange={onRuntimeChange}
-              />
             </div>
           </div>
         </div>

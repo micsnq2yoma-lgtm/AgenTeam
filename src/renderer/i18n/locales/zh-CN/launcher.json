@@ -188,6 +188,7 @@
     }
   },
   "workspaceSelector": {
+    "label": "项目",
     "selectWorkspace": "选择项目",
     "title": "项目管理",
     "defaultBadge": "默认",

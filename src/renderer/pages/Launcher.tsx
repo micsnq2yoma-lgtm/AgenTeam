@@ -1190,7 +1190,7 @@ export default function Launcher({
               ? launcherRuntimePermissionModes
               : undefined
           }
-          /* Runtime selector lives below the input (LauncherInputContextRow). */
+          /* Runtime selector lives in the composer's context header (LauncherInputContextRow). */
           runtimeSelectorAvailable={runtimeSelectorAvailable}
           runtimeDetections={runtimeDetections}
           onRuntimeChange={handleLauncherRuntimeChange}

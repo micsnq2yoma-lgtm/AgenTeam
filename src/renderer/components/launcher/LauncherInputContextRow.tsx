@@ -1,19 +1,24 @@
-// LauncherInputContextRow — small chip row below the launcher input.
-// Hosts a workspace chip and, when the distribution permits, a runtime chip
-// in the same screen slot the thought-mode
-// `RecentThoughtsRow` uses (`absolute left-0 right-0 top-full mt-3`). Moving
-// these two controls out of the input toolbar de-clutters the launcher input.
+// LauncherInputContextRow — the Launcher composer's context header.
 //
-// Visual: the inner buttons (`WorkspaceSelector`, `RuntimeSelector`) are
-// reused as-is — they already carry the chevron / icon / hover-text-color
-// styling needed in the chat-tab toolbar. The wrapper shares the launcher's
-// elevated input surface and border, while using a much lighter shadow so the
-// chips read as subordinate context attached to the composer rather than a
-// second floating panel.
-// Pre-PRD-0.2.7 polish iteration removed the "Agent 工作区" / "Runtime"
-// text labels — the icons + content already convey what each chip is.
+// Rendered by SimpleChatInput's `contextHeader` slot as the first row INSIDE
+// the composer frame, like the "To:" line of an email:
+//
+//   项目 [icon] AgenTeam  │  运行环境 [icon] DeepSeek Harness
+//   ─────────────────────────────────────────────────────────
+//   输入消息…
+//
+// Why inside the composer: the previous floating chips below the input read as
+// loose parts, and "AgenTeam" alone did not tell users it was the current
+// project. Explicit labels plus placement inside the frame make the row read as
+// "where this message goes". The two triggers have no chevrons; the name itself
+// is the click target that opens the existing picker list.
+//
+// The labels use the meta tier (`text-xs`), the values the ui tier
+// (`text-sm`), per DESIGN.md §3.3. A vertical hairline separates the two
+// fields; the row's bottom hairline separates context from the message body.
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import RuntimeSelector from '@/components/RuntimeSelector';
 import type { Project } from '@/config/types';
@@ -40,18 +45,7 @@ interface LauncherInputContextRowProps {
   onRuntimeChange?: (runtime: RuntimeType) => void;
 }
 
-// Resting → hover → focus contract: the resting surface matches
-// `SimpleChatInput` (`--paper-elevated` + `--line`), hover uses the semantic
-// hover tint, and focus/open deepens to `--paper-inset`. The inner buttons
-// already paint their own hover background, so force those backgrounds
-// transparent and let the wrapper own one continuous material transition.
-// `shadow-xs` is deliberate: the large composer keeps `shadow-md`; a small
-// context control using the same shadow would create a disproportionate halo.
-// The workspace trigger is text-height-driven (20px line box) while Runtime is
-// icon-height-driven (16px). Fix the bordered outer chips at the workspace
-// chip's existing 34px height and fill each chip with its trigger button.
-const CHIP_WRAPPER_CLASS =
-  'inline-flex h-[34px] items-center rounded-[10px] border border-[var(--line)] bg-[var(--paper-elevated)] shadow-xs transition-[background-color,border-color,box-shadow] duration-150 hover:border-[var(--line-strong)] hover:bg-[var(--hover-bg)] hover:shadow-sm focus-within:border-[var(--line-strong)] focus-within:bg-[var(--paper-inset)] focus-within:shadow-sm [&>button]:h-full [&_button:hover]:!bg-transparent';
+const LABEL_CLASS = 'shrink-0 text-xs text-[var(--ink-muted)]';
 
 export default memo(function LauncherInputContextRow({
   projects,
@@ -65,9 +59,18 @@ export default memo(function LauncherInputContextRow({
   runtimeDetections,
   onRuntimeChange,
 }: LauncherInputContextRowProps) {
+  const { t } = useTranslation('launcher');
+  const { t: tChat } = useTranslation('chat');
+  const projectLabel = t('workspaceSelector.label');
+  const runtimeLabel = tChat('runtime.header');
+
   return (
-    <div className="flex items-center gap-2 text-sm text-[var(--ink-muted)]">
-      <div className={CHIP_WRAPPER_CLASS}>
+    <div
+      data-testid="launcher-context-header"
+      className="flex min-w-0 items-center border-b border-[var(--line-subtle)] px-4 py-1.5"
+    >
+      <div role="group" aria-label={projectLabel} className="flex min-w-0 items-center gap-1">
+        <span className={LABEL_CLASS}>{projectLabel}</span>
         <WorkspaceSelector
           projects={projects}
           selectedProject={selectedProject}
@@ -78,14 +81,22 @@ export default memo(function LauncherInputContextRow({
         />
       </div>
       {showRuntime && runtime && runtimeDetections && onRuntimeChange && (
-        <div className={CHIP_WRAPPER_CLASS}>
-          <RuntimeSelector
-            value={runtime}
-            detections={runtimeDetections}
-            onChange={onRuntimeChange}
-            variant="launcher"
+        <>
+          <span
+            data-testid="launcher-context-divider"
+            aria-hidden="true"
+            className="mx-3 h-3.5 w-px shrink-0 bg-[var(--line-strong)]"
           />
-        </div>
+          <div role="group" aria-label={runtimeLabel} className="flex min-w-0 items-center gap-1">
+            <span className={LABEL_CLASS}>{runtimeLabel}</span>
+            <RuntimeSelector
+              value={runtime}
+              detections={runtimeDetections}
+              onChange={onRuntimeChange}
+              variant="launcher"
+            />
+          </div>
+        </>
       )}
     </div>
   );

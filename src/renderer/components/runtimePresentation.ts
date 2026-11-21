@@ -7,13 +7,16 @@ import dshIcon from '@/assets/runtime-icons/deepseek-harness.png';
 
 interface RuntimePresentation {
   name: string;
+  /** Compact label for inline surfaces (e.g. the Launcher context header),
+   *  where the product prefix is already implied by the brand mark icon. */
+  shortName?: string;
   icon: string;
   engineIcon?: string;
 }
 
 export const RUNTIME_PRESENTATION: Record<RuntimeType, RuntimePresentation> = {
-  builtin: { name: 'AgenTeam (Claude Agent SDK)', icon: brandMark, engineIcon: claudeCodeIcon },
-  dsh: { name: 'AgenTeam (DeepSeek Harness)', icon: brandMark, engineIcon: dshIcon },
+  builtin: { name: 'AgenTeam (Claude Agent SDK)', shortName: 'Claude Agent SDK', icon: brandMark, engineIcon: claudeCodeIcon },
+  dsh: { name: 'AgenTeam (DeepSeek Harness)', shortName: 'DeepSeek Harness', icon: brandMark, engineIcon: dshIcon },
   'claude-code': { name: 'Claude Code CLI', icon: claudeCodeIcon },
   codex: { name: 'Codex CLI', icon: codexIcon },
 };

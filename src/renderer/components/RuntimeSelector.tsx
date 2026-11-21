@@ -30,13 +30,21 @@ const IMPLEMENTED_RUNTIMES = new Set<RuntimeType>(['builtin', 'dsh', 'claude-cod
 const RUNTIME_OPTIONS: {
   type: RuntimeType;
   name: string;
+  shortName: string;
   group: 'integrated' | 'external';
-}[] = [
-    { type: 'builtin', name: RUNTIME_PRESENTATION.builtin.name, group: 'integrated' },
-    { type: 'dsh', name: RUNTIME_PRESENTATION.dsh.name, group: 'integrated' },
-    { type: 'claude-code', name: RUNTIME_PRESENTATION['claude-code'].name, group: 'external' },
-    { type: 'codex', name: RUNTIME_PRESENTATION.codex.name, group: 'external' },
-  ];
+}[] = (
+  [
+    ['builtin', 'integrated'],
+    ['dsh', 'integrated'],
+    ['claude-code', 'external'],
+    ['codex', 'external'],
+  ] as const
+).map(([type, group]) => ({
+  type,
+  name: RUNTIME_PRESENTATION[type].name,
+  shortName: RUNTIME_PRESENTATION[type].shortName ?? RUNTIME_PRESENTATION[type].name,
+  group,
+}));
 
 function RuntimeGroupHeading({ group }: { group: 'integrated' | 'external' }) {
   const { t } = useTranslation('chat');
@@ -136,18 +144,22 @@ export default memo(function RuntimeSelector({
         }}
         className={`${variant === 'panel'
           ? 'flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-transparent px-3 py-2 text-sm text-[var(--ink)] [--runtime-icon-surface:var(--paper-elevated)]'
-          : 'inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--ink-muted)] [--runtime-icon-surface:var(--paper)]'
+          // Launcher context header: inline text control inside the composer.
+          // No chevron — the whole name is the click target that opens the list.
+          : 'inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-sm font-medium text-[var(--ink)] [--runtime-icon-surface:var(--paper-elevated)]'
         } transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] ${disabled
           ? 'cursor-not-allowed opacity-50'
           : 'hover:bg-[var(--hover-bg)] hover:text-[var(--ink)] hover:[--runtime-icon-surface:var(--hover-bg)]'
         }`}
         title={disabled ? disabledReason : `Runtime: ${currentOption.name}`}
       >
-        <span className="flex min-w-0 items-center gap-3">
+        <span className={`flex min-w-0 items-center ${variant === 'panel' ? 'gap-3' : 'gap-1.5'}`}>
           <RuntimeIcon type={value} size={16} />
-          {variant === 'panel' && <span className="truncate">{currentOption.name}</span>}
+          <span className="truncate">{variant === 'panel' ? currentOption.name : currentOption.shortName}</span>
         </span>
-        <ChevronUpIcon className={`h-3 w-3 shrink-0 text-[var(--ink-muted)] transition-transform ${menuOpen ? '' : 'rotate-180'}`} />
+        {variant === 'panel' && (
+          <ChevronUpIcon className={`h-3 w-3 shrink-0 text-[var(--ink-muted)] transition-transform ${menuOpen ? '' : 'rotate-180'}`} />
+        )}
       </button>
       <Popover
         open={menuOpen}
