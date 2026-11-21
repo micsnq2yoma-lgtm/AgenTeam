@@ -120,7 +120,7 @@ async fn session_activity_handler(
     };
     if manager
         .lock()
-        .is_ok_and(|manager| manager.report_session_activity(&token, request.activity))
+        .is_ok_and(|mut manager| manager.report_session_activity(&token, request.activity))
     {
         return (StatusCode::OK, Json(serde_json::json!({"ok": true})));
     }

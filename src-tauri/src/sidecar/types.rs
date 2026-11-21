@@ -1047,7 +1047,7 @@ mod lifecycle_contract_tests {
                 port: 31418,
                 session_id: session_id.to_string(),
                 management_id: session_id.to_string(),
-                activity_token: uuid::Uuid::new_v4(),
+                activity_binding: Default::default(),
                 workspace_path: PathBuf::from("/tmp/workspace"),
                 state,
                 owners: owners(vec![SidecarOwner::Tab("tab-a".to_string())]),
@@ -1602,6 +1602,26 @@ mod lifecycle_contract_tests {
     }
 }
 
+pub(crate) struct SessionActivityBinding {
+    pub(super) token: uuid::Uuid,
+    pub(super) replacement: Option<PendingActivityBinding>,
+}
+
+pub(super) struct PendingActivityBinding {
+    pub(super) target: String,
+    pub(super) token: uuid::Uuid,
+    pub(super) report: Option<crate::session_activity::ActivityReport>,
+}
+
+impl Default for SessionActivityBinding {
+    fn default() -> Self {
+        Self {
+            token: uuid::Uuid::new_v4(),
+            replacement: None,
+        }
+    }
+}
+
 pub struct SessionSidecar {
     /// The child process plus exact descendant-containment authority.
     pub(crate) process: ChildTree,
@@ -1613,7 +1633,7 @@ pub struct SessionSidecar {
     /// this process was spawned. Unlike `session_id`, this does not change
     /// when pending/reset/handover flows rekey the logical Session.
     pub management_id: String,
-    pub(crate) activity_token: uuid::Uuid,
+    pub(crate) activity_binding: SessionActivityBinding,
     /// Workspace path for this session
     /// Reserved for future use (e.g., workspace-aware operations)
     #[allow(dead_code)]

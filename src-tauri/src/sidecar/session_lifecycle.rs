@@ -237,11 +237,16 @@ async fn request_desktop_runtime_transition(
     client: &reqwest::Client,
     port: u16,
     payload: &serde_json::Value,
+    current_activity_token: uuid::Uuid,
 ) -> Result<(), DesktopTransitionFailure> {
     let response = client
         .post(format!(
             "http://127.0.0.1:{port}/api/session/new-conversation"
         ))
+        .header(
+            "x-myagents-session-activity-token",
+            current_activity_token.to_string(),
+        )
         .json(payload)
         .send()
         .await;
@@ -376,11 +381,28 @@ async fn transition_desktop_runtime_with_client(
     } else {
         source.to_string()
     };
+    let (current_token, next_token) = manager
+        .lock()
+        .map_err(|error| error.to_string())?
+        .reserve_activity_rebind(source, target, dispatch.generation())
+        .ok_or_else(|| "Session activity binding changed before transition".to_owned())?;
     let payload = serde_json::json!({
         "sourceSessionId": runtime_source, "targetSessionId": target, "channelBound": channel_bound,
         "metadataBirthPending": metadata_birth_pending, "metadataIndexed": metadata_indexed,
+        "nextActivityToken": next_token.to_string(),
     });
-    if let Err(failure) = request_desktop_runtime_transition(client, port, &payload).await {
+    if let Err(failure) =
+        request_desktop_runtime_transition(client, port, &payload, current_token).await
+    {
+        if matches!(
+            &failure,
+            DesktopTransitionFailure::Busy | DesktopTransitionFailure::Rejected(_)
+        ) {
+            manager
+                .lock()
+                .map_err(|error| error.to_string())?
+                .cancel_activity_rebind(source, dispatch.generation(), next_token);
+        }
         return match failure {
             DesktopTransitionFailure::Busy => Ok(None),
             DesktopTransitionFailure::Rejected(error) => Err(error),
@@ -407,12 +429,13 @@ pub(crate) async fn commit_desktop_runtime_transition(
 ) -> Result<bool, String> {
     let rekeyed = {
         let mut state = manager.lock().map_err(|error| error.to_string())?;
-        match channel_key {
-            Some(key) => {
-                state.upgrade_session_id_for_surface_migration(source, target, tab_id, key)
-            }
-            None => state.upgrade_session_id_for_tab(source, target, tab_id),
-        }
+        state.commit_desktop_runtime_rebind(
+            source,
+            target,
+            tab_id,
+            channel_key,
+            dispatch.generation(),
+        )
     };
     if !rekeyed {
         retire_failed_desktop_transition(manager, source, dispatch).await?;
@@ -1433,8 +1456,11 @@ fn create_new_session_sidecar<'a, R: Runtime>(
         cmd.env("MYAGENTS_RUNTIME_BINDING", runtime_binding_json);
     }
     let sidecar_generation = manager_guard.next_generation(session_id);
-    let activity_token = uuid::Uuid::new_v4();
-    cmd.env("MYAGENTS_SESSION_ACTIVITY_TOKEN", activity_token.to_string());
+    let activity_binding = super::types::SessionActivityBinding::default();
+    cmd.env(
+        "MYAGENTS_SESSION_ACTIVITY_TOKEN",
+        activity_binding.token.to_string(),
+    );
     cmd.env("MYAGENTS_SIDECAR_ID", session_id);
     cmd.env(
         "MYAGENTS_SIDECAR_GENERATION",
@@ -1554,7 +1580,7 @@ fn create_new_session_sidecar<'a, R: Runtime>(
         port,
         session_id: session_id.to_string(),
         management_id: session_id.to_string(),
-        activity_token,
+        activity_binding,
         workspace_path: workspace_path.to_path_buf(),
         state: SidecarState::Starting,
         owners,
@@ -2923,6 +2949,7 @@ mod session_lifecycle_tests {
             &client,
             port,
             &serde_json::json!({"sourceSessionId":"source", "targetSessionId":"target"}),
+            uuid::Uuid::new_v4(),
         )
         .await
         .unwrap_err();

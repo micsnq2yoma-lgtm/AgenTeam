@@ -289,7 +289,9 @@ Task、Goal、Agent Channel、Memory、Heartbeat 等领域使用自己的通知/
 
 `SessionActivityRegistry` 是与 SidecarManager 同层的 Rust managed state。SessionEngine 在 Runtime 生命周期与人工请求变化时读取 adapter 的 live snapshot 和真实 terminal，使用现有 Node → Rust Management API 的 `POST /api/session/activity` 顺序上报。上报失败记录日志，执行流程继续。Desktop、IM、定时任务、Goal 和 Companion 共用这条路径。
 
-SidecarManager 每次启动 Session Sidecar 分配专用凭据，Runtime 子进程不继承。Rust 从该凭据解析当前 Product Session 与 generation，在同一把生命周期锁内准入并更新 Registry。请求体只传活动状态。旧进程与外部调用令牌无法更新 Registry。Sidecar 退役清除该 generation 的运行类状态。pending session 转为持久会话时在原代次迁移活动。
+SidecarManager 为当前进程的逻辑会话绑定分配专用凭据，Runtime 子进程不继承。Rust 在生命周期锁内从凭据解析 Product Session 与 generation，并更新 Registry。请求体只传活动状态。Sidecar 退役清除该 generation 的运行类状态。pending 槽转为同一会话的正式 ID 时沿用凭据并迁移活动。
+
+同一进程开始另一条逻辑会话时，Rust 通过现有新建对话请求携带当前凭据和替换凭据。Sidecar 暂停切换期间的采样，已排队的报告继续携带采样时的凭据。Rust 在会话换绑提交前暂存替换凭据的活动。提交后撤销旧凭据，清除来源会话的运行状态，并将暂存活动应用到目标会话。拒绝换绑且来源未变时继续使用原凭据，结果不明时既有生命周期负责退役进程。
 
 完成或主动停止会清除运行类状态。Error 保留在内存中，直到打开该会话或开始新一轮。App 重启清空所有活动。完成未读继续由 `notification.rs` 的计数裁决。
 
