@@ -101,6 +101,32 @@ async fn require_internal_cli_request(request: Request, next: Next) -> Response 
         .into_response()
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SessionActivityRequest {
+    activity: crate::session_activity::ActivityReport,
+}
+
+async fn session_activity_handler(
+    headers: HeaderMap,
+    Json(request): Json<SessionActivityRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let token = headers
+        .get("x-myagents-session-activity-token")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| uuid::Uuid::parse_str(value).ok());
+    let (Some(token), Some(manager)) = (token, get_sidecar_state()) else {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"ok": false})));
+    };
+    if manager
+        .lock()
+        .is_ok_and(|manager| manager.report_session_activity(&token, request.activity))
+    {
+        return (StatusCode::OK, Json(serde_json::json!({"ok": true})));
+    }
+    (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"ok": false})))
+}
+
 // A bridge about to release a model request must check the current native
 // verdict. A successful check in an earlier generation may already be stale.
 async fn model_egress_admission() -> Json<serde_json::Value> {
@@ -320,6 +346,7 @@ pub async fn start_management_api() -> Result<u16, String> {
         )
         // Session Event watch registration (PRD 0.2.37)
         .route("/api/session/watch", post(session_watch_handler))
+        .route("/api/session/activity", post(session_activity_handler))
         // Secret-bearing internal route. Identity is validated against the
         // live Session:Sidecar generation; responses are never cacheable.
         .route("/api/grok/bearer", post(grok_bearer_handler))
@@ -5626,6 +5653,34 @@ mod channel_discovery_tests {
                 (Some(native.to_string()), None)
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod session_activity_tests {
+    use super::*;
+
+    #[test]
+    fn session_activity_payload_cannot_choose_identity() {
+        for field in ["sessionId", "sidecarId", "generation"] {
+            let mut request = serde_json::json!({"activity": "running"});
+            request[field] = serde_json::json!("other");
+            assert!(serde_json::from_value::<SessionActivityRequest>(request).is_err());
+        }
+    }
+
+    #[tokio::test]
+    async fn external_token_is_not_an_activity_credential() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer external-test-token"),
+        );
+        let (status, _) = session_activity_handler(
+            headers,
+            Json(SessionActivityRequest { activity: crate::session_activity::ActivityReport::Running }),
+        ).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 }
 

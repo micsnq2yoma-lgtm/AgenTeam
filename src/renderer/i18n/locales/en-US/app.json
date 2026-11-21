@@ -20,6 +20,15 @@
     "bots": "Chat bots"
   },
   "globalSidebar": {
+    "activity": {
+      "waiting_for_user": "Needs your input",
+      "waitingLabel": "Needs input",
+      "waitingWorkspace_one": "{{count}} session needs input",
+      "waitingWorkspace_other": "{{count}} sessions need input",
+      "running": "Running",
+      "error": "Last run failed",
+      "idle": "Idle"
+    },
     "resize": "Resize sidebar",
     "resizeHint": "Drag to resize. Double-click or press Enter to reset.",
     "resizeSaveFailed": "Sidebar resized, but the width could not be saved. It may reset after restarting.",

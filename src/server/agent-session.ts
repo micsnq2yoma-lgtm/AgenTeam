@@ -1,3 +1,4 @@
+import { notifySessionActivityTransition } from './session-engine/activity-reporter';
 import { captureChannelTurn, effectiveChannelDelivery, channelContextForInput, decorateChannelQuery, channelInputSource } from './session-core/channel-context';
 import { readChannelPromptOptions } from './tools/channel-messaging';
 import { desktopContextOf } from '../shared/agentMentions';
@@ -1564,6 +1565,7 @@ function getBuiltinTranscriptPresentation(): TranscriptPresentation | undefined 
 }
 
 function broadcast(event: string, data: unknown): void {
+  notifySessionActivityTransition(event);
   // The native tool mutator already confirmed the full result. A preview or
   // later attachment-only update must not replace that canonical body.
   if (!/^chat:(?:subagent-)?tool-result-(?:start|complete)$/.test(event)) getBuiltinTranscriptPresentation()?.record(event, data);
@@ -5008,6 +5010,7 @@ export function handleEnterPlanModeResponse(requestId: string, approved: boolean
     return false;
   }
   pendingEnterPlanMode.delete(requestId);
+  notifySessionActivityTransition();
   // Sync configState.currentPermissionMode so applySessionConfig won't override SDK's plan mode.
   // Route through the shared transition: it captures the prior mode, but if we're
   // ALREADY in plan it preserves the existing capture instead of overwriting it

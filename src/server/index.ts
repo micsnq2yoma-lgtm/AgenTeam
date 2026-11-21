@@ -588,6 +588,7 @@ import {
   getPermissionResponseEngine,
   getPlanApprovalResponseEngine,
   getSessionEngine,
+  startSessionActivityReporting,
   restoreInitialExternalSessionAtSelector,
   stopActiveTurn,
   stopOwnedTurn,
@@ -2150,6 +2151,7 @@ async function main() {
   // dead, and so a sync write-throw can flip the bit immediately.
   setStdioBrokenProbe(isStdioBroken, markStdioBroken);
   initLogger(getClients);
+  startSessionActivityReporting(getSessionEngine);
   subscribeTranscriptSaveStatus(status => getSessionEngine().publishTranscriptSaveStatus(status));
   startupBeacon('initLogger done — switching to console.log');
 

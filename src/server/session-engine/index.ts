@@ -33,5 +33,6 @@ export type {
 } from './types';
 
 export { inspectRuntime } from './runtime-inspection';
+export { startSessionActivityReporting } from './activity-reporter';
 
 export { queryRuntimeModels } from '../runtimes/external-session';

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   config: { defaultWorkspacePath: null as string | null, agents: [] },
   projects: [] as Array<Record<string, unknown>>,
+  activity: new Map<string, string>(),
   taskData: {
     sessions: [] as Array<Record<string, unknown>>,
     isSessionsLoading: false,
@@ -72,7 +73,11 @@ vi.mock('@/hooks/useTaskCenterData', () => ({
   useGlobalSidebarTaskCenterData: () => mocks.taskData,
 }));
 
-vi.mock('@/hooks/taskCenterStore', () => ({ ensureWorkspaceSessions: vi.fn() }));
+vi.mock('@/hooks/taskCenterStore', () => ({
+  ensureWorkspaceSessions: vi.fn(),
+  registerPassiveWorkspaceSessionDemand: vi.fn(() => () => undefined),
+}));
+vi.mock('@/hooks/useSessionActivity', () => ({ useSessionActivity: () => mocks.activity }));
 
 vi.mock('@/hooks/useWorkspaceFileService', () => ({
   useWorkspaceFileService: () => ({ openPathExternal: mocks.openPathExternal }),
@@ -198,6 +203,7 @@ describe('GlobalSidebar rail flyout', () => {
     vi.clearAllMocks();
     window.localStorage.clear();
     mocks.projects.length = 0;
+    mocks.activity = new Map();
     mocks.taskData.sessions.length = 0;
     mocks.taskData.sessionTagsMap.clear();
     mocks.taskData.workspaceSessionStates.clear();
@@ -1744,11 +1750,12 @@ describe('GlobalSidebar rail flyout', () => {
     expect(screen.queryByRole('button', { name: String(i18n.t('app:globalSidebar.loadMore')) })).not.toBeInTheDocument();
   });
 
-  it('projects only the shared generating and unread Tab signals into Session rows', () => {
+  it('projects five prioritized session states and keeps them after the active Tab is replaced', () => {
+    mocks.forcedRail = false;
     mocks.projects.push({ id: 'project-1', name: 'Project one', path: '/work/project-one' });
     window.localStorage.setItem(GLOBAL_SIDEBAR_PREFERENCE_KEY, JSON.stringify({
       version: 1,
-      preferredMode: 'rail',
+      preferredMode: 'expanded',
       collapsedWorkspaceKeys: [],
       showAutomationSessions: true,
       sessionView: 'all',
@@ -1758,6 +1765,8 @@ describe('GlobalSidebar rail flyout', () => {
       { id: 'open-session', title: 'Open session' },
       { id: 'unread-session', title: 'Unread session' },
       { id: 'generating-session', title: 'Generating session' },
+      { id: 'waiting-session', title: 'Waiting session' },
+      { id: 'failed-session', title: 'Failed session' },
     ];
     sessionSpecs.forEach((session, index) => {
       mocks.taskData.sessions.push({
@@ -1799,12 +1808,21 @@ describe('GlobalSidebar rail flyout', () => {
       hasUnread: true,
     };
 
-    renderSidebar({
+    mocks.activity = new Map([
+      ['active-session', 'waiting_for_user'],
+      ['waiting-session', 'waiting_for_user'],
+      ['generating-session', 'running'],
+      ['failed-session', 'error'],
+    ]);
+    const view = renderSidebar({
       tabs: [launcherTab, activeSessionTab, openSessionTab, unreadSessionTab, generatingSessionTab],
+      sessionNotificationBadgeCounts: new Map([
+        ['unread-session', 1], ['generating-session', 2], ['active-session', 3], ['failed-session', 4],
+      ]),
       activeTab: activeSessionTab,
       activeWorkspacePath: '/work/project-one',
     });
-    fireEvent.click(screen.getByRole('button', { name: '项目管理' }));
+    fireEvent.click(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.loadMore')) }));
 
     const rowFor = (title: string) => screen.getByText(title).closest<HTMLElement>('[data-global-sidebar-session-row]')!;
     const activeRow = rowFor('Active session');
@@ -1814,19 +1832,26 @@ describe('GlobalSidebar rail flyout', () => {
     expect(workspaceRow.querySelector('[data-global-sidebar-workspace-title]')).toHaveClass('font-medium');
     expect(activeRow).toHaveClass('global-sidebar-resource-row');
     expect(activeRow).toHaveAttribute('aria-current', 'page');
-    expect(activeRow.querySelector('[data-tab-activity-indicator]')).toBeNull();
+    expect(activeRow).toHaveAttribute('data-session-activity', 'waiting_for_user');
+    expect(within(activeRow).getByText('待确认')).toBeInTheDocument();
+    expect(activeRow.querySelector('[data-global-sidebar-session-date]')).toHaveClass('pr-10');
+    expect(within(activeRow).getByRole('button', { name: /Active session/ })).toHaveAccessibleDescription('需要你处理');
     expect(rowFor('Open session').querySelector('[data-tab-activity-indicator]')).toBeNull();
 
-    const unreadIndicator = rowFor('Unread session').querySelector('[data-tab-activity-indicator]');
-    expect(unreadIndicator).toHaveAttribute('data-tab-activity-indicator', 'unread');
-    expect(unreadIndicator).toHaveClass('bg-[var(--accent-warm)]');
+    expect(rowFor('Unread session')).toHaveAttribute('data-session-activity', 'unread');
+    expect(rowFor('Unread session').querySelector('[data-global-sidebar-session-date]')).toBeInTheDocument();
+    expect(rowFor('Open session')).toHaveAttribute('data-session-activity', 'idle');
+    expect(rowFor('Generating session')).toHaveAttribute('data-session-activity', 'running');
+    expect(rowFor('Failed session')).toHaveAttribute('data-session-activity', 'error');
+    expect(within(rowFor('Failed session')).getByRole('img', { name: '上次运行出错' })).toBeInTheDocument();
+    expect(workspaceRow.querySelector('[data-global-sidebar-workspace-activity]')).toBeEmptyDOMElement();
 
-    const generatingIndicator = rowFor('Generating session').querySelector('[data-tab-activity-indicator]');
-    expect(generatingIndicator).toHaveAttribute('data-tab-activity-indicator', 'generating');
-    expect(generatingIndicator?.children).toHaveLength(2);
-    Array.from(generatingIndicator?.children ?? []).forEach((dot) => {
-      expect(dot).toHaveClass('bg-[var(--success)]');
-    });
+    // Replacing the active Tab leaves the SessionEngine's waiting state and the rest
+    // of the registry projection intact.
+    view.rerender(sidebar({ tabs: [launcherTab], activeTab: launcherTab }));
+    expect(rowFor('Active session')).toHaveAttribute('data-session-activity', 'waiting_for_user');
+    expect(rowFor('Active session')).not.toHaveAttribute('aria-current');
+    expect(rowFor('Generating session')).toHaveAttribute('data-session-activity', 'running');
   });
 
   it.each(['expanded', 'rail'] as const)('keeps collapsed workspace activity live without history in %s mode', (preferredMode) => {
@@ -1841,46 +1866,31 @@ describe('GlobalSidebar rail flyout', () => {
     }));
     const running: ChatTab = {
       id: 'running-tab', view: 'chat', title: 'New session', agentDir: 'c:/work/agent/',
-      sessionId: null, sidecarConfigDisposition: 'push', isGenerating: true,
+      sessionId: 'pending-session', sidecarConfigDisposition: 'push',
     };
-    const unread: ChatTab = {
-      ...running, id: 'unread-tab', sessionId: 'unread-session', isGenerating: false, hasUnread: true,
+    const session = {
+      id: 'waiting-session', title: 'Waiting', agentDir: '/work/b',
+      createdAt: '2026-07-21T00:00:00.000Z', lastActiveAt: '2026-07-21T00:00:00.000Z',
     };
-    const idle: ChatTab = {
-      ...running, id: 'idle-tab', sessionId: 'idle-session', isGenerating: false,
-    };
-    const otherUnread: ChatTab = { ...unread, id: 'other-tab', sessionId: 'other-session', agentDir: '/work/b' };
-    const foreign: ChatTab = { ...running, id: 'foreign-tab', agentDir: '/work/elsewhere' };
-    const initialTabs = [launcherTab, running, unread, idle, otherUnread, foreign];
-    const view = renderSidebar({ tabs: initialTabs });
+    mocks.taskData.sessions.push(session);
+    mocks.activity = new Map([['pending-session', 'running'], ['waiting-session', 'waiting_for_user']]);
+    const view = renderSidebar({ tabs: [launcherTab, running] });
     if (preferredMode === 'rail') fireEvent.click(screen.getByRole('button', { name: '项目管理' }));
 
     const workspaceRow = (name: string) => screen.getByText(name).closest<HTMLElement>('[data-global-sidebar-workspace-row]')!;
     const indicator = (name: string) => workspaceRow(name).querySelector('[data-tab-activity-indicator]');
-    const statusSlot = workspaceRow('Project A').querySelector('[data-global-sidebar-workspace-activity]');
     expect(workspaceRow('Project A')).toHaveAttribute('aria-expanded', 'false');
     expect(document.querySelector('[data-global-sidebar-session-row]')).toBeNull();
     expect(indicator('Project A')).toHaveAttribute('data-tab-activity-indicator', 'generating');
-    expect(within(workspaceRow('Project A')).getByText(String(i18n.t('app:tabs.generating')))).toHaveClass('sr-only');
-    expect(indicator('Project B')).toHaveAttribute('data-tab-activity-indicator', 'unread');
+    expect(within(workspaceRow('Project B')).getByRole('img', { name: '1 个会话待确认' })).toBeInTheDocument();
     expect(indicator('Empty project')).toBeNull();
 
-    // Completion of the last running Session leaves the other unread result visible.
-    const completed = { ...running, sessionId: 'new-session', isGenerating: false };
-    view.rerender(sidebar({ tabs: [launcherTab, completed, unread, idle, otherUnread, foreign] }));
-    expect(indicator('Project A')).toHaveAttribute('data-tab-activity-indicator', 'unread');
-    expect(indicator('Project A')).toHaveClass('bg-[var(--accent-warm)]');
-    expect(workspaceRow('Project A').querySelector('[data-global-sidebar-workspace-activity]')).toBe(statusSlot);
+    view.rerender(sidebar({ tabs: [launcherTab] }));
+    expect(within(workspaceRow('Project B')).getByRole('img', { name: '1 个会话待确认' })).toBeInTheDocument();
 
-    view.rerender(sidebar({ tabs: [launcherTab, completed, { ...unread, hasUnread: false }, idle, otherUnread, foreign] }));
-    expect(indicator('Project A')).toBeNull();
-    expect(indicator('Project B')).toHaveAttribute('data-tab-activity-indicator', 'unread');
-
-    // Removing Tabs must not retain the old aggregate or borrow another workspace's activity.
-    view.rerender(sidebar({ tabs: [launcherTab, foreign] }));
-    expect(indicator('Project A')).toBeNull();
-    expect(indicator('Project B')).toBeNull();
-    expect(indicator('Empty project')).toBeNull();
+    mocks.activity = new Map([['waiting-session', 'running']]);
+    view.rerender(sidebar({ tabs: [launcherTab] }));
+    expect(indicator('Project B')).toHaveAttribute('data-tab-activity-indicator', 'generating');
   });
 
   it('includes activity beyond the session page and behind favorites or automation filters', () => {
@@ -1896,29 +1906,26 @@ describe('GlobalSidebar rail flyout', () => {
         origin: { kind: 'automation', surface: 'task_run' },
       });
     }
-    const running: ChatTab = {
-      id: 'running-tab', view: 'chat', title: 'Session 5', agentDir: '/work/a',
-      sessionId: 'session-5', sidecarConfigDisposition: 'adopt', isGenerating: true,
-    };
-    renderSidebar({ tabs: [launcherTab, running] });
+    mocks.activity.set('session-5', 'running');
+    renderSidebar({ tabs: [launcherTab] });
     const workspaceRow = screen.getByText('Project A').closest<HTMLElement>('[data-global-sidebar-workspace-row]')!;
     const expectRunning = () => expect(workspaceRow.querySelector('[data-tab-activity-indicator]'))
       .toHaveAttribute('data-tab-activity-indicator', 'generating');
     expect(document.querySelectorAll('[data-global-sidebar-session-row]')).toHaveLength(5);
     expect(screen.queryByText('Session 5')).not.toBeInTheDocument();
-    expectRunning();
+    expect(workspaceRow.querySelector('[data-tab-activity-indicator]')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.workspaceViewOptions')) }));
     fireEvent.click(screen.getByText(String(i18n.t('app:globalSidebar.favoriteSessions'))));
     expect(document.querySelector('[data-global-sidebar-session-row]')).toBeNull();
-    expectRunning();
+    expect(workspaceRow.querySelector('[data-tab-activity-indicator]')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.workspaceViewOptions')) }));
     fireEvent.click(screen.getByText(String(i18n.t('app:globalSidebar.allSessions'))));
     fireEvent.click(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.workspaceViewOptions')) }));
     fireEvent.click(screen.getByText(String(i18n.t('app:globalSidebar.hideAutomationHistory'))));
     expect(document.querySelector('[data-global-sidebar-session-row]')).toBeNull();
-    expectRunning();
+    expect(workspaceRow.querySelector('[data-tab-activity-indicator]')).toBeNull();
 
     fireEvent.click(within(workspaceRow).getByRole('button', { name: /Project A/ }));
     expect(workspaceRow).toHaveAttribute('aria-expanded', 'false');

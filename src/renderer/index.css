@@ -609,6 +609,20 @@ html[data-color-scheme='dark'] .agenteam-wordmark {
   --global-sidebar-row-bg: var(--hover-bg);
 }
 
+.global-sidebar-resource-row[data-session-activity='waiting_for_user'] {
+  --global-sidebar-row-bg: var(--accent-warm-subtle);
+}
+
+.global-sidebar-resource-row[data-session-activity='waiting_for_user']::before {
+  position: absolute;
+  inset: var(--space-1) auto var(--space-1) 0;
+  width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-warm);
+  content: '';
+  pointer-events: none;
+}
+
 .global-sidebar-resource-row[aria-current='page'] {
   --global-sidebar-row-bg: var(--paper-inset);
 }

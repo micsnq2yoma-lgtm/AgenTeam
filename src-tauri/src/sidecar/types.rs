@@ -1047,6 +1047,7 @@ mod lifecycle_contract_tests {
                 port: 31418,
                 session_id: session_id.to_string(),
                 management_id: session_id.to_string(),
+                activity_token: uuid::Uuid::new_v4(),
                 workspace_path: PathBuf::from("/tmp/workspace"),
                 state,
                 owners: owners(vec![SidecarOwner::Tab("tab-a".to_string())]),
@@ -1612,6 +1613,7 @@ pub struct SessionSidecar {
     /// this process was spawned. Unlike `session_id`, this does not change
     /// when pending/reset/handover flows rekey the logical Session.
     pub management_id: String,
+    pub(crate) activity_token: uuid::Uuid,
     /// Workspace path for this session
     /// Reserved for future use (e.g., workspace-aware operations)
     #[allow(dead_code)]

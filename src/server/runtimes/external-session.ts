@@ -1,3 +1,4 @@
+import { notifySessionActivityTransition } from '../session-engine/activity-reporter';
 import { CHANNEL_MANAGED_CODEX_LIMITS } from '../../shared/channelPrompt';
 import { readChannelPromptOptions } from '../tools/channel-messaging';
 import { captureChannelTurn, effectiveChannelDelivery, channelContextForInput, decorateChannelQuery, channelInputSource } from '../session-core/channel-context';
@@ -1435,6 +1436,7 @@ function getTranscriptPresentation(): TranscriptPresentation | undefined {
 }
 
 function broadcast(event: string, data: unknown): void {
+  notifySessionActivityTransition(event);
   // Results are recorded from the full native content before asynchronous spill;
   // the SSE preview must never replace that canonical value.
   if (!/^chat:(?:subagent-)?tool-result-(?:start|complete)$/.test(event)) {

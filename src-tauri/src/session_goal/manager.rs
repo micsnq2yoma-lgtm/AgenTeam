@@ -1634,6 +1634,7 @@ mod tests {
                 port,
                 session_id: session_id.to_string(),
                 management_id: session_id.to_string(),
+                activity_token: uuid::Uuid::new_v4(),
                 workspace_path: PathBuf::from("/tmp/workspace"),
                 state: SidecarState::Healthy,
                 owners: HashSet::from([SidecarOwner::Goal(goal_id.to_string())]),

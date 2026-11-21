@@ -49,6 +49,8 @@ import SessionStatsModal from '@/components/SessionStatsModal';
 import SessionContextMenu from '@/components/SessionContextMenu';
 import SessionTagBadge from '@/components/SessionTagBadge';
 import TabActivityIndicator from '@/components/TabActivityIndicator';
+import { useSessionActivity, type SessionActivity } from '@/hooks/useSessionActivity';
+import { registerPassiveWorkspaceSessionDemand } from '@/hooks/taskCenterStore';
 import Tip from '@/components/Tip';
 import {
   ArchiveIcon,
@@ -546,6 +548,22 @@ export default memo(function GlobalSidebar({
       .map((project) => project.path);
   }, [activeProjects, expandedWorkspaceKeys]);
   const taskCenterData = useGlobalSidebarTaskCenterData(expandedWorkspacePaths, searchOpen);
+  const activity = useSessionActivity();
+  const needsActivityWorkspaceMetadata = useMemo(() => {
+    const known = new Set(taskCenterData.sessions.map((session) => session.id));
+    for (const tab of tabs) {
+      if (tab.view === 'chat' && tab.sessionId) known.add(tab.sessionId);
+    }
+    return [...activity].some(([id, status]) => status !== 'error' && !known.has(id));
+  }, [activity, tabs, taskCenterData.sessions]);
+
+  useEffect(() => {
+    if (!needsActivityWorkspaceMetadata) return;
+    // Collapsed projects can have no history loaded yet. Demand their metadata
+    // through the existing store until every active Session can be placed.
+    const release = activeProjects.map((project) => registerPassiveWorkspaceSessionDemand(project.path));
+    return () => release.forEach((dispose) => dispose());
+  }, [activeProjects, needsActivityWorkspaceMetadata]);
 
   useEffect(() => {
     if (projectsLoading) return;
@@ -1024,6 +1042,7 @@ export default memo(function GlobalSidebar({
       projectsError={projectsError}
       taskCenterData={taskCenterData}
       tabs={tabs}
+      activity={activity}
       activeTab={activeTab}
       activeWorkspacePath={activeWorkspacePath}
       expandedWorkspaceKeys={expandedWorkspaceKeys}
@@ -1580,6 +1599,7 @@ interface WorkspaceTreeProps {
   showAutomationSessions: boolean;
   sessionView: 'all' | 'favorites';
   archivedExpanded: boolean;
+  activity: ReadonlyMap<string, SessionActivity>;
   sessionNotificationBadgeCounts?: ReadonlyMap<string, number>;
   onToggleWorkspace: (project: Project) => void;
   onRetryProjects: () => void;
@@ -1689,6 +1709,7 @@ function WorkspaceTree({
   showAutomationSessions,
   sessionView,
   archivedExpanded,
+  activity,
   sessionNotificationBadgeCounts,
   onToggleWorkspace,
   onRetryProjects,
@@ -1740,32 +1761,26 @@ function WorkspaceTree({
     return map;
   }, [sessionView, showAutomationSessions, taskCenterData.sessions]);
 
-  const tabBySession = useMemo(() => {
-    const map = new Map<string, Tab>();
-    for (const tab of tabs) {
-      if (tab.view === 'chat' && tab.sessionId) {
-        map.set(tab.sessionId, tab);
-      }
-    }
-    return map;
-  }, [tabs]);
-
-  // Chat Tabs already own these attention signals. Do not derive from the
-  // history list: collapsed workspaces may never have loaded it, and filters
-  // or pagination must not hide activity (including a new pending Session).
   const activityByWorkspace = useMemo(() => {
-    const map = new Map<string, { isGenerating: boolean; hasUnread: boolean }>();
+    const workspaceBySession = new Map<string, string>();
     for (const tab of tabs) {
-      if (tab.view !== 'chat' || (!tab.isGenerating && !tab.hasUnread)) continue;
-      const key = normalizeWorkspacePathIdentity(tab.agentDir);
-      const activity = map.get(key);
-      map.set(key, {
-        isGenerating: Boolean(activity?.isGenerating || tab.isGenerating),
-        hasUnread: Boolean(activity?.hasUnread || tab.hasUnread),
-      });
+      if (tab.view === 'chat' && tab.sessionId) workspaceBySession.set(tab.sessionId, tab.agentDir);
     }
-    return map;
-  }, [tabs]);
+    for (const session of taskCenterData.sessions) {
+      workspaceBySession.set(session.id, session.agentDir);
+    }
+    const summary = new Map<string, { running: boolean; waiting: number }>();
+    for (const [id, status] of activity) {
+      const workspace = workspaceBySession.get(id);
+      if (!workspace || status === 'error') continue;
+      const key = normalizeWorkspacePathIdentity(workspace);
+      const current = summary.get(key) ?? { running: false, waiting: 0 };
+      if (status === 'waiting_for_user') current.waiting += 1;
+      else current.running = true;
+      summary.set(key, current);
+    }
+    return summary;
+  }, [activity, tabs, taskCenterData.sessions]);
 
   const activeWorkspaceKey = activeWorkspacePath
     ? normalizeWorkspacePathIdentity(activeWorkspacePath)
@@ -1919,8 +1934,8 @@ function WorkspaceTree({
                     project={project}
                     expanded={expandedSet.has(key)}
                     active={isActiveWorkspaceContext && !activeSessionId}
-                    isGenerating={activityByWorkspace.get(key)?.isGenerating ?? false}
-                    hasUnread={activityByWorkspace.get(key)?.hasUnread ?? false}
+                    isGenerating={activityByWorkspace.get(key)?.running ?? false}
+                    waitingCount={activityByWorkspace.get(key)?.waiting ?? 0}
                     recentlyCreated={recentlyCreatedWorkspaceKey === key}
                     actionTipPosition={index === 0 ? 'bottom' : 'top'}
                     onToggle={() => onToggleWorkspace(project)}
@@ -1968,7 +1983,7 @@ function WorkspaceTree({
                               key={session.id}
                               session={session}
                               project={project}
-                              tab={tabBySession.get(session.id)}
+                              activity={activity.get(session.id)}
                               active={activeTab?.view === 'chat' && activeTab.sessionId === session.id}
                               tags={taskCenterData.sessionTagsMap.get(session.id) ?? EMPTY_TAGS}
                               unreadNotificationCount={sessionNotificationBadgeCounts?.get(session.id) ?? 0}
@@ -2047,7 +2062,7 @@ interface WorkspaceRowProps {
   expanded: boolean;
   active: boolean;
   isGenerating: boolean;
-  hasUnread: boolean;
+  waitingCount: number;
   recentlyCreated: boolean;
   actionTipPosition: 'top' | 'bottom';
   onToggle: () => void;
@@ -2065,7 +2080,7 @@ function WorkspaceRow({
   expanded,
   active,
   isGenerating,
-  hasUnread,
+  waitingCount,
   recentlyCreated,
   actionTipPosition,
   onToggle,
@@ -2127,7 +2142,17 @@ function WorkspaceRow({
           className="flex h-full w-8 shrink-0 items-center justify-center"
           data-global-sidebar-workspace-activity
         >
-          <TabActivityIndicator isGenerating={isGenerating} hasUnread={hasUnread} />
+          {!expanded && (waitingCount > 0 ? (
+            <span
+              role="img"
+              aria-label={t('globalSidebar.activity.waitingWorkspace', { count: waitingCount })}
+              title={t('globalSidebar.activity.waitingWorkspace', { count: waitingCount })}
+              className="flex items-center gap-1 text-xs font-medium text-[var(--ink)]"
+            >
+              <WaitingActivityDot />
+              <span aria-hidden="true">{waitingCount}</span>
+            </span>
+          ) : <TabActivityIndicator isGenerating={isGenerating} />)}
         </span>
       </button>
       {/* Overlay the hover actions instead of reserving row width. The opaque
@@ -2185,10 +2210,18 @@ function WorkspaceRow({
   );
 }
 
+function WaitingActivityDot() {
+  return (
+    <span aria-hidden="true" className="relative h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-warm)]">
+      <span className="absolute inset-0 animate-[tab-dot-pulse_2s_cubic-bezier(.22,.61,.36,1)_infinite] rounded-full bg-[var(--accent-warm)] motion-reduce:animate-none" />
+    </span>
+  );
+}
+
 interface SessionRowProps {
   session: SessionMetadata;
   project: Project;
-  tab: Tab | undefined;
+  activity: SessionActivity | undefined;
   active: boolean;
   tags: SessionTag[];
   unreadNotificationCount: number;
@@ -2208,7 +2241,7 @@ interface SessionRowProps {
 
 function SessionRow({
   session,
-  tab,
+  activity,
   active,
   tags,
   unreadNotificationCount,
@@ -2226,10 +2259,17 @@ function SessionRow({
   onMenuOpenChange,
 }: SessionRowProps) {
   const { t: tLauncher, i18n } = useTranslation('launcher');
+  const { t } = useTranslation('app');
   const locale = isSupportedLocale(i18n.language) ? i18n.language : 'zh-CN';
   const [menuOpen, setMenuOpen] = useState(false);
   const displayTitle = getSessionDisplayText(session);
   const fullTitle = getFullSessionDisplayText(session);
+  const waiting = activity === 'waiting_for_user';
+  const statusLabel = activity
+    ? t(`globalSidebar.activity.${activity}`)
+    : unreadNotificationCount > 0
+      ? tLauncher('rightRail.unreadNotifications', { count: unreadNotificationCount })
+      : t('globalSidebar.activity.idle');
   const menuRef = useRef<HTMLButtonElement | null>(null);
   const setMenu = useCallback((open: boolean) => {
     setMenuOpen(open);
@@ -2246,6 +2286,7 @@ function SessionRow({
       }`}
       data-menu-open={menuOpen || undefined}
       data-global-sidebar-session-row
+      data-session-activity={activity ?? (unreadNotificationCount > 0 ? 'unread' : 'idle')}
       onMouseDown={(event) => {
         if (event.button === 2) {
           event.preventDefault();
@@ -2260,18 +2301,18 @@ function SessionRow({
       <button
         type="button"
         onClick={onOpen}
+        aria-description={statusLabel}
+        title={statusLabel}
         className="flex h-full w-full min-w-0 items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
       >
-        <TabActivityIndicator
-          isGenerating={tab?.view === 'chat' ? tab.isGenerating : undefined}
-          hasUnread={tab?.view === 'chat' ? tab.hasUnread : undefined}
-        />
+        {waiting && <WaitingActivityDot />}
+        {activity === 'running' && <TabActivityIndicator isGenerating />}
         <OverflowNameTooltip
           label={displayTitle}
           tooltipLabel={fullTitle}
           contentIsTruncated={displayTitle !== fullTitle}
           delayMs={1_000}
-          className="global-sidebar-label min-w-0 flex-1 truncate text-sm"
+          className={`global-sidebar-label min-w-0 flex-1 truncate text-sm ${waiting ? 'font-semibold' : ''}`}
           data-global-sidebar-session-title
         />
         {session.favorite && <StarIcon className="h-3 w-3 shrink-0 text-[var(--accent)]" fill="currentColor" />}
@@ -2284,17 +2325,27 @@ function SessionRow({
           />
         )}
         {tags.map((tag, index) => <SessionTagBadge key={`${tag.type}-${index}`} tag={tag} />)}
-        <UnreadNotificationIndicator
-          count={unreadNotificationCount}
-          label={tLauncher('rightRail.unreadNotifications', { count: unreadNotificationCount })}
-        />
+        {!activity && (
+          <UnreadNotificationIndicator count={unreadNotificationCount} label={statusLabel} />
+        )}
         <span
           className={`ml-auto shrink-0 text-xs tabular-nums text-[var(--ink-muted)] transition-opacity ${
-            menuOpen ? 'opacity-0' : 'group-hover/session:opacity-0 group-focus-within/session:opacity-0'
+            waiting || activity === 'error'
+              ? 'pr-10'
+              : menuOpen
+                ? 'opacity-0'
+                : 'group-hover/session:opacity-0 group-focus-within/session:opacity-0'
           }`}
           data-global-sidebar-session-date
+          title={statusLabel}
         >
-          {formatTime(session.lastActiveAt, new Date(), locale)}
+          {waiting ? (
+            <span className="rounded bg-[var(--accent-warm-subtle)] px-1 font-medium text-[var(--ink)]">
+              {t('globalSidebar.activity.waitingLabel')}
+            </span>
+          ) : activity === 'error' ? (
+            <AlertIcon role="img" aria-label={statusLabel} className="h-3.5 w-3.5 text-[var(--warning)]" />
+          ) : formatTime(session.lastActiveAt, new Date(), locale)}
         </span>
       </button>
       <div

@@ -1433,6 +1433,8 @@ fn create_new_session_sidecar<'a, R: Runtime>(
         cmd.env("MYAGENTS_RUNTIME_BINDING", runtime_binding_json);
     }
     let sidecar_generation = manager_guard.next_generation(session_id);
+    let activity_token = uuid::Uuid::new_v4();
+    cmd.env("MYAGENTS_SESSION_ACTIVITY_TOKEN", activity_token.to_string());
     cmd.env("MYAGENTS_SIDECAR_ID", session_id);
     cmd.env(
         "MYAGENTS_SIDECAR_GENERATION",
@@ -1552,6 +1554,7 @@ fn create_new_session_sidecar<'a, R: Runtime>(
         port,
         session_id: session_id.to_string(),
         management_id: session_id.to_string(),
+        activity_token,
         workspace_path: workspace_path.to_path_buf(),
         state: SidecarState::Starting,
         owners,
