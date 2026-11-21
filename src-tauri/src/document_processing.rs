@@ -3598,7 +3598,7 @@ fn worker_error(job_id: &str, code: &str, retryable: bool) -> DocumentJobError {
             Some("myagents anydoc convert --file <input>"),
         ),
         "DOCUMENT_SOURCE_CHANGED" | "DOCUMENT_INPUT_READ_FAILED" => (
-            "The source changed or became unreadable while the job was being admitted.",
+            "The source changed or became unreadable while the private snapshot was being copied.",
             "Wait for the source application to finish saving, then submit a new job.",
             Some("myagents anydoc convert --file <input>"),
         ),
