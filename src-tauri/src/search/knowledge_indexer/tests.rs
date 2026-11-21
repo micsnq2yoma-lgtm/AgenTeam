@@ -548,7 +548,7 @@ fn resource_backed_ingestion_indexes_five_formats_end_to_end() {
         (
             "sample.docx",
             include_bytes!("../../knowledge/ingest/conversion/fixtures/sample.docx"),
-            "Office orchard",
+            "The test orchard has three trees",
         ),
         (
             "text.pdf",
