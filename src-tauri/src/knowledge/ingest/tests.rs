@@ -4,6 +4,7 @@ use std::{fs, thread, time::Instant};
 use tempfile::{tempdir, TempDir};
 
 mod acceptance;
+mod versions;
 
 fn library() -> (TempDir, Arc<KnowledgeIngestManager>, String) {
     let data = tempdir().unwrap();
