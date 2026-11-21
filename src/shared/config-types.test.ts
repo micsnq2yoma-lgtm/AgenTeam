@@ -522,6 +522,13 @@ describe('default assistant identity', () => {
     expect(getSystemPresetProjectMetadataPatch(preset, 'atmer', 'en-US').displayName).toBe('Default project');
   });
 
+  it('repairs the legacy Chinese project name once, even after switching UI languages', () => {
+    const legacy = { ...preset, displayName: '默认设置' };
+    const patch = getSystemPresetProjectMetadataPatch(legacy, 'atmer', 'en-US');
+    expect(patch.displayName).toBe('默认项目');
+    expect(getSystemPresetProjectMetadataPatch({ ...legacy, ...patch }, 'atmer', 'en-US')).toEqual({});
+  });
+
   it('finds the default assistant folder under projects/atmer', () => {
     expect(isDefaultAssistantWorkspacePath('/home/me/.agenteam/projects/atmer')).toBe(true);
     expect(isDefaultAssistantWorkspacePath(String.raw`C:\Users\me\.agenteam\projects\atmer`)).toBe(true);

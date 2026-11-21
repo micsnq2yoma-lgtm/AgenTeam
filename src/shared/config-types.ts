@@ -757,8 +757,11 @@ export function getSystemPresetProjectMetadataPatch(
   )
     patch.templateSource = metadata.templateSource;
   if (!project.icon && metadata.icon) patch.icon = metadata.icon;
-  if (!project.displayName && metadata.displayName)
+  if (presetId === 'atmer' && project.displayName === '默认设置') {
+    patch.displayName = DEFAULT_PROJECT_NAMES['zh-CN'];
+  } else if (!project.displayName && metadata.displayName) {
     patch.displayName = metadata.displayName;
+  }
 
   return patch;
 }

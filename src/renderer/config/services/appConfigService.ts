@@ -14,6 +14,7 @@ export { mergePresetCustomModels } from '../../../shared/config-types';
 import {
     isBrowserDevMode,
     withConfigLock,
+    withProjectsLock,
     ensureConfigDir,
     getConfigDir,
     CONFIG_FILE,
@@ -345,32 +346,33 @@ export async function ensureBundledWorkspace(): Promise<boolean> {
 
     try {
         // Lazy import to break circular dep (addProject is in projectService)
-        const { addProject } = await import('./projectService');
-        const { loadProjects } = await import('./projectService');
+        const { addProject, applyProjectPatch, loadProjects, patchProject, saveProjects } = await import('./projectService');
 
         const { invoke } = await import('@tauri-apps/api/core');
         const result = await invoke<{ path: string; is_new: boolean }>('cmd_initialize_bundled_workspace');
-        const projects = await loadProjects();
-        const found = projects.find(p => workspacePathsEqual(p.path, result.path));
+        const found = await withProjectsLock(async () => {
+            const projects = await loadProjects();
+            const index = projects.findIndex(p => workspacePathsEqual(p.path, result.path));
+            if (index < 0) return false;
 
-        if (found) {
-            const metadataPatch = getSystemPresetProjectMetadataPatch(found, DEFAULT_SYSTEM_PRESET_WORKSPACE_ID);
+            const project = projects[index];
+            const metadataPatch = getSystemPresetProjectMetadataPatch(project, DEFAULT_SYSTEM_PRESET_WORKSPACE_ID);
             if (Object.keys(metadataPatch).length > 0) {
-                const { patchProject } = await import('./projectService');
+                projects[index] = applyProjectPatch(project, metadataPatch);
                 try {
-                    await patchProject(found.id, metadataPatch);
+                    await saveProjects(projects);
                 } catch (e) {
                     if (isLockBusyError(e)) throw e;
                     console.warn('[configService] Failed to repair bundled workspace metadata:', e);
                 }
             }
-            return result.is_new;
-        }
+            return true;
+        });
+        if (found) return result.is_new;
 
         const project = await addProject(result.path);
         // Name the first-launch project in the UI language in effect right now
         // (displayName is stored, so it is not re-translated later).
-        const { patchProject } = await import('./projectService');
         try {
             const config = await loadAppConfig();
             const systemLocale = typeof navigator === 'undefined'
