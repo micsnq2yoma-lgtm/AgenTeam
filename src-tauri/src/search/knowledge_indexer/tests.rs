@@ -272,6 +272,9 @@ fn scoped_candidates_are_filtered_before_the_top_fifty_even_with_colliding_ids()
 
 #[test]
 fn observes_metadata_revisions_and_source_and_library_removal() {
+    use crate::knowledge::store::{SourceFacts, SourceKind};
+    use sha2::{Digest, Sha256};
+
     let data = tempdir().unwrap();
     let input = tempdir().unwrap();
     let store = Arc::new(KnowledgeStore::new(data.path().into()));
@@ -298,6 +301,46 @@ fn observes_metadata_revisions_and_source_and_library_removal() {
     );
     store.remove_source(&kb, &source).unwrap();
     until(|| lookup(&engine, &store, &kb, "saffron").is_empty());
+
+    let facts = |body: &str, status| SourceFacts {
+        kind: SourceKind::Note,
+        current_path: None,
+        content_hash: Some(format!("{:x}", Sha256::digest(body.as_bytes()))),
+        file_fingerprint: None,
+        status,
+    };
+    let earlier = "Plum check";
+    let note = store
+        .create_source(&kb, facts(earlier, SourceStatus::Queued))
+        .unwrap();
+    let note_content = data
+        .path()
+        .join("knowledge")
+        .join(&kb)
+        .join("sources")
+        .join(&note.id)
+        .join("content.md");
+    fs::write(&note_content, earlier).unwrap();
+    store
+        .update_source(&kb, &note.id, facts(earlier, SourceStatus::Ready))
+        .unwrap();
+    until(|| !lookup(&engine, &store, &kb, "plum").is_empty());
+    let previous_hit = lookup(&engine, &store, &kb, "plum").remove(0);
+    let later = "Persimmon check";
+    fs::write(&note_content, later).unwrap();
+    store
+        .update_source(&kb, &note.id, facts(later, SourceStatus::Ready))
+        .unwrap();
+    until(|| !lookup(&engine, &store, &kb, "persimmon").is_empty());
+    assert!(lookup(&engine, &store, &kb, "plum").is_empty());
+    let updated_hit = lookup(&engine, &store, &kb, "persimmon").remove(0);
+    assert_eq!(updated_hit.source_id, previous_hit.source_id);
+    assert_ne!(updated_hit.reference, previous_hit.reference);
+    assert!(matches!(
+        store.resolve_ref(&previous_hit.reference).unwrap().fragment,
+        Some(crate::knowledge::store::ResolvedFragment::Unavailable)
+    ));
+
     let second = ingest(
         &manager,
         &other,
@@ -383,6 +426,21 @@ fn missing_segment_or_old_schema_rebuilds_only_the_knowledge_projection() {
     fs::remove_file(segment).unwrap();
     open();
     fs::write(data.path().join(VERSION_FILE), "0").unwrap();
+    open();
+    let marker = data.path().join(VERSION_FILE);
+    let marker_backup = marker.with_extension("original");
+    fs::rename(&marker, &marker_backup).unwrap();
+    fs::create_dir(&marker).unwrap();
+    let index_meta = root.join("knowledge/bm25/meta.json");
+    let intact = fs::read(&index_meta).unwrap();
+    let index = KnowledgeIndex::new(data.path().into());
+    assert_eq!(
+        index.rebuild(&store),
+        Err(KnowledgeErrorCode::KbStoreUnavailable)
+    );
+    assert_eq!(fs::read(&index_meta).unwrap(), intact);
+    fs::remove_dir(&marker).unwrap();
+    fs::rename(&marker_backup, marker).unwrap();
     open();
     assert_eq!(fs::read(&original.1).unwrap(), original.0);
     let mut other_files_after = BTreeMap::new();
@@ -484,40 +542,41 @@ fn resource_backed_ingestion_indexes_five_formats_end_to_end() {
         (
             "garden.md",
             b"# Mandarin\n\nClementine journal",
-            "clementine",
+            "Clementine journal",
         ),
-        ("notes.txt", b"Apricot picking", "apricot"),
+        ("notes.txt", b"Apricot picking", "Apricot picking"),
         (
             "sample.docx",
             include_bytes!("../../knowledge/ingest/conversion/fixtures/sample.docx"),
-            "office",
+            "Office orchard",
         ),
         (
             "text.pdf",
             include_bytes!("../../knowledge/ingest/conversion/fixtures/text.pdf"),
-            "native",
+            "Native orchard",
         ),
         (
-            "scan.pdf",
+            "attachment.pdf",
             include_bytes!("../../knowledge/ingest/conversion/fixtures/scan.pdf"),
-            "scan",
+            "SCAN ORCHARD",
         ),
     ];
-    for &(name, bytes, query) in fixtures {
+    for &(name, bytes, expected) in fixtures {
         let path = input.path().canonicalize().unwrap().join(name);
         fs::write(&path, bytes).unwrap();
         let source_id = ingest(&manager, &kb, &path);
         until(|| engine.status(&kb, &source_id).unwrap() == KnowledgeSearchStatus::Indexed);
-        let hits = lookup(&engine, &store, &kb, query);
+        let hits = lookup(&engine, &store, &kb, &format!("\"{expected}\""));
         assert!(
             hits.iter().any(|hit| {
                 hit.source_id == source_id
                     && matches!(
                         store.resolve_ref(&hit.reference).unwrap().fragment,
-                        Some(crate::knowledge::store::ResolvedFragment::Available { .. })
+                        Some(crate::knowledge::store::ResolvedFragment::Available { chunk })
+                            if chunk.text.contains(expected)
                     )
             }),
-            "no live reference for {name}"
+            "no live reference with the converted body for {name}"
         );
         if name.ends_with(".pdf") {
             let source = data
@@ -532,7 +591,7 @@ fn resource_backed_ingestion_indexes_five_formats_end_to_end() {
             let worker_id = record["ingest"]["documentJobId"].as_str().unwrap();
             assert_eq!(
                 docs.get(worker_id).unwrap().metrics.unwrap().pages_ocr,
-                Some(u32::from(name == "scan.pdf"))
+                Some(u32::from(name == "attachment.pdf"))
             );
         }
     }

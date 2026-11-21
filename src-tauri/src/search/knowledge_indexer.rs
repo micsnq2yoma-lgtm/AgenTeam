@@ -22,8 +22,8 @@ use crate::knowledge::types::{
 };
 use crate::utils::file_lock::{with_file_lock_blocking, FileLockOptions};
 use crate::workspace_files::path_safety::{
-    ensure_workspace_directory_no_follow, read_workspace_file_no_follow,
-    write_workspace_file_no_follow,
+    ensure_workspace_directory_no_follow, read_workspace_file_no_follow_classified,
+    write_workspace_file_no_follow, RegularFileError,
 };
 
 use super::schema::{knowledge_schema, KnowledgeFields, KNOWLEDGE_SCHEMA_VERSION};
@@ -242,9 +242,12 @@ impl KnowledgeIndex {
 
     fn open_index_locked(&self, force_reset: bool) -> SearchResult<IndexState> {
         let version = KNOWLEDGE_SCHEMA_VERSION.to_string();
-        let seen = read_workspace_file_no_follow(&self.data_dir, VERSION_FILE, 32)
-            .ok()
-            .map(|(_, bytes)| bytes);
+        let seen = match read_workspace_file_no_follow_classified(&self.data_dir, VERSION_FILE, 32)
+        {
+            Ok((_, bytes)) => Some(bytes),
+            Err(RegularFileError::Io(_, error)) if error.kind() == ErrorKind::NotFound => None,
+            Err(error) => return Err(unavailable(error)),
+        };
         let ensure = || {
             ensure_workspace_directory_no_follow(&self.data_dir, "search_index/knowledge/bm25")
                 .map(|(path, _)| path)
