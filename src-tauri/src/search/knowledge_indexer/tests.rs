@@ -108,7 +108,7 @@ fn multilingual_terms_and_summary_resolve_only_within_scope_and_filters() {
     assert!(matches!(
         index.search(
             &store,
-            &[a.clone()],
+            std::slice::from_ref(&a),
             &["blueberry".into()],
             &Default::default(),
             None
@@ -434,7 +434,7 @@ fn rebuilding_reports_pending_without_changing_the_ready_source() {
         }
         let unavailable = index.search(
             &store,
-            &[kb.clone()],
+            std::slice::from_ref(&kb),
             &["fig".into()],
             &Default::default(),
             None,

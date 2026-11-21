@@ -43,6 +43,7 @@ const VERSION_FILE: &str = "search_index/knowledge/.schema_version";
 type SourceKey = (String, String);
 type SearchResult<T> = Result<T, KnowledgeErrorCode>;
 
+#[derive(Debug)]
 enum QueryFailure {
     Invalid(KnowledgeErrorCode),
     Tantivy(TantivyError),
