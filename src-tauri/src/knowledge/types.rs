@@ -35,6 +35,9 @@ pub enum KnowledgeErrorCode {
     KbSourceUnsupported,
     KbIndexing,
     KbCategoryNotAllowed,
+    KbInvalidInput,
+    KbStoreCorrupt,
+    KbStoreUnavailable,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -314,6 +317,12 @@ mod tests {
             (
                 KnowledgeErrorCode::KbCategoryNotAllowed,
                 "KB_CATEGORY_NOT_ALLOWED",
+            ),
+            (KnowledgeErrorCode::KbInvalidInput, "KB_INVALID_INPUT"),
+            (KnowledgeErrorCode::KbStoreCorrupt, "KB_STORE_CORRUPT"),
+            (
+                KnowledgeErrorCode::KbStoreUnavailable,
+                "KB_STORE_UNAVAILABLE",
             ),
         ];
         for (code, wire) in codes {

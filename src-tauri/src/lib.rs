@@ -790,6 +790,15 @@ pub fn run() {
             search::cmd_refresh_workspace_index,
             search::cmd_search_thoughts,
             search::cmd_search_tasks,
+            knowledge::commands::cmd_kb_list,
+            knowledge::commands::cmd_kb_create,
+            knowledge::commands::cmd_kb_update,
+            knowledge::commands::cmd_kb_delete,
+            knowledge::commands::cmd_kb_list_sources,
+            knowledge::commands::cmd_kb_get_source,
+            knowledge::commands::cmd_kb_remove_source,
+            knowledge::commands::cmd_kb_set_metadata,
+            knowledge::commands::cmd_kb_resolve_ref,
             // Canonical Record commands.
             record::cmd_record_create,
             record::cmd_record_list,
@@ -1642,8 +1651,9 @@ pub fn run() {
                 ulog_info!("[App] Sidecar terminal-event forwarder spawned");
             }
 
-            // Initialize SearchEngine (full-text search)
+            // KnowledgeStore opens files on demand on the blocking pool.
             if let Some(data_dir) = app_dirs::myagents_data_dir() {
+                app.manage(Arc::new(knowledge::store::KnowledgeStore::new(data_dir.clone())));
                 match search::SearchEngine::new(data_dir) {
                     Ok(engine) => {
                         engine.start_background_indexing(app.handle().clone());

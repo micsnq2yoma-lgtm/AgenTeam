@@ -54,6 +54,9 @@ kb://<kb-id>/<source-id>[?page=<页码>][#<chunk-id>]
 | `KB_SOURCE_UNSUPPORTED` | 来源类型或格式暂不支持 |
 | `KB_INDEXING` | 索引基线尚未可用 |
 | `KB_CATEGORY_NOT_ALLOWED` | 分类尚未纳入用户批准的分类体系 |
+| `KB_INVALID_INPUT` | ID、引用、设置或来源事实无效 |
+| `KB_STORE_CORRUPT` | 已持久化的 JSON、身份或目录结构无效 |
+| `KB_STORE_UNAVAILABLE` | 文件锁、读取或持久化失败，提交状态可能未确认 |
 
 错误和变更通知只携带调用方处理结果所需的字段。资料正文、凭据和路径之外的隐私数据不得进入错误、日志或通知事件。
 
@@ -64,7 +67,7 @@ kb://<kb-id>/<source-id>[?page=<页码>][#<chunk-id>]
 ```text
 <app-data>/
   knowledge/
-    kbs.json
+    kbs.json                     # 已发布库 ID 列表
     <kb-id>/
       kb.json
       ORGANIZE_RULES.md
@@ -97,6 +100,7 @@ kb://<kb-id>/<source-id>[?page=<页码>][#<chunk-id>]
 | 项目 | 约定 | 阶段 |
 |---|---|---|
 | 引用长度 | 最多 74 个 ASCII 字节 | K0 |
+| Store 单份 JSON | 最多 2 MiB | K1 |
 | 明文单文件 | 8 MiB | K2 |
 | 摄取队列 | 最多 64 个作业 | K2 |
 | 单库来源 | P0 最多 10,000 个 | K2 |
@@ -105,9 +109,26 @@ kb://<kb-id>/<source-id>[?page=<页码>][#<chunk-id>]
 | Wiki | 每页最多 1 MiB，每库最多 2,000 页 | K8 |
 | 物理整理 | 每份方案最多 500 项，待审方案 7 天过期 | K13 |
 
-## 待接入章节
+## K1 存储事务和变更广播
 
-### K1 存储事务和变更广播
+应用启动时把 `Arc<KnowledgeStore>` 注册为 Tauri managed state。命令通过 `tauri::async_runtime::spawn_blocking` 执行文件操作。Store 以 `app_dirs::myagents_data_dir()` 作为受信任的数据根，在 `knowledge/.store.lock` 上复用 `with_file_lock_blocking`。多个 Store 实例重新读取同一份磁盘状态，写入以锁内最新状态为准。
+
+### 磁盘格式与发布
+
+- `kbs.json` 是已发布库 ID 的列表，只有首次读取文件不存在时按空列表处理。已登记的库必须具有同 ID 的 `kb.json`。读到截断 JSON、重复 ID 或身份不符时，返回可识别的错误并保留原字节。
+- `kb.json` 保存名称、描述、整理 Agent、整理模式、周期、Agent 写权限、wiki 开关和待审分类。存在整理 Agent 的新库默认自动整理，否则默认为手动。默认周期为 4,320 分钟，写权限为 `curator-only`，wiki 默认开启，待审分类列表为空。更新省略的字段沿用旧值，`curatorAgentId: null` 显式清空。模式和 Agent 在同一次提交中校验。
+- `source.json` 独立保存来源事实和八个元数据字段。来源事实可包含展示用的 `currentPath`、文件指纹和小写 SHA-256 摘要。更新来源事实保留元数据。K1 登记来源与引用身份，摄取状态流转交给 K2。
+- JSON 文件使用 `workspace_files` 的 no-follow 写入，先同步临时文件，再原子发布，随后复用 `durable_fs` 同步父目录。建库时先同步 `kb.json`，随后发布库目录的登记。创建来源时先写入隐藏暂存目录，再原子发布整个来源目录。崩溃后未登记的库不可见，未发布的来源暂存目录可在列表读取时清理。
+- 删除先将托管目录重命名为同父目录下的隐藏待清理目录。库删除以 `kbs.json` 提交为准：重启后，仍登记的目录恢复，已移除登记的目录接着清理。来源删除以同父目录重命名提交为准。清理仅使用已校验的托管路径，来源记录里的原件路径仅作描述。目录同步失败可表示提交状态未确认，调用方先重新读取 Store 再决定是否重试。
+
+### 命令、字段锁与订阅
+
+- 管理命令为 `cmd_kb_list`、`cmd_kb_create`、`cmd_kb_update`、`cmd_kb_delete`、`cmd_kb_list_sources`、`cmd_kb_get_source`、`cmd_kb_remove_source`、`cmd_kb_set_metadata` 和 `cmd_kb_resolve_ref`。
+- `cmd_kb_set_metadata` 固定按人工写入。Rust 内部调用传入 actor，由 Store 在同一文件锁内裁决。已由人工写过的字段返回 `KB_FIELD_LOCKED`，仍可提交同批次中的其他字段。回复按字段返回 `updated` 或 `rejected`。写入空值仍保留写入方标记。K8 补充分类和字段内容规则。
+- 引用解析验证格式、库与来源存在性，并保留页码及 chunk ID。具体页定位与 chunk 查询由后续模块完成。
+- 同步提交后才发送 `SourceUpserted`、`SourceRemoved`、`KbRemoved` 或 `MetadataChanged`。广播是 Rust 进程内的索引通知，内容限于 ID 和可选 SHA-256 摘要。索引消费者掉队时从 Store 重新读取基线。
+
+## 待接入章节
 
 ### K2–K3 摄取、切块和引用定位
 
