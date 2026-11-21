@@ -394,7 +394,7 @@ export default defineConfig(
       'eslint-comments/no-restricted-disable': ['error', '@typescript-eslint/no-explicit-any']
     }
   },
-  // ESM-targeted files (everything except the CJS-bundled CLI): forbid
+  // ESM-targeted files: forbid
   // `// eslint-disable-next-line @typescript-eslint/no-require-imports`.
   //
   // Why: bare `require()` in an ESM file throws `ReferenceError: require is
@@ -407,7 +407,7 @@ export default defineConfig(
   // `await import()` — never `require()`.
   {
     files: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'],
-    ignores: ['src/cli/**'],
+    ignores: ['src/cli/**', 'qa/**/*.cjs'],
     rules: {
       'eslint-comments/no-restricted-disable': [
         'error',
@@ -416,14 +416,10 @@ export default defineConfig(
       ]
     }
   },
-  // CLI is bundled by esbuild with `--format=cjs` (see package.json:build:cli),
-  // so `require()` runs in a real CJS context after bundling. Disable the rule
-  // entirely for CLI files — relying on disable-next-line comments would force
-  // every `require()` call site to carry boilerplate, and (per Codex review)
-  // doesn't actually constitute a true exemption since the underlying rule
-  // would still fire if a contributor forgot the comment.
+  // esbuild emits the CLI as CommonJS, and Node runs the release QA .cjs
+  // scripts directly. Both support require() at runtime.
   {
-    files: ['src/cli/**/*.{ts,tsx}'],
+    files: ['src/cli/**/*.{ts,tsx}', 'qa/**/*.cjs'],
     rules: {
       '@typescript-eslint/no-require-imports': 'off'
     }

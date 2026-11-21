@@ -137,6 +137,7 @@ pub fn run_recovery(
             crate::sidecar::cleanup_stale_sidecars_preamble();
             crate::sidecar::cleanup_stale_sidecars(previous);
             WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                .scroll_bar_style(crate::webview_policy::scroll_bar_style())
                 .title("AgenTeam")
                 .inner_size(800.0, 600.0)
                 .initialization_script("window.__AGENTEAM_RECOVERY_ONLY__ = true;")
