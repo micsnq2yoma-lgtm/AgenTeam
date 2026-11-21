@@ -219,10 +219,14 @@ fn adopt_artifacts(stage: &Path, job: &DocumentJob) -> Result<(), ConversionErro
     // paths serialized in the document job are descriptive, never authority.
     let published = stage.join(&job.job_id);
     reject_link_ancestors(&published, false).map_err(|_| STORAGE_ERROR)?;
-    let (_, markdown) = read_workspace_file_no_follow(&published, "document.md", MAX_OUTPUT_BYTES)
+    // Take the complete published directory in one rename, so AnyDoc's public
+    // path can never expose a document whose assets are already being adopted.
+    let adopted = stage.join(".converted");
+    rename_directory_noreplace(&published, &adopted).map_err(|_| STORAGE_ERROR)?;
+    let (_, markdown) = read_workspace_file_no_follow(&adopted, "document.md", MAX_OUTPUT_BYTES)
         .map_err(|_| STORAGE_ERROR)?;
     if job.output.assets_directory.is_some() {
-        let assets = published.join("assets");
+        let assets = adopted.join("assets");
         reject_link_ancestors(&assets, false).map_err(|_| STORAGE_ERROR)?;
         if !fs::symlink_metadata(&assets).is_ok_and(|meta| meta.is_dir()) {
             return Err(STORAGE_ERROR);

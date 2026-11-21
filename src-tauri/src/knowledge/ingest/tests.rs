@@ -3,6 +3,8 @@ use crate::knowledge::store::{KnowledgeBasePatch, SourceStatus};
 use std::{fs, thread, time::Instant};
 use tempfile::{tempdir, TempDir};
 
+mod acceptance;
+
 fn library() -> (TempDir, Arc<KnowledgeIngestManager>, String) {
     let data = tempdir().unwrap();
     let store = Arc::new(KnowledgeStore::new(data.path().into()));
