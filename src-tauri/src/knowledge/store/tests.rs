@@ -642,3 +642,5 @@ fn knowledge_unpublished_sources_are_invisible() {
     fs::create_dir(folder.join(&id)).unwrap();
     assert_eq!(store.get_source(&kb.id, &id), Err(KbStoreCorrupt));
 }
+
+mod acceptance;
