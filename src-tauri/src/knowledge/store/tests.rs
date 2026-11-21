@@ -415,33 +415,144 @@ fn knowledge_recovers_both_sides_of_the_library_deletion_commit() {
     assert!(!removed.exists());
 }
 
-#[cfg(unix)]
-#[test]
-fn knowledge_refuses_external_directory_redirects() {
-    use std::os::unix::fs::symlink;
+#[cfg(any(unix, windows))]
+fn redirect_directory(target: &Path, link: &Path) {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(target, link).unwrap();
+    #[cfg(windows)]
+    junction::create(target, link).unwrap();
+}
 
+#[cfg(any(unix, windows))]
+#[test]
+fn knowledge_refuses_a_redirected_source_directory() {
     let data = tempdir().unwrap();
     let outside = tempdir().unwrap();
     let store = KnowledgeStore::new(data.path().into());
-    let kb = store.create(settings("Redirect")).unwrap();
+    let kb = store.create(settings("Redirected source")).unwrap();
     let source = store.create_source(&kb.id, note()).unwrap();
-    let root = data.path().join("knowledge").join(&kb.id);
-    fs::write(outside.path().join("original.txt"), b"outside").unwrap();
-    symlink(outside.path(), root.join("assets-alias")).unwrap();
-    let source_dir = root.join("sources").join(&source.id);
-    fs::rename(&source_dir, root.join("retained")).unwrap();
-    symlink(outside.path(), &source_dir).unwrap();
+    let original = data
+        .path()
+        .join("knowledge")
+        .join(&kb.id)
+        .join("sources")
+        .join(&source.id);
+    let target = outside.path().join("source");
+    fs::rename(&original, &target).unwrap();
+    let original_json = fs::read(target.join("source.json")).unwrap();
+    fs::write(target.join("original.txt"), b"external source").unwrap();
+    redirect_directory(&target, &original);
 
+    assert!(store.get_source(&kb.id, &source.id).is_err());
+    assert!(store.list_sources(&kb.id).is_err());
     assert!(store.remove_source(&kb.id, &source.id).is_err());
+    assert_eq!(fs::read(target.join("source.json")).unwrap(), original_json);
     assert_eq!(
-        store.remove_source(&kb.id, "../outside"),
-        Err(KbInvalidInput)
+        fs::read(target.join("original.txt")).unwrap(),
+        b"external source"
     );
+}
+
+#[cfg(any(unix, windows))]
+#[test]
+fn knowledge_refuses_a_redirected_library_directory() {
+    let data = tempdir().unwrap();
+    let outside = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Redirected library")).unwrap();
+    let source = store.create_source(&kb.id, note()).unwrap();
+    let original = data.path().join("knowledge").join(&kb.id);
+    let target = outside.path().join("library");
+    fs::rename(&original, &target).unwrap();
+    let original_json = fs::read(target.join("kb.json")).unwrap();
+    fs::write(target.join("original.txt"), b"external library").unwrap();
+    redirect_directory(&target, &original);
+
+    assert!(store.list().is_err());
+    assert!(store.get_source(&kb.id, &source.id).is_err());
+    assert!(store.delete(&kb.id).is_err());
+    assert_eq!(fs::read(target.join("kb.json")).unwrap(), original_json);
+    assert_eq!(
+        fs::read(target.join("original.txt")).unwrap(),
+        b"external library"
+    );
+}
+
+#[cfg(any(unix, windows))]
+#[test]
+fn knowledge_library_deletion_preserves_a_nested_redirect_target() {
+    let data = tempdir().unwrap();
+    let outside = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Nested redirect")).unwrap();
+    let entry = store.create_source(&kb.id, note()).unwrap();
+    let root = data.path().join("knowledge");
+    let managed = root.join(&kb.id).join("sources").join(entry.id);
+    let original = outside.path().join("original.txt");
+    fs::write(&original, b"external original").unwrap();
+    redirect_directory(outside.path(), &managed.join("assets"));
+
     store.delete(&kb.id).unwrap();
-    assert_eq!(
-        fs::read(outside.path().join("original.txt")).unwrap(),
-        b"outside"
-    );
+    assert!(store.list().unwrap().is_empty());
+    assert!(!root.join(&kb.id).exists());
+    assert!(!root.join(format!("{REMOVED}{}", kb.id)).exists());
+    assert_eq!(fs::read(original).unwrap(), b"external original");
+}
+
+#[test]
+fn knowledge_unregistered_library_remains_invisible_after_reopen() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let registered = store.create(settings("Registered")).unwrap();
+    let mut orphan_id = create_knowledge_base_id([0; 6]);
+    if registered.id == orphan_id {
+        orphan_id = create_knowledge_base_id([1; 6]);
+    }
+    let orphan = KnowledgeBase::from_patch(orphan_id.clone(), settings("Unpublished")).unwrap();
+    let path = data.path().join("knowledge").join(&orphan_id);
+    fs::create_dir(&path).unwrap();
+    let bytes = serde_json::to_vec(&orphan).unwrap();
+    fs::write(path.join("kb.json"), &bytes).unwrap();
+    drop(store);
+
+    let reopened = KnowledgeStore::new(data.path().into());
+    assert_eq!(reopened.list().unwrap(), vec![registered]);
+    assert_eq!(reopened.list_sources(&orphan_id), Err(KbNotFound));
+    assert_eq!(reopened.delete(&orphan_id), Err(KbNotFound));
+    assert_eq!(fs::read(path.join("kb.json")).unwrap(), bytes);
+}
+
+#[test]
+fn knowledge_rejects_path_traversal_in_library_and_source_ids() {
+    let data = tempdir().unwrap();
+    let outside = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Valid")).unwrap();
+    let source = store.create_source(&kb.id, note()).unwrap();
+    let original = outside.path().join("keep.txt");
+    fs::write(&original, b"untouched").unwrap();
+
+    let outside_id = outside.path().to_str().unwrap();
+    for invalid in [
+        "../keep",
+        r"..\keep",
+        "kb_../keep",
+        "src_../keep",
+        outside_id,
+    ] {
+        assert_eq!(store.list_sources(invalid), Err(KbInvalidInput));
+        assert_eq!(
+            store.update(invalid, settings("Rejected")),
+            Err(KbInvalidInput)
+        );
+        assert_eq!(store.delete(invalid), Err(KbInvalidInput));
+        assert_eq!(store.get_source(&kb.id, invalid), Err(KbInvalidInput));
+        assert_eq!(store.remove_source(&kb.id, invalid), Err(KbInvalidInput));
+    }
+
+    assert_eq!(store.list().unwrap(), vec![kb.clone()]);
+    assert_eq!(store.list_sources(&kb.id).unwrap(), vec![source]);
+    assert_eq!(fs::read(original).unwrap(), b"untouched");
 }
 
 #[test]

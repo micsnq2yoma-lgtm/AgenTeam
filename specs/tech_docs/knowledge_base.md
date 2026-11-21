@@ -128,6 +128,8 @@ kb://<kb-id>/<source-id>[?page=<页码>][#<chunk-id>]
 - 引用解析验证格式、库与来源存在性，并保留页码及 chunk ID。具体页定位与 chunk 查询由后续模块完成。
 - 同步提交后才发送 `SourceUpserted`、`SourceRemoved`、`KbRemoved` 或 `MetadataChanged`。广播是 Rust 进程内的索引通知，内容限于 ID 和可选 SHA-256 摘要。索引消费者掉队时从 Store 重新读取基线。
 
+Windows CI 用应用 crate 执行知识库测试。目录重定向用例在 Windows 创建 NTFS junction，在 Unix 创建符号链接。测试覆盖被替换的库和来源目录，以及删除库时对库外原件的保护。
+
 ## 待接入章节
 
 ### K2–K3 摄取、切块和引用定位
