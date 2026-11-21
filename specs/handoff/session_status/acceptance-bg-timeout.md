@@ -3,7 +3,7 @@
 - 日期：2026-11-21
 - 位置：本地 `fix/bg-completion-human-wait`，`specs/handoff/session_status/acceptance-bg-timeout.md`
 - 基线：`109db3fe`。原修复：`f4eaffea`。临界行为修复：`8b5cff27`。后续清理：`d0daecbf`。
-- 结论：最终代码 `d0daecbf` 的 Rust、Clippy 基线和关闭 Tab 后批准的集成复验均通过。真实桌面验证另行记录。
+- 结论：最终代码 `d0daecbf` 的 Rust、Clippy 基线和关闭 Tab 后批准的集成复验均通过。真实候选 App 的关闭 Tab、恢复待确认、批准后继续和完成也已验证。
 
 ## 独立验证
 
@@ -32,3 +32,9 @@
 ## 审查
 
 `/api/session-state` 从 SessionEngine 当前状态投影 `waitingForUser`。旧 Sidecar 缺少字段时按 `false` 解析。补齐提交在判定超时前读取并验证当前进程代次的快照，人工等待两侧的交界采样区间保守地排除在活跃预算外。超时、完成和不可达分支共用代次校验后的 owner 释放路径。活跃超时仍覆盖持续运行且没有人工等待的任务。
+
+## 真实桌面复验
+
+在 Ubuntu 隔离桌面运行从 `09e3294c` 构建的原生 AgenTeam 0.6.8 候选，包含最终后台修复代码。内置 Claude Agent SDK 0.3.330 通过离线容器中的回环模型服务实际发起 `AskUserQuestion`。在浅色和深色用户配置中分别切到「创建新任务」以关闭原 Tab，Rust 日志记录了 BackgroundCompletion 接管。由侧栏重新打开同一任务后，原问题仍可操作。选择后，App 继续运行，回环服务收到工具答复，任务返回成功终态。
+
+桌面候选使用生产 60 分钟预算。超过模拟预算的断言来自前述 3 秒预算的隔离 Rust 集成验证，桌面验证覆盖真实 App 的关闭、返回和继续流程。对应的浅色与深色画面见侧栏独立验收报告。
