@@ -48,7 +48,6 @@ import {
   setAppActiveCorrelation,
 } from '@/api/tauriClient';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import BugReportOverlay from '@/components/BugReportOverlay';
 import { DispatchTaskDialog } from '@/components/task-center/DispatchTaskDialog';
 import CustomTitleBar from '@/components/CustomTitleBar';
 import GlobalSidebar from '@/components/global-sidebar/GlobalSidebar';
@@ -59,7 +58,6 @@ import { useToast } from '@/components/Toast';
 import type { HelperRequestDetail } from '@/utils/dispatchHelperRequest';
 import { useUpdater } from '@/hooks/useUpdater';
 import { useTrayEvents } from '@/hooks/useTrayEvents';
-import { useHelperAgentModelDefaults } from '@/hooks/useHelperAgentModelDefaults';
 import { useConfig } from '@/hooks/useConfig';
 import { actions as taskCenterActions } from '@/hooks/taskCenterStore';
 import { isProjectVisibleToUser, type Project } from '@/config/types';
@@ -405,31 +403,10 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     [],
   );
 
-  // Helper Agent's persisted model defaults — used by BugReportOverlay for
-  // initial picker selection + persist on pick. The LAUNCH_BUG_REPORT handler
-  // intentionally does NOT read this: when no explicit hint is supplied, the
-  // helper Tab autoSend resolves provider/model via currentAgent (= helper
-  // Agent) — same path as opening ~/.myagents from the Launcher.
-  const helperAgentDefaults = useHelperAgentModelDefaults();
-
-  // Bug report overlay state (triggered from titlebar feedback button)
-  const [showBugReport, setShowBugReport] = useState(false);
   // Owned by GlobalSidebar (which renders the single New Agent panel); lifted
   // here so launcher entry points open that same instance.
   const [newAgentPanelOpen, setNewAgentPanelOpen] = useState(false);
   const [newAgentPurpose, setNewAgentPurpose] = useState<Project['purpose']>();
-  const [appVersion, setAppVersion] = useState('');
-  useEffect(() => {
-    if (isTauriEnvironment()) {
-      import('@tauri-apps/api/app')
-        .then((m) => m.getVersion())
-        .then(setAppVersion)
-        .catch(() => setAppVersion('unknown'));
-    } else {
-      setAppVersion('dev');
-    }
-  }, []);
-
   // Toast (ref-stabilized per react_stability_rules.md)
   const toast = useToast();
   const toastRef = useRef(toast);
@@ -4267,7 +4244,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     [tabWorkspaceController],
   );
 
-  const handleOpenBugReport = useCallback(() => setShowBugReport(true), []);
 
   const handleOpenSidebarSession = useCallback(
     (session: SessionMetadata, project: Project) =>
@@ -4670,7 +4646,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
             onOpenAppRoute={handleOpenAppRoute}
             onOpenCapabilities={handleOpenCapabilities}
             onOpenSettings={handleOpenSettings}
-            onOpenBugReport={handleOpenBugReport}
             onOpenWorkspace={handleOpenWorkspaceFromSidebar}
             onOpenSession={handleOpenSidebarSession}
             onRenameSession={renamePersistedSession}
@@ -4807,24 +4782,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
             />
           )}
 
-          {/* Bug report overlay triggered from titlebar feedback button */}
-          {showBugReport && (
-            <BugReportOverlay
-              onClose={() => setShowBugReport(false)}
-              onNavigateToProviders={() => {
-                setShowBugReport(false);
-                handleOpenSettings('providers');
-              }}
-              appVersion={appVersion}
-              providers={appProviders}
-              apiKeys={appApiKeys}
-              providerVerifyStatus={appProviderVerifyStatus}
-              initialProviderId={helperAgentDefaults.initialProviderId}
-              initialModel={helperAgentDefaults.initialModel}
-              onModelChange={helperAgentDefaults.onModelChange}
-              assistantEntry="tab_top"
-            />
-          )}
         </div>
       </LinkContextMenuProvider>
     </SessionDeletionContext.Provider>

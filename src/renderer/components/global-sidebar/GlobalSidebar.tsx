@@ -41,7 +41,6 @@ import brandMark from '@/assets/brand/agenteam-mark.svg';
 import { updateSession, type SessionMetadata } from '@/api/sessionClient';
 import { ProductWordmark } from '@/components/brand/ProductWordmark';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import FeedbackPopover from '@/components/FeedbackPopover';
 import { SidebarResizeHandle } from './SidebarResizeHandle';
 import { APP_SHELL_POPOVER_CHROME } from '@/components/global-sidebar/appShellPopoverChrome';
 import OverlayBackdrop from '@/components/OverlayBackdrop';
@@ -56,7 +55,6 @@ import {
   CapabilitiesIcon,
   ChevronRightIcon,
   ComposeIcon,
-  HelperIcon,
   MessageIcon,
   MoreIcon,
   PlusIcon,
@@ -113,7 +111,6 @@ import { isTauriEnvironment } from '@/utils/browserMock';
 import { formatTime, getSessionDisplayText } from '@/utils/taskCenterUtils';
 import { getFullSessionDisplayText } from '@/utils/sessionDisplay';
 import { copyPlainText } from '@/utils/clipboard';
-import { openExternal } from '@/utils/openExternal';
 import { OverflowNameTooltip } from '@/components/workspace-tree/OverflowNameTooltip';
 import NotificationCenterFlyout from '@/notifications/NotificationCenterFlyout';
 import { useNotificationCenter } from '@/notifications/useNotificationCenter';
@@ -128,7 +125,6 @@ const AUTO_RAIL_QUERY = '(max-width: 1080px)';
 const EMPTY_TAGS: SessionTag[] = [];
 const SIDEBAR_TRANSITION_MS = 200;
 const WORKSPACE_BRANCH_TRANSITION_MS = 200;
-const MYAGENTS_WEBSITE_URL = 'https://myagents.io';
 const FLYOUT_FOCUS_ENTRY_SELECTOR = [
   'button:not([disabled])',
   'a[href]',
@@ -191,7 +187,6 @@ interface GlobalSidebarProps {
   onOpenSettings: () => void;
   /** 聊天机器人: its own page, not a Settings section. */
   onOpenBots?: () => void;
-  onOpenBugReport: () => void;
   onOpenWorkspace: (
     project: Project,
     initialMessage?: InitialMessage,
@@ -239,7 +234,6 @@ interface SidebarNavButtonProps {
   expanded: boolean;
   active?: boolean;
   disabled?: boolean;
-  tooltipDisabled?: boolean;
   hasPopup?: 'menu';
   ariaExpanded?: boolean;
   onClick: () => void;
@@ -288,7 +282,6 @@ function SidebarNavButton({
   expanded,
   active,
   disabled,
-  tooltipDisabled,
   hasPopup,
   ariaExpanded,
   onClick,
@@ -321,7 +314,7 @@ function SidebarNavButton({
     <Tip
       label={label}
       position="right"
-      disabled={expanded || tooltipDisabled}
+      disabled={expanded}
       className={`global-sidebar-nav-tip ${expanded ? 'w-full' : 'w-10'}`}
     >
       {button}
@@ -431,7 +424,6 @@ export default memo(function GlobalSidebar({
   onOpenAppRoute,
   onOpenCapabilities,
   onOpenSettings,
-  onOpenBugReport,
   onOpenWorkspace,
   onOpenSession,
   onRenameSession,
@@ -484,8 +476,6 @@ export default memo(function GlobalSidebar({
   const childLayerReturnFocusRef = useRef<HTMLElement | null>(null);
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const feedbackTriggerRef = useRef<HTMLDivElement | null>(null);
   const notificationTriggerRef = useRef<HTMLButtonElement | null>(null);
   const notificationPanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -589,7 +579,6 @@ export default memo(function GlobalSidebar({
   const openFlyoutNow = useCallback(() => {
     clearFlyoutTimers();
     setNotificationOpen(false);
-    setShowFeedback(false);
     setSearchOpen(false);
     resourceSurfaceInteractionGenerationRef.current += 1;
     setFlyoutOpen(true);
@@ -600,7 +589,6 @@ export default memo(function GlobalSidebar({
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     openTimerRef.current = setTimeout(() => {
       setNotificationOpen(false);
-      setShowFeedback(false);
       setSearchOpen(false);
       resourceSurfaceInteractionGenerationRef.current += 1;
       setFlyoutOpen(true);
@@ -689,7 +677,6 @@ export default memo(function GlobalSidebar({
 
   const toggleNotificationCenter = useCallback(() => {
     closeFlyout();
-    setShowFeedback(false);
     setSearchOpen(false);
     setNotificationOpen((open) => {
       const next = !open;
@@ -697,13 +684,6 @@ export default memo(function GlobalSidebar({
       return next;
     });
   }, [closeFlyout, refreshNotificationCenter]);
-
-  const toggleFeedback = useCallback(() => {
-    closeFlyout();
-    closeNotificationCenter();
-    setSearchOpen(false);
-    setShowFeedback((value) => !value);
-  }, [closeFlyout, closeNotificationCenter]);
 
   useEffect(() => {
     const activeTabId = activeTab?.id ?? null;
@@ -990,7 +970,6 @@ export default memo(function GlobalSidebar({
     if (!isTauriEnvironment()) return;
     closeFlyout();
     closeNotificationCenter();
-    setShowFeedback(false);
     resourceSurfaceInteractionGenerationRef.current += 1;
     setSearchOpen(true);
   }, [closeFlyout, closeNotificationCenter]);
@@ -1006,7 +985,6 @@ export default memo(function GlobalSidebar({
     void loadHistorySearchOverlayContent();
     closeFlyout();
     closeNotificationCenter();
-    setShowFeedback(false);
     resourceSurfaceInteractionGenerationRef.current += 1;
     setSearchOpen(true);
   }, [closeFlyout, closeNotificationCenter, historyTagIntent]);
@@ -1117,16 +1095,13 @@ export default memo(function GlobalSidebar({
           className="global-sidebar-brand-row relative flex h-12 shrink-0 items-center"
           data-global-sidebar-brand-row
         >
-          <button
-            type="button"
-            onClick={() => { void openExternal(MYAGENTS_WEBSITE_URL); }}
-            aria-label={t('globalSidebar.openWebsite')}
+          <div
             aria-hidden={!expanded && searchAvailable}
             inert={!expanded && searchAvailable}
-            className={`global-sidebar-brand-link flex h-10 items-center pr-1 text-left cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+            className={`global-sidebar-brand flex h-10 items-center pr-1 text-left ${
               expanded ? 'min-w-0' : 'w-10 overflow-hidden'
             }`}
-            data-global-sidebar-brand-link
+            data-global-sidebar-brand
           >
             <img
               src={brandMark}
@@ -1142,7 +1117,7 @@ export default memo(function GlobalSidebar({
             >
               <ProductWordmark showMark={false} />
             </span>
-          </button>
+          </div>
           {searchAvailable && (
             <Tip label={t('globalSidebar.search')} position="right" disabled={searchOpen} className="global-sidebar-search-slot">
               <button
@@ -1352,25 +1327,6 @@ export default memo(function GlobalSidebar({
           className={`shrink-0 pb-2 ${expanded ? 'pl-3 pr-[var(--global-sidebar-action-inset)] pt-0' : 'global-sidebar-rail-stack pt-3'}`}
           data-global-sidebar-footer-actions
         >
-          <div
-            ref={feedbackTriggerRef}
-            className={`-mr-3 pr-3 ${expanded ? '' : 'flex justify-center'}`}
-            data-feedback-popover-anchor
-          >
-            <SidebarNavButton
-              expanded={expanded}
-              icon={<HelperIcon className="h-4 w-4" />}
-              label={t('globalSidebar.helper')}
-              tooltipDisabled={showFeedback}
-              onClick={toggleFeedback}
-            />
-            <FeedbackPopover
-              open={showFeedback}
-              onClose={() => setShowFeedback(false)}
-              onOpenBugReport={() => { setShowFeedback(false); onOpenBugReport(); }}
-              triggerRef={feedbackTriggerRef}
-            />
-          </div>
           <SidebarNavButton
             expanded={expanded}
             active={activeView === 'settings'}

@@ -114,7 +114,6 @@ vi.mock('@/components/HistorySearchOverlayContent', () => ({
   ),
 }));
 
-vi.mock('@/components/FeedbackPopover', () => ({ default: () => null }));
 
 vi.mock('@/notifications/useNotificationCenter', () => ({
   useNotificationCenter: () => ({
@@ -177,7 +176,6 @@ function sidebar(overrides: Partial<SidebarProps> = {}) {
       onCreateTask={vi.fn()}
       onOpenCapabilities={vi.fn()}
       onOpenSettings={vi.fn()}
-      onOpenBugReport={vi.fn()}
       onOpenWorkspace={vi.fn(async () => true)}
       onOpenSession={vi.fn(async () => true)}
       onRenameSession={vi.fn(async () => null)}
@@ -284,7 +282,7 @@ describe('GlobalSidebar rail flyout', () => {
     fireEvent.pointerUp(window);
   });
 
-  it('keeps helper and settings above the local notification control', () => {
+  it('shows settings and notifications in the expanded footer without an assistant entry', () => {
     mocks.forcedRail = false;
     renderSidebar();
     const footer = document.querySelector('[data-global-sidebar-footer-actions]')!;
@@ -293,7 +291,7 @@ describe('GlobalSidebar rail flyout', () => {
     expect(footer.lastElementChild).toBe(row);
     expect(row.contains(notification)).toBe(true);
     expect(row.contains(screen.getByRole('button', { name: '设置' }))).toBe(false);
-    expect(row.contains(screen.getByRole('button', { name: '助理' }))).toBe(false);
+    expect(screen.queryByRole('button', { name: '助理' })).not.toBeInTheDocument();
     expect(mocks.notificationRefresh).not.toHaveBeenCalled();
     fireEvent.click(notification);
     expect(mocks.notificationRefresh).toHaveBeenCalledOnce();
@@ -305,6 +303,7 @@ describe('GlobalSidebar rail flyout', () => {
     expect(within(row as HTMLElement).getAllByRole('button')).toHaveLength(1);
     expect(within(row as HTMLElement).getByRole('button', { name: String(i18n.t('app:notificationCenter.bell')) })).toBeInTheDocument();
     expect(document.querySelector('[data-global-account-trigger]')).toBeNull();
+    expect(screen.queryByRole('button', { name: '助理' })).not.toBeInTheDocument();
   });
 
   it('renders healthy workspaces alongside invalid persisted Project rows without modifying them', () => {
@@ -350,14 +349,7 @@ describe('GlobalSidebar rail flyout', () => {
     expect(document.querySelectorAll('[data-notification-center-shell]')).toHaveLength(1);
   });
 
-  it('extends the helper popover anchor to the sidebar edge', () => {
-    renderSidebar();
-
-    const anchor = document.querySelector('[data-feedback-popover-anchor]');
-    expect(anchor).toHaveClass('-mr-3', 'pr-3');
-  });
-
-  it('keeps App Shell flyouts mutually exclusive in both directions', () => {
+  it('closes the notification panel when the workspace flyout opens', () => {
     renderSidebar();
     const bell = screen.getByRole('button', {
       name: String(i18n.t('app:notificationCenter.bell')),
@@ -367,14 +359,6 @@ describe('GlobalSidebar rail flyout', () => {
       name: String(i18n.t('app:notificationCenter.title')),
     })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', {
-      name: String(i18n.t('app:globalSidebar.helper')),
-    }));
-    expect(screen.queryByRole('dialog', {
-      name: String(i18n.t('app:notificationCenter.title')),
-    })).not.toBeInTheDocument();
-
-    fireEvent.click(bell);
     const workspaceTrigger = screen.getByRole('button', { name: '项目管理' });
     fireEvent.pointerEnter(workspaceTrigger);
     act(() => vi.advanceTimersByTime(125));
@@ -405,24 +389,14 @@ describe('GlobalSidebar rail flyout', () => {
     expect(screen.getByRole('region', { name: '项目管理' })).toBeInTheDocument();
   });
 
-  it('opens the product website from the compact brand link without a row hover surface', async () => {
+  it('displays the brand without opening an external website on click', () => {
     mocks.forcedRail = false;
     renderSidebar();
 
-    const brandLink = screen.getByRole('button', {
-      name: String(i18n.t('app:globalSidebar.openWebsite')),
-    });
-    const brandRow = brandLink.closest('[data-global-sidebar-brand-row]');
-
-    expect(brandLink).toHaveClass('cursor-pointer');
-    expect(brandLink).not.toHaveClass('w-full', 'hover:bg-[var(--hover-bg)]', 'hover:bg-[var(--paper-inset)]');
-    expect(brandRow).not.toHaveClass('cursor-pointer', 'hover:bg-[var(--hover-bg)]');
-
-    fireEvent.click(brandLink);
-
-    await vi.waitFor(() => {
-      expect(mocks.openExternal).toHaveBeenCalledWith('https://myagents.io');
-    });
+    const brand = screen.getByRole('img', { name: 'AgenTeam' });
+    expect(brand.closest('button, a[href]')).toBeNull();
+    fireEvent.click(brand);
+    expect(mocks.openExternal).not.toHaveBeenCalled();
   });
 
   it('opens immediately from keyboard focus', () => {
@@ -1029,8 +1003,6 @@ describe('GlobalSidebar rail flyout', () => {
     expect(taskTip).not.toHaveClass('delay-500', 'transition-opacity');
 
     fireEvent.mouseLeave(taskButton.parentElement!);
-    fireEvent.click(screen.getByRole('button', { name: '助理' }));
-    expect(screen.queryByRole('tooltip', { name: '助理' })).not.toBeInTheDocument();
   });
 
   it('keeps the hover Task-create tooltip trigger inside an absolute row overlay', () => {
@@ -1251,7 +1223,7 @@ describe('GlobalSidebar rail flyout', () => {
     expect(navigation).not.toHaveClass('bg-[var(--paper)]', 'bg-[var(--paper-elevated)]', 'border-r');
     expect(navigation).not.toHaveClass('border-[var(--line)]');
     const brandIcon = navigation.querySelector('[data-global-sidebar-brand-icon]');
-    const brandLink = navigation.querySelector('[data-global-sidebar-brand-link]');
+    const brand = navigation.querySelector('[data-global-sidebar-brand]');
     const brandName = navigation.querySelector('[data-global-sidebar-brand-name]');
     const brandRow = navigation.querySelector('[data-global-sidebar-brand-row]');
     const search = screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.search')) });
@@ -1260,10 +1232,10 @@ describe('GlobalSidebar rail flyout', () => {
     const workspaceRail = navigation.querySelector('[data-global-sidebar-workspace-rail]');
     const footerActions = navigation.querySelector('[data-global-sidebar-footer-actions]');
     expect(brandIcon).not.toBeNull();
-    expect(brandLink).toHaveClass('w-10', 'overflow-hidden');
-    expect(brandLink).toHaveAttribute('inert');
-    expect(brandLink).toHaveAttribute('aria-hidden', 'true');
-    expect(screen.queryByRole('button', { name: String(i18n.t('app:globalSidebar.openWebsite')) })).not.toBeInTheDocument();
+    expect(brand).toHaveClass('w-10', 'overflow-hidden');
+    expect(brand).toHaveAttribute('inert');
+    expect(brand).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByRole('img', { name: 'AgenTeam' })).not.toBeInTheDocument();
     expect(brandRow).toContainElement(search);
     expect(primaryNav).not.toContainElement(search);
     expect(brandName).toHaveAttribute('aria-hidden', 'true');
@@ -1297,10 +1269,10 @@ describe('GlobalSidebar rail flyout', () => {
     expect(navigation).toHaveAttribute('data-global-sidebar-motion', 'expand');
     expect(navigation).toHaveAttribute('data-global-sidebar-tabbar-toggle', 'false');
     expect(navigation.querySelector('[data-global-sidebar-brand-icon]')).toBe(brandIcon);
-    expect(navigation.querySelector('[data-global-sidebar-brand-link]')).toBe(brandLink);
-    expect(brandLink).not.toHaveClass('w-10', 'overflow-hidden');
-    expect(brandLink).not.toHaveAttribute('inert');
-    expect(brandLink).toHaveAttribute('aria-hidden', 'false');
+    expect(navigation.querySelector('[data-global-sidebar-brand]')).toBe(brand);
+    expect(brand).not.toHaveClass('w-10', 'overflow-hidden');
+    expect(brand).not.toHaveAttribute('inert');
+    expect(brand).toHaveAttribute('aria-hidden', 'false');
     // Expanded search is the bar under the brand; the brand-row icon stays mounted but inert.
     expect(brandRow?.querySelector('[data-global-sidebar-search-trigger]')).toBe(search);
     expect(search).toHaveAttribute('aria-hidden', 'true');
@@ -1319,7 +1291,7 @@ describe('GlobalSidebar rail flyout', () => {
     fireEvent.click(collapse);
     expect(navigation).toHaveAttribute('data-global-sidebar-mode', 'rail');
     expect(navigation).toHaveAttribute('data-global-sidebar-motion', 'collapse');
-    expect(brandLink).toHaveAttribute('inert');
+    expect(brand).toHaveAttribute('inert');
     expect(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.search')) })).toBe(search);
     expect(screen.getByRole('button', { name: String(i18n.t('app:notificationCenter.bell')) })).toBe(notification);
     expect(navigation.querySelector('[data-global-sidebar-workspace-region]'))
@@ -1344,7 +1316,7 @@ describe('GlobalSidebar rail flyout', () => {
     mocks.forcedRail = true;
     renderSidebar();
     expect(screen.queryByRole('button', { name: String(i18n.t('app:globalSidebar.expand')) })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: String(i18n.t('app:globalSidebar.openWebsite')) })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'AgenTeam' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: String(i18n.t('app:globalSidebar.search')) })).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: String(i18n.t('app:globalSidebar.navigation')) }))
       .toHaveAttribute('data-global-sidebar-toggle-visible', 'false');
@@ -1370,7 +1342,6 @@ describe('GlobalSidebar rail flyout', () => {
       i18n.t('app:globalSidebar.tasks'),
       i18n.t('settings:sidebar.nav.bots'),
       i18n.t('app:globalSidebar.capabilities'),
-      i18n.t('app:globalSidebar.helper'),
       i18n.t('app:globalSidebar.settings'),
     ]) {
       const action = screen.getAllByRole('button', { name: String(label) }).find(button => button.hasAttribute('data-global-sidebar-nav-button'))!;
@@ -1392,11 +1363,9 @@ describe('GlobalSidebar rail flyout', () => {
     const notificationButton = screen.getByRole('button', {
       name: String(i18n.t('app:notificationCenter.bell')),
     });
-    const helperButton = screen.getByRole('button', {
-      name: String(i18n.t('app:globalSidebar.helper')),
-    });
+    const settingsButton = screen.getByRole('button', { name: '设置' });
     expect(notificationButton.querySelector('.global-sidebar-nav-label')).not.toBeInTheDocument();
-    expect(helperButton.querySelector('.global-sidebar-nav-label')).toBeInTheDocument();
+    expect(settingsButton.querySelector('.global-sidebar-nav-label')).toBeInTheDocument();
     const workspaceFade = document.querySelector<HTMLElement>('[data-global-sidebar-workspace-fade]');
     expect(workspaceFade).toHaveClass('pointer-events-none', 'absolute', 'inset-x-0', 'bottom-0', 'h-6');
     expect(workspaceFade?.style.background).toContain('linear-gradient(to bottom');

@@ -393,7 +393,7 @@ html[data-color-scheme='dark'] {
   transition: none;
 }
 
-.global-sidebar-brand-link {
+.global-sidebar-brand {
   position: absolute;
   top: var(--space-1);
   left: var(--global-sidebar-rail-button-left);
@@ -409,7 +409,7 @@ html[data-color-scheme='dark'] {
   transition: opacity var(--duration-normal) var(--ease-in-out);
 }
 
-.global-sidebar-brand-link[inert] {
+.global-sidebar-brand[inert] {
   opacity: 0;
   pointer-events: none;
 }
@@ -860,7 +860,7 @@ html[data-color-scheme='dark'] .agenteam-wordmark {
 @media (prefers-reduced-motion: reduce) {
   .global-sidebar::before,
   .global-sidebar-copy,
-  .global-sidebar-brand-link,
+  .global-sidebar-brand,
   .global-sidebar-search-slot,
   .global-sidebar-notification-slot {
     transition: none;
