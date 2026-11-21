@@ -238,6 +238,18 @@ pub struct KnowledgeSource {
     pub metadata: BTreeMap<MetadataKey, KnowledgeMetadataField<Value>>,
 }
 
+impl KnowledgeSource {
+    pub(crate) fn display_title(&self) -> &str {
+        self.facts
+            .current_path
+            .as_deref()
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str())
+            .or(self.display_name.as_deref())
+            .unwrap_or(&self.id)
+    }
+}
+
 // Ingestion metadata shares source.json's commit with the public source facts.
 // Tauri returns only the public projection.
 #[derive(Serialize, Deserialize)]

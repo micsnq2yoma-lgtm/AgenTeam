@@ -11,6 +11,7 @@
 //! `SidecarManager` and `TaskStore`.
 
 mod file_indexer;
+mod knowledge_indexer;
 mod record_indexer;
 mod schema;
 mod searcher;
@@ -25,11 +26,15 @@ use std::sync::{
     atomic::{AtomicU8, Ordering},
     Arc,
 };
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
+use crate::knowledge::{store::KnowledgeStore, types::KnowledgeErrorCode};
 use crate::workspace_files::path_safety::validate_workspace_root;
 use crate::{ulog_error, ulog_info, ulog_warn};
 
+pub use knowledge_indexer::{
+    KnowledgeSearchFilters, KnowledgeSearchHit, KnowledgeSearchResult, KnowledgeSearchStatus,
+};
 pub use searcher::{
     FileMatchLine, FileSearchHit, FileSearchResult, SessionSearchHit, SessionSearchPageRequest,
     SessionSearchRequest, SessionSearchResult,
@@ -53,6 +58,7 @@ pub struct SearchEngine {
     data_dir: PathBuf,
     session_index: Arc<session_indexer::SessionIndex>,
     record_index: Arc<record_indexer::RecordIndex>,
+    knowledge_index: Arc<knowledge_indexer::KnowledgeIndex>,
     file_indices: Arc<file_indexer::FileIndexManager>,
 }
 
@@ -70,12 +76,14 @@ impl SearchEngine {
             .map_err(|e| format!("Failed to create Record index: {}", e))?;
 
         let file_manager = file_indexer::FileIndexManager::new(index_dir.join("workspaces"));
+        let knowledge_index = Arc::new(knowledge_indexer::KnowledgeIndex::new(data_dir.clone()));
 
         Ok(Self {
             session_readiness: Arc::new(AtomicU8::new(0)),
             data_dir,
             session_index: Arc::new(session_index),
             record_index: Arc::new(record_index),
+            knowledge_index,
             file_indices: Arc::new(file_manager),
         })
     }
@@ -92,6 +100,13 @@ impl SearchEngine {
         let data_dir = self.data_dir.clone();
         let session_index = self.session_index.clone();
         let readiness = self.session_readiness.clone();
+
+        if let Some(store) = app_handle.try_state::<Arc<KnowledgeStore>>() {
+            let store = Arc::clone(store.inner());
+            let changes = store.subscribe_changes();
+            let index = Arc::clone(&self.knowledge_index);
+            tauri::async_runtime::spawn(index.observe(store, changes));
+        }
 
         if let Some(store) = crate::record::get_record_store().cloned() {
             let mut changes = store.subscribe_changes();
@@ -206,6 +221,30 @@ impl SearchEngine {
             // matter which process authored them.
             watcher::spawn_session_watcher(data_dir, session_index);
         });
+    }
+
+    pub async fn search_knowledge(
+        &self,
+        store: Arc<KnowledgeStore>,
+        kb_ids: Vec<String>,
+        queries: Vec<String>,
+        filters: KnowledgeSearchFilters,
+        limit: Option<usize>,
+    ) -> Result<KnowledgeSearchResult, KnowledgeErrorCode> {
+        let index = Arc::clone(&self.knowledge_index);
+        tauri::async_runtime::spawn_blocking(move || {
+            index.search(&store, &kb_ids, &queries, &filters, limit)
+        })
+        .await
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+    }
+
+    pub fn knowledge_search_status(
+        &self,
+        kb: &str,
+        source: &str,
+    ) -> Result<KnowledgeSearchStatus, KnowledgeErrorCode> {
+        self.knowledge_index.status(kb, source)
     }
 
     pub async fn search_sessions(

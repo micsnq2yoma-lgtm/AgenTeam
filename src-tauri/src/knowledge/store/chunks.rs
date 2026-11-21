@@ -86,23 +86,37 @@ impl KnowledgeStore {
             return Err(KbStoreCorrupt.into());
         }
         let markdown = std::str::from_utf8(&bytes).map_err(|_| KbStoreCorrupt)?;
-        let title = source
-            .facts
-            .current_path
-            .as_deref()
-            .and_then(Path::file_name)
-            .and_then(|name| name.to_str())
-            .or(source.display_name.as_deref())
-            .unwrap_or(&source.id);
         let locale = crate::i18n::locale_from_config(&self.app_data_dir.join("config.json"));
-        chunk_markdown(kb, &source.id, title, markdown, locale).map_err(|err| match err {
-            ChunkError::GraphemeExceedsBudget(position) => ReadFailure {
-                code: KnowledgeErrorCode::KbChunkUnsplittable,
-                position: Some(position),
-            },
-            ChunkError::InvalidReference => KbStoreCorrupt.into(),
-            ChunkError::InsufficientContextSpace => KbLimitExceeded.into(),
+        chunk_markdown(kb, &source.id, source.display_title(), markdown, locale).map_err(|err| {
+            match err {
+                ChunkError::GraphemeExceedsBudget(position) => ReadFailure {
+                    code: KnowledgeErrorCode::KbChunkUnsplittable,
+                    position: Some(position),
+                },
+                ChunkError::InvalidReference => KbStoreCorrupt.into(),
+                ChunkError::InsufficientContextSpace => KbLimitExceeded.into(),
+            }
         })
+    }
+
+    /// Project one committed source for a derived reader. If its content or
+    /// metadata changes while chunking, the consumer retries with the new record.
+    pub(crate) fn search_document(
+        &self,
+        kb: &str,
+        source_id: &str,
+    ) -> StoreResult<Option<(KnowledgeSource, Vec<KnowledgeChunk>)>> {
+        let source = self.get_source(kb, source_id)?;
+        if source.facts.status != SourceStatus::Ready {
+            return Ok(None);
+        }
+        let result = self.read_content_chunks(kb, &source);
+        let current = self.get_source(kb, source_id)?;
+        if current != source {
+            return Err(KnowledgeErrorCode::KbJobConflict);
+        }
+        let chunks = result.map_err(|failure| failure.code)?;
+        Ok(Some((source, chunks)))
     }
 
     pub(super) fn resolve_fragment(
