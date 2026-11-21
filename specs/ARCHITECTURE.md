@@ -214,6 +214,7 @@ AgenTeam 包含自建 AgentNet 的客户端。Node Sidecar 负责本机业务适
 | Document Processing | Rust manager + 独立 Document Worker | [文档转换](./tech_docs/document_processing.md) |
 | Record / Speech | Rust RecordStore、RecordingManager、SpeechRecognitionManager + Media Worker | [录音与语音识别](./tech_docs/recording_and_speech_recognition.md) |
 | Search | Rust SearchEngine；Session、Record 与工作区文件索引 | [搜索](./tech_docs/search_architecture.md) |
+| Knowledge Base（K0 契约） | Rust Store 与派生搜索索引的边界。已定义跨语言 ID、引用和元数据 wire | [知识库](./tech_docs/knowledge_base.md) |
 | Terminal / BrowserPanel | Rust native resource manager；绑定 exact Tab/resource generation | [DESIGN](./DESIGN.md)、[Pit-of-Success](./tech_docs/pit_of_success.md) |
 | 托管浏览器工具 | Rust 持有 Chromium 资源、Session capability 与身份持久化；Global Sidecar Registry 持有浏览器/Context，MCP backend 借用 | [托管浏览器](./tech_docs/managed_browser.md) |
 | Floating Companion | Rust 独立窗口 + Renderer 轻量 WebView；以 `Companion` owner 复用 Product Session | [Session](./tech_docs/session_architecture.md) |
