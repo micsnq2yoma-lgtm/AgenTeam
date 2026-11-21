@@ -1248,10 +1248,7 @@ fn open_windows_root_directory(path: &Path) -> WfResult<fs::File> {
 }
 
 #[cfg(windows)]
-fn windows_ntstatus_error(status: windows_sys::Win32::Foundation::NTSTATUS) -> std::io::Error {
-    let code = unsafe { windows_sys::Win32::Foundation::RtlNtStatusToDosError(status) };
-    std::io::Error::from_raw_os_error(code as i32)
-}
+use crate::utils::windows_fs::windows_ntstatus_error;
 
 #[cfg(windows)]
 fn open_windows_relative_handle(
@@ -1263,73 +1260,15 @@ fn open_windows_relative_handle(
     create_options: u32,
     file_attributes: u32,
 ) -> std::io::Result<fs::File> {
-    use std::os::windows::ffi::OsStrExt;
-    use std::os::windows::io::{AsRawHandle, FromRawHandle};
-    use windows_sys::Wdk::Foundation::OBJECT_ATTRIBUTES;
-    use windows_sys::Wdk::Storage::FileSystem::NtCreateFile;
-    use windows_sys::Win32::Foundation::{HANDLE, UNICODE_STRING};
-    use windows_sys::Win32::System::IO::IO_STATUS_BLOCK;
-
-    let mut wide = name.encode_wide().collect::<Vec<_>>();
-    let byte_len = wide
-        .len()
-        .checked_mul(std::mem::size_of::<u16>())
-        .filter(|length| *length <= u16::MAX as usize)
-        .ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Windows path component is too long",
-            )
-        })?;
-    if wide.is_empty() || wide.iter().any(|value| *value == 0) {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "Windows path component is empty or contains NUL",
-        ));
-    }
-    let unicode = UNICODE_STRING {
-        Length: byte_len as u16,
-        MaximumLength: byte_len as u16,
-        Buffer: wide.as_mut_ptr(),
-    };
-    let attributes = OBJECT_ATTRIBUTES {
-        Length: std::mem::size_of::<OBJECT_ATTRIBUTES>() as u32,
-        RootDirectory: parent.as_raw_handle() as HANDLE,
-        ObjectName: &unicode,
-        // OBJ_CASE_INSENSITIVE. Windows file opens are ordinarily
-        // case-insensitive; preserving that contract avoids a surprising
-        // divergence from CreateFileW while still anchoring resolution to the
-        // verified parent handle.
-        Attributes: 0x40,
-        SecurityDescriptor: std::ptr::null(),
-        SecurityQualityOfService: std::ptr::null(),
-    };
-    let mut io_status: IO_STATUS_BLOCK = unsafe { std::mem::zeroed() };
-    let mut handle: HANDLE = std::ptr::null_mut();
-    let status = unsafe {
-        NtCreateFile(
-            &mut handle,
-            desired_access,
-            &attributes,
-            &mut io_status,
-            std::ptr::null(),
-            file_attributes,
-            share_access,
-            create_disposition,
-            create_options,
-            std::ptr::null(),
-            0,
-        )
-    };
-    if status < 0 {
-        return Err(windows_ntstatus_error(status));
-    }
-    if handle.is_null() {
-        return Err(std::io::Error::other(
-            "NtCreateFile succeeded without returning a handle",
-        ));
-    }
-    Ok(unsafe { fs::File::from_raw_handle(handle as _) })
+    crate::utils::windows_fs::open_relative_handle(
+        (parent, name),
+        desired_access,
+        share_access,
+        create_disposition,
+        create_options,
+        file_attributes,
+        windows_ntstatus_error,
+    )
 }
 
 #[cfg(windows)]
@@ -1613,7 +1552,7 @@ fn replace_portable_file(source: &Path, destination: &Path) -> std::io::Result<(
 }
 
 #[cfg(windows)]
-fn delete_windows_file_by_handle(file: &fs::File) -> std::io::Result<()> {
+pub(crate) fn delete_windows_file_by_handle(file: &fs::File) -> std::io::Result<()> {
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Storage::FileSystem::{
         FileDispositionInfo, SetFileInformationByHandle, FILE_DISPOSITION_INFO,

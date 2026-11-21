@@ -117,6 +117,8 @@ kb://<kb-id>/<source-id>[?page=<页码>][#<chunk-id>]
 
 应用启动时把 `Arc<KnowledgeStore>` 注册为 Tauri managed state。命令通过 `tauri::async_runtime::spawn_blocking` 执行文件操作。Store 以 `app_dirs::myagents_data_dir()` 作为受信任的数据根，在 `knowledge/.store.lock` 上复用 `with_file_lock_blocking`。多个 Store 实例重新读取同一份磁盘状态，写入以锁内最新状态为准。
 
+Windows 上，前一写入者释放锁目录时，系统可能尚未关闭最后一个句柄。锁 helper 识别原生 `STATUS_DELETE_PENDING`，在同一个 5 秒获取期限内等待目录释放。目录 ACL 拒绝创建时立即返回 I/O 错误。
+
 ### 磁盘格式与发布
 
 - `kbs.json` 是已发布库 ID 的列表，只有首次读取文件不存在时按空列表处理。已登记的库必须具有同 ID 的 `kb.json`。读到截断 JSON、重复 ID 或身份不符时，返回可识别的错误并保留原字节。

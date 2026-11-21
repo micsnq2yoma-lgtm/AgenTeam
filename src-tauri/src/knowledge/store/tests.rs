@@ -137,6 +137,47 @@ fn knowledge_concurrent_read_modify_write_preserves_eight_fields() {
     }
 }
 
+#[cfg(windows)]
+#[test]
+fn knowledge_store_waits_for_windows_lock_directory_deletion() {
+    use crate::utils::file_lock::FileLockError;
+    use crate::workspace_files::path_safety::delete_windows_file_by_handle;
+    use std::os::windows::fs::OpenOptionsExt;
+    use std::time::Duration;
+    use windows_sys::Win32::Storage::FileSystem::{DELETE, FILE_FLAG_BACKUP_SEMANTICS};
+
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    assert!(store.list().unwrap().is_empty());
+    let path = data.path().join("knowledge").join(".store.lock");
+    fs::create_dir(&path).unwrap();
+    let retiring = fs::OpenOptions::new()
+        .access_mode(DELETE)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+        .open(&path)
+        .unwrap();
+    delete_windows_file_by_handle(&retiring).unwrap();
+
+    // Hold the old directory in STATUS_DELETE_PENDING for the entire attempt.
+    let options = FileLockOptions {
+        timeout: Duration::from_millis(15),
+        ..FileLockOptions::default()
+    };
+    assert!(matches!(
+        with_file_lock_blocking::<_, ()>(&path, options, || panic!("entered before release")),
+        Err(FileLockError::Busy { .. })
+    ));
+
+    std::thread::scope(|scope| {
+        scope.spawn(move || {
+            std::thread::sleep(Duration::from_millis(30));
+            drop(retiring);
+        });
+        let kb = store.create(settings("After handoff")).unwrap();
+        assert_eq!(store.list().unwrap()[0].id, kb.id);
+    });
+}
+
 #[test]
 fn knowledge_failed_atomic_replacement_keeps_previous_bytes() {
     let data = tempdir().unwrap();

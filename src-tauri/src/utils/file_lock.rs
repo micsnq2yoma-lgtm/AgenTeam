@@ -24,6 +24,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::ulog_warn;
+#[cfg(windows)]
+use windows_sys::Win32::Foundation::ERROR_DELETE_PENDING;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 const DEFAULT_STALE: Duration = Duration::from_secs(30);
@@ -427,7 +429,7 @@ fn lock_age_from_modified(modified: SystemTime) -> Duration {
 fn try_break_stale_lock(lock_path: &Path, stale: Duration) -> bool {
     let metadata = match fs::metadata(lock_path) {
         Ok(m) => m,
-        Err(_) => return true, // gone — retry mkdir
+        Err(error) => return error.kind() == std::io::ErrorKind::NotFound,
     };
 
     // Wall-clock rollback can leave a lock mtime in the future. Treat that as
@@ -487,6 +489,58 @@ fn our_owner_token() -> String {
     format!("rust:{}:{}", std::process::id(), our_start_time_ms())
 }
 
+#[cfg(not(windows))]
+use std::fs::create_dir as create_lock_directory;
+
+#[cfg(windows)]
+fn create_lock_directory(path: &Path) -> std::io::Result<()> {
+    use crate::utils::windows_fs::{open_relative_handle, windows_ntstatus_error};
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Wdk::Storage::FileSystem::{
+        FILE_CREATE, FILE_DIRECTORY_FILE, FILE_SYNCHRONOUS_IO_NONALERT,
+    };
+    use windows_sys::Win32::Foundation::{ERROR_ACCESS_DENIED, STATUS_DELETE_PENDING};
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_ATTRIBUTE_DIRECTORY, FILE_FLAG_BACKUP_SEMANTICS, FILE_LIST_DIRECTORY,
+        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE, SYNCHRONIZE,
+    };
+
+    // mkdir reports ERROR_ACCESS_DENIED for both a genuine ACL denial and
+    // the short window between a previous owner's delete and final close.
+    // Only an ambiguous result needs a second atomic create with native status.
+    let denied = match fs::create_dir(path) {
+        Err(error) if error.raw_os_error() == Some(ERROR_ACCESS_DENIED as i32) => error,
+        result => return result,
+    };
+    let Some(name) = path.file_name() else {
+        return Err(denied);
+    };
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let parent = fs::OpenOptions::new()
+        .access_mode(FILE_TRAVERSE | SYNCHRONIZE)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+        .open(parent)?;
+    open_relative_handle(
+        (&parent, name),
+        FILE_LIST_DIRECTORY | SYNCHRONIZE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        FILE_CREATE,
+        FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+        FILE_ATTRIBUTE_DIRECTORY,
+        |status| {
+            if status == STATUS_DELETE_PENDING {
+                std::io::Error::from_raw_os_error(ERROR_DELETE_PENDING as i32)
+            } else {
+                windows_ntstatus_error(status)
+            }
+        },
+    )
+    .map(drop)
+}
+
 /// Synchronous lock acquisition + release wrapping `mutator`. Designed to be
 /// called from `spawn_blocking` (or any blocking context). For async sites use
 /// [`with_file_lock`] which delegates here under `spawn_blocking`.
@@ -506,7 +560,7 @@ where
 
     let start = Instant::now();
     loop {
-        match fs::create_dir(lock_path) {
+        let retry_now = match create_lock_directory(lock_path) {
             Ok(()) => {
                 let owner_path = lock_path.join("owner");
                 let _ = fs::OpenOptions::new()
@@ -518,18 +572,21 @@ where
                 break;
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                if try_break_stale_lock(lock_path, opts.stale) {
-                    continue; // retry mkdir immediately
-                }
-                if start.elapsed() >= opts.timeout {
-                    return Err(FileLockError::Busy {
-                        lock_path: lock_path.to_path_buf(),
-                        timeout: opts.timeout,
-                    });
-                }
-                std::thread::sleep(opts.poll);
+                try_break_stale_lock(lock_path, opts.stale)
             }
+            #[cfg(windows)]
+            Err(e) if e.raw_os_error() == Some(ERROR_DELETE_PENDING as i32) => false,
             Err(e) => return Err(FileLockError::Io(e)),
+        };
+        let remaining = opts.timeout.saturating_sub(start.elapsed());
+        if remaining.is_zero() {
+            return Err(FileLockError::Busy {
+                lock_path: lock_path.to_path_buf(),
+                timeout: opts.timeout,
+            });
+        }
+        if !retry_now {
+            std::thread::sleep(opts.poll.min(remaining));
         }
     }
 
