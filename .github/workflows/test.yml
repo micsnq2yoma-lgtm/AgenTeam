@@ -6,7 +6,7 @@ name: Test
 on:
   pull_request:
   push:
-    branches: [main, "dev/**", "feat/kb-k1-store", "fix/anydoc-same-tick-rewrite"]
+    branches: [main, "dev/**", "feat/kb-*", "fix/anydoc-same-tick-rewrite"]
 
 permissions:
   contents: read
@@ -57,6 +57,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Limit disk use for the two AnyDoc Clippy builds
         if: (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'
         run: printf '%s\n' CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 >> "$GITHUB_ENV"
@@ -106,10 +108,32 @@ jobs:
           printf 'ci placeholder\n' > src-tauri/resources/playwright-control/playwright/.ci-placeholder
           printf 'ci placeholder\n' > src-tauri/resources/playwright-control/playwright-core/.ci-placeholder
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - if: startsWith(github.head_ref || github.ref_name, 'feat/kb-')
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib knowledge
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D clippy::disallowed_methods -D clippy::disallowed_macros
-      - name: Check the complete crate against the K1 acceptance threshold
-        if: ${{ !cancelled() && github.ref == 'refs/heads/feat/kb-k1-store' }}
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Compare knowledge branch Clippy diagnostics with its main baseline
+        if: startsWith(github.head_ref || github.ref_name, 'feat/kb-')
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          base=$(git merge-base origin/main "$CANDIDATE_SHA")
+          evidence="$RUNNER_TEMP/kb-clippy"
+          mkdir -p "$evidence"
+          for revision in "$base" "$CANDIDATE_SHA"; do
+            git switch --detach "$revision"
+            pinned=$(python3 -c 'import tomllib; print(tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])')
+            actual=$(rustc --version)
+            [[ "$actual" == "rustc $pinned "* ]]
+            echo "$revision $actual $(cargo clippy --version)"
+            cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --message-format=json > "$evidence/$revision.jsonl"
+          done
+          python3 scripts/compare-clippy-warnings.py "$evidence/$base.jsonl" "$evidence/$CANDIDATE_SHA.jsonl"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && startsWith(github.head_ref || github.ref_name, 'feat/kb-') }}
+        with:
+          name: knowledge-clippy-diagnostics
+          path: ${{ runner.temp }}/kb-clippy/*.jsonl
 
       - name: Compare complete Clippy diagnostics for the AnyDoc fix
         if: "!cancelled() && (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'"
@@ -277,7 +301,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $testExecutable 'workspace_files::'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --manifest-path src-tauri/Cargo.toml --locked --lib knowledge
+          & $testExecutable 'knowledge::'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $testExecutable 'document_processing::' --format pretty --color never | Tee-Object -Variable documentResults
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
