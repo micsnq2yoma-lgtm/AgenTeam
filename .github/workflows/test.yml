@@ -6,7 +6,7 @@ name: Test
 on:
   pull_request:
   push:
-    branches: [main, "dev/**", "fix/anydoc-same-tick-rewrite"]
+    branches: [main, "dev/**", "feat/kb-k1-store", "fix/anydoc-same-tick-rewrite"]
 
 permissions:
   contents: read
@@ -107,6 +107,9 @@ jobs:
           printf 'ci placeholder\n' > src-tauri/resources/playwright-control/playwright-core/.ci-placeholder
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D clippy::disallowed_methods -D clippy::disallowed_macros
+      - name: Check the complete crate against the K1 acceptance threshold
+        if: ${{ !cancelled() && github.ref == 'refs/heads/feat/kb-k1-store' }}
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
 
       - name: Compare complete Clippy diagnostics for the AnyDoc fix
         if: "!cancelled() && (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'"
@@ -274,7 +277,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $testExecutable 'workspace_files::'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $testExecutable 'knowledge::'
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --lib knowledge
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $testExecutable 'document_processing::' --format pretty --color never | Tee-Object -Variable documentResults
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

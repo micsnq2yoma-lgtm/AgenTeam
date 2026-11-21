@@ -431,12 +431,8 @@ fn knowledge_refuses_a_redirected_source_directory() {
     let store = KnowledgeStore::new(data.path().into());
     let kb = store.create(settings("Redirected source")).unwrap();
     let source = store.create_source(&kb.id, note()).unwrap();
-    let original = data
-        .path()
-        .join("knowledge")
-        .join(&kb.id)
-        .join("sources")
-        .join(&source.id);
+    let library = data.path().join("knowledge").join(&kb.id);
+    let original = library.join("sources").join(&source.id);
     let target = outside.path().join("source");
     fs::rename(&original, &target).unwrap();
     let original_json = fs::read(target.join("source.json")).unwrap();
@@ -446,6 +442,8 @@ fn knowledge_refuses_a_redirected_source_directory() {
     assert!(store.get_source(&kb.id, &source.id).is_err());
     assert!(store.list_sources(&kb.id).is_err());
     assert!(store.remove_source(&kb.id, &source.id).is_err());
+    redirect_directory(&target, &library.join("assets-alias"));
+    store.delete(&kb.id).unwrap();
     assert_eq!(fs::read(target.join("source.json")).unwrap(), original_json);
     assert_eq!(
         fs::read(target.join("original.txt")).unwrap(),
@@ -520,6 +518,60 @@ fn knowledge_unregistered_library_remains_invisible_after_reopen() {
     assert_eq!(reopened.list_sources(&orphan_id), Err(KbNotFound));
     assert_eq!(reopened.delete(&orphan_id), Err(KbNotFound));
     assert_eq!(fs::read(path.join("kb.json")).unwrap(), bytes);
+    fs::write(path.join("kb.json"), br#"{"partial":"#).unwrap();
+    let next = reopened.create(settings("After crash")).unwrap();
+    assert_ne!(next.id, orphan_id);
+    assert!(reopened.list().unwrap().contains(&next));
+    assert_eq!(
+        reopened.get_source(&orphan_id, &create_knowledge_source_id([1; 8])),
+        Err(KbNotFound)
+    );
+}
+
+#[test]
+fn knowledge_invalid_ids_are_rejected_before_opening_the_store() {
+    let parent = tempdir().unwrap();
+    let data = parent.path().join("unopened");
+    let store = KnowledgeStore::new(data.clone());
+    let kb = create_knowledge_base_id([0; 6]);
+    let source = create_knowledge_source_id([0; 8]);
+    for invalid in [
+        "..",
+        "../kb_000000000000",
+        "kb_000000000000/..",
+        "KB_000000000000",
+        "kb_00000000000g",
+    ] {
+        assert_eq!(store.list_sources(invalid), Err(KbInvalidInput));
+        assert_eq!(store.delete(invalid), Err(KbInvalidInput));
+        assert_eq!(
+            store.update(invalid, settings("Invalid")),
+            Err(KbInvalidInput)
+        );
+        assert_eq!(store.create_source(invalid, note()), Err(KbInvalidInput));
+        for (kb_id, source_id) in [(invalid, source.as_str()), (kb.as_str(), invalid)] {
+            assert_eq!(store.get_source(kb_id, source_id), Err(KbInvalidInput));
+            assert_eq!(
+                store.update_source(kb_id, source_id, note()),
+                Err(KbInvalidInput)
+            );
+            assert_eq!(store.remove_source(kb_id, source_id), Err(KbInvalidInput));
+            assert_eq!(
+                store.set_metadata(
+                    kb_id,
+                    source_id,
+                    KnowledgeMetadataOrigin::User,
+                    MetadataPatch::new(),
+                ),
+                Err(KbInvalidInput)
+            );
+        }
+        assert!(!data.exists());
+    }
+    assert_eq!(
+        store.resolve_ref("kb://kb_000000000000/src_0000000000000000"),
+        Err(KbNotFound)
+    );
 }
 
 #[test]
