@@ -1677,6 +1677,7 @@ fn write_relative_file_no_follow_windows_mode<F: FnOnce()>(
     after_parent_opened: F,
     replace: bool,
 ) -> WfResult<()> {
+    use std::sync::atomic::{AtomicU64, Ordering};
     use windows_sys::Wdk::Storage::FileSystem::{
         FILE_CREATE, FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_REPARSE_POINT,
         FILE_SYNCHRONOUS_IO_NONALERT, FILE_WRITE_THROUGH,
@@ -1712,7 +1713,12 @@ fn write_relative_file_no_follow_windows_mode<F: FnOnce()>(
         }
     }
 
-    for nonce in 0..100u32 {
+    // A colliding writer can leave its old temp name pending deletion until
+    // Windows releases the final handle. Allocate a fresh name for each
+    // in-process attempt, while keeping real access-denied errors visible.
+    static NEXT_TEMP_NONCE: AtomicU64 = AtomicU64::new(0);
+    for _ in 0..100 {
+        let nonce = NEXT_TEMP_NONCE.fetch_add(1, Ordering::Relaxed);
         let temp_name = format!(
             ".{}.myagents-{}-{}.tmp",
             leaf.to_string_lossy(),
