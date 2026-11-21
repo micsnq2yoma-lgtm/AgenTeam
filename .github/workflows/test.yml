@@ -6,7 +6,10 @@ name: Test
 on:
   pull_request:
   push:
-    branches: [main, "dev/**"]
+    branches: [main, "dev/**", "fix/anydoc-same-tick-rewrite"]
+
+permissions:
+  contents: read
 
 # Cancel superseded runs on the same ref to save CI minutes.
 concurrency:
@@ -54,6 +57,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Limit disk use for the two AnyDoc Clippy builds
+        if: (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'
+        run: printf '%s\n' CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 >> "$GITHUB_ENV"
       - name: Install Tauri system dependencies
         run: |
           sudo apt-get update
@@ -101,6 +107,83 @@ jobs:
           printf 'ci placeholder\n' > src-tauri/resources/playwright-control/playwright-core/.ci-placeholder
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D clippy::disallowed_methods -D clippy::disallowed_macros
+
+      - name: Compare complete Clippy diagnostics for the AnyDoc fix
+        if: "!cancelled() && (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'"
+        env:
+          BASELINE_SHA: d2ebb8e3d1f4b73242b8d0e51f5250dde66d444a
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/anydoc-clippy"
+          mkdir -p "$evidence"
+          git fetch --no-tags --depth=1 origin "$BASELINE_SHA" "$CANDIDATE_SHA"
+          trap 'git switch --detach "$GITHUB_SHA"' EXIT
+          rustc +1.92.0 -Vv
+          cargo +1.92.0 clippy --version
+          # Reuse dependencies at one absolute path. Recheck the application
+          # itself even if Cargo restored artifacts from an earlier run.
+          for revision in "$BASELINE_SHA" "$CANDIDATE_SHA"; do
+            git switch --detach "$revision"
+            test "$(git rev-parse HEAD)" = "$revision"
+            cargo +1.92.0 clean --manifest-path src-tauri/Cargo.toml -p myagents
+            cargo +1.92.0 clippy --manifest-path src-tauri/Cargo.toml --locked \
+              --all-targets --message-format=json \
+              > "$evidence/$revision.jsonl"
+          done
+          python3 - "$evidence/$BASELINE_SHA.jsonl" "$evidence/$CANDIDATE_SHA.jsonl" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          root = Path.cwd()
+
+          def warnings(filename):
+              found = set()
+              finished = False
+              application = False
+              with open(filename, encoding="utf-8") as lines:
+                  for line in lines:
+                      event = json.loads(line)
+                      if event["reason"] == "build-finished":
+                          finished = event["success"]
+                      if event["reason"] == "compiler-artifact" and event["target"]["name"] == "app_lib":
+                          application = True
+                      if event["reason"] != "compiler-message":
+                          continue
+                      diagnostic = event["message"]
+                      if diagnostic["level"] == "error":
+                          raise ValueError(f"{filename}: {diagnostic['message']}")
+                      if diagnostic["level"] != "warning":
+                          continue
+                      lint = (diagnostic["code"] or {}).get("code", "")
+                      manifest = Path(event["manifest_path"])
+                      names = [s["file_name"] for s in diagnostic["spans"] if s["is_primary"]]
+                      for name in names or [manifest]:
+                          path = manifest.parent / name
+                          if not path.exists() and (root / name).exists():
+                              path = root / name
+                          found.add((lint, os.path.relpath(path.resolve(), root), diagnostic["message"]))
+              if not (finished and application):
+                  raise ValueError(f"{filename}: expected a successful complete application build")
+              return found
+
+          baseline, candidate = map(warnings, sys.argv[1:])
+          added = candidate - baseline
+          print(f"Baseline {Path(sys.argv[1]).stem}: {len(baseline)} warnings")
+          print(f"Candidate {Path(sys.argv[2]).stem}: {len(candidate)} warnings; {len(added)} new")
+          for warning in sorted(added):
+              print(json.dumps(warning, ensure_ascii=False))
+          sys.exit(bool(added))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: "!cancelled() && (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'"
+        with:
+          name: anydoc-clippy-diagnostics
+          path: ${{ runner.temp }}/anydoc-clippy/*.jsonl
+          if-no-files-found: error
+          retention-days: 7
 
   # `--all-targets` above covers Rust target kinds for Linux; it does not
   # type-check or execute `cfg(windows)`. Run workspace IO tests natively:
@@ -190,7 +273,19 @@ jobs:
           & $mt -nologo -manifest $manifest "-outputresource:$testExecutable;#1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $testExecutable 'workspace_files::'
-          exit $LASTEXITCODE
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $testExecutable 'document_processing::' --format pretty --color never | Tee-Object -Variable documentResults
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $requiredCases = @(
+            'document_processing::tests::source_copy_refuses_an_existing_writer_and_blocks_writes_until_finished'
+            'document_processing::tests::live_preemption_requeues_same_job_with_first_snapshot_and_without_partial_staging'
+          )
+          foreach ($required in $requiredCases) {
+            if ($documentResults -notcontains "test $required ... ok") { throw "Missing passing Windows test: $required" }
+          }
+          if (-not ($documentResults -match '^test result: ok\. [1-9][0-9]* passed; 0 failed;')) {
+            throw 'Expected a nonempty passing document_processing:: suite'
+          }
       - name: Inspect native test loader imports on failure
         if: failure()
         shell: pwsh
