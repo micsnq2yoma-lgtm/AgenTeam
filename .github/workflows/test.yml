@@ -62,6 +62,9 @@ jobs:
       - name: Limit disk use for the two AnyDoc Clippy builds
         if: (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'
         run: printf '%s\n' CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 >> "$GITHUB_ENV"
+      - name: Limit disk use for K4 native resource and release tests
+        if: (github.head_ref || github.ref_name) == 'feat/kb-k4-index'
+        run: printf '%s\n' CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 >> "$GITHUB_ENV"
       - name: Install Tauri system dependencies
         run: |
           sudo apt-get update
@@ -137,6 +140,41 @@ jobs:
         with:
           name: knowledge-clippy-diagnostics
           path: ${{ runner.temp }}/kb-clippy/*.jsonl
+
+      - uses: actions/setup-node@v4
+        if: (github.head_ref || github.ref_name) == 'feat/kb-k4-index'
+        with:
+          node-version: '24'
+      - name: Verify K4 retrieval after five real document conversions
+        if: (github.head_ref || github.ref_name) == 'feat/kb-k4-index'
+        timeout-minutes: 40
+        env:
+          CARGO_BUILD_JOBS: '2'
+          CMAKE_BUILD_PARALLEL_LEVEL: '2'
+        run: |
+          set -euo pipefail
+          node scripts/prepare-native-inference.mjs x86_64-unknown-linux-gnu --check-prerequisites
+          node scripts/prepare-native-inference.mjs x86_64-unknown-linux-gnu
+          export MYAGENTS_KB_TEST_RESOURCE_ROOT="$PWD/src-tauri/resources"
+          test_name=search::knowledge_indexer::tests::resource_backed_ingestion_indexes_five_formats_end_to_end
+          log="$RUNNER_TEMP/k4-resource-test.log"
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --lib "$test_name" \
+            -- --exact --ignored --nocapture | tee "$log"
+          grep -Fx "test $test_name ... ok" "$log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$log"
+      - name: Measure K4 release search latency over 10,000 chunks
+        if: (github.head_ref || github.ref_name) == 'feat/kb-k4-index'
+        timeout-minutes: 30
+        env:
+          CARGO_BUILD_JOBS: '2'
+        run: |
+          set -euo pipefail
+          test_name=search::knowledge_indexer::tests::knowledge_bm25_10k_chunks_keeps_p95_below_100ms
+          log="$RUNNER_TEMP/k4-benchmark.log"
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib "$test_name" \
+            -- --exact --ignored --nocapture | tee "$log"
+          grep -F '10000 chunks, 120 samples, p95=' "$log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$log"
 
       - name: Compare complete Clippy diagnostics for the AnyDoc fix
         if: "!cancelled() && (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'"
