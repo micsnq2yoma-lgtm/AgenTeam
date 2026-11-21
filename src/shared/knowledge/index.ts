@@ -22,6 +22,9 @@ export const KNOWLEDGE_ERROR_CODES = [
   'KB_SOURCE_UNSUPPORTED',
   'KB_INDEXING',
   'KB_CATEGORY_NOT_ALLOWED',
+  'KB_INVALID_INPUT',
+  'KB_STORE_CORRUPT',
+  'KB_STORE_UNAVAILABLE',
 ] as const;
 
 export type KnowledgeErrorCode = (typeof KNOWLEDGE_ERROR_CODES)[number];

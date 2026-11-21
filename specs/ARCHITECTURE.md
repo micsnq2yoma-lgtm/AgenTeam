@@ -135,6 +135,7 @@ Node → Rust 的反向调用只经过 localhost Management API。应用级资�
 | 新定时自动化 | Rust TaskStore；Cron 只是兼容 surface |
 | Session Goal | SessionGoalManager |
 | Record、录音与转录结果 | RecordStore / RecordingManager / SpeechRecognitionManager |
+| 知识库、来源及元数据 | Rust `KnowledgeStore`，锁内校验与原子提交。 |
 | 工作区文件 | Tauri `cmd_workspace_*` 与 `useWorkspaceFileService()`；[Markdown 编辑器与文件生命周期](tech_docs/workspace_markdown_editor.md) |
 
 兼容旧格式的读取或迁移不构成第二个 writer。具体数据格式、锁序与恢复协议由各模块技术文档维护。
@@ -214,7 +215,7 @@ AgenTeam 包含自建 AgentNet 的客户端。Node Sidecar 负责本机业务适
 | Document Processing | Rust manager + 独立 Document Worker | [文档转换](./tech_docs/document_processing.md) |
 | Record / Speech | Rust RecordStore、RecordingManager、SpeechRecognitionManager + Media Worker | [录音与语音识别](./tech_docs/recording_and_speech_recognition.md) |
 | Search | Rust SearchEngine；Session、Record 与工作区文件索引 | [搜索](./tech_docs/search_architecture.md) |
-| Knowledge Base（K0 契约） | Rust Store 与派生搜索索引的边界。已定义跨语言 ID、引用和元数据 wire | [知识库](./tech_docs/knowledge_base.md) |
+| Knowledge Base | Rust `KnowledgeStore` 持有知识库、来源及元数据。Tauri 命令委托 Store，提交后广播供索引订阅。 | [知识库](./tech_docs/knowledge_base.md) |
 | Terminal / BrowserPanel | Rust native resource manager；绑定 exact Tab/resource generation | [DESIGN](./DESIGN.md)、[Pit-of-Success](./tech_docs/pit_of_success.md) |
 | 托管浏览器工具 | Rust 持有 Chromium 资源、Session capability 与身份持久化；Global Sidecar Registry 持有浏览器/Context，MCP backend 借用 | [托管浏览器](./tech_docs/managed_browser.md) |
 | Floating Companion | Rust 独立窗口 + Renderer 轻量 WebView；以 `Companion` owner 复用 Product Session | [Session](./tech_docs/session_architecture.md) |
