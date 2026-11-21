@@ -7,6 +7,18 @@ pub(crate) fn windows_ntstatus_error(
     std::io::Error::from_raw_os_error(code as i32)
 }
 
+pub(crate) fn preserve_delete_pending(
+    status: windows_sys::Win32::Foundation::NTSTATUS,
+) -> std::io::Error {
+    use windows_sys::Win32::Foundation::{ERROR_DELETE_PENDING, STATUS_DELETE_PENDING};
+
+    if status == STATUS_DELETE_PENDING {
+        std::io::Error::from_raw_os_error(ERROR_DELETE_PENDING as i32)
+    } else {
+        windows_ntstatus_error(status)
+    }
+}
+
 /// Open or create one name relative to a directory handle. The caller maps
 /// NTSTATUS before Win32 collapses distinct conditions into the same error.
 pub(crate) fn open_relative_handle(

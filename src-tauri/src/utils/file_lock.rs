@@ -494,12 +494,12 @@ use std::fs::create_dir as create_lock_directory;
 
 #[cfg(windows)]
 fn create_lock_directory(path: &Path) -> std::io::Result<()> {
-    use crate::utils::windows_fs::{open_relative_handle, windows_ntstatus_error};
+    use crate::utils::windows_fs::{open_relative_handle, preserve_delete_pending};
     use std::os::windows::fs::OpenOptionsExt;
     use windows_sys::Wdk::Storage::FileSystem::{
         FILE_CREATE, FILE_DIRECTORY_FILE, FILE_SYNCHRONOUS_IO_NONALERT,
     };
-    use windows_sys::Win32::Foundation::{ERROR_ACCESS_DENIED, STATUS_DELETE_PENDING};
+    use windows_sys::Win32::Foundation::ERROR_ACCESS_DENIED;
     use windows_sys::Win32::Storage::FileSystem::{
         FILE_ATTRIBUTE_DIRECTORY, FILE_FLAG_BACKUP_SEMANTICS, FILE_LIST_DIRECTORY,
         FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE, SYNCHRONIZE,
@@ -530,13 +530,7 @@ fn create_lock_directory(path: &Path) -> std::io::Result<()> {
         FILE_CREATE,
         FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
         FILE_ATTRIBUTE_DIRECTORY,
-        |status| {
-            if status == STATUS_DELETE_PENDING {
-                std::io::Error::from_raw_os_error(ERROR_DELETE_PENDING as i32)
-            } else {
-                windows_ntstatus_error(status)
-            }
-        },
+        preserve_delete_pending,
     )
     .map(drop)
 }

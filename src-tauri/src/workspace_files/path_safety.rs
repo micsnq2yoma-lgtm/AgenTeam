@@ -1677,11 +1677,12 @@ fn write_relative_file_no_follow_windows_mode<F: FnOnce()>(
     after_parent_opened: F,
     replace: bool,
 ) -> WfResult<()> {
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use crate::utils::windows_fs::{open_relative_handle, preserve_delete_pending};
     use windows_sys::Wdk::Storage::FileSystem::{
         FILE_CREATE, FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_REPARSE_POINT,
         FILE_SYNCHRONOUS_IO_NONALERT, FILE_WRITE_THROUGH,
     };
+    use windows_sys::Win32::Foundation::ERROR_DELETE_PENDING;
     use windows_sys::Win32::Storage::FileSystem::{
         DELETE, FILE_ATTRIBUTE_NORMAL, FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ,
         FILE_SHARE_WRITE, FILE_WRITE_DATA, SYNCHRONIZE,
@@ -1713,21 +1714,15 @@ fn write_relative_file_no_follow_windows_mode<F: FnOnce()>(
         }
     }
 
-    // A colliding writer can leave its old temp name pending deletion until
-    // Windows releases the final handle. Allocate a fresh name for each
-    // in-process attempt, while keeping real access-denied errors visible.
-    static NEXT_TEMP_NONCE: AtomicU64 = AtomicU64::new(0);
-    for _ in 0..100 {
-        let nonce = NEXT_TEMP_NONCE.fetch_add(1, Ordering::Relaxed);
+    for nonce in 0..100u32 {
         let temp_name = format!(
             ".{}.myagents-{}-{}.tmp",
             leaf.to_string_lossy(),
             std::process::id(),
             nonce
         );
-        let mut file = match open_windows_relative_handle(
-            &parent,
-            std::ffi::OsStr::new(&temp_name),
+        let mut file = match open_relative_handle(
+            (&parent, std::ffi::OsStr::new(&temp_name)),
             FILE_WRITE_DATA | FILE_READ_ATTRIBUTES | DELETE | SYNCHRONIZE,
             FILE_SHARE_READ,
             FILE_CREATE,
@@ -1736,8 +1731,12 @@ fn write_relative_file_no_follow_windows_mode<F: FnOnce()>(
                 | FILE_SYNCHRONOUS_IO_NONALERT
                 | FILE_WRITE_THROUGH,
             FILE_ATTRIBUTE_NORMAL,
+            preserve_delete_pending,
         ) {
             Ok(file) => file,
+            // The previous writer can be retiring this name after a lost
+            // no-replace race. A permission error still fails immediately.
+            Err(error) if error.raw_os_error() == Some(ERROR_DELETE_PENDING as i32) => continue,
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
             Err(error) => return Err(format!("Failed to create attachment temp file: {}", error)),
         };
@@ -2299,6 +2298,31 @@ mod tests {
         write_workspace_file_no_follow(&ws, "a", b"second").unwrap();
         assert_eq!(fs::read(ws.join("a")).unwrap(), b"second");
         let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn no_follow_workspace_writer_skips_a_delete_pending_temp_name() {
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Storage::FileSystem::DELETE;
+
+        let ws = tempfile::tempdir().unwrap();
+        let target = ws.path().join("result.txt");
+        fs::write(&target, b"committed").unwrap();
+        let temp = ws
+            .path()
+            .join(format!(".result.txt.myagents-{}-0.tmp", std::process::id()));
+        fs::write(&temp, b"retiring").unwrap();
+        let retiring = fs::OpenOptions::new()
+            .access_mode(DELETE)
+            .open(&temp)
+            .unwrap();
+        delete_windows_file_by_handle(&retiring).unwrap();
+
+        write_workspace_file_no_follow(ws.path(), "result.txt", b"replacement").unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"replacement");
+        drop(retiring);
+        assert!(!temp.exists());
     }
 
     #[cfg(windows)]
