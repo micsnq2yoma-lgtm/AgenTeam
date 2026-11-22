@@ -46,7 +46,8 @@ fn knowledge_acceptance_checks_every_lock_combination_after_reopening() {
         (
             MetadataKey::Category,
             json!("user category"),
-            json!("agent category"),
+            // The template's first approved category: agents may not invent one.
+            json!(allowed_categories(LIBRARY_TEMPLATES[0].1)[0]),
         ),
         (MetadataKey::Tags, json!(["user tag"]), json!(["agent tag"])),
     ];

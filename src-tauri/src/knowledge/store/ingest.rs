@@ -625,6 +625,7 @@ impl KnowledgeStore {
                         status: SourceStatus::Queued,
                     },
                 },
+                curation_pending: false,
                 ingest: Some(ImportRecord {
                     id: id.clone(),
                     extension,

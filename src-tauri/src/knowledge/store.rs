@@ -11,7 +11,11 @@ use uuid::Uuid;
 
 mod chunks;
 pub use chunks::ResolvedFragment;
+mod curation;
 pub mod ingest;
+pub use curation::{
+    CategoryProposal, CurationContext, PendingCurationSource, CURATION_BATCH_LIMIT,
+};
 
 use crate::durable_fs::{rename_directory_noreplace, sync_directory};
 use crate::utils::file_lock::{with_file_lock_blocking, FileLockOptions};
@@ -27,7 +31,8 @@ use super::types::{
 };
 
 use KnowledgeErrorCode::{
-    KbFieldLocked, KbInvalidInput, KbLimitExceeded, KbNotFound, KbStoreCorrupt, KbStoreUnavailable,
+    KbCategoryNotAllowed, KbFieldLocked, KbInvalidInput, KbLimitExceeded, KbNotFound,
+    KbStoreCorrupt, KbStoreUnavailable,
 };
 
 pub type StoreResult<T> = Result<T, KnowledgeErrorCode>;
@@ -275,6 +280,11 @@ struct SourceRecord {
     source: KnowledgeSource,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     ingest: Option<ingest::ImportRecord>,
+    /// Ready content that still waits for a curation round. Set when a content
+    /// version becomes ready and cleared when the curator writes its metadata,
+    /// so a failed round leaves the source queued for the next one.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    curation_pending: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -559,6 +569,11 @@ impl KnowledgeStore {
         self.locked_kb(kb_id, Some(source_id), |files, _| {
             let _permit = authorize(&files.read_kb(kb_id)?)?;
             let mut record = files.require_record(kb_id, source_id)?;
+            // Only the user grows the category list; an agent proposes instead.
+            let approved = (actor == KnowledgeMetadataOrigin::Agent
+                && fields.contains_key(&MetadataKey::Category))
+            .then(|| files.approved_categories(kb_id))
+            .transpose()?;
             let source = &mut record.source;
             let updated_at = Utc::now().to_rfc3339();
             let mut outcomes = BTreeMap::new();
@@ -577,6 +592,22 @@ impl KnowledgeStore {
                     );
                     continue;
                 }
+                if key == MetadataKey::Category {
+                    if let Some(approved) = &approved {
+                        if !value
+                            .as_str()
+                            .is_some_and(|path| approved.iter().any(|known| known == path))
+                        {
+                            outcomes.insert(
+                                key,
+                                MetadataOutcome::Rejected {
+                                    code: KbCategoryNotAllowed,
+                                },
+                            );
+                            continue;
+                        }
+                    }
+                }
                 source.metadata.insert(
                     key,
                     KnowledgeMetadataField {
@@ -591,6 +622,10 @@ impl KnowledgeStore {
                 .values()
                 .any(|outcome| *outcome == MetadataOutcome::Updated)
             {
+                // The curator's write settles this source's turn in the queue.
+                if actor == KnowledgeMetadataOrigin::Agent {
+                    record.curation_pending = false;
+                }
                 files.write_json(&source_path(kb_id, source_id), &record)?;
                 let _ = self.changes.send(KnowledgeChange::MetadataChanged {
                     kb_id: kb_id.into(),

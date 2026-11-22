@@ -3,6 +3,9 @@ use std::sync::Barrier;
 use serde_json::json;
 use tempfile::tempdir;
 
+use super::curation::{
+    allowed_categories, valid_category, with_category, CategoryProposal, MAX_PENDING_CATEGORIES,
+};
 use super::*;
 
 fn settings(name: &str) -> KnowledgeBasePatch {
@@ -104,7 +107,11 @@ fn knowledge_concurrent_read_modify_write_preserves_eight_fields() {
     let fields = [
         (MetadataKey::Summary, json!("summary")),
         (MetadataKey::Tags, json!(["tag"])),
-        (MetadataKey::Category, json!("category")),
+        // Agents may only use categories the library's rules approve.
+        (
+            MetadataKey::Category,
+            json!(allowed_categories(LIBRARY_TEMPLATES[0].1)[0]),
+        ),
         (MetadataKey::DocType, json!("note")),
         (MetadataKey::Date, json!("2026-11-21")),
         (MetadataKey::Entities, json!(["project"])),
@@ -750,4 +757,295 @@ fn library_template_writes_refuse_a_redirected_library_directory() {
         .write_text(&format!("{staged}/ORGANIZE_RULES.md"), "x")
         .is_err());
     assert_eq!(fs::read_dir(outside.path()).unwrap().count(), 0);
+}
+
+fn agent_category(
+    store: &KnowledgeStore,
+    kb: &str,
+    source: &str,
+    value: Value,
+) -> BTreeMap<MetadataKey, MetadataOutcome> {
+    store
+        .set_agent_metadata(kb, source, field(MetadataKey::Category, value), |_| Ok(()))
+        .unwrap()
+}
+
+#[test]
+fn category_parser_reads_only_the_category_section_outside_code() {
+    let rules = "# Rules\n- `ignored`：before the section\n\n## 分类体系\n\n- `客户/A公司`：合同\n- `参考资料`\n- `bad//path`：empty segment\n- `../up`：traversal\n- 没有反引号：not a category\n```\n- `fenced`：inside code\n```\n- `参考资料`：duplicate\n\n## 标签\n- `tag-only`：other section\n";
+    assert_eq!(allowed_categories(rules), ["客户/A公司", "参考资料"]);
+    assert!(allowed_categories("").is_empty());
+    for bad in [
+        "", "/a", "a/", "a//b", " a", "a/ b", "a/../b", "a/./b", "a`b", "a\nb",
+    ] {
+        assert!(!valid_category(bad), "{bad:?}");
+    }
+    assert!(valid_category("客户/A公司/合同"));
+}
+
+#[test]
+fn approving_a_category_edits_only_the_category_section() {
+    let template = LIBRARY_TEMPLATES[0].1;
+    let updated = with_category(template, "客户/A公司");
+    assert!(allowed_categories(&updated).contains(&"客户/A公司".to_string()));
+    assert_eq!(
+        allowed_categories(&updated).len(),
+        allowed_categories(template).len() + 1
+    );
+    // Everything outside the one inserted bullet is byte-for-byte unchanged.
+    let removed: Vec<&str> = updated
+        .lines()
+        .filter(|line| !template.lines().any(|old| old == *line))
+        .collect();
+    assert_eq!(removed, ["- `客户/A公司`：用户确认新增"]);
+    assert_eq!(
+        with_category(&updated, "客户/A公司")
+            .matches("客户/A公司")
+            .count(),
+        2
+    );
+    // A file without the section gets one appended.
+    let bare = with_category("# My rules", "新类");
+    assert_eq!(allowed_categories(&bare), ["新类"]);
+}
+
+#[test]
+fn an_agent_may_only_use_approved_categories_until_the_user_approves_more() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Rules")).unwrap();
+    let source = store.create_source(&kb.id, note()).unwrap();
+
+    let approved = allowed_categories(LIBRARY_TEMPLATES[0].1)[0].clone();
+    assert_eq!(
+        agent_category(&store, &kb.id, &source.id, json!(approved))[&MetadataKey::Category],
+        MetadataOutcome::Updated
+    );
+    for rejected in [json!("全新分类"), json!(7), json!(null)] {
+        assert_eq!(
+            agent_category(&store, &kb.id, &source.id, rejected)[&MetadataKey::Category],
+            MetadataOutcome::Rejected {
+                code: KnowledgeErrorCode::KbCategoryNotAllowed
+            }
+        );
+    }
+
+    // Proposing never approves; the user does.
+    assert_eq!(
+        store
+            .propose_category(&kb.id, "全新分类", |_| Ok(()))
+            .unwrap(),
+        CategoryProposal::Proposed
+    );
+    assert_eq!(
+        store
+            .propose_category(&kb.id, "全新分类", |_| Ok(()))
+            .unwrap(),
+        CategoryProposal::AlreadyPending
+    );
+    assert_eq!(
+        store
+            .propose_category(&kb.id, &approved, |_| Ok(()))
+            .unwrap(),
+        CategoryProposal::Allowed
+    );
+    assert_eq!(store.list().unwrap()[0].pending_categories, ["全新分类"]);
+    assert_eq!(
+        agent_category(&store, &kb.id, &source.id, json!("全新分类"))[&MetadataKey::Category],
+        MetadataOutcome::Rejected {
+            code: KnowledgeErrorCode::KbCategoryNotAllowed
+        }
+    );
+
+    store.confirm_category(&kb.id, "全新分类").unwrap();
+    assert!(store.list().unwrap()[0].pending_categories.is_empty());
+    assert_eq!(
+        agent_category(&store, &kb.id, &source.id, json!("全新分类"))[&MetadataKey::Category],
+        MetadataOutcome::Updated
+    );
+    // The user's own writes are not limited to the list.
+    let user = store
+        .set_metadata(
+            &kb.id,
+            &source.id,
+            KnowledgeMetadataOrigin::User,
+            field(MetadataKey::Category, json!("私人分类")),
+        )
+        .unwrap();
+    assert_eq!(user[&MetadataKey::Category], MetadataOutcome::Updated);
+}
+
+#[test]
+fn category_proposals_validate_authorize_and_can_be_dismissed() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Proposals")).unwrap();
+    assert_eq!(
+        store.propose_category(&kb.id, "../x", |_| Ok(())),
+        Err(KnowledgeErrorCode::KbInvalidInput)
+    );
+    assert_eq!(
+        store.propose_category(&kb.id, "ok", |_| Err::<(), _>(
+            KnowledgeErrorCode::KbAccessDenied
+        )),
+        Err(KnowledgeErrorCode::KbAccessDenied)
+    );
+    assert!(store.list().unwrap()[0].pending_categories.is_empty());
+    assert_eq!(
+        store.confirm_category(&kb.id, "never-proposed"),
+        Err(KnowledgeErrorCode::KbNotFound)
+    );
+    store.propose_category(&kb.id, "ok", |_| Ok(())).unwrap();
+    store.dismiss_category(&kb.id, "ok").unwrap();
+    assert_eq!(
+        store.dismiss_category(&kb.id, "ok"),
+        Err(KnowledgeErrorCode::KbNotFound)
+    );
+    for index in 0..MAX_PENDING_CATEGORIES {
+        store
+            .propose_category(&kb.id, &format!("c{index}"), |_| Ok(()))
+            .unwrap();
+    }
+    assert_eq!(
+        store.propose_category(&kb.id, "one-more", |_| Ok(())),
+        Err(KnowledgeErrorCode::KbLimitExceeded)
+    );
+}
+
+#[test]
+fn approving_a_category_restores_missing_rules_and_is_repeatable_after_a_crash() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Old library")).unwrap();
+    let rules = data
+        .path()
+        .join("knowledge")
+        .join(&kb.id)
+        .join("ORGANIZE_RULES.md");
+    fs::remove_file(&rules).unwrap();
+    // No rules file: an agent has no approved category at all.
+    let source = store.create_source(&kb.id, note()).unwrap();
+    assert_eq!(
+        agent_category(&store, &kb.id, &source.id, json!("参考资料"))[&MetadataKey::Category],
+        MetadataOutcome::Rejected {
+            code: KnowledgeErrorCode::KbCategoryNotAllowed
+        }
+    );
+    store.propose_category(&kb.id, "新类", |_| Ok(())).unwrap();
+    // Interrupted approval: rules already list the category, kb.json still pending.
+    fs::write(&rules, with_category(LIBRARY_TEMPLATES[0].1, "新类")).unwrap();
+    store.confirm_category(&kb.id, "新类").unwrap();
+    assert!(store.list().unwrap()[0].pending_categories.is_empty());
+    assert_eq!(
+        fs::read_to_string(&rules)
+            .unwrap()
+            .matches("`新类`")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn a_curators_write_settles_the_pending_mark_but_a_rejected_one_does_not() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Queue")).unwrap();
+    let source = store.create_source(&kb.id, note()).unwrap();
+    store.mark_curation_pending(&kb.id, &source.id).unwrap();
+    assert_eq!(store.pending_curation(&kb.id).unwrap().0.len(), 1);
+
+    // A rejected category write changes nothing, so the source stays queued.
+    agent_category(&store, &kb.id, &source.id, json!("全新分类"));
+    assert_eq!(store.pending_curation(&kb.id).unwrap().0.len(), 1);
+    // The user's edit is not curation.
+    store
+        .set_metadata(
+            &kb.id,
+            &source.id,
+            KnowledgeMetadataOrigin::User,
+            field(MetadataKey::Tags, json!(["x"])),
+        )
+        .unwrap();
+    assert_eq!(store.pending_curation(&kb.id).unwrap().0.len(), 1);
+
+    store
+        .set_agent_metadata(
+            &kb.id,
+            &source.id,
+            field(MetadataKey::Summary, json!("s")),
+            |_| Ok(()),
+        )
+        .unwrap();
+    assert!(store.pending_curation(&kb.id).unwrap().0.is_empty());
+}
+
+#[test]
+fn a_curation_round_is_capped_and_the_context_reports_the_remainder() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Batch")).unwrap();
+    for index in 0..CURATION_BATCH_LIMIT + 3 {
+        let facts = SourceFacts {
+            content_hash: Some(format!("{index:064x}")),
+            ..note()
+        };
+        let source = store.create_source(&kb.id, facts).unwrap();
+        store.mark_curation_pending(&kb.id, &source.id).unwrap();
+    }
+    let (batch, more) = store.pending_curation(&kb.id).unwrap();
+    assert_eq!(batch.len(), CURATION_BATCH_LIMIT);
+    assert!(more);
+    assert!(batch
+        .windows(2)
+        .all(|pair| pair[0].source_id < pair[1].source_id));
+    assert!(batch[0]
+        .reference
+        .starts_with(&format!("kb://{}/src_", kb.id)));
+
+    // Settling the first batch brings the rest into the next round.
+    for source in &batch {
+        store
+            .set_agent_metadata(
+                &kb.id,
+                &source.source_id,
+                field(MetadataKey::Summary, json!("s")),
+                |_| Ok(()),
+            )
+            .unwrap();
+    }
+    let (rest, more) = store.pending_curation(&kb.id).unwrap();
+    assert_eq!(rest.len(), 3);
+    assert!(!more);
+}
+
+#[test]
+fn the_curation_context_carries_rules_schema_index_and_approved_categories() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Context")).unwrap();
+    let context = store.curation_context(&kb.id).unwrap();
+    assert_eq!(context.rules.as_deref(), Some(LIBRARY_TEMPLATES[0].1));
+    assert_eq!(context.wiki_schema.as_deref(), Some(LIBRARY_TEMPLATES[1].1));
+    assert_eq!(context.wiki_index, None);
+    assert_eq!(
+        context.categories,
+        allowed_categories(LIBRARY_TEMPLATES[0].1)
+    );
+    assert!(context.pending.is_empty() && !context.more_pending);
+
+    let root = data.path().join("knowledge").join(&kb.id);
+    fs::create_dir(root.join("wiki")).unwrap();
+    fs::write(root.join("wiki/index.md"), "# index").unwrap();
+    assert_eq!(
+        store
+            .curation_context(&kb.id)
+            .unwrap()
+            .wiki_index
+            .as_deref(),
+        Some("# index")
+    );
+    assert_eq!(
+        store.curation_context("kb_000000000000"),
+        Err(KnowledgeErrorCode::KbNotFound)
+    );
 }
