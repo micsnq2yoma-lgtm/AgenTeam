@@ -187,6 +187,9 @@
       "capKeepFilesDescription": "Assistant persona and memory files are only added; files already in the folder are never overwritten"
     }
   },
+  "runtimeSelector": {
+    "label": "Environment"
+  },
   "workspaceSelector": {
     "label": "Project",
     "selectWorkspace": "Select project",

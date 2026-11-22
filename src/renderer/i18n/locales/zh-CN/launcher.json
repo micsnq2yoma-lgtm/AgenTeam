@@ -187,6 +187,9 @@
       "capKeepFilesDescription": "助理的人格与记忆文件只会补充进来，不会覆盖文件夹里已有的同名文件"
     }
   },
+  "runtimeSelector": {
+    "label": "环境"
+  },
   "workspaceSelector": {
     "label": "项目",
     "selectWorkspace": "选择项目",

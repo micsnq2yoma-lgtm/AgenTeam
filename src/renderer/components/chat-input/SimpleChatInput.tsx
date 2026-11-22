@@ -229,6 +229,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
   sdkSlashCommands = [],
   mode = 'chat',
   toolbarPrefix,
+  toolbarSuffix,
   contextHeader,
   contextIndicator,
   // Whether this input belongs to the currently active tab. Used to gate document-level
@@ -2002,6 +2003,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
               </Popover>
               </>
 
+              {toolbarSuffix}
             </div>
 
             {/* Right side - model selector + send/stop button */}
