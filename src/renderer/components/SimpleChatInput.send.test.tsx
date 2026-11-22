@@ -458,6 +458,23 @@ describe('SimpleChatInput send paths', () => {
     expect(onPermissionModeChange).toHaveBeenCalledWith('acceptEdits');
   });
 
+  it('keeps the English launcher permission label on one line and exposes its full name', async () => {
+    const language = i18n.language;
+    await i18n.changeLanguage('en-US');
+    try {
+      renderInput({ mode: 'launcher', runtime: 'builtin', permissionMode: 'auto' });
+      const trigger = screen.getByRole('button', { name: 'Ask for approval' });
+      expect(trigger).toHaveAttribute('aria-label', 'Ask for approval');
+      expect(trigger).toHaveClass('min-w-0');
+      expect(within(trigger).getByText('Ask for approval')).toHaveClass('truncate');
+
+      fireEvent.click(trigger);
+      expect(await screen.findByText('Session mode')).toBeInTheDocument();
+    } finally {
+      await act(async () => { await i18n.changeLanguage(language); });
+    }
+  });
+
   it.each([
     { runtime: 'builtin' as const, modes: undefined, initial: 'auto', key: 'fullAgency' },
     { runtime: 'dsh' as const, modes: DSH_PERMISSION_MODES, initial: 'approval-required', key: 'full-autonomous' },

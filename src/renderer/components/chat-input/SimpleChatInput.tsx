@@ -1548,7 +1548,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                   setShowToolMenu(false);
                   setShowPlusMenu(!showPlusMenu);
                 }}
-                className="rounded-lg p-2 text-[var(--ink-muted)] transition-colors hover:bg-[var(--paper-inset)] hover:text-[var(--ink)]"
+                className="shrink-0 rounded-lg p-2 text-[var(--ink-muted)] transition-colors hover:bg-[var(--paper-inset)] hover:text-[var(--ink)]"
                 title={t('input.addContext')}
               >
                 <PlusIcon className="h-4 w-4" />
@@ -1662,6 +1662,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
               <button
                 ref={modeBtnRef}
                 type="button"
+                aria-label={currentModeDisplay?.label ?? t('input.permissionModeTitle')}
                 aria-disabled={configControlsLocked}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1671,7 +1672,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                   setShowPlusMenu(false);
                   setShowToolMenu(false);
                 }}
-                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--ink-muted)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--ink)] ${
+                className={`flex min-w-0 items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--ink-muted)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--ink)] ${
                   configControlsLocked ? 'cursor-not-allowed opacity-50 hover:bg-transparent hover:text-[var(--ink-muted)]' : ''
                 }`}
                 title={configControlLockTitle ?? t('input.permissionModeTitle')}
@@ -1681,8 +1682,8 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                   fallback={currentModeDisplay?.icon}
                   className="h-3.5 w-3.5 shrink-0"
                 />
-                <span className="toolbar-label">{currentModeDisplay?.label}</span>
-                <ChevronUpIcon className="h-3 w-3" />
+                <span className="toolbar-label truncate" title={currentModeDisplay?.label}>{currentModeDisplay?.label}</span>
+                <ChevronUpIcon className="h-3 w-3 shrink-0" />
               </button>
               <Popover
                 open={modeMenuOpen}
@@ -1726,13 +1727,13 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                   setShowModelMenu(false);
                   setShowPlusMenu(false);
                 }}
-                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--ink-muted)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--ink)] ${
+                className={`flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--ink-muted)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--ink)] ${
                   configControlsLocked ? 'cursor-not-allowed opacity-50 hover:bg-transparent hover:text-[var(--ink-muted)]' : ''
                 }`}
                 title={configControlLockTitle ?? t('input.toolsTitle')}
               >
                 <WrenchIcon className="h-3.5 w-3.5" />
-                <span className="toolbar-label">{t('input.toolsLabel')}</span>
+                <span className="toolbar-label whitespace-nowrap">{t('input.toolsLabel')}</span>
                 {enabledToolEntryCount > 0 && (
                   <span className="text-xs text-[var(--ink-muted)]">
                     {enabledToolEntryCount}
@@ -1999,7 +2000,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
             </div>
 
             {/* Right side - model selector + send/stop button */}
-            <div className="ml-auto flex items-center gap-2 shrink-0">
+            <div className="ml-auto flex min-w-0 items-center gap-2">
               {/* PRD 0.2.32 — context 用量指示器（自取数 slot，model 按钮左侧） */}
               {contextIndicator}
               {/* Model Dropdown with Provider Selector */}
@@ -2020,7 +2021,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                     onRefreshProviders();
                   }
                 }}
-                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--ink-muted)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--ink)] ${
+                className={`flex min-w-0 items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-[var(--ink-muted)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--ink)] ${
                   configControlsLocked ? 'cursor-not-allowed opacity-50 hover:bg-transparent hover:text-[var(--ink-muted)]' : ''
                 }`}
                 title={configControlLockTitle ?? t('input.switchModel')}
@@ -2286,7 +2287,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                 <button
                   type="button"
                   disabled
-                  className="rounded-lg bg-[var(--ink-muted)]/15 p-2 text-[var(--ink-muted)]/60"
+                  className="shrink-0 rounded-lg bg-[var(--ink-muted)]/15 p-2 text-[var(--ink-muted)]/60"
                   title={t('input.systemBusy')}
                 >
                   <SendIcon className="h-4 w-4" />
@@ -2296,7 +2297,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                 <button
                   type="button"
                   disabled
-                  className="rounded-lg bg-[var(--ink-muted)]/15 p-2 text-[var(--ink-muted)]"
+                  className="shrink-0 rounded-lg bg-[var(--ink-muted)]/15 p-2 text-[var(--ink-muted)]"
                   title={t('input.stopping')}
                 >
                   <LoaderIcon className="h-4 w-4 animate-spin" />
@@ -2311,7 +2312,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                 <button
                   type="button"
                   onClick={onStop}
-                  className="rounded-lg bg-[var(--error)] p-2 text-[var(--on-error)] transition-colors hover:brightness-110"
+                  className="shrink-0 rounded-lg bg-[var(--error)] p-2 text-[var(--on-error)] transition-colors hover:brightness-110"
                   title={systemStatus?.startsWith('api_retry:') ? t('input.stopRetry') : t('input.stop')}
                 >
                   <StopIcon className="h-4 w-4" />
@@ -2321,7 +2322,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                   type="button"
                   onClick={handleSend}
                   disabled={!canSendMessage || (!inputValue.trim() && images.length === 0)}
-                  className="rounded-lg bg-[var(--button-primary-bg)] p-2 text-[var(--button-primary-text)] transition-colors hover:bg-[var(--button-primary-bg-hover)] disabled:bg-[var(--ink-muted)]/15 disabled:text-[var(--ink-muted)]/60"
+                  className="shrink-0 rounded-lg bg-[var(--button-primary-bg)] p-2 text-[var(--button-primary-text)] transition-colors hover:bg-[var(--button-primary-bg-hover)] disabled:bg-[var(--ink-muted)]/15 disabled:text-[var(--ink-muted)]/60"
                   title={!canSendMessage
                     ? (providerUnavailableMessage ?? t(managedModelSelectionMissing ? 'input.selectModel' : 'input.providerUnavailableDefault'))
                     : `${t('input.send')} (${sendKeyHint(sendShortcut, isMac).shortcut})`}
