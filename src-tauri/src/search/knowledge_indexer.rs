@@ -15,7 +15,9 @@ use tantivy::{Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Ta
 use tokio::sync::broadcast;
 
 use crate::knowledge::chunker::KnowledgeChunk;
-use crate::knowledge::store::{KnowledgeChange, KnowledgeSource, KnowledgeStore, MetadataKey};
+use crate::knowledge::store::{
+    KnowledgeChange, KnowledgeSource, KnowledgeStore, MetadataKey, SourceKind,
+};
 use crate::knowledge::types::{
     format_knowledge_ref, is_knowledge_base_id, is_knowledge_source_id, KnowledgeErrorCode,
     KnowledgeRef,
@@ -545,6 +547,13 @@ impl IndexState {
         doc.add_text(f.source_id, &source.id);
         doc.add_text(f.source_key, source_key(kb, &source.id));
         doc.add_text(f.doc_kind, kind);
+        let source_kind = match source.facts.kind {
+            SourceKind::File => "file",
+            SourceKind::Note => "note",
+            SourceKind::Wiki => "wiki",
+            SourceKind::LinkedFile => "linked-file",
+        };
+        doc.add_text(f.source_kind, source_kind);
         doc.add_text(f.title, source.display_title());
         if let Some(tags) = source
             .metadata

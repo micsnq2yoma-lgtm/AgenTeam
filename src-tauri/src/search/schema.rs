@@ -21,7 +21,7 @@ pub const SCHEMA_VERSION: u32 = 3;
 // their existing schema so a history-search upgrade does not rebuild them.
 pub const SESSION_SCHEMA_VERSION: u32 = 4;
 pub const RECORD_SCHEMA_VERSION: u32 = 2;
-pub(super) const KNOWLEDGE_SCHEMA_VERSION: u32 = 1;
+pub(super) const KNOWLEDGE_SCHEMA_VERSION: u32 = 2;
 
 fn chinese_text_options() -> TextOptions {
     TextOptions::default().set_stored().set_indexing_options(
@@ -161,6 +161,7 @@ pub(super) struct KnowledgeFields {
     pub category: Field,
     pub doc_type: Field,
     pub page: Field,
+    pub source_kind: Field,
 }
 
 pub(super) fn knowledge_schema() -> (Schema, KnowledgeFields) {
@@ -181,6 +182,7 @@ pub(super) fn knowledge_schema() -> (Schema, KnowledgeFields) {
         category: builder.add_text_field("category", STRING),
         doc_type: builder.add_text_field("doc_type", STRING),
         page: builder.add_u64_field("page", STORED),
+        source_kind: builder.add_text_field("source_kind", STRING),
     };
     (builder.build(), fields)
 }

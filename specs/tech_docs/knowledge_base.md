@@ -240,7 +240,7 @@ Skill 中出现的每条 `myagents kb` 命令和参数都必须存在于 `KNOWLE
 
 `myagents kb curation context` 返回规则、wiki 规范、wiki 首页和白名单。缺失文件返回 `null`。官方 CLI 对规则、规范和首页使用 `<kb-content>` 包裹并转义。分类解析采用 ``- `路径`：说明``，只读取规则的「分类体系」，忽略代码块。新路径由整理会话提议，经用户通过 Tauri 确认才可加入规则。先发布规则再清理待确认项，使中断后的确认可重复。
 
-`kb wiki write` 只接收 Workspace 内的 UTF-8 文件，大小最多 1 MiB，每库最多 2,000 个页面。目标必须是 `wiki/` 内的 Markdown 相对路径，拒绝父目录、绝对路径、符号链接及 Windows junction。更新同一路径保留 Source ID，规范化内容按原子来源目录事务提交，随后发布命名 wiki 文件。若两步之间中断，Store 在启动或下一次写入时从已提交且摘要校验一致的版本补齐命名文件。通用来源移除只撤销登记，保留的命名页仍占页面额度。搜索索引订阅来源提交广播，来源类型使用 `SourceKind::Wiki`。既有 Tantivy `doc_kind` 区分摘要和切块记录，其与 K8 验收所称 wiki 类型的映射见交付待决项。
+`kb wiki write` 只接收 Workspace 内的 UTF-8 文件，大小最多 1 MiB，每库最多 2,000 个页面。目标必须是 `wiki/` 内的 Markdown 相对路径，拒绝父目录、绝对路径、符号链接及 Windows junction。更新同一路径保留 Source ID，规范化内容按原子来源目录事务提交，随后发布命名 wiki 文件。若两步之间中断，Store 在启动或下一次写入时从已提交且摘要校验一致的版本补齐命名文件。通用来源移除只撤销登记，保留的命名页仍占页面额度。搜索索引订阅来源提交广播。Tantivy 的 `doc_kind` 继续区分 `source_summary` 和 `chunk`。索引版本 2 为两类记录都新增 `source_kind`，取值为 `file`、`note`、`wiki`、`linked-file`，由 Store 的 `SourceKind` 投影。启动时复用版本检查，仅从 Store 重建知识库 BM25 索引，保留原始资料和其他搜索索引。
 
 `kb wiki log` 只能追加到 `wiki/log.md`，该页不作为可检索来源。lint 报告经 v1 schema 验证，要求 UTC 生成时间、受支持的问题类型、库内 Markdown 路径和属于同一知识库的引用。报告保存在库的 `wiki/lint/`，供后续 UI 展示。
 
