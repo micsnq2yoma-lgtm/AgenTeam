@@ -1,0 +1,66 @@
+name: Verify the signed Windows 0.6.8 upgrade
+on:
+  push:
+    branches: [codex/qa-agenteam-v0.6.8]
+    paths: [.github/workflows/qa-agenteam-v068.yml, qa/**]
+permissions:
+  actions: read
+  contents: read
+env:
+  REPO: micsnq2yoma-lgtm/AgenTeam
+  SOURCE: 91836a075f48002f9c43c694d24230d35535a6b7
+  BUILD: '44987895035'
+  PACKAGE: AgenTeam_0.6.8_x64-setup.exe
+jobs:
+  verify:
+    if: github.repository == 'micsnq2yoma-lgtm/AgenTeam'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download the exact installers and dedicated loopback shell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $root = Join-Path $env:RUNNER_TEMP 'agenteam-068-upgrade'
+          "QA_ROOT=$root" >> $env:GITHUB_ENV
+          $build = gh api "repos/$env:REPO/actions/runs/$env:BUILD" | ConvertFrom-Json
+          if ($build.head_sha -cne $env:SOURCE -or $build.conclusion -ne 'success') { throw 'Unexpected build source' }
+          gh run download 44299783178 --repo $env:REPO --name 'AgenTeam-Windows-x64-8384e2d06013b68f36ed4ed256beeef9b4fb9566' --dir "$root/original"
+          gh run download $env:BUILD --repo $env:REPO --name "AgenTeam-Windows-x64-$env:SOURCE" --dir "$root/target"
+          gh run download 44321078206 --repo $env:REPO --name 'baseline-060-loopback-shell' --dir "$root/shell"
+          $target = Join-Path $root 'target'
+          $metadata = 'qa/agenteam-068-metadata'
+          $expected = @(Get-Content -LiteralPath "$metadata/SHA256SUMS")
+          $installer = Join-Path $target $env:PACKAGE
+          $hash = (Get-FileHash -LiteralPath $installer).Hash.ToLowerInvariant()
+          $record = "$hash  $env:PACKAGE"
+          if ((Get-Content -LiteralPath "$target/SHA256SUMS") -cne $record -or $expected -cnotcontains $record) { throw 'Installer digest mismatch' }
+          foreach ($file in "$env:PACKAGE.sig",'latest.json') {
+            $path = Join-Path $metadata $file
+            $hash = (Get-FileHash -LiteralPath $path).Hash.ToLowerInvariant()
+            if ($expected -cnotcontains "$hash  $file") { throw 'Signed metadata digest mismatch' }
+            Copy-Item -LiteralPath $path -Destination $target
+          }
+      - name: Verify download, cache recovery, rejection paths, native install and retained data
+        shell: pwsh
+        run: ./qa/prepare-agenteam-upgrade-068.ps1
+      - name: Collect limited updater diagnostics
+        if: failure()
+        shell: pwsh
+        run: |
+          $logs = Join-Path $env:USERPROFILE '.agenteam/logs'
+          if (Test-Path -LiteralPath $logs) {
+            Get-ChildItem -LiteralPath $logs -File -Recurse | Where-Object Length -lt 20MB | Select-String -Pattern '\[Updater\]' | Select-Object -Last 30 | ForEach-Object { $_.Line.Substring(0,[Math]::Min($_.Line.Length,350)) }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: AgenTeam-0.6.8-upgrade-evidence
+          path: ${{ runner.temp }}/agenteam-068-upgrade/evidence/
+          retention-days: 30
