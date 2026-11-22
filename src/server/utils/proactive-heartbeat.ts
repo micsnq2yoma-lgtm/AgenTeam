@@ -6,7 +6,7 @@ export const PROACTIVE_RULES_FILE = join('memory', 'PROACTIVE_RULES.md');
 export const PROACTIVE_SKILL = 'agenteam-proactive';
 
 export function isProactiveEnabled(rulesText: string): boolean {
-  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(rulesText.replace(/^﻿/, ''));
+  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(rulesText.replace(/^\uFEFF/, ''));
   if (!front) return false;
   return front[1].split(/\r?\n/).some(line => /^enabled\s*:\s*["']?true["']?\s*$/i.test(line.trim()));
 }
