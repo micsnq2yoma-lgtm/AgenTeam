@@ -176,6 +176,32 @@ function readClaudeRulesOnly(workspacePath: string): WorkspaceInstruction[] {
   return rules;
 }
 
+/**
+ * Snapshot of the instruction files a Runtime loads at Session birth
+ * (CLAUDE.md, .claude/CLAUDE.md and .claude/rules), with the same symlink
+ * rejection and size, count and depth caps. Paths are workspace-relative with
+ * `/` separators. Used to tell a live Session when these files changed.
+ */
+export function readWorkspaceInstructionSnapshot(
+  workspacePath: string,
+): Array<{ path: string; content: string }> {
+  const instructions: WorkspaceInstruction[] = [];
+  const budget: CollectBudget = { totalBytes: 0, truncated: false };
+  for (const file of [join(workspacePath, 'CLAUDE.md'), join(workspacePath, '.claude', 'CLAUDE.md')]) {
+    const instruction = readIfExists(file);
+    if (!instruction) continue;
+    const bytes = Buffer.byteLength(instruction.content, 'utf8');
+    if (budget.totalBytes + bytes > MAX_TOTAL_BYTES) break;
+    budget.totalBytes += bytes;
+    instructions.push(instruction);
+  }
+  collectRuleFiles(join(workspacePath, '.claude', 'rules'), instructions, budget);
+  return instructions.map(({ path, content }) => ({
+    path: relative(workspacePath, path).replaceAll('\\', '/'),
+    content,
+  }));
+}
+
 // ─── Formatting (replicates Claude Code getClaudeMds() output) ───
 
 /**

@@ -34,6 +34,7 @@ export function retryDesktopRequest(
     text: rewind.desktopQuery?.visibleText ?? rewind.content ?? "",
     agentMentions: rewind.desktopQuery?.agentMentions,
     queryPrimaryContext: rewind.desktopQuery?.primaryContext,
+    queryMemoryRefresh: rewind.desktopQuery?.memoryRefresh,
     model: options.model,
     reasoningEffort: options.reasoningEffort,
     images: rewind.attachments

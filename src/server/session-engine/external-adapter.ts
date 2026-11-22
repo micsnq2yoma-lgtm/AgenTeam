@@ -584,6 +584,7 @@ export function createExternalSessionEngine(): SessionEngine {
           queueId: request.queueId,
           beforeDispatch: request.beforeDispatch,
           channelDelivery: SESSION_BOUND_CHANNEL_DELIVERY,
+          channelPrimaryReminder: request.channelPrimaryReminder,
         },
         request.images,
       );

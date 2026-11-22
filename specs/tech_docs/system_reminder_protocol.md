@@ -138,6 +138,7 @@ Session；`renderSessionEventPrompt` 使用 `myagents-session-event` envelope �
 | 切换 Provider 时「保留上下文」首轮 | `src/shared/systemReminder.ts::buildProviderHandoffReminder`，调用方 Chat 的 provider-switch 确认（`confirmProviderSwitch(true)`）经 fork / runtime-backed launch 的 first turn 提供 `provider-handoff` typed context，SessionEngine facade 组合 | `<system-reminder><PROVIDER_HANDOFF>...</PROVIDER_HANDOFF></system-reminder>` + 可见「接着之前的对话继续」；hidden 只携带旧 Session id 与原 provider/model 名，指示新模型用 `myagents session get` 读取旧 transcript；旧 Session 仍是其历史的唯一 owner，不复制 transcript |
 | 浮球消息 | `src/shared/systemReminder.ts::buildFloatingBallContextReminder`，调用方 `src/renderer/floating-ball/useFloatingSession.ts` 提供 typed context，SessionEngine facade 组合 | `<system-reminder><FLOATING_BALL_CONTEXT>...</FLOATING_BALL_CONTEXT></system-reminder>` + 用户文本 |
 | Agent 提及 | `src/shared/agentMentions.ts::composeQueryReminder`，调用方 SessionEngine facade | 单 leading envelope 内的 `<AGENT_MENTIONS>`；正文保留完整代号，不自动执行协作 |
+| 工作区指令变化提醒 | `src/shared/memoryRefresh.ts::appendMemoryRefresh`，调用方 `src/server/session-engine/selector.ts` 的 facade（Desktop、IM、Inbox 准入）；跟踪由 `session-engine/memory-refresh.ts` 负责 | 追加在已有 leading envelope 末尾的 `<MEMORY_REFRESH>`，或包住纯文本；不新增 badge，见下方「MEMORY_REFRESH」 |
 | Space IssueDelivery | `src-tauri/src/space_cloud/delivery.rs::build_space_issue_delivery_message_for_locale` | `<system-reminder><myagents-space-issue>…</myagents-space-issue></system-reminder>` + 本地化可见提示 |
 | Task 结果回到聊天 | `src/server/inbox/session-event.ts::renderSessionEventPrompt`，调用方 `session-engine/task-notification.ts` | 既有 `<myagents-session-event type="task.result">` envelope；只接受本地宿主事件，复用原展示协议，不新增 badge |
 | 旧 heartbeat cron payload 兼容 | `src/server/utils/cron-event-relay.ts::buildCronEventRelayMessage` | `<system-reminder><HEARTBEAT>...</HEARTBEAT></system-reminder>` + `[System]收到来自系统投送的信息`；当前 TaskStore 通知不调用此路径 |
@@ -158,6 +159,18 @@ Space 的内部 trust boundary 不改变通用 reminder wire protocol：Cloud �
   不要把它当成可复用用户气泡模板。
 - 当前具有精确渠道绑定的 Session：实际 admission 插入版本化 `CHANNEL_CONTEXT`；只有该段时使用“渠道消息” badge，与已有 primary 共存时仍使用原 primary kind。
 - `src/server/utils/watchdog-auto-resume.ts`：纯 reminder，没有 badge tag。
+
+## MEMORY_REFRESH
+
+Runtime 在 Session 出生时加载 `CLAUDE.md`、`.claude/CLAUDE.md` 和 `.claude/rules`，之后不再重读。助理的身份、用户画像和记忆都在这些文件里，memory update、Gardener、Molt、其他 Session 或用户在设置里修改它们后，长期存活的 Session（如 IM Bot、长期使用的桌面对话）会继续使用出生时的旧内容。`MEMORY_REFRESH` 在下一个被准入的用户输入上告诉模型哪些文件变了。
+
+- **只放文件名和章节标题，不放正文。** 片段内容是固定说明，加上 JSON 编码并转义的 `{ files: [{ path, change, sections }], truncated? }`；`sections` 为发生增删改的 `## ` 标题（代码块内的 `## ` 不算）。正文不进入 transcript，模型需要时用自己的文件工具重新读取。片段不含 `<instruction>` 元素，因为 Channel handoff envelope 要求只有一个 `<instruction>`。
+- **位置。** 追加在 leading envelope 末尾，不改变首个标签，因此原有 badge（Goal、会话事件、Channel 等）不变。`decorateChannelQuery` 把 `<MEMORY_REFRESH>` 和 `<AGENT_MENTIONS>` 一样放在 Channel facts 之后，IM 输入仍以 `CHANNEL_CONTEXT` 为首标签。纯文本输入得到新 envelope，用户气泡只显示原文。
+- **准入。** facade 在 Desktop、IM、Inbox 三个入口观察变化。IM 输入加上提醒后设置 `channelPrimaryReminder`，让 adapter 把 Channel 上下文并入同一个 envelope；Desktop 通过 `DesktopQueryDraft.memoryRefresh` 组合，retry 从存储的 query 重放同一份提醒；Inbox 输入本来就按自带 envelope 处理。`runInjectedTurn`（memory update、heartbeat、定时任务）不附带提醒。
+- **只提醒一次。** 基线是 Sidecar 进程内的状态，不持久化：进程启动后第一次观察即为基线。准入成功后才把当前版本记为已提醒；准入被拒绝时下一轮再次提醒；同一变化正在随某一轮准入时，并发的其他输入不重复携带。
+- **本 Session 自己的写入不提醒。** 一轮结束（`chat:message-complete`、`message-stopped`、`message-error`）时基线吸收当时的文件，因为本 Session 已经知道自己写了什么，包括注入到本 Session 的 memory update。两轮之间由其他 Session、Gardener/Molt 或用户写入的变化在下一轮提醒。
+- **已知限制。** 偏向漏提醒或多一次提醒，不会给出错误内容：Runtime pre-warm 到首条输入之间的变化，以及本 Session 运行期间他人写入的变化，会被吸收而不提醒；同一 Sidecar 内 Runtime 在配置边界重启并已重新加载文件后，仍可能多收到一次提醒。
+- 文件读取复用 `runtimes/workspace-instructions.ts` 的有界读取：拒绝符号链接，限制递归深度、文件数和大小。读取失败只记日志，不影响用户输入。
 
 ## 生成侧要求
 
