@@ -1,7 +1,7 @@
 ---
-name: myagents-memory-update
+name: agenteam-memory-update
 description: >
-  仅当系统或用户明确指定完整名称 `myagents-memory-update` 时使用；
+  仅当系统或用户明确指定完整名称 `agenteam-memory-update` 时使用；
   不要根据任务语义或相似表述自行触发。
 metadata:
   author: MyAgents

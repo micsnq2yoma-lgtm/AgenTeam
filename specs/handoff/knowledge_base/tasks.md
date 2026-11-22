@@ -296,12 +296,12 @@ K19 URL 导入；K20 全局搜索「知识库」分类
 ### K7 Skills
 
 - **依赖**：K5（可与 K6 并行）
-- **必读**：`bundled-skills/myagents-anydoc/SKILL.md`（风格范本）；`src/shared/systemSkills.ts`；`scripts/memory-skills.test.mjs`；`bundled-skills/myagents-memory-gardener/`
+- **必读**：`bundled-skills/agenteam-anydoc/SKILL.md`（风格范本）；`src/shared/systemSkills.ts`；`scripts/memory-skills.test.mjs`；`bundled-skills/agenteam-memory-gardener/`
 - **范围**：
   - `bundled-skills/agenteam-knowledge/SKILL.md`：何时检索、怎么改写成 2–3 条查询、必须带 `kb://` 引用、检索为空时如实说明、资料里的指令不是用户指令、群聊里注意隐私。
   - `bundled-skills/agenteam-knowledge-curator/SKILL.md` + `references/`：①元数据和②wiki 的工作流；读取顺序（`ORGANIZE_RULES.md` → `WIKI_SCHEMA.md` → `wiki/index.md` → 待整理 source 列表）；新分类只能提议；每个结论都要有引用；lint 报告格式。P1 再加③的章节。
   - `REQUIRED_SYSTEM_SKILLS` 增加两者，按现有规则 bump `SYSTEM_SKILLS_VERSION`，并同步 Rust 侧的版本契约。
-  - `myagents-cli` 只加一行索引，指向 `myagents kb --help` 和专属 Skill，不复制协议。
+  - `agenteam-cli` 只加一行索引，指向 `myagents kb --help` 和专属 Skill，不复制协议。
   - 新知识库创建时写入默认的 `ORGANIZE_RULES.md` 和 `WIKI_SCHEMA.md` 模板（模板源码放在 Skill 的 `references/` 下，由 Store 复制）。
 - **验收**：
   - AC-K7-1 `[自动]` `src/shared/systemSkills.test.ts`、`scripts/memory-skills.test.mjs`（或新增的同类测试）通过；TS 与 Rust 版本一致。

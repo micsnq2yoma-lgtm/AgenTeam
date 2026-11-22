@@ -1,7 +1,7 @@
 ---
-name: myagents-memory-molt
+name: agenteam-memory-molt
 description: >
-  仅当系统或用户明确指定完整名称 `myagents-memory-molt` 时使用；
+  仅当系统或用户明确指定完整名称 `agenteam-memory-molt` 时使用；
   不要根据任务语义或相似表述自行触发。
 metadata:
   author: MyAgents
@@ -26,8 +26,8 @@ Molt 是长期记忆机制的第三层：它不是把文件整理得更整齐，
 | 层 | 节奏 | 本质 | 允许改什么 |
 |---|---:|---|---|
 | `UPDATE_MEMORY.md` | 24h | session 级捕获 | 日志 / 增量记忆 |
-| `myagents-memory-gardener` | 72h | 修剪和下放 | USER / MEMORY / topic / gardener flags |
-| `myagents-memory-molt` | 14d | 信念审计和自我改写 | SOUL / USER / MEMORY / molt 文档 |
+| `agenteam-memory-gardener` | 72h | 修剪和下放 | USER / MEMORY / topic / gardener flags |
+| `agenteam-memory-molt` | 14d | 信念审计和自我改写 | SOUL / USER / MEMORY / molt 文档 |
 
 ## 硬规则
 
@@ -47,7 +47,7 @@ Molt 是长期记忆机制的第三层：它不是把文件整理得更整齐，
 4. 按顺序完成五个认知动作：模式挖掘、信念审计、外部核验、身份一致性、综合落地。
 5. 同步更新 progress 文件。所有 checkbox 必须变成 `[x]` 或 `[defer] + 理由`。
 6. 直接落地修改 `SOUL` / `USER` / `MEMORY` 中需要变化的部分；不要把结果只写在 molt 文档里。
-7. 如存在 `myagents-memory-gardener` 的 lint 脚本，落地后跑一遍，避免自动装载层膨胀。
+7. 如存在 `agenteam-memory-gardener` 的 lint 脚本，落地后跑一遍，避免自动装载层膨胀。
 8. 如果是 git 仓库，只提交本次记忆进化改动；**不要 push**。如果不是 git 仓库，跳过提交。
 
 ## 允许修改范围

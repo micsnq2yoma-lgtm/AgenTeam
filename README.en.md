@@ -66,7 +66,7 @@ On macOS run `./setup.sh` then `./start_dev.sh`; on Ubuntu 24.04 run `./setup.sh
 
 Once it is running:
 
-1. **Connect a model**: Settings → Model Providers, sign in to a subscription or enter an API, then pick the Runtime and model. See the [models and Runtime guide](bundled-skills/myagents-docs/references/models-providers-runtimes.md).
+1. **Connect a model**: Settings → Model Providers, sign in to a subscription or enter an API, then pick the Runtime and model. See the [models and Runtime guide](bundled-skills/agenteam-docs/references/models-providers-runtimes.md).
 2. **Create a project**: click **+** next to "Projects" in the sidebar, choose the folder location and whether to turn on assistant mode.
 3. **Create a task**: create a task in the project, share the material and the goal; for ongoing work, ask the Agent to set up an automation.
 
@@ -94,7 +94,7 @@ App data lives in `~/.myagents` (the upstream MyAgents directory name, kept on p
 
 - [Development guide](DEVELOPMENT.md): environment, builds, checks and tests
 - [Architecture](specs/ARCHITECTURE.md) · [Design system](specs/DESIGN.md)
-- [Tasks and automation](bundled-skills/myagents-docs/references/automation.md) · [Skills, tools and plugins](bundled-skills/myagents-docs/references/tools-skills-plugins.md) · [Agents and chat bots](bundled-skills/myagents-docs/references/agents-channels.md) · [Multi-device network](bundled-skills/myagents-docs/references/agent-network.md)
+- [Tasks and automation](bundled-skills/agenteam-docs/references/automation.md) · [Skills, tools and plugins](bundled-skills/agenteam-docs/references/tools-skills-plugins.md) · [Agents and chat bots](bundled-skills/agenteam-docs/references/agents-channels.md) · [Multi-device network](bundled-skills/agenteam-docs/references/agent-network.md)
 - [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
 
 ## Star History

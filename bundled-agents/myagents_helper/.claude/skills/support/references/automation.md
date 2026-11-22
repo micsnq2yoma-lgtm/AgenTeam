@@ -2,7 +2,7 @@
 
 使用场景：Task/Cron 到点没执行、任务状态卡住、Goal 不续跑或终态错误、Record 异常、需要向另一个 Session 反馈。
 
-正确产品语义先读 `/myagents-docs/references/automation.md`。这里仅处理实际行为偏离预期的现场。
+正确产品语义先读 `/agenteam-docs/references/automation.md`。这里仅处理实际行为偏离预期的现场。
 
 ## Ground truth
 

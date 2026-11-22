@@ -2,7 +2,7 @@
 
 使用场景：工作区文件树/搜索/预览异常；`@` 文件或图片失败；拖拽/粘贴附件失败；新建、重命名、删除、移动、在 Finder/默认应用打开文件不正常。
 
-正常 Workspace、Session 与文件能力先读 `/myagents-docs/references/workspaces-sessions-files.md`。
+正常 Workspace、Session 与文件能力先读 `/agenteam-docs/references/workspaces-sessions-files.md`。
 
 ## Ground truth
 

@@ -8,8 +8,8 @@ import test from 'node:test';
 const root = resolve(import.meta.dirname, '..');
 const cases = JSON.parse(readFileSync(join(root, 'src/shared/__fixtures__/memory-rule-discovery.json'), 'utf8'));
 const scripts = {
-  gardener: join(root, 'bundled-skills/myagents-memory-gardener/scripts/memory_lint.py'),
-  molt: join(root, 'bundled-skills/myagents-memory-molt/scripts/prepare_molt.py'),
+  gardener: join(root, 'bundled-skills/agenteam-memory-gardener/scripts/memory_lint.py'),
+  molt: join(root, 'bundled-skills/agenteam-memory-molt/scripts/prepare_molt.py'),
 };
 function workspace(t) {
   const repo = mkdtempSync(join(tmpdir(), 'memory-architecture-'));

@@ -2,7 +2,7 @@
 
 使用场景：Telegram / 钉钉 / 飞书 / 微信 / QQ Agent 不在线、不回消息、社区插件装不上、QR 登录后不生效。
 
-正常 Agent / Channel / Plugin 关系先读 `/myagents-docs/references/agents-channels.md` 与 `tools-skills-plugins.md`。
+正常 Agent / Channel / Plugin 关系先读 `/agenteam-docs/references/agents-channels.md` 与 `tools-skills-plugins.md`。
 
 ## Ground truth
 

@@ -54,10 +54,10 @@ afterEach(() => {
 describe('effective project capabilities', () => {
   it.each(['LF', 'CRLF', 'mixed'])('admits bundled product Skill with %s line endings but rejects content changes', (ending) => {
     const { home, workspace } = makeFixture();
-    const bundled = readFileSync('bundled-skills/myagents-task-alignment/SKILL.md', 'utf8').replace(/\r\n/g, '\n');
+    const bundled = readFileSync('bundled-skills/agenteam-task-alignment/SKILL.md', 'utf8').replace(/\r\n/g, '\n');
     const content = ending === 'LF' ? bundled : ending === 'CRLF'
       ? bundled.replace(/\n/g, '\r\n') : bundled.replace('\n', '\r\n');
-    const path = join(home, '.agenteam', 'skills', 'myagents-task-alignment', 'SKILL.md');
+    const path = join(home, '.agenteam', 'skills', 'agenteam-task-alignment', 'SKILL.md');
     write(path, content);
     expect(() => assertProductSystemSkillCandidate(resolveEffectiveProjectCapabilities(workspace), TASK_ALIGNMENT_SKILL_REQUIREMENT)).not.toThrow();
     write(path, content + 'Changed instructions.');
@@ -168,16 +168,16 @@ describe('effective project capabilities', () => {
 
   it('keeps required system Skills enabled and rejects disabling them', async () => {
     const { home, workspace } = makeFixture();
-    write(join(home, '.agenteam', 'skills', 'myagents-cli', 'SKILL.md'), skill('myagents-cli', 'required'));
+    write(join(home, '.agenteam', 'skills', 'agenteam-cli', 'SKILL.md'), skill('agenteam-cli', 'required'));
 
     const snapshot = resolveEffectiveProjectCapabilities(workspace);
     expect(snapshot.enabledSkills).toContainEqual(expect.objectContaining({
-      id: 'global:skill:myagents-cli',
+      id: 'global:skill:agenteam-cli',
       required: true,
     }));
     await expect(setProjectCapabilityEnabled({
       workspacePath: workspace,
-      capabilityId: 'global:skill:myagents-cli',
+      capabilityId: 'global:skill:agenteam-cli',
       enabled: false,
     })).rejects.toThrow('Required system Skill cannot be disabled');
   });
@@ -188,12 +188,12 @@ describe('effective project capabilities', () => {
     expect(resolveEffectiveProjectCapabilities(workspace)).toMatchObject({
       agentId: '',
       enabledSkills: expect.arrayContaining([
-        expect.objectContaining({ canonicalName: 'myagents-cli' }),
+        expect.objectContaining({ canonicalName: 'agenteam-cli' }),
       ]),
     });
     await expect(setProjectCapabilityEnabled({
       workspacePath: workspace,
-      capabilityId: 'global:skill:myagents-cli',
+      capabilityId: 'global:skill:agenteam-cli',
       enabled: true,
     })).rejects.toThrow('unique Project owner');
   });
@@ -269,7 +269,7 @@ describe('effective project capabilities', () => {
     expect(resolveEffectiveProjectCapabilities(workspace).agentId).toBe('');
     await expect(setProjectCapabilityEnabled({
       workspacePath: workspace,
-      capabilityId: 'global:skill:myagents-cli',
+      capabilityId: 'global:skill:agenteam-cli',
       enabled: true,
     })).rejects.toThrow('claimed by multiple Projects');
   });
@@ -278,7 +278,7 @@ describe('effective project capabilities', () => {
     const { home, workspace } = makeFixture();
     write(
       join(home, '.agenteam', 'skills', 'not-system-owned', 'SKILL.md'),
-      skill('myagents-cli', 'not the official install'),
+      skill('agenteam-cli', 'not the official install'),
     );
     const snapshot = resolveEffectiveProjectCapabilities(workspace);
     expect(snapshot.candidates).not.toContainEqual(expect.objectContaining({

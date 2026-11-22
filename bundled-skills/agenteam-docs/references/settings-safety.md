@@ -50,7 +50,7 @@ MyAgents 的用户数据主要位于 `~/.agenteam/`，包括配置、Session、T
 
 安全原则：
 
-- 查询和修改优先使用产品 UI、脱敏 Admin API 或 `/myagents-cli`。
+- 查询和修改优先使用产品 UI、脱敏 Admin API 或 `/agenteam-cli`。
 - 不直接编辑 `sessions.json`、`sessions/`、`projects.json`、Task store 或版本 gate 文件。
 - 不读取凭据存储来“帮用户看看 token”：包括 Provider secrets、Space session/registered-agent token、Grok OAuth、Claude/Codex credential home、系统 Keychain。
 - 用户未主动提供 API Key 时，不追问明文；引导在设置页填写。

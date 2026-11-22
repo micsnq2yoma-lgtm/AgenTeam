@@ -976,19 +976,19 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         fs::write(
             root.join("skills-config.json"),
-            r#"{"disabled":["myagents-memory-update","myagents-memory-gardener","myagents-memory-molt","myagents-cli","myagents-task-automation","myagents-docs","prompt-writer"]}"#,
+            r#"{"disabled":["agenteam-memory-update","agenteam-memory-gardener","agenteam-memory-molt","agenteam-cli","agenteam-task-automation","agenteam-docs","prompt-writer"]}"#,
         )
         .unwrap();
 
         let disabled = disabled_skill_names_for_slash(&root);
 
         for name in [
-            "myagents-memory-update",
-            "myagents-memory-gardener",
-            "myagents-memory-molt",
-            "myagents-cli",
-            "myagents-task-automation",
-            "myagents-docs",
+            "agenteam-memory-update",
+            "agenteam-memory-gardener",
+            "agenteam-memory-molt",
+            "agenteam-cli",
+            "agenteam-task-automation",
+            "agenteam-docs",
         ] {
             assert!(!disabled.iter().any(|candidate| candidate == name));
         }

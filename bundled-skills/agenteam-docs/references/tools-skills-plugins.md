@@ -63,7 +63,7 @@ Skill 可从 GitHub 仓库、支持的压缩包或本地来源安装。安装成
 
 ### 本地文档与音视频附件
 
-AnyDoc 可离线转换本地文档/OCR，使用 `/myagents-anydoc`。`/myagents-speech-recognition` 可异步转写当前 Workspace 中的单个音频或视频附件，查询/等待/取消并取得带时间戳结果；它不录制会议，也不等于音频 Record 的播放器或说话人编辑。
+AnyDoc 可离线转换本地文档/OCR，使用 `/agenteam-anydoc`。`/agenteam-speech-recognition` 可异步转写当前 Workspace 中的单个音频或视频附件，查询/等待/取消并取得带时间戳结果；它不录制会议，也不等于音频 Record 的播放器或说话人编辑。
 
 ### 桌面操作
 

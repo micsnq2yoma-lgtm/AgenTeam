@@ -1026,7 +1026,7 @@ const ADMIN_AGENT_VERSION: &str = "31";
 /// that introduced the retire, the entry is harmless to keep (it just
 /// no-ops on absent paths).
 const RETIRED_ADMIN_PATHS: &[&str] = &[
-    // v16: /self-config promoted to global system skill /myagents-cli
+    // v16: /self-config promoted to global system skill /agenteam-cli
     ".claude/skills/self-config",
     ".claude/skills/support/references/cloud-space.md",
 ];
@@ -1129,7 +1129,7 @@ fn sync_admin_agent_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<boo
 // matching exclusion list in src/server/index.ts::seedBundledSkills
 // MUST be kept in sync (comment there points back here).
 
-const SYSTEM_SKILLS_VERSION: &str = "66";
+const SYSTEM_SKILLS_VERSION: &str = "67";
 
 /// One process-wide transaction owner for the versioned system-skill
 /// snapshot. Startup automation and ConfigProvider may request convergence at
@@ -1146,39 +1146,39 @@ const SYSTEM_SKILLS: &[&str] = &[
     // v51: one product-owned Task discussion workflow replaces the former
     // alignment/executor pair. Ordinary dispatch now hands task.md directly
     // to the Runtime, so execution no longer depends on a Skill name.
-    "myagents-task-alignment",
+    "agenteam-task-alignment",
     // v10: ultra-research removed — not generic enough to ship as system
     // skill. Existing installs retain the dir at ~/.agenteam/skills/
     // ultra-research/ until the user deletes it (no orphan cleanup logic).
     "download-anything",
-    // v52: myagents-cli documents physical local directory/.zip/.skill
+    // v52: agenteam-cli documents physical local directory/.zip/.skill
     // installs and the CLI-owned explicit-relative cwd boundary.
-    // v9: myagents-cli promoted from helper-bundled skill (was at
+    // v9: agenteam-cli promoted from helper-bundled skill (was at
     // bundled-agents/myagents_helper/.claude/skills/self-config/) to a
     // global system skill. Every AI session inside MyAgents — Chat / IM Bot
     // / Cron / Helper — should be able to drive the product's own
     // capabilities (cron, task center, MCP, Provider, channels, plugins,
     // skills, Cloud Space, widgets) through the CLI. SKILL.md changes track CLI surface
     // changes, so it must force-overwrite on version bumps.
-    "myagents-cli",
+    "agenteam-cli",
     // v49: progressively disclosed contract for the bundled local document
     // converter. It is required because every Runtime must discover the same
     // App-owned job surface without an always-on prompt section.
-    "myagents-anydoc",
+    "agenteam-anydoc",
     // v54: progressive instructions for the Session-scoped local attachment
     // transcription CLI. Identity stays product-injected; the Skill exposes
     // only the public job and artifact contract.
-    "myagents-speech-recognition",
+    "agenteam-speech-recognition",
     // v53: Task automation documents the stable Agent-facing receipt,
     // idempotent run semantics, and existing result channels. Command
     // Detector protocol remains a progressive reference, not a competing
     // Sensor product entry.
-    "myagents-task-automation",
+    "agenteam-task-automation",
     // v35: product-use knowledge shared by every MyAgents session. It owns
     // stable user-facing concepts, feature relationships, prerequisites and
-    // expected behaviour; live state/actions stay in myagents-cli and the
+    // expected behaviour; live state/actions stay in agenteam-cli and the
     // helper-local support skill owns diagnosis.
-    "myagents-docs",
+    "agenteam-docs",
     // v18: tool-creator — meta-skill for the CLI tool registry (PRD 0.2.36
     // cli_first_tool_registry). Teaches AI to author standards-compliant
     // Agent-CLI tools (tool.json + entry + readme/--help contract) and
@@ -1189,9 +1189,9 @@ const SYSTEM_SKILLS: &[&str] = &[
     // v33: MyAgents memory maintenance skills. These are managed flow
     // targets, so their bundled contracts must stay in lockstep with the
     // hidden scheduler, injected-turn prompt, and rule-substrate templates.
-    "myagents-memory-update",
-    "myagents-memory-gardener",
-    "myagents-memory-molt",
+    "agenteam-memory-update",
+    "agenteam-memory-gardener",
+    "agenteam-memory-molt",
     // v65: knowledge base retrieval for Sessions with bound libraries, and the
     // curator workflow targeted by the managed knowledge curation Task. Both
     // document the `myagents kb` surface and must track it in lockstep.
@@ -1215,7 +1215,23 @@ const SYSTEM_SKILLS: &[&str] = &[
 /// Product-owned system skills whose former independent workflow must not
 /// survive an upgrade. These directories were force-overwritten by MyAgents,
 /// so removing the exact retired names cannot delete a user-owned skill.
-const RETIRED_SYSTEM_SKILLS: &[&str] = &["myagents-sensor", "task-alignment", "task-implement"];
+const RETIRED_SYSTEM_SKILLS: &[&str] = &[
+    "myagents-sensor",
+    "task-alignment",
+    "task-implement",
+    // v67: the nine system skills shipped up to v0.6.8 as myagents-* were renamed
+    // agenteam-*. Their old directories were force-overwritten by this app, so
+    // removing the exact names cannot delete a user-owned skill.
+    "myagents-cli",
+    "myagents-anydoc",
+    "myagents-docs",
+    "myagents-memory-update",
+    "myagents-memory-gardener",
+    "myagents-memory-molt",
+    "myagents-speech-recognition",
+    "myagents-task-alignment",
+    "myagents-task-automation",
+];
 
 /// Force-sync every system skill from the app bundle to
 /// `~/.agenteam/skills/<name>/`. Runs once per `SYSTEM_SKILLS_VERSION`
@@ -1380,7 +1396,7 @@ fn sync_system_skills_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<b
     // actually installed. This preserves the existing non-destructive sync
     // guarantee when a bundle is incomplete, while still removing the exact
     // obsolete workflow before the new version stamp is committed.
-    let retired = if skill_dir_is_complete(&skills_dir.join("myagents-task-automation")) {
+    let retired = if skill_dir_is_complete(&skills_dir.join("agenteam-task-automation")) {
         remove_retired_system_skills(&skills_dir)?
     } else {
         Vec::new()
@@ -1687,10 +1703,10 @@ mod system_skills_tests {
 
     #[test]
     fn system_skill_version_keeps_cuse_and_product_skills_aligned() {
-        assert_eq!(SYSTEM_SKILLS_VERSION, "66");
+        assert_eq!(SYSTEM_SKILLS_VERSION, "67");
         assert!(SYSTEM_SKILLS.contains(&"cuse"));
         assert!(!REQUIRED_SYSTEM_SKILLS.contains(&"cuse"));
-        assert!(SYSTEM_SKILLS.contains(&"myagents-task-alignment"));
+        assert!(SYSTEM_SKILLS.contains(&"agenteam-task-alignment"));
         assert!(RETIRED_SYSTEM_SKILLS.contains(&"task-alignment"));
         assert!(RETIRED_SYSTEM_SKILLS.contains(&"task-implement"));
         assert!(SYSTEM_SKILLS.contains(&"skill-creator"));
@@ -1701,19 +1717,19 @@ mod system_skills_tests {
         let knowledge = include_str!("../../bundled-skills/agenteam-knowledge/SKILL.md");
         assert!(knowledge.contains("myagents kb search"));
         assert!(knowledge.contains("kb://"));
-        let bundled = include_str!("../../bundled-skills/myagents-cli/SKILL.md");
-        let anydoc = include_str!("../../bundled-skills/myagents-anydoc/SKILL.md");
-        let speech = include_str!("../../bundled-skills/myagents-speech-recognition/SKILL.md");
+        let bundled = include_str!("../../bundled-skills/agenteam-cli/SKILL.md");
+        let anydoc = include_str!("../../bundled-skills/agenteam-anydoc/SKILL.md");
+        let speech = include_str!("../../bundled-skills/agenteam-speech-recognition/SKILL.md");
         let description = bundled
             .split("---")
             .nth(1)
-            .expect("myagents-cli frontmatter");
+            .expect("agenteam-cli frontmatter");
         assert!(!description.to_ascii_lowercase().contains("anydoc"));
         assert!(bundled.contains("AnyDoc"));
         assert!(bundled.contains("myagents anydoc --help"));
-        assert!(bundled.contains("/myagents-anydoc"));
+        assert!(bundled.contains("/agenteam-anydoc"));
         assert!(anydoc.contains("myagents anydoc convert --file <input>"));
-        assert!(bundled.contains("/myagents-speech-recognition"));
+        assert!(bundled.contains("/agenteam-speech-recognition"));
         assert!(speech.contains("myagents speech transcribe --file <input>"));
         assert!(!speech.contains("--session-id"));
         assert!(!bundled.contains("myagents space"));
@@ -1722,7 +1738,7 @@ mod system_skills_tests {
         assert!(bundled.contains("myagents goal create --objective-file goal-objective.txt"));
         assert!(bundled.contains("workspace 或系统 temp 均可"));
         assert!(bundled.contains("--max-executions <正整数>"));
-        assert!(bundled.contains("myagents-task-automation"));
+        assert!(bundled.contains("agenteam-task-automation"));
         assert!(bundled.contains("myagents task start <taskId>"));
         assert!(bundled.contains("myagents agent current --json"));
         assert!(bundled.contains("enabled/runtime/runtimeConfig/providerId/model/permissionMode"));
@@ -1735,7 +1751,7 @@ mod system_skills_tests {
         assert!(bundled.contains("没有 30 天恢复或 undelete 承诺"));
         assert!(!bundled.contains("myagents-sensor"));
 
-        let automation = include_str!("../../bundled-skills/myagents-task-automation/SKILL.md");
+        let automation = include_str!("../../bundled-skills/agenteam-task-automation/SKILL.md");
         assert!(automation.contains("Task 与立即执行/Record/Goal 的边界"));
         assert!(!automation.contains("Task 与立即执行/Thought/Goal 的边界"));
         assert!(automation.contains("references/command-detector.md"));
@@ -1746,12 +1762,12 @@ mod system_skills_tests {
         assert!(automation.contains("--maxExecutions 1"));
         assert!(automation.contains("`data.receipt`"));
         assert!(automation.contains("`changed: false`"));
-        assert!(SYSTEM_SKILLS.contains(&"myagents-task-automation"));
+        assert!(SYSTEM_SKILLS.contains(&"agenteam-task-automation"));
 
-        let memory_update = include_str!("../../bundled-skills/myagents-memory-update/SKILL.md");
+        let memory_update = include_str!("../../bundled-skills/agenteam-memory-update/SKILL.md");
         assert!(memory_update.contains("author: MyAgents"));
         assert!(memory_update
-            .contains("仅当系统或用户明确指定完整名称 `myagents-memory-update` 时使用"));
+            .contains("仅当系统或用户明确指定完整名称 `agenteam-memory-update` 时使用"));
         assert!(memory_update.contains("不要根据任务语义或相似表述自行触发"));
         assert!(memory_update.contains("错误的长期记忆通常比暂时缺失更有害"));
         assert!(memory_update.contains("无法说明未来判断或行动差异的信息，不写"));
@@ -1760,25 +1776,25 @@ mod system_skills_tests {
         assert!(memory_update.contains("不从已有 topic 名称或工作区结构猜测事件归属"));
         assert!(memory_update.contains("不要落盘“未升级偏好”"));
         assert!(memory_update.contains("commit 后 push 当前分支"));
-        assert!(SYSTEM_SKILLS.contains(&"myagents-memory-update"));
+        assert!(SYSTEM_SKILLS.contains(&"agenteam-memory-update"));
 
-        let gardener = include_str!("../../bundled-skills/myagents-memory-gardener/SKILL.md");
+        let gardener = include_str!("../../bundled-skills/agenteam-memory-gardener/SKILL.md");
         assert!(gardener.contains("已有的未提交改动不阻断记忆维护"));
         assert!(gardener.contains("只暂存并提交本次记忆维护产生的改动"));
         assert!(!gardener.contains("存在非本次任务的未提交改动时，只做只读体检"));
 
-        let product_docs = include_str!("../../bundled-skills/myagents-docs/SKILL.md");
-        assert!(product_docs.contains("name: myagents-docs"));
+        let product_docs = include_str!("../../bundled-skills/agenteam-docs/SKILL.md");
+        assert!(product_docs.contains("name: agenteam-docs"));
         assert!(product_docs.contains("author: MyAgents"));
         assert!(product_docs.contains("它面向软件使用而非源码开发"));
-        assert!(product_docs.contains("随后加载 `/myagents-cli`"));
+        assert!(product_docs.contains("随后加载 `/agenteam-cli`"));
         assert!(product_docs.contains("在内置小助理里加载 `/support`"));
         assert!(product_docs.contains("Record / Task / Cron / Goal"));
-        assert!(SYSTEM_SKILLS.contains(&"myagents-docs"));
+        assert!(SYSTEM_SKILLS.contains(&"agenteam-docs"));
 
         for content in [
-            include_str!("../../bundled-skills/myagents-memory-gardener/SKILL.md"),
-            include_str!("../../bundled-skills/myagents-memory-molt/SKILL.md"),
+            include_str!("../../bundled-skills/agenteam-memory-gardener/SKILL.md"),
+            include_str!("../../bundled-skills/agenteam-memory-molt/SKILL.md"),
         ] {
             assert!(content.contains("author: MyAgents"));
         }
@@ -1816,6 +1832,47 @@ mod system_skills_tests {
     }
 
     #[test]
+    fn renamed_system_skills_replace_their_myagents_directories_on_upgrade() {
+        let renamed = [
+            "cli",
+            "anydoc",
+            "docs",
+            "memory-update",
+            "memory-gardener",
+            "memory-molt",
+            "speech-recognition",
+            "task-alignment",
+            "task-automation",
+        ];
+        let tmp = tempfile::tempdir().unwrap();
+        let skills = tmp.path().join("skills");
+        for name in renamed {
+            let old = skills.join(format!("myagents-{name}"));
+            fs::create_dir_all(&old).unwrap();
+            fs::write(old.join("SKILL.md"), "old product skill").unwrap();
+            // The new name is a bundled system skill and never a retired one.
+            let new = format!("agenteam-{name}");
+            assert!(SYSTEM_SKILLS.contains(&new.as_str()), "{new}");
+            assert!(!RETIRED_SYSTEM_SKILLS.contains(&new.as_str()), "{new}");
+            assert!(RETIRED_SYSTEM_SKILLS.contains(&format!("myagents-{name}").as_str()));
+        }
+        // A user's own skill with a similar name is untouched.
+        let user = skills.join("myagents-cli-helper");
+        fs::create_dir_all(&user).unwrap();
+        fs::write(user.join("SKILL.md"), "user skill").unwrap();
+
+        assert!(!retired_system_skills_absent(&skills));
+        let removed = remove_retired_system_skills(&skills).unwrap();
+        assert_eq!(removed.len(), renamed.len());
+        assert!(retired_system_skills_absent(&skills));
+        assert!(user.join("SKILL.md").is_file());
+        // The bundle ships none of the old names.
+        for name in renamed {
+            assert!(!SYSTEM_SKILLS.contains(&format!("myagents-{name}").as_str()));
+        }
+    }
+
+    #[test]
     fn myagents_authored_bundle_frontmatter_uses_standard_metadata_map() {
         for (name, content) in [
             (
@@ -1823,36 +1880,36 @@ mod system_skills_tests {
                 include_str!("../../bundled-skills/download-anything/SKILL.md"),
             ),
             (
-                "myagents-cli",
-                include_str!("../../bundled-skills/myagents-cli/SKILL.md"),
+                "agenteam-cli",
+                include_str!("../../bundled-skills/agenteam-cli/SKILL.md"),
             ),
             (
-                "myagents-docs",
-                include_str!("../../bundled-skills/myagents-docs/SKILL.md"),
+                "agenteam-docs",
+                include_str!("../../bundled-skills/agenteam-docs/SKILL.md"),
             ),
             (
-                "myagents-memory-gardener",
-                include_str!("../../bundled-skills/myagents-memory-gardener/SKILL.md"),
+                "agenteam-memory-gardener",
+                include_str!("../../bundled-skills/agenteam-memory-gardener/SKILL.md"),
             ),
             (
-                "myagents-memory-molt",
-                include_str!("../../bundled-skills/myagents-memory-molt/SKILL.md"),
+                "agenteam-memory-molt",
+                include_str!("../../bundled-skills/agenteam-memory-molt/SKILL.md"),
             ),
             (
-                "myagents-memory-update",
-                include_str!("../../bundled-skills/myagents-memory-update/SKILL.md"),
+                "agenteam-memory-update",
+                include_str!("../../bundled-skills/agenteam-memory-update/SKILL.md"),
             ),
             (
-                "myagents-task-automation",
-                include_str!("../../bundled-skills/myagents-task-automation/SKILL.md"),
+                "agenteam-task-automation",
+                include_str!("../../bundled-skills/agenteam-task-automation/SKILL.md"),
             ),
             (
                 "prompt-writer",
                 include_str!("../../bundled-skills/prompt-writer/SKILL.md"),
             ),
             (
-                "myagents-task-alignment",
-                include_str!("../../bundled-skills/myagents-task-alignment/SKILL.md"),
+                "agenteam-task-alignment",
+                include_str!("../../bundled-skills/agenteam-task-alignment/SKILL.md"),
             ),
         ] {
             let yaml = content
@@ -1892,11 +1949,11 @@ mod system_skills_tests {
         let tool_install = include_str!(
             "../../bundled-agents/myagents_helper/.claude/skills/tool-install/SKILL.md"
         );
-        assert!(helper.contains("`/myagents-docs`"));
-        assert!(helper.contains("`/myagents-cli`"));
+        assert!(helper.contains("`/agenteam-docs`"));
+        assert!(helper.contains("`/agenteam-cli`"));
         assert!(helper.contains("`/support`"));
         assert!(helper.contains("`/tool-install`"));
-        assert!(support.contains("先用 `/myagents-docs` 确认正确产品预期"));
+        assert!(support.contains("先用 `/agenteam-docs` 确认正确产品预期"));
         assert!(support.contains("不读取 `~/.agenteam/credentials/`"));
         assert!(!support.contains("myagents space"));
         assert!(tool_install.contains("MYAGENTS_NPM_GLOBAL_PREFIX"));
@@ -1943,8 +2000,8 @@ mod system_skills_tests {
             }
         }
 
-        assert_reference_closure("bundled-skills/myagents-docs");
-        assert_reference_closure("bundled-skills/myagents-task-automation");
+        assert_reference_closure("bundled-skills/agenteam-docs");
+        assert_reference_closure("bundled-skills/agenteam-task-automation");
         assert_reference_closure("bundled-agents/myagents_helper/.claude/skills/support");
 
         let redactor_cli = include_str!(
@@ -1990,16 +2047,16 @@ mod system_skills_tests {
     fn all_memory_skill_descriptions_require_the_exact_full_name() {
         for (name, content) in [
             (
-                "myagents-memory-update",
-                include_str!("../../bundled-skills/myagents-memory-update/SKILL.md"),
+                "agenteam-memory-update",
+                include_str!("../../bundled-skills/agenteam-memory-update/SKILL.md"),
             ),
             (
-                "myagents-memory-gardener",
-                include_str!("../../bundled-skills/myagents-memory-gardener/SKILL.md"),
+                "agenteam-memory-gardener",
+                include_str!("../../bundled-skills/agenteam-memory-gardener/SKILL.md"),
             ),
             (
-                "myagents-memory-molt",
-                include_str!("../../bundled-skills/myagents-memory-molt/SKILL.md"),
+                "agenteam-memory-molt",
+                include_str!("../../bundled-skills/agenteam-memory-molt/SKILL.md"),
             ),
         ] {
             assert!(
@@ -2055,7 +2112,7 @@ mod system_skills_tests {
             SYSTEM_SKILLS_VERSION,
         )
         .unwrap();
-        fs::remove_file(skills_dir.join("myagents-memory-update").join("SKILL.md")).unwrap();
+        fs::remove_file(skills_dir.join("agenteam-memory-update").join("SKILL.md")).unwrap();
         assert!(ensure_system_skills_installation_current_at(myagents_dir).is_err());
     }
 

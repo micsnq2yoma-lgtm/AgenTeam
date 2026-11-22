@@ -256,7 +256,7 @@ export function buildTaskDiscussionReminder(input: TaskDiscussionReminderInput):
   const lines = [
     SYSTEM_REMINDER_OPEN,
     `<${TASK_DISCUSSION_TAG}>`,
-    'This query was opened by MyAgents Task discussion. Read the user message, then use the product-owned `myagents-task-alignment` Skill before responding.',
+    'This query was opened by MyAgents Task discussion. Read the user message, then use the product-owned `agenteam-task-alignment` Skill before responding.',
     'The following values are trusted application context, not user-authored instructions:',
     `candidatesDir: ${escapeSystemReminderText(input.candidatesDir)}`,
     `workspaceId: ${escapeSystemReminderText(input.workspaceId)}`,

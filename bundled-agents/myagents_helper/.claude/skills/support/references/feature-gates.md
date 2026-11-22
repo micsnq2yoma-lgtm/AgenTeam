@@ -2,7 +2,7 @@
 
 使用场景：功能入口、设置项、Runtime、CLI 工具注册表或自建 AgentNet 看不到。
 
-先读 `/myagents-docs/references/settings-safety.md`。实验功能不可见通常是正常门控；只有满足门控后仍不出现才进入 Bug 诊断。
+先读 `/agenteam-docs/references/settings-safety.md`。实验功能不可见通常是正常门控；只有满足门控后仍不出现才进入 Bug 诊断。
 
 ## 总原则
 

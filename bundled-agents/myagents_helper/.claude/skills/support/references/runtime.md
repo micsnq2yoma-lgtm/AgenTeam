@@ -2,7 +2,7 @@
 
 使用场景：DeepSeek Harness / Codex / Claude Code 不工作；终端能用但 MyAgents 里不行；Runtime 的模型、权限、MCP、登录或代理异常。
 
-先读 `/myagents-docs/references/models-providers-runtimes.md` 确认 Provider / Model / Runtime 与 `runtimeSource` 的产品边界。
+先读 `/agenteam-docs/references/models-providers-runtimes.md` 确认 Provider / Model / Runtime 与 `runtimeSource` 的产品边界。
 
 ## Ground truth
 

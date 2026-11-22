@@ -39,7 +39,7 @@ describe('buildCliToolsAppend', () => {
     const text = buildCliToolsAppend({ type: 'desktop' }, { includeUserTools: false });
 
     expect(text).toContain('<myagents-cli-task-automation>');
-    expect(text).toContain('myagents-task-automation');
+    expect(text).toContain('agenteam-task-automation');
     expect(text).toContain('myagents task readme');
     expect(text).not.toContain('<myagents-cli-cron>');
     expect(text).toContain('<myagents-cli-goal>');
@@ -157,7 +157,7 @@ describe('buildCliToolsAppend', () => {
     );
 
     expect(text).toContain('<myagents-cli-speech>');
-    expect(text).toContain('myagents-speech-recognition');
+    expect(text).toContain('agenteam-speech-recognition');
     expect(text).toContain('myagents speech --help');
     expect(text).toContain('automatically binds');
     expect(text).not.toContain('myagents speech transcribe --file');

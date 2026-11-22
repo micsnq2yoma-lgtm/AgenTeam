@@ -1,7 +1,7 @@
 ---
-name: myagents-memory-gardener
+name: agenteam-memory-gardener
 description: >
-  仅当系统或用户明确指定完整名称 `myagents-memory-gardener` 时使用；
+  仅当系统或用户明确指定完整名称 `agenteam-memory-gardener` 时使用；
   不要根据任务语义或相似表述自行触发。
 metadata:
   author: MyAgents
@@ -27,8 +27,8 @@ metadata:
 ## 边界
 
 - `UPDATE_MEMORY.md`：24h 捕获层，只做 session 级增量沉淀。
-- `myagents-memory-gardener`：72h 整编层，只做删、下放、合并、体检。
-- `myagents-memory-molt`：14d 深反层，才允许改 SOUL / 底层信念。
+- `agenteam-memory-gardener`：72h 整编层，只做删、下放、合并、体检。
+- `agenteam-memory-molt`：14d 深反层，才允许改 SOUL / 底层信念。
 
 ## 工作流程
 

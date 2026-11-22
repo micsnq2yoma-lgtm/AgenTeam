@@ -1,5 +1,5 @@
 ---
-name: myagents-task-alignment
+name: agenteam-task-alignment
 description: >-
   MyAgents 产品内“任务讨论/智能创建”的对齐工作流。只要首轮消息带有
   <TASK_DISCUSSION> 上下文，就使用本 Skill 与用户澄清需求、判断是否需要创建
@@ -16,7 +16,7 @@ metadata:
 
 ## 先读取产品能力
 
-开始讨论前完整读取 `myagents-task-automation` Skill。它是 Task 支持的执行模式、时间、触发策略、Session 策略、结束条件和 CLI 参数的权威能力说明。本 Skill 只负责需求对齐、`task.md` 质量与创建前确认，不复制那份能力表。
+开始讨论前完整读取 `agenteam-task-automation` Skill。它是 Task 支持的执行模式、时间、触发策略、Session 策略、结束条件和 CLI 参数的权威能力说明。本 Skill 只负责需求对齐、`task.md` 质量与创建前确认，不复制那份能力表。
 
 首轮消息的隐藏 `<TASK_DISCUSSION>` 中会给出：
 
@@ -80,7 +80,7 @@ metadata:
 
 ## 确认后创建
 
-收到明确确认后，按 `myagents-task-automation` 的能力说明调用通用 CLI。创建统一使用候选文件：
+收到明确确认后，按 `agenteam-task-automation` 的能力说明调用通用 CLI。创建统一使用候选文件：
 
 执行 mutation 前先运行 `myagents task create-direct --help`，以当前 App 随附 CLI 的 leaf help 核对最终参数名；若提案还包含立即派发，再同样核对 `myagents task run --help`。不要仅凭 Skill 中的示例猜测可能已变化的 CLI 细节。
 

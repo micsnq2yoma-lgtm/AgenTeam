@@ -1,11 +1,11 @@
 ---
-name: myagents-cli
+name: agenteam-cli
 description: >-
   你正在 MyAgents 这款 AI 产品里运行——MyAgents 自带一套"产品能力"（定时任务、任务中心、记录收集、MCP 工具接入、
   模型 Provider、IM Bot 渠道、社区插件、Skills 安装、Agent 网络与 Session 协作、Generative UI Widget、Goal 目标模式等），通过内置 `myagents` CLI 操作。
   当用户的需求**落在 MyAgents 产品能力的射程内**，就加载并使用这个 skill，用 CLI 主动帮用户把事情做掉，
   而不是让用户去 GUI 点击。
-  典型触发场景：用户说"每天 X 点帮我 Y / 等 X 发生后继续 / 持续盯着，命中才处理"（→ myagents-task-automation）、"记一下这个想法"（→ record）、"派发成任务"（→ task）、
+  典型触发场景：用户说"每天 X 点帮我 Y / 等 X 发生后继续 / 持续盯着，命中才处理"（→ agenteam-task-automation）、"记一下这个想法"（→ record）、"派发成任务"（→ task）、
   "接个 X 工具进来"（→ mcp）、"配 X 模型/Provider"（→ model）、"在飞书/钉钉/Telegram 里跟我聊"（→ agent channel）、
   "装个 X 插件 / 装个 X skill"（→ plugin / skill）、
   "把图发到 IM 里"（→ im send-media）、"用已配置的读图模型理解图片"（→ vision analyze）、"持续执行直到目标完成"（→ goal）、
@@ -17,9 +17,9 @@ metadata:
   author: MyAgents
 ---
 
-# myagents-cli — MyAgents 产品能力的 CLI 入口
+# agenteam-cli — MyAgents 产品能力的 CLI 入口
 
-MyAgents 是带状态的 Agent 平台：Goal、Task、Record、IM Bot、MCP、Provider、插件、Skill、Agent 网络与 Session 协作、Widget。CLI 负责产品操作；使用知识与功能边界查 `/myagents-docs`，登录、入网和开放 Agent 等没有 CLI 写入口的操作使用产品 UI。
+MyAgents 是带状态的 Agent 平台：Goal、Task、Record、IM Bot、MCP、Provider、插件、Skill、Agent 网络与 Session 协作、Widget。CLI 负责产品操作；使用知识与功能边界查 `/agenteam-docs`，登录、入网和开放 Agent 等没有 CLI 写入口的操作使用产品 UI。
 
 **这个 skill 不只是"管理工具"，它是 MyAgents 产品能力的执行入口**。用户表达的需求只要能映射到产品能力，就该用 CLI 主动帮用户做掉，而不是给用户一堆操作步骤让他自己去 Settings 点。这份文档列出全部能力以及"什么时候应该用哪条命令"。
 
@@ -55,11 +55,11 @@ CLI 通过 `~/.agenteam/bin/myagents` 暴露，App 内 Agent 的 PATH 和调用�
 
 ### AnyDoc 本地文档转换
 
-MyAgents 内置 AnyDoc 本地文档转 Markdown/OCR 能力。先运行 `myagents anydoc --help`；需要详细使用说明时加载 `/myagents-anydoc`。
+MyAgents 内置 AnyDoc 本地文档转 Markdown/OCR 能力。先运行 `myagents anydoc --help`；需要详细使用说明时加载 `/agenteam-anydoc`。
 
 ### 本地附件语音识别
 
-MyAgents 能把当前 Workspace 内的单个本地音频或视频附件提交给 App-owned 离线异步转写任务。先运行 `myagents speech --help`；需要完整 Session 隔离、输入格式与任务生命周期说明时加载 `/myagents-speech-recognition`。Session 与 Workspace 由产品自动绑定，不自行传参。
+MyAgents 能把当前 Workspace 内的单个本地音频或视频附件提交给 App-owned 离线异步转写任务。先运行 `myagents speech --help`；需要完整 Session 隔离、输入格式与任务生命周期说明时加载 `/agenteam-speech-recognition`。Session 与 Workspace 由产品自动绑定，不自行传参。
 
 ### 知识库
 
@@ -268,7 +268,7 @@ myagents task run-now <taskId>                          # 绕过 Detector 立即
 myagents task exit [--reason "..."]                     # 仅在允许 AI exit 的 Task run 内
 ```
 
-定时、未来唤醒、循环执行和“满足条件才处理”是同一类 Task 意图。先加载 `myagents-task-automation`，由它选择普通 always 激活或 command Detector，并完成创建、回读和启动。不要让用户先选择 Cron 或 Sensor。
+定时、未来唤醒、循环执行和“满足条件才处理”是同一类 Task 意图。先加载 `agenteam-task-automation`，由它选择普通 always 激活或 command Detector，并完成创建、回读和启动。不要让用户先选择 Cron 或 Sensor。
 
 `myagents cron ...` 继续作为旧用户/脚本的兼容 alias，但不是 Agent 新建自动化的规范入口。不要调用系统 `cron/crontab/at/launchctl/schtasks`。
 
@@ -292,7 +292,7 @@ myagents goal update --status blocked                  # AI 判断无法继续�
 
 ### 记录与任务中心（record / task）
 
-用户要定时、未来唤醒、循环执行或满足条件才叫醒 AI 时，统一加载 `myagents-task-automation`。command Detector 的协议、fixture 和测试由该 Skill 按需路由到自己的 reference；这里仅保留 Task Center 的通用命令索引。
+用户要定时、未来唤醒、循环执行或满足条件才叫醒 AI 时，统一加载 `agenteam-task-automation`。command Detector 的协议、fixture 和测试由该 Skill 按需路由到自己的 reference；这里仅保留 Task Center 的通用命令索引。
 
 ```bash
 myagents record list [--kind text|audio --tag X --query X --limit N]
@@ -372,7 +372,7 @@ myagents plugin remove <pluginId>                       # 卸载
 
 **何时用：**
 - "装个微信插件" → `plugin install <npm 包名>`
-- 飞书可走内置 Channel 和扫码配置；只有明确需要社区实现时再查 OpenClaw 插件来源并安装，见 `/myagents-docs`
+- 飞书可走内置 Channel 和扫码配置；只有明确需要社区实现时再查 OpenClaw 插件来源并安装，见 `/agenteam-docs`
 
 安装走内置 Node.js 的 npm，可能需要 10-30 秒。卸载前会检查是否有 Channel 还在用这个插件——有的话先把 Channel 移掉。
 

@@ -3960,7 +3960,7 @@ Related:
     example:
       'myagents task trigger validate --spec-file trigger.production.json --json',
     recovery:
-      'Read myagents-task-automation/references/command-detector.md and correct the strict schema.',
+      'Read agenteam-task-automation/references/command-detector.md and correct the strict schema.',
   }),
 
   'task/trigger/test': taskLeafHelp({
@@ -6296,7 +6296,7 @@ PRODUCT MODEL
     command Detector  Run a cheap program first; quiet stays silent and activate
                       dispatches the ordinary Task AI turn
 
-  Use the required system skill 'myagents-task-automation' for the complete
+  Use the required system skill 'agenteam-task-automation' for the complete
   Agent workflow. It routes command Detector authoring to its protocol reference.
 
 CANONICAL COMMANDS

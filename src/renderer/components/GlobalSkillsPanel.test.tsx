@@ -41,11 +41,11 @@ vi.mock('./CommandDetailPanel', async () => {
 });
 
 const requiredSkill: SkillItem = {
-  name: 'myagents-cli',
+  name: 'agenteam-cli',
   description: 'MyAgents product operations',
   scope: 'user',
-  path: '/tmp/myagents-cli/SKILL.md',
-  folderName: 'myagents-cli',
+  path: '/tmp/agenteam-cli/SKILL.md',
+  folderName: 'agenteam-cli',
   author: 'MyAgents',
   systemOwned: true,
   required: true,
@@ -86,7 +86,7 @@ describe('GlobalSkillsPanel required skill controls', () => {
     const onDetailChange = vi.fn();
     render(<GlobalSkillsPanel onDetailChange={onDetailChange} />);
 
-    const requiredTitle = await screen.findByText('myagents-cli');
+    const requiredTitle = await screen.findByText('agenteam-cli');
     const optionalTitle = screen.getByText('prompt-writer');
     const requiredCard = requiredTitle.closest('.group');
     const optionalCard = optionalTitle.closest('.group');

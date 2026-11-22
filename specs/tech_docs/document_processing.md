@@ -33,7 +33,7 @@ myagents CLI bundle
 - Sidecar Admin API：注入当前 Sidecar 的 authoritative Workspace（仅默认输出需要），薄转发并保留结构化错误；不解析文档。
 - `DocumentProcessingManager`：queue、job store、active generation、资源 admission、source handle、取消、timeout、App shutdown、原子发布的唯一 owner。
 - Worker：只拥有当前 job 的 parser/OCR effective runtime state 和 staging 写入；不监听端口、不持久化、不重试、不接网络。
-- required system Skill `myagents-anydoc`：WHEN TO USE 与工作流说明；不执行转换、不保存状态。`myagents-cli` 只保留薄索引。
+- required system Skill `agenteam-anydoc`：WHEN TO USE 与工作流说明；不执行转换、不保存状态。`agenteam-cli` 只保留薄索引。
 
 AnyDoc 不属于 Session，因此关闭 Tab、切 Runtime 或 CLI 退出不会取消 job；App 退出会统一收敛所有 queued/running job。
 
@@ -179,9 +179,9 @@ speech 的用户可移除模型权重不属于本节的 build cache，也不进�
 
 ## Skill 与 help 防漂移
 
-- `myagents-anydoc` 必须同时存在于 TS required set、Rust system bundle、workspace required mirror，并随 `SYSTEM_SKILLS_VERSION` 同步安装。
+- `agenteam-anydoc` 必须同时存在于 TS required set、Rust system bundle、workspace required mirror，并随 `SYSTEM_SKILLS_VERSION` 同步安装。
 - 其 frontmatter description 承担相关意图发现；正文说明异步 workflow、安全和边界。
-- `myagents-cli` frontmatter description 不得出现 AnyDoc；正文只含 AnyDoc 能力名、`myagents anydoc --help`、`/myagents-anydoc` 三个索引要素。
+- `agenteam-cli` frontmatter description 不得出现 AnyDoc；正文只含 AnyDoc 能力名、`myagents anydoc --help`、`/agenteam-anydoc` 三个索引要素。
 - `system-prompt-cli-tools.ts` 不增加 AnyDoc section/hint。
 - exact group/leaf help 是当前 CLI 参数、输出、exit 和 recovery authority；没有 `readme` route。
 

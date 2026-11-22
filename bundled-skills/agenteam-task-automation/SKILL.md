@@ -1,5 +1,5 @@
 ---
-name: myagents-task-automation
+name: agenteam-task-automation
 description: >-
   让 Agent 建立 MyAgents Task 的完整产品心智模型，并创建、验证和治理需要持久追踪、独立 Session 或未来触发的工作：理解 Task 与立即执行/Record/Goal 的边界，以及 once/scheduled/recurring、Session routing、结束条件和 command Detector。用户提到创建 Task、定时、稍后、周期检查、持续关注、满足条件才处理时使用；普通立即执行、仅保存 Record 或明确要求 Goal Mode 的工作不使用。
 metadata:
@@ -70,7 +70,7 @@ MyAgents App 必须在线才会产生 tick 或执行检查。Task 可以在 App 
 4. **Session**：延续当前/已有上下文用 `single-session`；每次需要隔离上下文用 `new-session`。
 5. **结束**：一次性任务自然结束；循环任务根据用户意图选择最大 AI 执行次数、截止时间、允许 AI 主动退出，或持续到用户暂停。Detector 的 quiet 检查不计入 AI 执行次数。
 
-只澄清会改变这些选择的缺失信息。普通的明确创建请求在信息齐全后连续完成准备、验证、创建、回读和启动，不逐步索要批准；删除仍遵守 `/myagents-cli` 的确认规则。若本轮来自 `<TASK_DISCUSSION>`，则由 `myagents-task-alignment` 负责候选文档与创建前确认，必须等用户明确确认后才 mutation。
+只澄清会改变这些选择的缺失信息。普通的明确创建请求在信息齐全后连续完成准备、验证、创建、回读和启动，不逐步索要批准；删除仍遵守 `/agenteam-cli` 的确认规则。若本轮来自 `<TASK_DISCUSSION>`，则由 `agenteam-task-alignment` 负责候选文档与创建前确认，必须等用户明确确认后才 mutation。
 
 ## `always`：到点直接激活
 

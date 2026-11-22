@@ -2,7 +2,7 @@
 
 使用场景：Provider 不通、npm/plugin 拉包失败、MCP 远程服务不可达、外部 Runtime 在终端能用但 MyAgents 里不能用、localhost 被代理导致 502。
 
-不同网络链路的产品 owner 先读 `/myagents-docs/references/settings-safety.md` 与 `models-providers-runtimes.md`。
+不同网络链路的产品 owner 先读 `/agenteam-docs/references/settings-safety.md` 与 `models-providers-runtimes.md`。
 
 ## Ground truth
 

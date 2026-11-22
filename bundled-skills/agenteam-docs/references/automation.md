@@ -21,7 +21,7 @@ Record 不是会自动执行的 Task。仅仅保存 Record 不会启动 Agent �
 
 详情页支持音轨播放、逐字稿定位、人物重命名/合并/逐条归属调整、笔记、标记与导出；完成的录音可重新转写，处理期间保留旧稿，成功后更新。人物不等于麦克风/系统音轨，证据不足保留「未确定」，不建立跨 Record 的人物身份承诺。已安装模型可后台维护，失败不应删除当前兼容可用资源。
 
-Agent 的单个工作区音视频附件转写使用 `/myagents-speech-recognition`，不操作 Record 录制或说话人编辑。CLI 的 `record` 主要管理已有记录与创建文字 Record，录音采集仍从桌面入口开始。
+Agent 的单个工作区音视频附件转写使用 `/agenteam-speech-recognition`，不操作 Record 录制或说话人编辑。CLI 的 `record` 主要管理已有记录与创建文字 Record，录音采集仍从桌面入口开始。
 
 ## Task Center
 

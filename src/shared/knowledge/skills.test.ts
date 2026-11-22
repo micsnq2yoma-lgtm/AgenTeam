@@ -67,7 +67,7 @@ describe('knowledge Skills track the K5 CLI contract', () => {
 
   it('descriptions separate retrieval from conversion, memory and managed curation', () => {
     const description = (markdown: string) => markdown.split('---')[1];
-    expect(description(SKILLS.knowledge)).toMatch(/myagents-anydoc/);
+    expect(description(SKILLS.knowledge)).toMatch(/agenteam-anydoc/);
     expect(description(SKILLS.knowledge)).toMatch(/memory/);
     expect(description(SKILLS.knowledge)).toMatch(/kb:\/\//);
     expect(description(SKILLS.curator)).toMatch(/仅当系统或用户明确指定完整名称 `agenteam-knowledge-curator`/);
