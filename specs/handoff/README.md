@@ -10,6 +10,8 @@
 | 助理记忆 | atmer 模板的记忆使用规则 | `MEMORY_REFRESH`（方案 B1，分支 `feat/memory-refresh-reminder`，CI 分支 `dev/memory-refresh`，待 CI 通过并经用户授权后合并） |
 | 侧栏状态、后台超时、Launcher | 均已合并 | — |
 
+> 记忆功能的独立验收见 `assistant_profile/acceptance-plan.md`（真实 App 加模型的未验证项，由用户另行指派验收人）。
+
 ## 任务队列（按顺序做，一次一个任务）
 
 | 顺序 | 任务 | 规格 | 说明 |
