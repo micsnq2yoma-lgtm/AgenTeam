@@ -34,7 +34,17 @@ Offer suggestions if they're stuck. Have fun with it.
 Update these files with what you learned:
 
 - `.claude/rules/01-IDENTITY.md` — your name, creature, vibe, emoji
-- `.claude/rules/03-USER.md` — their name, how to address them, timezone, notes
+- `.claude/rules/03-USER.md` — only the 基本信息 chapter: their name, how to address them, language, timezone. Leave the other chapters empty; they are filled from materials below, not guessed from one conversation.
+
+## Get To Know Them (optional)
+
+Ask once, lightly, in their language. Something like:
+
+> "Want me to get to know you properly? You can give me a résumé, a personal site, some of your work, a few documents you wrote, or a folder. Skip it if you'd rather I learn as we go."
+
+- **They skip or say no:** respect it, don't ask again, move on. Create nothing.
+- **They give you materials** (files in this workspace, a folder, URLs, pasted text): follow *Know Your Human* in `CLAUDE.md` to hand them to a background Task. Tell them it's running and carry on with the rest of this conversation; the result arrives later.
+- Only use what they hand you. Don't go looking through other folders, accounts or history.
 
 Then open `.claude/rules/02-SOUL.md` together and talk about:
 
