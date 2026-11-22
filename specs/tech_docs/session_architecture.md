@@ -14,6 +14,7 @@ Session 不是单一对象，而是同一产品会话在不同生命周期阶段
 | Sidecar 生命周期与 Owner | Rust `SidecarManager` | 创建、复用、replacement、Owner 附着与释放 |
 | transcript | `SessionStore` | MyAgents UI、搜索与恢复使用的产品历史 |
 | 当前 turn 与 Runtime queue | 对应 adapter | admission、执行、stop 与 terminal settlement |
+| App 级侧栏会话活动 | Rust `SessionActivityRegistry` | 运行、等待人工与最近一次错误的进程内投影 |
 | Goal 状态 | Rust `SessionGoalManager` | 独立于 Session metadata 与 Task 的 durable state |
 | Renderer 投影 | `TabProvider` / `useTabState()` | 只投影当前 Tab 所属 Session，不反向成为业务 authority |
 
@@ -287,6 +288,18 @@ Builtin 手动强制发送在旧 turn result 中把 in-flight 项从队列交给
 普通 Session 的系统完成通知由 Rust `notification.rs` 统一裁决。Tab SSE proxy 与无 Tab 的 `BackgroundCompletion` 只能向当前 Sidecar generation 申请一次性资格，再由通知 owner 判断 origin、窗口焦点、偏好、badge 与 deep-link。
 
 Task、Goal、Agent Channel、Memory、Heartbeat 等领域使用自己的通知/投递语义。transport 断线期间的 turn 仍可恢复历史，但普通通知没有 durable outbox，不能承诺断线窗口补发。
+
+### 6.5 App 级会话活动
+
+`SessionActivityRegistry` 是与 SidecarManager 同层的 Rust managed state。SessionEngine 在 Runtime 生命周期与人工请求变化时读取 adapter 的 live snapshot 和真实 terminal，使用现有 Node → Rust Management API 的 `POST /api/session/activity` 顺序上报。上报失败记录日志，执行流程继续。Desktop、IM、定时任务、Goal 和 Companion 共用这条路径。
+
+SidecarManager 为当前进程的逻辑会话绑定分配专用凭据，Runtime 子进程不继承。Rust 在生命周期锁内从凭据解析 Product Session 与 generation，并更新 Registry。请求体只传活动状态。Sidecar 退役清除该 generation 的运行类状态。pending 槽转为同一会话的正式 ID 时沿用凭据并迁移活动。
+
+同一进程开始另一条逻辑会话时，Rust 通过现有新建对话请求携带当前凭据和替换凭据。Sidecar 暂停切换期间的采样，已排队的报告继续携带采样时的凭据。Rust 在会话换绑提交前暂存替换凭据的活动。提交后撤销旧凭据，清除来源会话的运行状态，并将暂存活动应用到目标会话。拒绝换绑且来源未变时继续使用原凭据，结果不明时既有生命周期负责退役进程。
+
+完成或主动停止会清除运行类状态。Error 保留在内存中，直到打开该会话或开始新一轮。App 重启清空所有活动。完成未读继续由 `notification.rs` 的计数裁决。
+
+Renderer 先监听 `session:activity-changed`，再读取 `cmd_session_activity_snapshot` 并合并期间收到的事件。事件只包含 Session ID 与活动状态。侧栏从该只读投影与既有会话元数据计算分组和显示，Tab 只提供页面选中和待落盘会话的工作区关联。
 
 ### 主窗口 WebContent replacement
 

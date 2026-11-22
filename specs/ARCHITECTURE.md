@@ -57,6 +57,7 @@ MyAgents 是基于 Tauri v2 的桌面 AI Agent 客户端。React Renderer 提供
 | desired state | 用户希望以后如何运行 | `config.json`、Task/Agent/Goal Store |
 | birth snapshot | 本 Session 以什么身份出生 | Session metadata |
 | effective runtime state | 当前 generation 实际采用什么 | SessionEngine adapter / Runtime process |
+| App 级会话活动 | 哪些会话正在执行、等待人工或最近一次执行出错 | Rust SessionActivityRegistry，投影 Runtime 和 SidecarManager 的事实 |
 | UI projection | 当前窗口如何展示 | App、TabProvider 或 feature store |
 
 后产生或更接近执行层的数据不会自动获得上游写权限。跨层写回必须经过对应 lifecycle owner 的现有入口；多个进程需要执行同一判断时共享 pure policy，不能各自推断。
@@ -193,6 +194,7 @@ AgenTeam 包含自建 AgentNet 的客户端。Node Sidecar 负责本机业务适
 | 模块 | Owner 与边界 | 详细文档 |
 |------|--------------|----------|
 | Sidecar Manager | Rust；Session owner set、generation、recovery、Global intent 和请求 lease | [Session](./tech_docs/session_architecture.md)、[冷启动](./tech_docs/sidecar_cold_start.md) |
+| Session Activity Registry | Rust App 级内存状态；按 Session 与 Sidecar generation 投影运行、等待人工和错误，向侧栏发布增量和快照 | [Session](./tech_docs/session_architecture.md#65-app-级会话活动) |
 | Tab Workspace | App + feature module；Tab union、导航、恢复、关闭 lifecycle | [DESIGN](./DESIGN.md)、[Chat 呈现](./tech_docs/chat_scroll_presentation_lifecycle.md) |
 | System Prompt | Node；产品 append、Workspace 指令和逐轮 reminder 分层组装 | [Prompt](./tech_docs/system_prompt_architecture.md)、[Reminder](./tech_docs/system_reminder_protocol.md) |
 | SessionEngine | Node facade；builtin/integrated/external Runtime 的唯一 route-facing 入口 | [Multi-Agent Runtime](./tech_docs/multi_agent_runtime.md) |

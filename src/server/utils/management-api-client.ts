@@ -25,7 +25,7 @@ export async function managementApi(
   path: string,
   method: 'GET' | 'POST' = 'GET',
   body?: Record<string, unknown>,
-  requestOptions?: { timeoutMs?: number; parentSignal?: AbortSignal },
+  requestOptions?: { timeoutMs?: number; parentSignal?: AbortSignal; sessionActivityToken?: string },
 ): Promise<Record<string, unknown>> {
   if (!MGMT_PORT) {
     return {
@@ -41,7 +41,12 @@ export async function managementApi(
   const url = `http://127.0.0.1:${MGMT_PORT}${path}`;
   const options: RequestInit = {
     method,
-    headers: managementRequestHeaders(),
+    headers: {
+      ...managementRequestHeaders(),
+      ...(requestOptions?.sessionActivityToken
+        ? { 'X-MyAgents-Session-Activity-Token': requestOptions.sessionActivityToken }
+        : {}),
+    },
   };
   if (body && method === 'POST') {
     options.body = JSON.stringify(body);

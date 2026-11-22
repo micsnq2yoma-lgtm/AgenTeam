@@ -3,7 +3,7 @@
 // Supports per-Tab isolation with independent Sidecar processes
 
 use std::collections::{HashMap, HashSet};
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU16, AtomicU64, Ordering};
@@ -97,7 +97,6 @@ pub use runtime_identity::{
 pub(crate) use session_lifecycle::release_session_owner_everywhere;
 pub(crate) use session_lifecycle::{
     acquire_session_lifecycle, ensure_session_sidecar_with_lifecycle,
-    ensure_session_sidecar_with_runtime_identity_override,
     ensure_session_sidecar_with_runtime_identity_override_lifecycle,
     ensure_session_sidecar_with_runtime_identity_override_lifecycle_held,
     finish_session_owner_release, has_persisted_session_owner, SessionLifecycleGuard,
@@ -319,6 +318,53 @@ fn append_sidecar_entrypoint_args(
     append_sidecar_role_arg(cmd, role);
 }
 
+// Port file for CLI discovery — written when Global Sidecar starts,
+// read by `cli.rs` to know which port to connect to.
+const PORT_FILE_NAME: &str = "sidecar.port";
+
+// ===== Crashed Node Tracking =====
+// When a bundled Node.js crashes with STATUS_ACCESS_VIOLATION (0xC0000005) on Windows —
+// usually a missing VC++ runtime DLL or some AV-injection incompatibility — mark it as
+// crashed so subsequent spawn attempts fall through to system Node.
+// v0.1.x tracked Bun crashes here (AVX2 baseline issue); Node has its own failure modes.
+static CRASHED_NODE_PATHS: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+#[cfg(windows)]
+fn mark_node_as_crashed(path: &std::path::Path) {
+    let normalized = normalize_external_path(path.to_path_buf());
+    // unwrap_or_else recovers from Mutex poisoning — the body is trivial (Vec::push),
+    // so the data is still consistent even if a previous holder panicked.
+    let mut paths = CRASHED_NODE_PATHS.lock().unwrap_or_else(|e| e.into_inner());
+    if !paths.iter().any(|p| p == &normalized) {
+        paths.push(normalized.clone());
+        ulog_warn!(
+            "[sidecar] Marked node as crashed (will try system fallback on next attempt): {:?}",
+            normalized
+        );
+    }
+}
+
+fn is_node_crashed(path: &std::path::Path) -> bool {
+    let normalized = normalize_external_path(path.to_path_buf());
+    let paths = CRASHED_NODE_PATHS.lock().unwrap_or_else(|e| e.into_inner());
+    paths.iter().any(|x| x == &normalized)
+}
+
+/// On Windows, check if the process exited with STATUS_ACCESS_VIOLATION (0xC0000005)
+/// and mark the node binary as crashed for fallback to system node.
+#[cfg(target_os = "windows")]
+fn maybe_mark_crashed_node(status: &std::process::ExitStatus, node_path: &std::path::Path) {
+    let code = status.code().unwrap_or(0) as u32;
+    if code == 0xc0000005 {
+        mark_node_as_crashed(node_path);
+    }
+}
+
+// ===== Proxy Configuration =====
+// Default values (must match TypeScript PROXY_DEFAULTS in types.ts)
+// Proxy configuration is now managed by the shared proxy_config module
+// See src/proxy_config.rs for implementation details
+
 #[cfg(test)]
 mod sidecar_process_role_tests {
     use super::{
@@ -439,50 +485,3 @@ mod sidecar_process_role_tests {
             .any(|(key, _)| key == SESSION_DELETE_AUTHORITY_ENV));
     }
 }
-
-// Port file for CLI discovery — written when Global Sidecar starts,
-// read by `cli.rs` to know which port to connect to.
-const PORT_FILE_NAME: &str = "sidecar.port";
-
-// ===== Crashed Node Tracking =====
-// When a bundled Node.js crashes with STATUS_ACCESS_VIOLATION (0xC0000005) on Windows —
-// usually a missing VC++ runtime DLL or some AV-injection incompatibility — mark it as
-// crashed so subsequent spawn attempts fall through to system Node.
-// v0.1.x tracked Bun crashes here (AVX2 baseline issue); Node has its own failure modes.
-static CRASHED_NODE_PATHS: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
-
-#[allow(dead_code)] // Only called from #[cfg(windows)] blocks; harmless on other platforms
-fn mark_node_as_crashed(path: &std::path::Path) {
-    let normalized = normalize_external_path(path.to_path_buf());
-    // unwrap_or_else recovers from Mutex poisoning — the body is trivial (Vec::push),
-    // so the data is still consistent even if a previous holder panicked.
-    let mut paths = CRASHED_NODE_PATHS.lock().unwrap_or_else(|e| e.into_inner());
-    if !paths.iter().any(|p| p == &normalized) {
-        paths.push(normalized.clone());
-        ulog_warn!(
-            "[sidecar] Marked node as crashed (will try system fallback on next attempt): {:?}",
-            normalized
-        );
-    }
-}
-
-fn is_node_crashed(path: &std::path::Path) -> bool {
-    let normalized = normalize_external_path(path.to_path_buf());
-    let paths = CRASHED_NODE_PATHS.lock().unwrap_or_else(|e| e.into_inner());
-    paths.iter().any(|x| x == &normalized)
-}
-
-/// On Windows, check if the process exited with STATUS_ACCESS_VIOLATION (0xC0000005)
-/// and mark the node binary as crashed for fallback to system node.
-#[cfg(target_os = "windows")]
-fn maybe_mark_crashed_node(status: &std::process::ExitStatus, node_path: &std::path::Path) {
-    let code = status.code().unwrap_or(0) as u32;
-    if code == 0xc0000005 {
-        mark_node_as_crashed(node_path);
-    }
-}
-
-// ===== Proxy Configuration =====
-// Default values (must match TypeScript PROXY_DEFAULTS in types.ts)
-// Proxy configuration is now managed by the shared proxy_config module
-// See src/proxy_config.rs for implementation details

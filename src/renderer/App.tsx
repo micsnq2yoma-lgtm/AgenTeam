@@ -3099,6 +3099,11 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       type: 'session',
       sessionId: activeChatSessionId,
     });
+    if (isTauriEnvironment()) {
+      void tauriInvoke('cmd_acknowledge_session_error', { sessionId: activeChatSessionId }).catch((error: unknown) => {
+        console.warn('[App] Could not acknowledge Session error', error);
+      });
+    }
   }, [acknowledgeNotificationTarget, activeChatSessionId]);
 
   useEffect(() => {

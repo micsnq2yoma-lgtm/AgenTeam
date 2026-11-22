@@ -237,11 +237,16 @@ async fn request_desktop_runtime_transition(
     client: &reqwest::Client,
     port: u16,
     payload: &serde_json::Value,
+    current_activity_token: uuid::Uuid,
 ) -> Result<(), DesktopTransitionFailure> {
     let response = client
         .post(format!(
             "http://127.0.0.1:{port}/api/session/new-conversation"
         ))
+        .header(
+            "x-myagents-session-activity-token",
+            current_activity_token.to_string(),
+        )
         .json(payload)
         .send()
         .await;
@@ -308,12 +313,20 @@ pub(crate) async fn transition_desktop_runtime(
         source,
         target,
         port,
-        channel_bound,
-        metadata_birth_pending,
-        metadata_indexed,
+        DesktopTransitionMetadata {
+            channel_bound,
+            metadata_birth_pending,
+            metadata_indexed,
+        },
         &client,
     )
     .await
+}
+
+struct DesktopTransitionMetadata {
+    channel_bound: bool,
+    metadata_birth_pending: bool,
+    metadata_indexed: bool,
 }
 
 async fn transition_desktop_runtime_with_client(
@@ -321,11 +334,14 @@ async fn transition_desktop_runtime_with_client(
     source: &str,
     target: &str,
     port: u16,
-    channel_bound: bool,
-    metadata_birth_pending: bool,
-    metadata_indexed: bool,
+    metadata: DesktopTransitionMetadata,
     client: &reqwest::Client,
 ) -> Result<Option<super::manager::SidecarHttpDispatch>, String> {
+    let DesktopTransitionMetadata {
+        channel_bound,
+        metadata_birth_pending,
+        metadata_indexed,
+    } = metadata;
     // Keep this exact writer manager-owned even if its final Tab closes while
     // Node is processing the request. A timeout does not release this lease.
     let Some(dispatch) = manager
@@ -376,11 +392,28 @@ async fn transition_desktop_runtime_with_client(
     } else {
         source.to_string()
     };
+    let (current_token, next_token) = manager
+        .lock()
+        .map_err(|error| error.to_string())?
+        .reserve_activity_rebind(source, target, dispatch.generation())
+        .ok_or_else(|| "Session activity binding changed before transition".to_owned())?;
     let payload = serde_json::json!({
         "sourceSessionId": runtime_source, "targetSessionId": target, "channelBound": channel_bound,
         "metadataBirthPending": metadata_birth_pending, "metadataIndexed": metadata_indexed,
+        "nextActivityToken": next_token.to_string(),
     });
-    if let Err(failure) = request_desktop_runtime_transition(client, port, &payload).await {
+    if let Err(failure) =
+        request_desktop_runtime_transition(client, port, &payload, current_token).await
+    {
+        if matches!(
+            &failure,
+            DesktopTransitionFailure::Busy | DesktopTransitionFailure::Rejected(_)
+        ) {
+            manager
+                .lock()
+                .map_err(|error| error.to_string())?
+                .cancel_activity_rebind(source, dispatch.generation(), next_token);
+        }
         return match failure {
             DesktopTransitionFailure::Busy => Ok(None),
             DesktopTransitionFailure::Rejected(error) => Err(error),
@@ -407,12 +440,13 @@ pub(crate) async fn commit_desktop_runtime_transition(
 ) -> Result<bool, String> {
     let rekeyed = {
         let mut state = manager.lock().map_err(|error| error.to_string())?;
-        match channel_key {
-            Some(key) => {
-                state.upgrade_session_id_for_surface_migration(source, target, tab_id, key)
-            }
-            None => state.upgrade_session_id_for_tab(source, target, tab_id),
-        }
+        state.commit_desktop_runtime_rebind(
+            source,
+            target,
+            tab_id,
+            channel_key,
+            dispatch.generation(),
+        )
     };
     if !rekeyed {
         retire_failed_desktop_transition(manager, source, dispatch).await?;
@@ -522,32 +556,32 @@ pub struct EnsureSidecarResult {
 const MAX_ENSURE_ATTEMPTS: u32 = 8;
 const RECOVERY_ATTEMPT_STALE: &str = "RECOVERY_ATTEMPT_STALE";
 
+#[derive(Clone, Copy)]
+pub(super) struct SessionSidecarRequest<'a> {
+    pub session_id: &'a str,
+    pub workspace_path: &'a std::path::Path,
+    pub runtime_override: Option<&'a str>,
+    pub runtime_source_override: Option<&'a str>,
+    pub expected_recovery_epoch: Option<u64>,
+}
+
 /// Blocking ensure kernel. Callers must normally use the lifecycle-fenced
 /// async wrapper below. The health monitor is the sole direct caller because
 /// it already holds the lifecycle guard while preserving the dead owner object
 /// across restart failure.
-pub(crate) fn ensure_session_sidecar_with_runtime_identity_override<R: Runtime>(
+pub(super) fn ensure_session_sidecar_with_runtime_identity_override<R: Runtime>(
     app_handle: &AppHandle<R>,
     manager: &ManagedSidecarManager,
-    session_id: &str,
-    workspace_path: &std::path::Path,
+    request: SessionSidecarRequest<'_>,
     owner: SidecarOwner,
-    runtime_override: Option<String>,
-    runtime_source_override: Option<String>,
-    expected_recovery_epoch: Option<u64>,
 ) -> Result<EnsureSidecarResult, String> {
-    let _lifecycle_spawn_permit = begin_lifecycle_spawn_permit()?;
-    let attempt_result = ensure_session_sidecar_attempt(
-        app_handle,
-        manager,
+    let SessionSidecarRequest {
         session_id,
-        workspace_path,
-        owner,
-        runtime_override,
-        runtime_source_override,
-        0,
         expected_recovery_epoch,
-    );
+        ..
+    } = request;
+    let _lifecycle_spawn_permit = begin_lifecycle_spawn_permit()?;
+    let attempt_result = ensure_session_sidecar_attempt(app_handle, manager, request, owner, 0);
     let mut result = match attempt_result {
         Ok(result) => result,
         Err(error) => {
@@ -690,12 +724,14 @@ pub(crate) async fn ensure_session_sidecar_with_runtime_identity_override_lifecy
         ensure_session_sidecar_with_runtime_identity_override(
             &ensure_app_handle,
             &manager,
-            &session_id,
-            &workspace_path,
+            SessionSidecarRequest {
+                session_id: &session_id,
+                workspace_path: &workspace_path,
+                runtime_override: runtime_override.as_deref(),
+                runtime_source_override: runtime_source_override.as_deref(),
+                expected_recovery_epoch: None,
+            },
             owner,
-            runtime_override,
-            runtime_source_override,
-            None,
         )
     })
     .await
@@ -788,14 +824,17 @@ fn retained_session_runtime_identity(
 fn ensure_session_sidecar_attempt<R: Runtime>(
     app_handle: &AppHandle<R>,
     manager: &ManagedSidecarManager,
-    session_id: &str,
-    workspace_path: &std::path::Path,
+    request: SessionSidecarRequest<'_>,
     owner: SidecarOwner,
-    runtime_override: Option<String>,
-    runtime_source_override: Option<String>,
     attempt: u32,
-    expected_recovery_epoch: Option<u64>,
 ) -> Result<EnsureSidecarResult, String> {
+    let SessionSidecarRequest {
+        session_id,
+        workspace_path,
+        runtime_override,
+        runtime_source_override,
+        expected_recovery_epoch,
+    } = request;
     if attempt >= MAX_ENSURE_ATTEMPTS {
         return Err(format!(
             "Session {} ensure exceeded {} attempts (sidecar generation churn not settling)",
@@ -820,8 +859,8 @@ fn ensure_session_sidecar_attempt<R: Runtime>(
         session_id,
         workspace_path,
         &owner,
-        runtime_override.as_deref(),
-        runtime_source_override.as_deref(),
+        runtime_override,
+        runtime_source_override,
     );
     if let Some(error) = &expected_runtime_identity.compatibility_error {
         return Err(format!("RUNTIME_BINDING_INCOMPATIBLE: {error}"));
@@ -1011,13 +1050,9 @@ fn ensure_session_sidecar_attempt<R: Runtime>(
                 return ensure_session_sidecar_attempt(
                     app_handle,
                     manager,
-                    session_id,
-                    workspace_path,
+                    request,
                     owner,
-                    runtime_override,
-                    runtime_source_override,
                     attempt + 1,
-                    expected_recovery_epoch,
                 );
             }
         };
@@ -1094,13 +1129,9 @@ fn ensure_session_sidecar_attempt<R: Runtime>(
                         return ensure_session_sidecar_attempt(
                             app_handle,
                             manager,
-                            session_id,
-                            workspace_path,
+                            request,
                             owner,
-                            runtime_override,
-                            runtime_source_override,
                             attempt + 1,
-                            expected_recovery_epoch,
                         );
                     }
                 }
@@ -1254,15 +1285,11 @@ fn ensure_session_sidecar_attempt<R: Runtime>(
         let result = create_new_session_sidecar(
             app_handle,
             manager,
-            session_id,
-            workspace_path,
+            request,
             owner,
             manager_guard,
-            runtime_override.as_deref(),
-            runtime_source_override.as_deref(),
             &expected_runtime_identity,
             attempt,
-            expected_recovery_epoch,
         );
         if let Ok(ensure_result) = &result {
             emit_perf_trace(
@@ -1282,15 +1309,11 @@ fn ensure_session_sidecar_attempt<R: Runtime>(
     let result = create_new_session_sidecar(
         app_handle,
         manager,
-        session_id,
-        workspace_path,
+        request,
         owner,
         manager_guard,
-        runtime_override.as_deref(),
-        runtime_source_override.as_deref(),
         &expected_runtime_identity,
         attempt,
-        expected_recovery_epoch,
     );
     if let Ok(ensure_result) = &result {
         emit_perf_trace(
@@ -1311,16 +1334,18 @@ fn ensure_session_sidecar_attempt<R: Runtime>(
 fn create_new_session_sidecar<'a, R: Runtime>(
     app_handle: &AppHandle<R>,
     manager: &'a ManagedSidecarManager,
-    session_id: &str,
-    workspace_path: &std::path::Path,
+    request: SessionSidecarRequest<'_>,
     owner: SidecarOwner,
     mut manager_guard: std::sync::MutexGuard<'a, SidecarManager>,
-    runtime_override: Option<&str>,
-    runtime_source_override: Option<&str>,
     resolved_identity: &RuntimeIdentity,
     attempt: u32,
-    expected_recovery_epoch: Option<u64>,
 ) -> Result<EnsureSidecarResult, String> {
+    let SessionSidecarRequest {
+        session_id,
+        workspace_path,
+        expected_recovery_epoch,
+        ..
+    } = request;
     let boot_started = trace_start();
 
     // Guard against double-creation: if another thread already created a sidecar for this
@@ -1336,13 +1361,9 @@ fn create_new_session_sidecar<'a, R: Runtime>(
             return ensure_session_sidecar_attempt(
                 app_handle,
                 manager,
-                session_id,
-                workspace_path,
+                request,
                 owner,
-                runtime_override.map(str::to_string),
-                runtime_source_override.map(str::to_string),
                 attempt + 1,
-                expected_recovery_epoch,
             );
         }
         // Exists but process dead — remove before creating fresh
@@ -1373,17 +1394,7 @@ fn create_new_session_sidecar<'a, R: Runtime>(
     }
     if manager_guard.sidecars.contains_key(session_id) {
         drop(manager_guard);
-        return ensure_session_sidecar_attempt(
-            app_handle,
-            manager,
-            session_id,
-            workspace_path,
-            owner,
-            runtime_override.map(str::to_string),
-            runtime_source_override.map(str::to_string),
-            attempt + 1,
-            expected_recovery_epoch,
-        );
+        return ensure_session_sidecar_attempt(app_handle, manager, request, owner, attempt + 1);
     }
 
     ulog_info!(
@@ -1433,6 +1444,11 @@ fn create_new_session_sidecar<'a, R: Runtime>(
         cmd.env("MYAGENTS_RUNTIME_BINDING", runtime_binding_json);
     }
     let sidecar_generation = manager_guard.next_generation(session_id);
+    let activity_binding = super::types::SessionActivityBinding::default();
+    cmd.env(
+        "MYAGENTS_SESSION_ACTIVITY_TOKEN",
+        activity_binding.token.to_string(),
+    );
     cmd.env("MYAGENTS_SIDECAR_ID", session_id);
     cmd.env(
         "MYAGENTS_SIDECAR_GENERATION",
@@ -1484,7 +1500,7 @@ fn create_new_session_sidecar<'a, R: Runtime>(
         thread::spawn(move || {
             let reader = BufReader::new(stdout);
             let mut bun_logger_active = false;
-            for line in reader.lines().flatten() {
+            for line in crate::process_cmd::child_output_lines(reader) {
                 // Once Bun's unified logger is initialized, ALL console.log output is
                 // written directly to the unified log file by Bun's logger interceptor.
                 // Capturing stdout after this point causes 100% duplication ([BUN] + [bun-out]).
@@ -1504,7 +1520,7 @@ fn create_new_session_sidecar<'a, R: Runtime>(
         let session_id_for_log = session_id_clone.clone();
         thread::spawn(move || {
             let reader = BufReader::new(stderr);
-            for line in reader.lines().flatten() {
+            for line in crate::process_cmd::child_output_lines(reader) {
                 match classify_sidecar_stderr(&line) {
                     SidecarStderrLevel::Info => {
                         ulog_info!("[bun-err][session:{}] {}", session_id_for_log, line)
@@ -1552,6 +1568,7 @@ fn create_new_session_sidecar<'a, R: Runtime>(
         port,
         session_id: session_id.to_string(),
         management_id: session_id.to_string(),
+        activity_binding,
         workspace_path: workspace_path.to_path_buf(),
         state: SidecarState::Starting,
         owners,
@@ -1926,6 +1943,31 @@ fn is_canonical_session_id(session_id: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
 }
 
+pub struct SessionBirthRuntime {
+    runtime: Option<String>,
+    source: Option<String>,
+}
+
+impl<'de, R: Runtime> tauri::ipc::CommandArg<'de, R> for SessionBirthRuntime {
+    fn from_command(
+        item: tauri::ipc::CommandItem<'de, R>,
+    ) -> Result<Self, tauri::ipc::InvokeError> {
+        use tauri::ipc::{CommandArg, CommandItem};
+
+        // These keys stay at the top level for existing Tauri callers.
+        Ok(Self {
+            runtime: CommandArg::from_command(CommandItem {
+                key: "birthRuntime",
+                ..item
+            })?,
+            source: CommandArg::from_command(CommandItem {
+                key: "birthRuntimeSource",
+                ..item
+            })?,
+        })
+    }
+}
+
 /// Ensure a Session has a Sidecar running, adding the specified owner
 #[tauri::command]
 #[allow(non_snake_case)]
@@ -1936,11 +1978,14 @@ pub async fn cmd_ensure_session_sidecar(
     workspacePath: String,
     ownerType: String,
     ownerId: String,
-    birthRuntime: Option<String>,
-    birthRuntimeSource: Option<String>,
+    birth: SessionBirthRuntime,
 ) -> Result<EnsureSidecarResult, String> {
-    if birthRuntime.is_some() || birthRuntimeSource.is_some() {
-        if !sessionId.starts_with("pending-")
+    let SessionBirthRuntime {
+        runtime: birthRuntime,
+        source: birthRuntimeSource,
+    } = birth;
+    if (birthRuntime.is_some() || birthRuntimeSource.is_some())
+        && (!sessionId.starts_with("pending-")
             || !is_canonical_session_id(&sessionId)
             || !matches!(
                 birthRuntime.as_deref(),
@@ -1951,12 +1996,9 @@ pub async fn cmd_ensure_session_sidecar(
                 None | Some("system-cli" | "managed-provider")
             )
             || (birthRuntimeSource.as_deref() == Some("managed-provider")
-                && birthRuntime.as_deref() != Some("codex"))
-        {
-            return Err(
-                "Runtime birth selection requires a valid pending desktop Session".to_string(),
-            );
-        }
+                && birthRuntime.as_deref() != Some("codex")))
+    {
+        return Err("Runtime birth selection requires a valid pending desktop Session".to_string());
     }
     let owner = match ownerType.as_str() {
         "tab" => SidecarOwner::Tab(ownerId),
@@ -2346,6 +2388,85 @@ pub async fn cmd_release_tab_session(
 }
 
 #[cfg(test)]
+mod session_birth_runtime_ipc_tests {
+    use super::SessionBirthRuntime;
+    use serde_json::{json, Value};
+    use tauri::ipc::{CallbackFn, InvokeBody};
+    use tauri::test::{get_ipc_response, mock_builder, mock_context, noop_assets, INVOKE_KEY};
+
+    #[tauri::command(rename = "birth_fields")]
+    fn separate_fields(
+        birth_runtime: Option<String>,
+        birth_runtime_source: Option<String>,
+    ) -> (Option<String>, Option<String>) {
+        (birth_runtime, birth_runtime_source)
+    }
+
+    #[tauri::command(rename = "birth_fields")]
+    fn grouped_fields(birth: SessionBirthRuntime) -> (Option<String>, Option<String>) {
+        (birth.runtime, birth.source)
+    }
+
+    #[test]
+    fn grouped_birth_runtime_preserves_flat_tauri_argument_contract() {
+        let make_window = |grouped| {
+            let builder = mock_builder();
+            let builder = if grouped {
+                builder.invoke_handler(tauri::generate_handler![grouped_fields])
+            } else {
+                builder.invoke_handler(tauri::generate_handler![separate_fields])
+            };
+            let app = builder.build(mock_context(noop_assets())).unwrap();
+            let window = tauri::WebviewWindowBuilder::new(&app, "birth-fields", Default::default())
+                .scroll_bar_style(crate::webview_policy::scroll_bar_style())
+                .build()
+                .unwrap();
+            (app, window)
+        };
+        let (_separate_app, separate) = make_window(false);
+        let (_grouped_app, grouped) = make_window(true);
+        let cases: [(bool, InvokeBody); 7] = [
+            (true, json!({}).into()),
+            (
+                true,
+                json!({"birthRuntime": null, "birthRuntimeSource": null}).into(),
+            ),
+            (
+                true,
+                json!({"birthRuntime": "codex", "birthRuntimeSource": "managed-provider"}).into(),
+            ),
+            (true, json!({"birth": {"runtime": "builtin"}}).into()),
+            (
+                false,
+                json!({"birthRuntime": 1, "birthRuntimeSource": false}).into(),
+            ),
+            (
+                false,
+                json!({"birthRuntime": "builtin", "birthRuntimeSource": false}).into(),
+            ),
+            (false, InvokeBody::Raw(vec![0])),
+        ];
+        for (valid, body) in cases {
+            let request = |body| tauri::webview::InvokeRequest {
+                cmd: "birth_fields".into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body,
+                headers: Default::default(),
+                invoke_key: INVOKE_KEY.to_string(),
+            };
+            let expected = get_ipc_response(&separate, request(body.clone()))
+                .map(|value| value.deserialize::<Value>().unwrap());
+            let actual = get_ipc_response(&grouped, request(body))
+                .map(|value| value.deserialize::<Value>().unwrap());
+            assert_eq!(expected.is_ok(), valid);
+            assert_eq!(actual, expected);
+        }
+    }
+}
+
+#[cfg(test)]
 mod session_lifecycle_tests {
     use super::{
         acquire_session_lifecycle, is_canonical_session_id, resolve_runtime_identity_for_owner,
@@ -2545,7 +2666,16 @@ mod session_lifecycle_tests {
         }
         let client = crate::local_http::json_client(Duration::from_millis(200));
         assert!(super::transition_desktop_runtime_with_client(
-            &sidecars, "source", "target", port, true, false, true, &client,
+            &sidecars,
+            "source",
+            "target",
+            port,
+            super::DesktopTransitionMetadata {
+                channel_bound: true,
+                metadata_birth_pending: false,
+                metadata_indexed: true,
+            },
+            &client,
         )
         .await
         .is_err());
@@ -2600,9 +2730,11 @@ mod session_lifecycle_tests {
             "pending-tab",
             "target",
             port,
-            false,
-            false,
-            true,
+            super::DesktopTransitionMetadata {
+                channel_bound: false,
+                metadata_birth_pending: false,
+                metadata_indexed: true,
+            },
             &client,
         )
         .await
@@ -2655,9 +2787,11 @@ mod session_lifecycle_tests {
             "pending-source",
             "target",
             port,
-            false,
-            false,
-            true,
+            super::DesktopTransitionMetadata {
+                channel_bound: false,
+                metadata_birth_pending: false,
+                metadata_indexed: true,
+            },
             &client,
         )
         .await
@@ -2678,9 +2812,11 @@ mod session_lifecycle_tests {
             "pending-source",
             "target",
             port,
-            false,
-            false,
-            true,
+            super::DesktopTransitionMetadata {
+                channel_bound: false,
+                metadata_birth_pending: false,
+                metadata_indexed: true,
+            },
             &client,
         )
         .await
@@ -2723,7 +2859,16 @@ mod session_lifecycle_tests {
         );
         let client = crate::local_http::json_client(Duration::from_secs(1));
         assert!(super::transition_desktop_runtime_with_client(
-            &sidecars, "source", "target", port, true, false, true, &client,
+            &sidecars,
+            "source",
+            "target",
+            port,
+            super::DesktopTransitionMetadata {
+                channel_bound: true,
+                metadata_birth_pending: false,
+                metadata_indexed: true,
+            },
+            &client,
         )
         .await
         .is_err());
@@ -2732,9 +2877,11 @@ mod session_lifecycle_tests {
             "source",
             "busy-target",
             port,
-            true,
-            false,
-            true,
+            super::DesktopTransitionMetadata {
+                channel_bound: true,
+                metadata_birth_pending: false,
+                metadata_indexed: true,
+            },
             &client,
         )
         .await
@@ -2840,7 +2987,16 @@ mod session_lifecycle_tests {
         }
         let client = crate::local_http::json_client(Duration::from_secs(1));
         let dispatch = super::transition_desktop_runtime_with_client(
-            &sidecars, "source", "target", port, true, false, true, &client,
+            &sidecars,
+            "source",
+            "target",
+            port,
+            super::DesktopTransitionMetadata {
+                channel_bound: true,
+                metadata_birth_pending: false,
+                metadata_indexed: true,
+            },
+            &client,
         )
         .await
         .unwrap()
@@ -2920,6 +3076,7 @@ mod session_lifecycle_tests {
             &client,
             port,
             &serde_json::json!({"sourceSessionId":"source", "targetSessionId":"target"}),
+            uuid::Uuid::new_v4(),
         )
         .await
         .unwrap_err();

@@ -58,6 +58,29 @@ pub fn new<S: AsRef<OsStr>>(program: S) -> Command {
     cmd
 }
 
+/// Read complete UTF-8 log lines from a child pipe. A malformed line has
+/// already been consumed; an I/O failure can persist without consuming bytes.
+pub(crate) fn child_output_lines(
+    mut reader: impl std::io::BufRead,
+) -> impl Iterator<Item = String> {
+    std::iter::from_fn(move || loop {
+        let mut bytes = Vec::new();
+        if matches!(reader.read_until(b'\n', &mut bytes), Ok(0) | Err(_)) {
+            return None;
+        }
+        if bytes.last() == Some(&b'\n') {
+            bytes.pop();
+            if bytes.last() == Some(&b'\r') {
+                bytes.pop();
+            }
+        }
+        if let Ok(line) = String::from_utf8(bytes) {
+            return Some(line);
+        }
+    })
+    .fuse()
+}
+
 /// A long-lived child plus the platform containment authority for every
 /// descendant it creates.
 ///
@@ -481,6 +504,33 @@ mod tests {
     use std::io::{BufRead, BufReader};
     use std::process::Stdio;
     use std::time::Instant;
+
+    #[test]
+    fn child_output_skips_malformed_lines_and_keeps_following_output() {
+        let input = b"first\r\ninvalid\xff\n\nlast\r";
+        assert_eq!(
+            child_output_lines(input.as_slice()).collect::<Vec<_>>(),
+            ["first", "", "last\r"]
+        );
+    }
+
+    #[test]
+    fn child_output_ends_on_pipe_failure_without_reading_again() {
+        struct FailedPipe(Option<std::io::ErrorKind>);
+        impl std::io::Read for FailedPipe {
+            fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+                Err(self.0.take().expect("retried a broken child pipe").into())
+            }
+        }
+        for kind in [
+            std::io::ErrorKind::BrokenPipe,
+            std::io::ErrorKind::InvalidData,
+        ] {
+            let mut lines = child_output_lines(BufReader::new(FailedPipe(Some(kind))));
+            assert_eq!(lines.next(), None);
+            assert_eq!(lines.next(), None);
+        }
+    }
 
     fn wait_until_processes_exit(pids: &[u32], timeout: Duration) -> bool {
         let started = Instant::now();

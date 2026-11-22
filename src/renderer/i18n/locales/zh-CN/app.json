@@ -20,6 +20,14 @@
     "bots": "聊天机器人"
   },
   "globalSidebar": {
+    "activity": {
+      "waiting_for_user": "需要你处理",
+      "waitingLabel": "待确认",
+      "waitingWorkspace": "{{count}} 个会话待确认",
+      "running": "运行中",
+      "error": "上次运行出错",
+      "idle": "空闲"
+    },
     "resize": "调整侧边栏宽度",
     "resizeHint": "拖动调整宽度，双击或按 Enter 恢复默认",
     "resizeSaveFailed": "宽度已调整，但未能保存，下次启动可能恢复原设置",

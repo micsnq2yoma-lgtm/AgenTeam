@@ -1,3 +1,4 @@
+use super::types::PendingActivityBinding;
 use super::*;
 
 const RECOVERY_FAST_RETRY_LIMIT: u32 = 5;
@@ -207,6 +208,7 @@ pub(super) enum GlobalMonitorSnapshot {
 /// Legacy support (v0.1.10):
 /// - instances: per-Tab Sidecar instances (for backward compatibility)
 pub struct SidecarManager {
+    pub(crate) session_activity: Arc<crate::session_activity::SessionActivityRegistry>,
     // ===== New Session-Centric Storage (v0.1.11) =====
     /// Session ID -> SessionSidecar (primary storage for Session-centric model)
     pub(super) sidecars: HashMap<String, SessionSidecar>,
@@ -284,6 +286,7 @@ impl SidecarManager {
         let (stop_events, _drop_initial_rx) = tokio::sync::broadcast::channel(64);
         let (terminal_events, _drop_terminal_rx) = tokio::sync::broadcast::channel(64);
         Self {
+            session_activity: Arc::new(crate::session_activity::SessionActivityRegistry::default()),
             sidecars: HashMap::new(),
             recovering_sidecars: HashMap::new(),
             instances: HashMap::new(),
@@ -396,6 +399,105 @@ impl SidecarManager {
             })
     }
 
+    /// The token is minted at spawn for this process only. Resolve both the
+    /// current Product Session and generation from the manager under one lock.
+    pub(crate) fn report_session_activity(
+        &mut self,
+        token: &uuid::Uuid,
+        report: crate::session_activity::ActivityReport,
+    ) -> bool {
+        let matches = |other: &uuid::Uuid| {
+            crate::external_cli::constant_time_eq(other.as_bytes(), token.as_bytes())
+        };
+        for (id, sidecar) in &mut self.sidecars {
+            if !sidecar.dispatch_gate.is_accepting() {
+                continue;
+            }
+            let binding = &mut sidecar.activity_binding;
+            if matches(&binding.token) {
+                if let Some(&generation) = self.sidecar_generations.get(id) {
+                    self.session_activity.record(id, generation, report);
+                    return true;
+                }
+                return false;
+            }
+            if let Some(next) = binding.replacement.as_mut().filter(|next| matches(&next.token)) {
+                // Node can observe target activity after its mutation succeeds
+                // while Rust is still committing the product/channel binding.
+                if next.report != Some(crate::session_activity::ActivityReport::Error)
+                    || report != crate::session_activity::ActivityReport::Idle
+                {
+                    next.report = Some(report);
+                }
+                return true;
+            }
+        }
+        false
+    }
+
+    pub(super) fn reserve_activity_rebind(
+        &mut self,
+        source: &str,
+        target: &str,
+        generation: u64,
+    ) -> Option<(uuid::Uuid, uuid::Uuid)> {
+        if source == target || !self.is_live(source, generation) {
+            return None;
+        }
+        let binding = &mut self.sidecars.get_mut(source)?.activity_binding;
+        if binding.replacement.is_some() {
+            return None;
+        }
+        let token = uuid::Uuid::new_v4();
+        binding.replacement = Some(PendingActivityBinding {
+            target: target.to_owned(),
+            token,
+            report: None,
+        });
+        Some((binding.token, token))
+    }
+
+    pub(super) fn cancel_activity_rebind(
+        &mut self,
+        source: &str,
+        generation: u64,
+        token: uuid::Uuid,
+    ) {
+        if !self.is_live(source, generation) {
+            return;
+        }
+        if let Some(sidecar) = self.sidecars.get_mut(source) {
+            let _ = sidecar
+                .activity_binding
+                .replacement
+                .take_if(|pending| pending.token == token);
+        }
+    }
+
+    pub(super) fn commit_desktop_runtime_rebind(
+        &mut self,
+        source: &str,
+        target: &str,
+        tab_id: &str,
+        channel_key: Option<&str>,
+        generation: u64,
+    ) -> bool {
+        let admissible = match channel_key {
+            Some(key) => self.surface_session_migration_is_admissible(source, tab_id, key),
+            None => self.desktop_session_migration_is_admissible(source, tab_id),
+        };
+        if !admissible || !self.is_live(source, generation) {
+            return false;
+        }
+        let pending = self.sidecars.get_mut(source).and_then(|sidecar| {
+            sidecar.activity_binding.replacement.take_if(|binding| binding.target == target)
+        });
+        let Some(pending) = pending else {
+            return false;
+        };
+        self.upgrade_session_id_unchecked(source, target, Some(pending))
+    }
+
     pub(crate) fn resolve_browser_capability_source(
         &self,
         management_id: &str,
@@ -417,10 +519,7 @@ impl SidecarManager {
             (sidecar.management_id == management_id
                 && self.sidecar_generations.get(session_id).copied() == Some(generation))
             .then(|| session_id.clone())
-        });
-        let Some(current) = current else {
-            return None;
-        };
+        })?;
         if current == product_session_id {
             return Some(current);
         }
@@ -862,6 +961,9 @@ impl SidecarManager {
         for instance in self.instances.values() {
             DispatchGate::close(&instance.dispatch_gate);
         }
+        for id in self.sidecars.keys() {
+            self.session_activity.retire(id, self.current_generation(id));
+        }
         let mut sessions = std::mem::take(&mut self.sidecars)
             .into_values()
             .collect::<Vec<_>>();
@@ -1196,6 +1298,7 @@ impl SidecarManager {
                 port,
                 session_id: session_id.to_string(),
                 management_id: session_id.to_string(),
+                activity_binding: Default::default(),
                 workspace_path: PathBuf::from("/tmp/sse-supervisor-test"),
                 state: SidecarState::Healthy,
                 owners: std::iter::once(owner).collect(),
@@ -1285,6 +1388,7 @@ impl SidecarManager {
         let gen = self.current_generation(session_id);
         let removed = self.sidecars.remove(session_id);
         if let Some(ref sidecar) = removed {
+            self.session_activity.retire(session_id, gen);
             DispatchGate::close(&sidecar.dispatch_gate);
             tauri::async_runtime::spawn(crate::cliproxy::reconcile_sidecar_deaths());
             let event_policy = sidecar_removal_event_policy(&sidecar.owners);
@@ -1438,10 +1542,10 @@ impl SidecarManager {
         session_ids.extend(
             self.recovering_sidecars
                 .iter()
-                .filter_map(|(session_id, recovery)| {
-                    (!recovery.owners.is_empty() && recovery.next_retry_at <= now)
-                        .then(|| session_id.clone())
-                }),
+                .filter(|(_, recovery)| {
+                    !recovery.owners.is_empty() && recovery.next_retry_at <= now
+                })
+                .map(|(session_id, _)| session_id.clone()),
         );
         session_ids.sort();
         session_ids.dedup();
@@ -1813,6 +1917,7 @@ impl SidecarManager {
     /// multiple entries. Snapshotting ids and releasing later would race a
     /// rekey; collecting every release under this manager lock gives feature
     /// teardown one authoritative linearization point.
+    #[cfg(any(test, target_os = "macos", target_os = "windows"))]
     pub(crate) fn remove_owner_from_all_sessions(
         &mut self,
         owner: &SidecarOwner,
@@ -1917,7 +2022,12 @@ impl SidecarManager {
 
     /// Low-level Session identity rekey. Callers must first prove the complete
     /// participating owner set through one of the scoped upgrade methods below.
-    fn upgrade_session_id_unchecked(&mut self, old_session_id: &str, new_session_id: &str) -> bool {
+    fn upgrade_session_id_unchecked(
+        &mut self,
+        old_session_id: &str,
+        new_session_id: &str,
+        replacement: Option<PendingActivityBinding>,
+    ) -> bool {
         ulog_info!(
             "[sidecar] Upgrading session ID: {} -> {}",
             old_session_id,
@@ -1965,6 +2075,9 @@ impl SidecarManager {
         if let Some(mut sidecar) = self.sidecars.remove(old_session_id) {
             // Update the session_id field in the sidecar itself
             sidecar.session_id = new_session_id.to_string();
+            if let Some(ref binding) = replacement {
+                sidecar.activity_binding.token = binding.token;
+            }
             self.sidecars.insert(new_session_id.to_string(), sidecar);
             ulog_info!(
                 "[sidecar] Upgraded sidecars HashMap: {} -> {}",
@@ -1976,6 +2089,14 @@ impl SidecarManager {
 
         // 2. Migrate generation counter
         if let Some(gen) = self.sidecar_generations.remove(old_session_id) {
+            if let Some(binding) = replacement {
+                self.session_activity.retire(old_session_id, gen);
+                if let Some(report) = binding.report {
+                    self.session_activity.record(new_session_id, gen, report);
+                }
+            } else {
+                self.session_activity.rekey(old_session_id, new_session_id, gen);
+            }
             self.sidecar_generations
                 .insert(new_session_id.to_string(), gen);
         }
@@ -2024,6 +2145,7 @@ impl SidecarManager {
 
     /// Renderer adoption is idempotent only when the exact Tab owns the source
     /// identity or the already-migrated target identity.
+    #[cfg(test)]
     pub fn upgrade_session_id_for_tab(
         &mut self,
         old_session_id: &str,
@@ -2069,7 +2191,7 @@ impl SidecarManager {
         if new_exists || !self.active_session_has_exact_owners(old_session_id, &expected) {
             return false;
         }
-        self.upgrade_session_id_unchecked(old_session_id, new_session_id)
+        self.upgrade_session_id_unchecked(old_session_id, new_session_id, None)
     }
 
     pub fn session_id_upgrade_is_already_applied_for_tab(
@@ -2100,7 +2222,7 @@ impl SidecarManager {
             || self.recovering_sidecars.contains_key(new_session_id);
         !old_exists
             && new_exists
-            && self.active_session_has_exact_owners(new_session_id, &[owner.clone()])
+            && self.active_session_has_exact_owners(new_session_id, std::slice::from_ref(owner))
     }
 
     /// Move the current Tab and, when attached, its Channel execution lease.
@@ -2122,6 +2244,7 @@ impl SidecarManager {
             )
     }
 
+    #[cfg(test)]
     pub(crate) fn upgrade_session_id_for_surface_migration(
         &mut self,
         old_session_id: &str,
@@ -2154,7 +2277,7 @@ impl SidecarManager {
         {
             return false;
         }
-        self.upgrade_session_id_unchecked(old_session_id, new_session_id)
+        self.upgrade_session_id_unchecked(old_session_id, new_session_id, None)
     }
 
     /// Check if a session's Sidecar has an owner whose work remains bound to
@@ -2502,6 +2625,103 @@ mod completion_claim_tests {
     }
 
     #[test]
+    fn session_activity_caller_is_bound_to_one_live_sidecar_generation() {
+        use crate::session_activity::{ActivityReport, SessionActivity};
+
+        let mut manager = SidecarManager::new();
+        let owner = SidecarOwner::Tab("tab-a".to_owned());
+        manager.insert_test_ready_frontend_sidecar("pending-tab-a", 32001, owner.clone());
+        manager.insert_test_ready_frontend_sidecar(
+            "other-session",
+            32002,
+            SidecarOwner::Tab("tab-b".to_owned()),
+        );
+        let old_token = manager.sidecars["pending-tab-a"].activity_binding.token;
+        assert!(!manager.report_session_activity(&uuid::Uuid::new_v4(), ActivityReport::Running));
+        assert!(manager.report_session_activity(&old_token, ActivityReport::WaitingForUser));
+        assert_eq!(
+            manager.session_activity.snapshot(),
+            HashMap::from([("pending-tab-a".to_owned(), SessionActivity::WaitingForUser)]),
+        );
+
+        assert!(manager.upgrade_session_id_for_tab("pending-tab-a", "session-real", "tab-a"));
+        assert_eq!(
+            manager.session_activity.snapshot(),
+            HashMap::from([("session-real".to_owned(), SessionActivity::WaitingForUser)]),
+        );
+        drop(manager.remove_sidecar("session-real"));
+        assert!(manager.session_activity.snapshot().is_empty());
+
+        manager.insert_test_ready_frontend_sidecar("session-real", 32003, owner);
+        let current_token = manager.sidecars["session-real"].activity_binding.token;
+        assert!(manager.report_session_activity(&current_token, ActivityReport::Running));
+        assert!(!manager.report_session_activity(&old_token, ActivityReport::Error));
+        assert_eq!(
+            manager.session_activity.snapshot(),
+            HashMap::from([("session-real".to_owned(), SessionActivity::Running)]),
+        );
+    }
+
+    #[test]
+    fn session_activity_rebind_rejects_reports_sampled_on_the_previous_conversation() {
+        use crate::session_activity::{ActivityReport, SessionActivity};
+
+        let mut manager = SidecarManager::new();
+        let owner = SidecarOwner::Tab("tab-a".to_owned());
+        manager.insert_test_ready_frontend_sidecar("previous", 32001, owner);
+        let generation = manager.generation_for("previous").unwrap();
+        let (old_token, new_token) = manager
+            .reserve_activity_rebind("previous", "next", generation)
+            .unwrap();
+
+        assert!(manager.report_session_activity(&old_token, ActivityReport::Running));
+        assert!(manager.report_session_activity(&new_token, ActivityReport::WaitingForUser));
+        assert_eq!(
+            manager.session_activity.snapshot(),
+            HashMap::from([("previous".to_owned(), SessionActivity::Running)]),
+        );
+
+        assert!(manager.commit_desktop_runtime_rebind("previous", "next", "tab-a", None, generation));
+        assert_eq!(manager.generation_for("next"), Some(generation));
+        assert!(!manager.report_session_activity(&old_token, ActivityReport::Error));
+        assert_eq!(
+            manager.session_activity.snapshot(),
+            HashMap::from([("next".to_owned(), SessionActivity::WaitingForUser)]),
+        );
+        assert!(manager.report_session_activity(&new_token, ActivityReport::Running));
+        assert_eq!(
+            manager.session_activity.snapshot(),
+            HashMap::from([("next".to_owned(), SessionActivity::Running)]),
+        );
+    }
+
+    #[test]
+    fn refused_session_activity_rebind_preserves_the_current_proof() {
+        use crate::session_activity::{ActivityReport, SessionActivity};
+
+        let mut manager = SidecarManager::new();
+        manager.insert_test_ready_frontend_sidecar(
+            "previous",
+            32001,
+            SidecarOwner::Tab("tab-a".to_owned()),
+        );
+        let generation = manager.generation_for("previous").unwrap();
+        let (old_token, unused_token) = manager
+            .reserve_activity_rebind("previous", "next", generation)
+            .unwrap();
+        assert!(manager.report_session_activity(&unused_token, ActivityReport::Error));
+        manager.cancel_activity_rebind("previous", generation, unused_token);
+
+        assert!(!manager.report_session_activity(&unused_token, ActivityReport::Error));
+        assert!(manager.report_session_activity(&old_token, ActivityReport::WaitingForUser));
+        assert_eq!(
+            manager.session_activity.snapshot(),
+            HashMap::from([("previous".to_owned(), SessionActivity::WaitingForUser)]),
+        );
+        assert!(!manager.commit_desktop_runtime_rebind("previous", "next", "tab-a", None, generation));
+    }
+
+    #[test]
     fn browser_projection_validates_exact_pending_process_without_rekeying_it() {
         let mut manager = SidecarManager::new();
         manager.insert_test_ready_frontend_sidecar(
@@ -2575,7 +2795,9 @@ mod completion_claim_tests {
                 "tab-a",
                 key
             ));
-            assert!(manager.active_session_has_exact_owners("session-b", &[tab.clone()]));
+            assert!(
+                manager.active_session_has_exact_owners("session-b", std::slice::from_ref(&tab))
+            );
             assert!(manager.upgrade_session_id_for_surface_migration(
                 "session-b",
                 "session-a",

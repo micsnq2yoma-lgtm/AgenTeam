@@ -1,5 +1,6 @@
 import { getSessionMetadata } from '../SessionStore';
 import { getSessionEngine } from '../session-engine';
+import { beginSessionActivityRebind } from '../session-engine/activity-reporter';
 import type { CapabilityOperationResult } from '../session-engine/types';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -129,17 +130,35 @@ export async function handleSessionOperationRoute(
       if (typeof body.metadataIndexed === 'boolean') {
         migrationOptions.metadataIndexed = body.metadataIndexed;
       }
-      const result = await getSessionEngine().transitionDesktopSession(
-        deps.workspacePath,
-        migrationOptions,
+      const finishActivityRebind = beginSessionActivityRebind(
+        request.headers.get('x-myagents-session-activity-token'),
+        body.nextActivityToken,
       );
-      if (!result.success) {
-        return jsonResponse(result, result.sourceUnchanged ? 409 : 500);
+      if (!finishActivityRebind) {
+        return jsonResponse({
+          success: false,
+          sourceUnchanged: true,
+          error: 'Session activity binding was not admitted',
+        }, 409);
       }
-      if (result.sessionId !== targetSessionId) {
-        return jsonResponse({ success: false, error: 'Runtime adopted an unexpected Session identity' }, 500);
+      let outcome: Parameters<typeof finishActivityRebind>[0] = 'uncertain';
+      try {
+        const result = await getSessionEngine().transitionDesktopSession(
+          deps.workspacePath,
+          migrationOptions,
+        );
+        if (!result.success) {
+          if (result.sourceUnchanged) outcome = 'unchanged';
+          return jsonResponse(result, result.sourceUnchanged ? 409 : 500);
+        }
+        if (result.sessionId !== targetSessionId) {
+          return jsonResponse({ success: false, error: 'Runtime adopted an unexpected Session identity' }, 500);
+        }
+        outcome = 'committed';
+        return jsonResponse({ sessionId: result.sessionId });
+      } finally {
+        finishActivityRebind(outcome);
       }
-      return jsonResponse({ sessionId: result.sessionId });
     } catch (error) {
       console.error('[session/new-conversation] Error:', error);
       return jsonResponse(

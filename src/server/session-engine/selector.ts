@@ -27,6 +27,7 @@ import type { CapabilityOperationResult, SessionEngine, SessionEngineKind } from
 import type { TurnOwner } from '../session-core/turn-queue';
 import { managementApi } from '../utils/management-api-client';
 import { cancelTaskSessionBirth } from './task-session-birth';
+import { notifySessionActivityTransition } from './activity-reporter';
 
 function queryFacade(engine:SessionEngine):SessionEngine {
   return {...engine,
@@ -34,7 +35,23 @@ function queryFacade(engine:SessionEngine):SessionEngine {
       const prepared = await prepareDesktopQuery(request);
       const result = await engine.sendDesktopMessage(prepared.request);
       return { ...result, ...(prepared.needsReselect ? { agentMentionsNeedReselect: true } : {}) };
-    }};
+    },
+    async respondPermission(...args) {
+      const accepted = await engine.respondPermission(...args);
+      if (accepted) notifySessionActivityTransition();
+      return accepted;
+    },
+    async respondAskUserQuestion(...args) {
+      const accepted = await engine.respondAskUserQuestion(...args);
+      if (accepted) notifySessionActivityTransition();
+      return accepted;
+    },
+    async respondPlanApproval(...args) {
+      const accepted = await engine.respondPlanApproval(...args);
+      if (accepted) notifySessionActivityTransition();
+      return accepted;
+    },
+  };
 }
 const builtinEngine = queryFacade(createBuiltinSessionEngine());
 const dshEngine = queryFacade(createDshSessionEngine());

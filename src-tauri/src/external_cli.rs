@@ -71,7 +71,7 @@ pub fn internal_request_is_valid(headers: &HeaderMap) -> bool {
         })
 }
 
-fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+pub(crate) fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     if left.len() != right.len() {
         return false;
     }

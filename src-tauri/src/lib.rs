@@ -72,6 +72,7 @@ mod runtime_distribution_policy;
 pub mod runtime_launch_guard;
 pub mod search;
 pub mod session_goal;
+mod session_activity;
 pub mod session_metadata;
 pub mod session_tags;
 pub mod session_transcript;
@@ -585,6 +586,8 @@ pub fn run() {
             cron_task::commands::cmd_get_unmigrated_legacy_cron_tasks,
             cron_task::commands::cmd_get_workspace_cron_tasks,
             session_metadata::cmd_list_session_metadata,
+            session_activity::cmd_session_activity_snapshot,
+            session_activity::cmd_acknowledge_session_error,
             cron_task::commands::cmd_get_session_cron_task,
             session_goal::commands::cmd_create_session_goal,
             session_goal::commands::cmd_get_session_goal,
@@ -1481,6 +1484,13 @@ pub fn run() {
             // Inject IM/Agent/Sidecar state into management API (for /api/im/wake endpoint etc.)
             management_api::set_im_bots_state(im_state_for_management);
             management_api::set_agent_state(agent_state_for_management);
+            let activity_registry = sidecar_state_for_management
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .session_activity
+                .clone();
+            activity_registry.set_app_handle(app.handle().clone());
+            app.manage(activity_registry);
             management_api::set_sidecar_state(sidecar_state_for_management);
 
             // The Desktop App owns one global document queue and at most one

@@ -549,7 +549,7 @@ fn start_tab_sidecar_admitted<R: Runtime>(
         thread::spawn(move || {
             let reader = BufReader::new(stdout);
             let mut bun_logger_active = false;
-            for line in reader.lines().flatten() {
+            for line in crate::process_cmd::child_output_lines(reader) {
                 if !bun_logger_active {
                     if line.contains("[Logger] Unified logging initialized") {
                         bun_logger_active = true;
@@ -566,7 +566,7 @@ fn start_tab_sidecar_admitted<R: Runtime>(
         let tab_id_clone = tab_id.to_string();
         thread::spawn(move || {
             let reader = BufReader::new(stderr);
-            for line in reader.lines().flatten() {
+            for line in crate::process_cmd::child_output_lines(reader) {
                 match classify_sidecar_stderr(&line) {
                     SidecarStderrLevel::Info => ulog_info!("[bun-err][{}] {}", tab_id_clone, line),
                     SidecarStderrLevel::Warn => ulog_warn!("[bun-err][{}] {}", tab_id_clone, line),
@@ -1909,15 +1909,17 @@ pub async fn monitor_session_sidecars(
             let sid = session_id.clone();
 
             let restart = tauri::async_runtime::spawn_blocking(move || {
-                ensure_session_sidecar_with_runtime_identity_override(
+                super::session_lifecycle::ensure_session_sidecar_with_runtime_identity_override(
                     &app,
                     &mgr,
-                    &sid,
-                    &workspace,
+                    super::session_lifecycle::SessionSidecarRequest {
+                        session_id: &sid,
+                        workspace_path: &workspace,
+                        runtime_override: pinned_runtime.as_deref(),
+                        runtime_source_override: pinned_runtime_source.as_deref(),
+                        expected_recovery_epoch: Some(recovery_epoch),
+                    },
                     first_owner,
-                    pinned_runtime,
-                    pinned_runtime_source,
-                    Some(recovery_epoch),
                 )
             })
             .await;
