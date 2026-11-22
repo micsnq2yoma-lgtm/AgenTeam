@@ -31,7 +31,7 @@ function routeOf(invocation: string): string | null {
   return parts.join('/');
 }
 
-describe('knowledge Skills track the K5 CLI contract', () => {
+describe('knowledge Skills track the bundled CLI contract', () => {
   for (const [name, markdown] of Object.entries(SKILLS)) {
     it(`${name}: every command and flag exists in the leaf help`, () => {
       const lines = invocations(markdown);
@@ -64,6 +64,13 @@ describe('knowledge Skills track the K5 CLI contract', () => {
       expect(section.split('\n').filter(entry => entry.startsWith('- ')).length).toBeGreaterThanOrEqual(3);
     });
   }
+
+  it('runs the K8 curation commands directly', () => {
+    expect(invocations(SKILLS.curator).map(routeOf)).toEqual(expect.arrayContaining([
+      'kb/curation/context', 'kb/wiki/write', 'kb/wiki/log', 'kb/wiki/lint-report', 'kb/taxonomy/propose',
+    ]));
+    expect(SKILLS.curator).not.toContain('myagents kb --help');
+  });
 
   it('descriptions separate retrieval from conversion, memory and managed curation', () => {
     const description = (markdown: string) => markdown.split('---')[1];

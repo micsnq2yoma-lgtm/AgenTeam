@@ -1327,7 +1327,7 @@ struct TaskDiscussionSkillRequirement {
     content_sha256: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskUpdateInput {
     pub id: String,
@@ -2569,7 +2569,7 @@ impl TaskStore {
 
     async fn create_direct_internal<F>(
         &self,
-        mut input: TaskCreateDirectInput,
+        input: TaskCreateDirectInput,
         created_actor: TransitionActor,
         created_source: Option<TransitionSource>,
         created_message: &'static str,
@@ -2578,6 +2578,56 @@ impl TaskStore {
     where
         F: FnOnce(&str) -> bool,
     {
+        self.create_direct_internal_with_curator(
+            input,
+            created_actor,
+            created_source,
+            created_message,
+            session_exists,
+            None,
+        )
+        .await
+    }
+
+    pub(crate) async fn create_knowledge_curator(
+        &self,
+        kb_id: &str,
+        input: TaskCreateDirectInput,
+    ) -> Result<Task, String> {
+        self.create_direct_internal_with_curator(
+            input,
+            TransitionActor::System,
+            Some(TransitionSource::Scheduler),
+            "created (knowledge curator)",
+            session_metadata_exists,
+            Some(kb_id),
+        )
+        .await
+    }
+
+    async fn create_direct_internal_with_curator<F>(
+        &self,
+        mut input: TaskCreateDirectInput,
+        created_actor: TransitionActor,
+        created_source: Option<TransitionSource>,
+        created_message: &'static str,
+        session_exists: F,
+        curator_kb_id: Option<&str>,
+    ) -> Result<Task, String>
+    where
+        F: FnOnce(&str) -> bool,
+    {
+        if (input.managed_kind.as_deref() == Some(MANAGED_KIND_KNOWLEDGE_CURATOR))
+            != curator_kb_id.is_some()
+            || curator_kb_id.is_some_and(|id| !crate::knowledge::types::is_knowledge_base_id(id))
+        {
+            return Err("knowledge curator creation requires an App-owned library binding".into());
+        }
+        let initial_status = if curator_kb_id.is_some() {
+            TaskStatus::Stopped
+        } else {
+            TaskStatus::Todo
+        };
         if input.execution_mode == TaskExecutionMode::Loop {
             return Err("Loop task mode is retired; use a Session Goal".to_string());
         }
@@ -2660,11 +2710,11 @@ impl TaskStore {
             runtime_config: input.runtime_config,
             mcp_enabled_servers: normalize_mcp_override(input.mcp_enabled_servers),
             managed_kind,
-            curator_knowledge_base_id: None,
+            curator_knowledge_base_id: curator_kb_id.map(str::to_owned),
             source_record_id: input.source_record_id,
             legacy_source_thought_id: None,
             session_ids: Vec::new(),
-            status: TaskStatus::Todo,
+            status: initial_status,
             tags: input.tags,
             created_at: now,
             updated_at: now,
@@ -2676,7 +2726,7 @@ impl TaskStore {
             last_activation_event_id: None,
             status_history: vec![StatusTransition {
                 from: None,
-                to: TaskStatus::Todo,
+                to: initial_status,
                 at: now,
                 actor: created_actor,
                 message: Some(created_message.to_string()),
@@ -2700,6 +2750,15 @@ impl TaskStore {
         // cleanup job later.
         self.ensure_writable()?;
         let mut inner = self.inner.write().await;
+        if curator_kb_id.is_some_and(|kb_id| {
+            inner.values().any(|existing| {
+                !existing.deleted
+                    && existing.managed_kind.as_deref() == Some(MANAGED_KIND_KNOWLEDGE_CURATOR)
+                    && existing.curator_knowledge_base_id.as_deref() == Some(kb_id)
+            })
+        }) {
+            return Err("library already owns a curator Task".into());
+        }
         fs::create_dir_all(&task_dir)
             .map_err(|e| format!("Failed to create task doc dir: {}", e))?;
         let task_md = task_dir.join("task.md");
@@ -3128,9 +3187,11 @@ impl TaskStore {
         &self,
         kb_id: &str,
         task_id: &str,
+        project_id: &str,
     ) -> Result<Option<impl Sized>, tokio::sync::TryLockError> {
         let guard = Arc::clone(&self.inner).try_read_owned()?;
-        let matches = unique_knowledge_curator(&guard, kb_id).is_some_and(|task| task.id == task_id);
+        let matches = unique_knowledge_curator(&guard, kb_id)
+            .is_some_and(|task| task.id == task_id && task.workspace_id == project_id);
         Ok(matches.then_some(guard))
     }
 

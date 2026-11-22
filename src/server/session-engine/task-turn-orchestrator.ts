@@ -1,5 +1,6 @@
 import { CODEX_SUBSCRIPTION_PROVIDER_ID } from '../../shared/config-types';
 import type { RuntimeBackedProviderIdentity } from '../../shared/providerExecution';
+import { isKnowledgeBaseId } from '../../shared/knowledge';
 import { createConcreteProviderRoute } from '../../shared/providerRoute';
 import type { SessionOrigin } from '../../shared/session-origin';
 import type { RuntimeConfig, RuntimeSource, RuntimeType } from '../../shared/types/runtime';
@@ -73,13 +74,16 @@ export type TaskScheduledTurnResult = {
   status?: number;
 };
 
+type TaskDispatchGuard = DispatchGuard & { curatorKnowledgeBaseId?: string };
+
 export function createTaskDispatchGuard(
   taskId: string,
   queueId: string,
   sessionId: string,
-): DispatchGuard {
+  requireKnowledgeLibrary = false,
+): TaskDispatchGuard {
   let canceled = false;
-  const guard: DispatchGuard = async () => {
+  const guard: TaskDispatchGuard = async () => {
     if (canceled) {
       return { accepted: false, code: 'task_dispatch_canceled', error: 'Task execution was canceled before dispatch' };
     }
@@ -90,6 +94,12 @@ export function createTaskDispatchGuard(
     });
     if (canceled) {
       return { accepted: false, code: 'task_dispatch_canceled', error: 'Task execution was canceled before dispatch' };
+    }
+    const curated = response.curatorKnowledgeBaseId;
+    guard.curatorKnowledgeBaseId = response.ok === true && typeof curated === 'string' && isKnowledgeBaseId(curated)
+      ? curated : undefined;
+    if (response.ok === true && requireKnowledgeLibrary && !guard.curatorKnowledgeBaseId) {
+      return { accepted: false, code: 'task_dispatch_rejected', error: 'The Task owner did not authorize a knowledge library' };
     }
     return response.ok === true
       ? { accepted: true }
@@ -105,11 +115,12 @@ export function createTaskDispatchGuard(
   return guard;
 }
 
-function requiredMemorySystemSkill(managedKind: string | undefined): RequiredSystemSkill | undefined {
+function requiredTaskSystemSkill(managedKind: string | undefined): RequiredSystemSkill | undefined {
   switch (managedKind) {
     case 'memory_auto_update_batch': return 'agenteam-memory-update';
     case 'memory_gardener': return 'agenteam-memory-gardener';
     case 'memory_molt': return 'agenteam-memory-molt';
+    case 'knowledge_curator': return 'agenteam-knowledge-curator';
     default: return undefined;
   }
 }
@@ -135,7 +146,7 @@ async function initializeTaskSession(
   payload: TaskExecutePayload,
   workspacePath: string,
   origin: SessionOrigin,
-  guard: DispatchGuard,
+  guard: TaskDispatchGuard,
   lease: NonNullable<ReturnType<typeof beginTaskSessionBirth>>,
 ): Promise<{ accepted: true; sessionId: string } | { accepted: false; error: string; code?: string }> {
   const agent = findProjectAgentByWorkspacePath(workspacePath) as AgentConfig | undefined;
@@ -196,7 +207,10 @@ async function initializeTaskSession(
   const admission = await runTaskSessionBirthAdmission(
     lease,
     guard,
-    () => createSession(workspacePath, taskSnapshot),
+    () => {
+      if (guard.curatorKnowledgeBaseId) taskSnapshot.knowledgeBaseIds = [guard.curatorKnowledgeBaseId];
+      return createSession(workspacePath, taskSnapshot);
+    },
   );
   return admission.accepted
     ? { accepted: true, sessionId: admission.value.id }
@@ -211,7 +225,9 @@ export function createTaskTurnOrchestrator() {
       workspacePath: string,
     ): Promise<TaskScheduledTurnResult> {
       const origin: SessionOrigin = { kind: 'automation', surface: 'task_run' };
-      const dispatchGuard = createTaskDispatchGuard(payload.taskId, payload.queueId, payload.sessionId);
+      const dispatchGuard = createTaskDispatchGuard(
+        payload.taskId, payload.queueId, payload.sessionId, payload.managedKind === 'knowledge_curator',
+      );
       const birthLease = payload.initializeSession
         ? beginTaskSessionBirth(
             payload.taskId,
@@ -275,7 +291,7 @@ export function createTaskTurnOrchestrator() {
               permissionMode: payload.permissionMode,
               runtimeConfig: payload.runtimeConfig,
               mcpEnabledServers: payload.mcpEnabledServers,
-              requiredSystemSkill: requiredMemorySystemSkill(payload.managedKind),
+              requiredSystemSkill: requiredTaskSystemSkill(payload.managedKind),
               beforeDispatch: dispatchGuard,
             },
           });

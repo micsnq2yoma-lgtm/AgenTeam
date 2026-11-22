@@ -7,7 +7,7 @@ import { createTaskTurnOrchestrator } from './task-turn-orchestrator';
 
 const mocks = vi.hoisted(() => ({
   metadata: new Map<string, Record<string, unknown>>(),
-  authorize: vi.fn(async (..._args: unknown[]) => ({ ok: true })),
+  authorize: vi.fn<(...args: unknown[]) => Promise<Record<string, unknown>>>(async () => ({ ok: true })),
   createSession: vi.fn(async (_workspacePath: string, snapshot: Record<string, unknown>) => ({
     id: String(snapshot.id),
     ...snapshot,
@@ -47,6 +47,7 @@ vi.mock('../utils/session-snapshot', () => ({
     configSnapshotAt: '2026-08-02T00:00:00.000Z',
     runtime: 'builtin',
     model: 'claude-sonnet',
+    knowledgeBaseIds: ['kb_a2a2a2a2a2a2'],
   })),
 }));
 vi.mock('../utils/session-materialization', () => ({
@@ -259,6 +260,41 @@ describe('Task turn orchestrator', () => {
       sessionId: 'session-1',
       operation: expect.objectContaining({ kind: 'task', initializeSession: true }),
     }));
+  });
+
+  it('loads the curator Skill and freezes only the library authorized by the Task owner', async () => {
+    mocks.authorize.mockResolvedValue({ ok: true, curatorKnowledgeBaseId: 'kb_b1b1b1b1b1b1' });
+    const { engine, prepareScheduledTurn } = fakeEngine();
+    const result = await createTaskTurnOrchestrator().runScheduledTurn(
+      engine,
+      payload({ initializeSession: true, managedKind: 'knowledge_curator' }),
+      '/workspace',
+    );
+
+    expect(result).toMatchObject({ success: true, sessionId: 'session-1' });
+    expect(mocks.createSession).toHaveBeenCalledWith('/workspace', expect.objectContaining({
+      knowledgeBaseIds: ['kb_b1b1b1b1b1b1'],
+    }));
+    expect(prepareScheduledTurn).toHaveBeenCalledWith(expect.objectContaining({
+      operation: expect.objectContaining({ requiredSystemSkill: 'agenteam-knowledge-curator' }),
+    }));
+  });
+
+  it('rejects a curator turn with no trusted library even if the execution payload supplies one', async () => {
+    const { engine, prepareScheduledTurn } = fakeEngine();
+    const result = await createTaskTurnOrchestrator().runScheduledTurn(
+      engine,
+      payload({
+        initializeSession: true,
+        managedKind: 'knowledge_curator',
+        curatorKnowledgeBaseId: 'kb_b1b1b1b1b1b1',
+      }),
+      '/workspace',
+    );
+
+    expect(result).toMatchObject({ success: false, code: 'task_dispatch_rejected' });
+    expect(mocks.createSession).not.toHaveBeenCalled();
+    expect(prepareScheduledTurn).not.toHaveBeenCalled();
   });
 
   it('fails closed when an existing Task Session cannot be bound', async () => {

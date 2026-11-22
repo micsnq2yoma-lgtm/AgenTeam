@@ -121,7 +121,7 @@ fn read_projects_for_agent_projection() -> Vec<PartialProjectEntry> {
     }
 }
 
-pub(super) fn project_id_for_agent(agent_id: &str) -> Option<String> {
+pub(crate) fn project_id_for_agent(agent_id: &str) -> Option<String> {
     let mut matches = read_projects_for_agent_projection()
         .into_iter()
         .filter(|project| project.agent_id.as_deref() == Some(agent_id))

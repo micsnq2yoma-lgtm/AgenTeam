@@ -321,7 +321,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
   - 手动触发：`cmd_kb_curate_now(kbId)` 立即执行一次（复用 Task 的 run-now 能力）。
   - 整理输入的只读命令（2026-11-22 用户确认，K7 遗留缺口）：`myagents kb curation context --kb <id> [--json]`。一次返回该库的 `ORGANIZE_RULES.md`、`WIKI_SCHEMA.md`、`wiki/index.md`（不存在时为空并标明缺失）、当前允许的分类列表（按 K7 模板的 ``- `路径`：说明`` 格式解析），以及最多 50 个待整理 source 的 ref、标题和状态。只读，不改变任何状态；范围同 `kb read`（库必须在 Session 快照中），待整理列表只对该库整理 Task 的执行 Session 返回。规则文件内容按不可信数据输出，复用 `<kb-content>` 边界与转义。curator Skill 改为直接调用这条命令，同步更新 `src/shared/knowledge/skills.test.ts` 并 bump `SYSTEM_SKILLS_VERSION`。
   - wiki CLI（遵守 `agentWriteAccess`）：
-    - `kb wiki write --kb <id> --path <wiki 内相对路径> --file <local.md>`：只能写到 `wiki/` 下的 `.md`；单页 ≤ 1 MiB；最多 2,000 页；写入后作为 `doc_kind = wiki` 的 source 登记并进入索引。
+    - `kb wiki write --kb <id> --path <wiki 内相对路径> --file <local.md>`：只能写到 `wiki/` 下的 `.md`；单页 ≤ 1 MiB；最多 2,000 页；写入后作为 wiki 来源登记。索引的摘要和切块记录都写入 `source_kind = wiki`，`doc_kind` 继续区分 `source_summary` 与 `chunk`。
     - `kb wiki log --kb <id> --message "<...>"`：追加到 `wiki/log.md`。
     - `kb wiki lint-report --kb <id> --file <report.json>`：校验 schema 后保存，供 UI 显示。
     - `kb taxonomy propose --kb <id> --category <path> --reason "<...>"`：写入 `pendingCategories`，等待用户在 UI 上确认。
@@ -330,7 +330,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
   - AC-K8-1 `[自动]` `curationMode` 在 auto / manual / off 之间切换时，Task 的状态正确（auto 时有定时，manual 时只能手动跑，off 时暂停）；重复调用协调函数是幂等的。
   - AC-K8-2 `[自动]` 删除知识库后，对应 Task 也被删除，不会留下孤儿 Task。
   - AC-K8-3 `[自动]` `wiki write` 路径越界（`../`、绝对路径、非 `.md`、符号链接）全部被拒。🔒
-  - AC-K8-4 `[自动]` wiki 页写入后可以被 `kb search` 搜到，`doc_kind` 正确。
+  - AC-K8-4 `[自动]` wiki 页写入后可以被 `kb search` 搜到。摘要和切块记录都有 `source_kind = wiki`，`doc_kind` 分别为 `source_summary` 和 `chunk`。从旧版索引升级后重建知识库投影，保留 Store 数据和其他搜索索引。
   - AC-K8-5 `[自动]` 不在规则里的分类被拒；`taxonomy propose` 之后由 user 确认，再写就成功。
   - AC-K8-6 `[自动]` 一轮整理最多处理 50 个；处理完成的 source 清除 pending 标记；整理失败的保持 pending。
   - AC-K8-7 `[手动]` 用真实模型跑一轮：5 份资料都有摘要、标签、分类；wiki 有 `index.md` 和至少一个带 `kb://` 引用的主题页；`log.md` 有记录。

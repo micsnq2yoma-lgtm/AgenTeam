@@ -81,6 +81,59 @@ fn tags(store: &KnowledgeStore, kb: &str, source: &str, category: &str) {
 }
 
 #[test]
+fn knowledge_wiki_pages_are_searchable_and_keep_their_source_identity_on_update() {
+    let temp = tempdir().unwrap();
+    let store = KnowledgeStore::new(temp.path().into());
+    let kb = library(&store, "Wiki");
+    let page = "topics/orchard.md";
+    let mut changes = store.subscribe_changes();
+    let index = KnowledgeIndex::new(temp.path().into());
+    index.rebuild(&store).unwrap();
+    let first = store
+        .write_wiki_page(&kb, page, "# Orchard\n\nbilberry", |_| Ok(()))
+        .unwrap();
+    index.update(&store, &changes.try_recv().unwrap()).unwrap();
+    let hits = lookup(&index, &store, &kb, "bilberry");
+    assert_eq!(hits[0].source_id, first.id);
+    assert_eq!(
+        store
+            .resolve_ref(&hits[0].reference)
+            .unwrap()
+            .source
+            .facts
+            .kind,
+        SourceKind::Wiki
+    );
+    {
+        let state = index.state.read().unwrap();
+        let state = state.as_ref().unwrap();
+        let wiki = state.index.schema().get_field("source_kind").unwrap();
+        let searcher = state.reader.searcher();
+        for role in [CHUNK, SUMMARY] {
+            let query = BooleanQuery::intersection(vec![
+                exact(wiki, ["wiki"]),
+                exact(state.fields.doc_kind, [role]),
+                exact(state.fields.source_id, [&first.id]),
+            ]);
+            assert_eq!(
+                searcher.search(&query, &tantivy::collector::Count).unwrap(),
+                1
+            );
+        }
+    }
+    let second = store
+        .write_wiki_page(&kb, page, "# Orchard\n\nloganberry", |_| Ok(()))
+        .unwrap();
+    assert_eq!(first.id, second.id);
+    index.update(&store, &changes.try_recv().unwrap()).unwrap();
+    assert!(lookup(&index, &store, &kb, "bilberry").is_empty());
+    assert_eq!(
+        lookup(&index, &store, &kb, "loganberry")[0].source_id,
+        first.id
+    );
+}
+
+#[test]
 fn multilingual_terms_and_summary_resolve_only_within_scope_and_filters() {
     let data = tempdir().unwrap();
     let input = tempdir().unwrap();
@@ -425,8 +478,23 @@ fn missing_segment_or_old_schema_rebuilds_only_the_knowledge_projection() {
         .expect("an actual Tantivy terms file");
     fs::remove_file(segment).unwrap();
     open();
-    fs::write(data.path().join(VERSION_FILE), "0").unwrap();
+    let bm25 = root.join("knowledge/bm25");
+    KnowledgeIndex::reset(&bm25).unwrap();
+    fs::create_dir(&bm25).unwrap();
+    let mut v1 = tantivy::schema::Schema::builder();
+    for (_, field) in knowledge_schema().0.fields() {
+        if field.name() != "source_kind" {
+            v1.add_field(field.clone());
+        }
+    }
+    Index::create_in_dir(&bm25, v1.build()).unwrap();
+    fs::write(data.path().join(VERSION_FILE), "1").unwrap();
     open();
+    assert!(Index::open_in_dir(&bm25)
+        .unwrap()
+        .schema()
+        .get_field("source_kind")
+        .is_ok());
     let marker = data.path().join(VERSION_FILE);
     let marker_backup = marker.with_extension("original");
     fs::rename(&marker, &marker_backup).unwrap();

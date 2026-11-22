@@ -50,7 +50,11 @@ impl KnowledgeStore {
                 return Err(KnowledgeErrorCode::KbJobConflict);
             }
             match result {
-                Ok(()) => record.source.facts.status = SourceStatus::Ready,
+                Ok(()) => {
+                    record.source.facts.status = SourceStatus::Ready;
+                    // A wiki page is curator output, never curator input.
+                    record.curation_pending = record.source.facts.kind != SourceKind::Wiki;
+                }
                 Err(failure) => {
                     let import = record.ingest.as_mut().ok_or(KbStoreCorrupt)?;
                     import.error = Some(failure.code);

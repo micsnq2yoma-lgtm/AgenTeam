@@ -349,3 +349,39 @@ fn a_cancelled_chunking_attempt_cannot_settle_a_later_retry() {
     );
     manager.shutdown().unwrap();
 }
+
+#[test]
+fn a_source_that_becomes_ready_waits_for_curation_and_a_failed_one_does_not() {
+    let (data, manager, kb) = library();
+    let broken = data.path().join("broken.md");
+    let good = data.path().join("good.md");
+    let mut input = String::from("| a | b |\n| - | - |\n| ");
+    input.push_str(&"\u{0301}".repeat(1500));
+    fs::write(&broken, &input).unwrap();
+    fs::write(&good, "第二份资料").unwrap();
+    let mut jobs = manager
+        .import_files(&kb, vec![broken, good])
+        .into_iter()
+        .map(|outcome| match outcome {
+            ImportOutcome::Accepted { receipt } => receipt.job.unwrap(),
+            ImportOutcome::Rejected { error } => panic!("unexpected admission failure: {error:?}"),
+        });
+    let failed = jobs.next().unwrap();
+    let ready = jobs.next().unwrap();
+    wait_for_content(&manager, &ready.id);
+    assert_eq!(
+        manager.status(&failed.id).unwrap().status,
+        SourceStatus::Failed
+    );
+
+    let (pending, more) = manager.store.pending_curation(&kb).unwrap();
+    assert_eq!(
+        pending
+            .iter()
+            .map(|source| source.source_id.clone())
+            .collect::<Vec<_>>(),
+        [ready.source_id]
+    );
+    assert!(!more);
+    assert_eq!(pending[0].title, "good.md");
+}

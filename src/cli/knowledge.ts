@@ -51,6 +51,24 @@ function libraries(raw: unknown): string[] {
   return ids;
 }
 
+function oneLibrary(raw: unknown, args: readonly string[]): string {
+  const ids = libraries(raw);
+  if (args.length || ids.length !== 1) throw new Error('Use one --kb and no positional arguments.');
+  return ids[0];
+}
+
+function required(raw: unknown, flag: string): string {
+  const parsed = value(raw, flag);
+  if (parsed === undefined) throw new Error(`${flag} requires a value.`);
+  return parsed;
+}
+
+function oneFile(flags: Flags): string {
+  const files = values(flags.file, '--file');
+  if (flags.fileValueMissing || files.length !== 1) throw new Error('Use exactly one --file.');
+  return files[0];
+}
+
 export function buildKnowledgeInput(
   route: KnowledgeCommand,
   args: readonly string[],
@@ -103,6 +121,16 @@ export function buildKnowledgeInput(
       }
       return { reference: reference(args, false), ...fields };
     }
+    case 'kb/curation/context':
+      return { kbId: oneLibrary(flags.kb, args) };
+    case 'kb/wiki/write':
+      return { kbId: oneLibrary(flags.kb, args), path: required(flags.path, '--path'), file: oneFile(flags) };
+    case 'kb/wiki/log':
+      return { kbId: oneLibrary(flags.kb, args), message: required(flags.message, '--message') };
+    case 'kb/wiki/lint-report':
+      return { kbId: oneLibrary(flags.kb, args), file: oneFile(flags) };
+    case 'kb/taxonomy/propose':
+      return { kbId: oneLibrary(flags.kb, args), category: required(flags.category, '--category'), reason: required(flags.reason, '--reason') };
     case 'kb/status': {
       const jobId = oneArgument(args, '<job-id>');
       if (!isKnowledgeJobId(jobId)) throw new Error('Expected a knowledge import job ID.');
@@ -113,8 +141,25 @@ export function buildKnowledgeInput(
 
 export function knowledgeContentBlock(reference: string, content: string): string {
   if (!parseKnowledgeRef(reference)) throw new Error('Invalid knowledge reference in response.');
+  return contentBlock(`ref="${reference}"`, content);
+}
+
+function contentBlock(attributes: string, content: string): string {
   const safe = content.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-  return `<kb-content ref="${reference}">\n${safe}\n</kb-content>`;
+  return `<kb-content ${attributes}>\n${safe}\n</kb-content>`;
+}
+
+export function projectCurationOutput(data: Record<string, unknown>): Record<string, unknown> {
+  if (typeof data.kbId !== 'string' || !isKnowledgeBaseId(data.kbId)) throw new Error('Invalid library in curation response.');
+  const result = { ...data };
+  const files = { rules: 'ORGANIZE_RULES.md', wikiSchema: 'WIKI_SCHEMA.md', wikiIndex: 'wiki/index.md' };
+  for (const [field, filename] of Object.entries(files)) {
+    const content = data[field];
+    result[field] = typeof content === 'string'
+      ? contentBlock(`kb="${data.kbId}" file="${filename}"`, content)
+      : null;
+  }
+  return result;
 }
 
 export function printKnowledgeResult(action: string, data: Record<string, unknown>): void {

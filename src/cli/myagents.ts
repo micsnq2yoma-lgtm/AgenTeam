@@ -28,7 +28,7 @@ import {
 import { networkAddress } from '../shared/agentNetworkRouting';
 import { REMOTE_DEADLINES } from '@myagents/agent-network-protocol';
 import { INTERNAL_CLI_FLAGS } from './internalCliFlags';
-import { buildKnowledgeInput, printKnowledgeResult } from './knowledge';
+import { buildKnowledgeInput, printKnowledgeResult, projectCurationOutput } from './knowledge';
 import { isKnowledgeCommand, KNOWLEDGE_COMMAND_FLAGS } from '../shared/knowledge/cli-contract';
 import { SKILL_INSTALL_TIMEOUT_MS } from '../shared/skillDownloadPolicy';
 
@@ -791,6 +791,9 @@ export function printResult(
   flags: Record<string, unknown> = {},
   rest: string[] = [],
 ): void {
+  if (group === 'kb' && action === 'curation' && result.success && result.data && typeof result.data === 'object') {
+    result = { ...result, data: projectCurationOutput(result.data as Record<string, unknown>) };
+  }
   if (jsonMode) {
     let output = result;
     if (group === 'task' && (action === 'run' || action === 'rerun') && result.data) {
@@ -3121,7 +3124,10 @@ export function buildRoute(group: string, action: string, rest: string[]): strin
   if (group === 'speech' && action === 'wait') {
     return 'speech/status';
   }
-  if (group === 'kb' && action === 'meta' && rest[0] === 'set') return 'kb/meta/set';
+  if (group === 'kb' && rest[0]) {
+    const nested = `kb/${action}/${rest[0]}`;
+    if (isKnowledgeCommand(nested)) return nested;
+  }
   if (group === 'task' && action === 'trigger') {
     const triggerAction = rest[0] || 'validate';
     return `task/trigger/${triggerAction}`;
@@ -3993,7 +3999,7 @@ export function buildRequestBody(
       code: 'UNKNOWN_COMMAND', error: 'Unknown knowledge command.', suggestedCommand: 'myagents kb --help',
     });
     try {
-      return buildKnowledgeInput(route, action === 'meta' ? rest.slice(1) : rest, flags);
+      return buildKnowledgeInput(route, route.split('/').length === 3 ? rest.slice(1) : rest, flags);
     } catch (error) {
       return exitAgentCliError(flags, {
         code: 'KB_INVALID_INPUT',
