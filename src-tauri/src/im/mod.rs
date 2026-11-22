@@ -74,7 +74,8 @@ pub use commands::{
     cmd_update_agent_config, cmd_update_im_bot_config,
 };
 pub(crate) use config_store::{
-    agent_id_for_project, is_agent_workspace_archived, read_agent_configs_from_disk,
+    agent_id_for_project, is_agent_workspace_archived, project_id_for_agent,
+    read_agent_configs_from_disk,
 };
 use config_store::{
     missing_configured_channel_status, read_im_configs_from_disk, route_agent_heartbeat_once,

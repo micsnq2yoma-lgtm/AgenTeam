@@ -154,6 +154,8 @@ fn persist_to_disk(value: UiLanguage) -> Result<(), String> {
 
 pub fn t<'a>(key: &'a str, locale: SupportedLocale) -> &'a str {
     match (locale, key) {
+        (SupportedLocale::ZhCn, "task.knowledgeCurator") => "知识库整理",
+        (SupportedLocale::EnUs, "task.knowledgeCurator") => "Knowledge Library Curation",
         (SupportedLocale::ZhCn, "tray.open") => "打开 AgenTeam",
         (SupportedLocale::ZhCn, "tray.recording") => "正在录音…",
         (SupportedLocale::ZhCn, "tray.settings") => "设置",

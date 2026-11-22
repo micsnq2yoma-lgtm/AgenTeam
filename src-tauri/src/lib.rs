@@ -802,6 +802,9 @@ pub fn run() {
             knowledge::commands::cmd_kb_remove_source,
             knowledge::commands::cmd_kb_set_metadata,
             knowledge::commands::cmd_kb_resolve_ref,
+            knowledge::commands::cmd_kb_confirm_category,
+            knowledge::commands::cmd_kb_dismiss_category,
+            knowledge::commands::cmd_kb_curate_now,
             knowledge::commands::cmd_kb_import_files,
             knowledge::commands::cmd_kb_job_status,
             knowledge::commands::cmd_kb_cancel_job,
@@ -1619,6 +1622,32 @@ pub fn run() {
             // closing the unavoidable background-thread startup interval.
             session_metadata::spawn_session_metadata_watcher(app.handle().clone());
 
+            // Register KnowledgeStore before Task startup reconciles managed curators.
+            if let Some(data_dir) = app_dirs::myagents_data_dir() {
+                let store = Arc::new(knowledge::store::KnowledgeStore::new(data_dir.clone()));
+                let ingest = Arc::new(knowledge::ingest::KnowledgeIngestManager::new(
+                    Arc::clone(&store),
+                    document_processing::global().cloned(),
+                ));
+                app.manage(store);
+                app.manage(Arc::clone(&ingest));
+                tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(code) = ingest.recover() {
+                        ulog_error!("[knowledge] ingest recovery failed code={:?}", code);
+                    }
+                });
+                match search::SearchEngine::new(data_dir) {
+                    Ok(engine) => {
+                        engine.start_background_indexing(app.handle().clone());
+                        app.manage(Arc::new(engine));
+                        ulog_info!("[App] SearchEngine initialized");
+                    }
+                    Err(e) => {
+                        ulog_error!("[App] Failed to create SearchEngine: {}", e);
+                    }
+                }
+            }
+
             // Start the internal control plane before any backend automation can
             // create a Sidecar that needs MYAGENTS_MANAGEMENT_PORT.
             let automation_app_handle = app.handle().clone();
@@ -1663,31 +1692,6 @@ pub fn run() {
                     .await;
                 });
                 ulog_info!("[App] Sidecar terminal-event forwarder spawned");
-            }
-
-            if let Some(data_dir) = app_dirs::myagents_data_dir() {
-                let store = Arc::new(knowledge::store::KnowledgeStore::new(data_dir.clone()));
-                let ingest = Arc::new(knowledge::ingest::KnowledgeIngestManager::new(
-                    Arc::clone(&store),
-                    document_processing::global().cloned(),
-                ));
-                app.manage(store);
-                app.manage(Arc::clone(&ingest));
-                tauri::async_runtime::spawn_blocking(move || {
-                    if let Err(code) = ingest.recover() {
-                        ulog_error!("[knowledge] ingest recovery failed code={:?}", code);
-                    }
-                });
-                match search::SearchEngine::new(data_dir) {
-                    Ok(engine) => {
-                        engine.start_background_indexing(app.handle().clone());
-                        app.manage(Arc::new(engine));
-                        ulog_info!("[App] SearchEngine initialized");
-                    }
-                    Err(e) => {
-                        ulog_error!("[App] Failed to create SearchEngine: {}", e);
-                    }
-                }
             }
 
             // Auto-start IM Bot if previously enabled (3s delay)

@@ -88,7 +88,7 @@ pub async fn cmd_kb_create(
     settings: Value,
 ) -> StoreResult<KnowledgeBase> {
     let settings: KnowledgeBasePatch = decode(settings)?;
-    run_store(state, move |store| store.create(settings)).await
+    super::curator_task::create(Arc::clone(state.inner()), settings).await
 }
 
 #[tauri::command]
@@ -98,7 +98,7 @@ pub async fn cmd_kb_update(
     settings: Value,
 ) -> StoreResult<KnowledgeBase> {
     let settings: KnowledgeBasePatch = decode(settings)?;
-    run_store(state, move |store| store.update(&kb_id, settings)).await
+    super::curator_task::update(Arc::clone(state.inner()), kb_id, settings).await
 }
 
 #[tauri::command]
@@ -106,7 +106,15 @@ pub async fn cmd_kb_delete(
     state: State<'_, Arc<KnowledgeStore>>,
     kb_id: String,
 ) -> StoreResult<()> {
-    run_store(state, move |store| store.delete(&kb_id)).await
+    super::curator_task::delete(Arc::clone(state.inner()), kb_id).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_curate_now(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+) -> StoreResult<String> {
+    super::curator_task::run_now(Arc::clone(state.inner()), kb_id).await
 }
 
 #[tauri::command]
@@ -155,6 +163,30 @@ pub async fn cmd_kb_resolve_ref(
     reference: String,
 ) -> StoreResult<ResolvedKnowledgeRef> {
     run_store(state, move |store| store.resolve_ref(&reference)).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_confirm_category(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+    category: String,
+) -> StoreResult<()> {
+    run_store(state, move |store| {
+        store.confirm_category(&kb_id, &category)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_dismiss_category(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+    category: String,
+) -> StoreResult<()> {
+    run_store(state, move |store| {
+        store.dismiss_category(&kb_id, &category)
+    })
+    .await
 }
 
 #[cfg(test)]

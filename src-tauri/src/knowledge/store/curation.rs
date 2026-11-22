@@ -21,6 +21,7 @@ pub struct PendingCurationSource {
     pub source_id: KnowledgeSourceId,
     pub reference: String,
     pub title: String,
+    pub status: SourceStatus,
 }
 
 /// Everything a curator needs to start a round. Text fields are library data,
@@ -37,6 +38,7 @@ pub struct CurationContext {
     pub categories: Vec<String>,
     /// Categories proposed by a curator and awaiting the user.
     pub pending_categories: Vec<String>,
+    pub wiki_enabled: bool,
     pub pending: Vec<PendingCurationSource>,
     /// True when more sources are waiting than this round returns.
     pub more_pending: bool,
@@ -52,50 +54,54 @@ pub enum CategoryProposal {
     Proposed,
 }
 
-fn fence_marker(line: &str) -> Option<&str> {
-    let trimmed = line.trim_start_matches(' ');
-    if line.len() - trimmed.len() > 3 {
-        return None;
-    }
-    ["```", "~~~"]
-        .into_iter()
-        .find(|marker| trimmed.starts_with(marker))
+fn rules_lines(rules: &str) -> impl Iterator<Item = (usize, &str)> {
+    let mut fence = None;
+    rules.lines().enumerate().filter_map(move |(index, line)| {
+        let trimmed = line.trim_start_matches(' ');
+        if line.len() - trimmed.len() > 3 || trimmed.starts_with('\t') {
+            return None;
+        }
+        if let Some(marker @ (b'`' | b'~')) = trimmed.bytes().next() {
+            let count = trimmed.bytes().take_while(|byte| *byte == marker).count();
+            if count >= 3 {
+                match fence {
+                    None => fence = Some((marker, count)),
+                    Some((open, length))
+                        if open == marker
+                            && count >= length
+                            && trimmed[count..].trim().is_empty() =>
+                    {
+                        fence = None;
+                    }
+                    Some(_) => {}
+                }
+                return None;
+            }
+        }
+        fence.is_none().then_some((index, trimmed))
+    })
 }
 
 /// The approved category in a ``- `path`：description`` bullet, if the line is one.
 fn category_bullet(line: &str) -> Option<&str> {
-    let rest = line.trim_start().strip_prefix("- `")?;
-    let (path, tail) = rest.split_once('`')?;
-    let tail = tail.trim_start();
-    (tail.is_empty() || tail.starts_with('：') || tail.starts_with(':')).then_some(path)
+    let (path, tail) = line.strip_prefix("- `")?.split_once('`')?;
+    let description = tail.strip_prefix('：')?;
+    (!description.trim().is_empty()).then_some(path)
 }
 
 fn section_title(line: &str) -> Option<&str> {
-    line.strip_prefix("## ").map(str::trim)
+    let (header, title) = line.split_once(' ')?;
+    matches!(header, "#" | "##").then_some(title.trim())
 }
 
-/// Categories listed under `## 分类体系`; fenced code and other sections are ignored.
+/// Categories listed under `## 分类体系`; code blocks and other sections are ignored.
 pub(super) fn allowed_categories(rules: &str) -> Vec<String> {
     let mut found = Vec::new();
-    let mut fence: Option<&str> = None;
     let mut inside = false;
-    for line in rules.lines() {
-        if let Some(marker) = fence_marker(line) {
-            match fence {
-                None => fence = Some(marker),
-                Some(open) if marker == open => fence = None,
-                Some(_) => {}
-            }
-            continue;
-        }
-        if fence.is_some() {
-            continue;
-        }
+    for (_, line) in rules_lines(rules) {
         if let Some(title) = section_title(line) {
-            inside = title == CATEGORY_SECTION;
-            continue;
-        }
-        if inside {
+            inside = line.starts_with("## ") && title == CATEGORY_SECTION;
+        } else if inside {
             if let Some(path) = category_bullet(line) {
                 if valid_category(path) && !found.iter().any(|known| known == path) {
                     found.push(path.to_string());
@@ -122,47 +128,22 @@ pub(super) fn valid_category(path: &str) -> bool {
 pub(super) fn with_category(rules: &str, path: &str) -> String {
     let bullet = format!("- `{path}`：用户确认新增");
     let lines: Vec<&str> = rules.lines().collect();
-    let mut fence: Option<&str> = None;
-    let mut start = None;
-    let mut end = lines.len();
-    for (index, line) in lines.iter().enumerate() {
-        if let Some(marker) = fence_marker(line) {
-            match fence {
-                None => fence = Some(marker),
-                Some(open) if marker == open => fence = None,
-                Some(_) => {}
-            }
-            continue;
-        }
-        if fence.is_some() {
-            continue;
-        }
+    let mut insertion = None;
+    for (index, line) in rules_lines(rules) {
         if let Some(title) = section_title(line) {
-            if start.is_some() {
-                end = index;
+            if insertion.is_some() {
                 break;
             }
-            if title == CATEGORY_SECTION {
-                start = Some(index);
+            if line.starts_with("## ") && title == CATEGORY_SECTION {
+                insertion = Some(index + 1);
             }
+        } else if insertion.is_some() && category_bullet(line).is_some() {
+            insertion = Some(index + 1);
         }
     }
     let mut out: Vec<String> = lines.iter().map(|line| (*line).to_string()).collect();
-    match start {
-        Some(start) => {
-            // After the last bullet of the section, else right below the heading.
-            let mut at = start + 1;
-            for (offset, line) in lines[start + 1..end].iter().enumerate() {
-                if category_bullet(line).is_some() {
-                    at = start + 1 + offset + 1;
-                }
-            }
-            if at == start + 1 && lines.get(at).is_some_and(|line| !line.trim().is_empty()) {
-                out.insert(at, String::new());
-                at += 1;
-            }
-            out.insert(at, bullet);
-        }
+    match insertion {
+        Some(at) => out.insert(at, bullet),
         None => {
             if out.last().is_some_and(|line| !line.trim().is_empty()) {
                 out.push(String::new());
@@ -178,18 +159,15 @@ pub(super) fn with_category(rules: &str, path: &str) -> String {
 }
 
 impl StoreFiles {
-    fn read_text(&self, relative: &str) -> StoreResult<Option<String>> {
+    pub(super) fn read_text(&self, relative: &str, max_bytes: u64) -> StoreResult<Option<String>> {
         match fs::symlink_metadata(self.root.join(relative)) {
             Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
             Err(_) => return Err(KbStoreUnavailable),
             Ok(_) => {}
         }
-        let (_, bytes) = read_workspace_file_no_follow(
-            &self.app,
-            &format!("knowledge/{relative}"),
-            MAX_CONTEXT_TEXT_BYTES,
-        )
-        .map_err(|_| KbStoreUnavailable)?;
+        let (_, bytes) =
+            read_workspace_file_no_follow(&self.app, &format!("knowledge/{relative}"), max_bytes)
+                .map_err(|_| KbStoreUnavailable)?;
         String::from_utf8(bytes)
             .map(Some)
             .map_err(|_| KbStoreCorrupt)
@@ -198,7 +176,7 @@ impl StoreFiles {
     /// A library without rules approves nothing, so an agent cannot invent categories.
     pub(super) fn approved_categories(&self, kb_id: &str) -> StoreResult<Vec<String>> {
         Ok(self
-            .read_text(&format!("{kb_id}/{RULES_FILE}"))?
+            .read_text(&format!("{kb_id}/{RULES_FILE}"), MAX_CONTEXT_TEXT_BYTES)?
             .map(|rules| allowed_categories(&rules))
             .unwrap_or_default())
     }
@@ -226,6 +204,7 @@ impl StoreFiles {
                     reference: format!("kb://{kb_id}/{id}"),
                     title: record.source.display_title().to_string(),
                     source_id: id,
+                    status: record.source.facts.status,
                 });
             }
         }
@@ -238,25 +217,44 @@ impl StoreFiles {
 
 impl KnowledgeStore {
     /// Sources waiting for curation, oldest id first, at most [`CURATION_BATCH_LIMIT`].
-    pub fn pending_curation(&self, kb_id: &str) -> StoreResult<(Vec<PendingCurationSource>, bool)> {
+    #[cfg(test)]
+    pub(crate) fn pending_curation(
+        &self,
+        kb_id: &str,
+    ) -> StoreResult<(Vec<PendingCurationSource>, bool)> {
         self.locked_kb(kb_id, None, |files, _| {
             files.read_kb(kb_id)?;
             files.pending_curation(kb_id, CURATION_BATCH_LIMIT)
         })
     }
 
-    pub fn curation_context(&self, kb_id: &str) -> StoreResult<CurationContext> {
+    pub(crate) fn curation_context<G>(
+        &self,
+        kb_id: &str,
+        authorize_pending: impl FnOnce(&KnowledgeBase) -> StoreResult<Option<G>>,
+    ) -> StoreResult<CurationContext> {
         self.locked_kb(kb_id, None, |files, _| {
             let kb = files.read_kb(kb_id)?;
-            let rules = files.read_text(&format!("{kb_id}/{RULES_FILE}"))?;
-            let (pending, more_pending) = files.pending_curation(kb_id, CURATION_BATCH_LIMIT)?;
+            let permit = authorize_pending(&kb)?;
+            let rules =
+                files.read_text(&format!("{kb_id}/{RULES_FILE}"), MAX_CONTEXT_TEXT_BYTES)?;
+            let (pending, more_pending) = if permit.is_some() {
+                files.pending_curation(kb_id, CURATION_BATCH_LIMIT)?
+            } else {
+                (Vec::new(), false)
+            };
             Ok(CurationContext {
                 kb_id: kb_id.into(),
                 categories: rules.as_deref().map(allowed_categories).unwrap_or_default(),
                 rules,
-                wiki_schema: files.read_text(&format!("{kb_id}/{SCHEMA_FILE}"))?,
-                wiki_index: files.read_text(&format!("{kb_id}/{WIKI_INDEX}"))?,
+                wiki_schema: files
+                    .read_text(&format!("{kb_id}/{SCHEMA_FILE}"), MAX_CONTEXT_TEXT_BYTES)?,
+                wiki_index: files.read_text(
+                    &format!("{kb_id}/{WIKI_INDEX}"),
+                    super::wiki::MAX_WIKI_PAGE_BYTES,
+                )?,
                 pending_categories: kb.pending_categories,
+                wiki_enabled: kb.wiki_enabled,
                 pending,
                 more_pending,
             })
@@ -268,9 +266,14 @@ impl KnowledgeStore {
         &self,
         kb_id: &str,
         path: &str,
+        reason: &str,
         authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<G>,
     ) -> StoreResult<CategoryProposal> {
-        if !valid_category(path) {
+        if !valid_category(path)
+            || reason.trim().is_empty()
+            || reason.len() > 4096
+            || reason.chars().any(char::is_control)
+        {
             return Err(KbInvalidInput);
         }
         self.locked_kb(kb_id, None, |files, _| {
@@ -290,6 +293,8 @@ impl KnowledgeStore {
                 return Err(KbLimitExceeded);
             }
             kb.pending_categories.push(path.to_string());
+            kb.pending_category_reasons
+                .insert(path.to_string(), reason.trim().into());
             files.write_json(&format!("{kb_id}/kb.json"), &kb)?;
             Ok(CategoryProposal::Proposed)
         })
@@ -309,12 +314,23 @@ impl KnowledgeStore {
             }
             let rules_path = format!("{kb_id}/{RULES_FILE}");
             let rules = files
-                .read_text(&rules_path)?
+                .read_text(&rules_path, MAX_CONTEXT_TEXT_BYTES)?
                 .unwrap_or_else(|| LIBRARY_TEMPLATES[0].1.to_string());
             if !allowed_categories(&rules).iter().any(|known| known == path) {
-                files.write_text(&rules_path, &with_category(&rules, path))?;
+                let updated = with_category(&rules, path);
+                if updated.len() as u64 > MAX_CONTEXT_TEXT_BYTES {
+                    return Err(KbLimitExceeded);
+                }
+                if !allowed_categories(&updated)
+                    .iter()
+                    .any(|known| known == path)
+                {
+                    return Err(KbInvalidInput);
+                }
+                files.write_text(&rules_path, &updated)?;
             }
             kb.pending_categories.retain(|known| known != path);
+            kb.pending_category_reasons.remove(path);
             files.write_json(&format!("{kb_id}/kb.json"), &kb)
         })
     }
@@ -328,6 +344,7 @@ impl KnowledgeStore {
             if kb.pending_categories.len() == before {
                 return Err(KbNotFound);
             }
+            kb.pending_category_reasons.remove(path);
             files.write_json(&format!("{kb_id}/kb.json"), &kb)
         })
     }

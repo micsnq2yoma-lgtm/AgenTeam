@@ -12,7 +12,8 @@ use crate::knowledge::{
     ingest::KnowledgeIngestManager,
     read::{self, ReadRequest},
     store::{
-        AgentWriteAccess, KnowledgeBase, KnowledgeStore, MetadataKey, MetadataPatch, StoreResult,
+        AgentWriteAccess, CurationMode, KnowledgeBase, KnowledgeStore, MetadataKey, MetadataPatch,
+        StoreResult,
     },
     types::{
         format_knowledge_ref, is_knowledge_base_id, parse_knowledge_ref, KnowledgeErrorCode,
@@ -23,6 +24,8 @@ use crate::search::{KnowledgeSearchFilters, SearchEngine};
 use crate::sidecar::SessionProcessSource;
 use crate::workspace_files::path_safety::read_workspace_file_strict;
 use KnowledgeErrorCode::*;
+
+mod curation;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -171,6 +174,14 @@ impl WriteAuthority {
     /// Pin the exact process and curator execution until the Store finishes
     /// publication. Try-locks avoid reversing a lifecycle lock order.
     fn pin(&self, kb: &KnowledgeBase) -> StoreResult<impl Sized> {
+        self.pin_access(kb, false)
+    }
+
+    fn pin_access(
+        &self,
+        kb: &KnowledgeBase,
+        require_curator: bool,
+    ) -> StoreResult<(impl Sized, bool)> {
         // Session PATCH publishes under this same lock. Keep it only during
         // the short Store mutation so a removal and a write have one order.
         let session_lock = crate::utils::file_lock::acquire_file_lock_blocking(
@@ -197,22 +208,38 @@ impl WriteAuthority {
                     && current.workspace_path == self.caller.workspace_path
             })
             .ok_or(KbAccessDenied)?;
-        let (task, run) = if kb.agent_write_access == AgentWriteAccess::CuratorOnly {
+        let curator = (|| {
+            if kb.curation_mode == CurationMode::Off {
+                return Err(KbAccessDenied);
+            }
             let (task_id, queue_id) = self.curator.as_ref().ok_or(KbAccessDenied)?;
+            let project = kb
+                .curator_agent_id
+                .as_deref()
+                .and_then(crate::im::project_id_for_agent)
+                .ok_or(KbAccessDenied)?;
             let task = crate::task::get_task_store()
                 .ok_or(KbAccessDenied)?
-                .pin_knowledge_curator(&kb.id, task_id)
+                .pin_knowledge_curator(&kb.id, task_id, &project)
                 .map_err(|_| KbStoreUnavailable)?
                 .ok_or(KbAccessDenied)?;
             let run = crate::task_scheduler::get_task_scheduler()
                 .pin_running_session(task_id, queue_id, &current.product_session_id)
                 .map_err(|_| KbStoreUnavailable)?
                 .ok_or(KbAccessDenied)?;
-            (Some(task), Some(run))
-        } else {
-            (None, None)
+            Ok((task, run))
+        })();
+        let curator = match curator {
+            Ok(guards) => Some(guards),
+            Err(KbAccessDenied)
+                if !require_curator && kb.agent_write_access == AgentWriteAccess::BoundSessions =>
+            {
+                None
+            }
+            Err(error) => return Err(error),
         };
-        Ok((session_lock, sidecars, task, run))
+        let is_curator = curator.is_some();
+        Ok(((session_lock, sidecars, curator), is_curator))
     }
 }
 
@@ -233,7 +260,7 @@ pub(super) async fn handle(
         Ok(data) => no_store_json(data),
         Err(code) => no_store_json(error_response(
             code,
-            matches!(action.as_str(), "add" | "meta-set"),
+            matches!(action.as_str(), "add" | "meta-set") || curation::is_write(action.as_str()),
         )),
     }
 }
@@ -404,9 +431,21 @@ async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreRes
                     &reference.kb_id,
                     &reference.source_id,
                     fields,
-                    |kb| authority.pin(kb),
+                    |kb| authority.pin_access(kb, false),
                 )?;
-                Ok(json!({"ok": true, "outcomes": outcomes}))
+                let proposal_needed = outcomes.values().any(|outcome| {
+                    matches!(
+                        outcome,
+                        crate::knowledge::store::MetadataOutcome::Rejected {
+                            code: KbCategoryNotAllowed
+                        }
+                    )
+                });
+                let mut response = json!({"ok": true, "outcomes": outcomes});
+                if proposal_needed {
+                    response["suggestion"] = json!("Use myagents kb taxonomy propose.");
+                }
+                Ok(response)
             })
             .await
         }
@@ -424,7 +463,13 @@ async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreRes
             })
             .await
         }
-        _ => Err(KbInvalidInput),
+        _ => {
+            let command = curation::Command::decode(action, request)?;
+            scope.require(command.kb())?;
+            let authority =
+                WriteAuthority::new(sidecar_id, generation, caller, data_dir, command.kb()).await;
+            blocking(move || command.run(&store, &authority)).await
+        }
     }
 }
 

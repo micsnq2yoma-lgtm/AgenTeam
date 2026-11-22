@@ -232,9 +232,19 @@ Skill 中出现的每条 `myagents kb` 命令和参数都必须存在于 `KNOWLE
 
 模板目前只有中文版本。它是用户编辑的文档，不属于界面文案；多语言模板留待 K9 的知识库界面一并确定。
 
-## 待接入章节
+## K8 元数据与 wiki 整理
 
-### K8 元数据与 wiki 整理
+`KnowledgeStore` 持有整理设置、待整理标记、审批中的分类和 wiki。Tauri 的建库、更新与删除入口在同一协调锁内同步既有 `TaskStore`。每库至多一个有效的 `knowledge_curator` Task，归指定 Agent 所在的 Project。Auto 使用 Task 的定时器，Manual 保持停止的计划并通过 `cmd_kb_curate_now` 触发单次执行，Off 停止计划并取消活跃执行。启动时按持久化的库设置恢复该绑定，并回收没有所属库的托管 Task。任务仍走原有 SessionEngine；只有 Rust 验证过 Task、队列、会话与 Sidecar generation，出生快照才获得该库授权。
+
+导入来源在首次完成切块后进入待整理队列。每上下文最多返回 50 条。只有本库整理 Task 正在执行的会话能看到队列。Agent 写入遵循当前 `agentWriteAccess`，只有经验证的整理会话成功更新元数据后才能结清 pending。拒绝的分类等错误保留 pending；人工锁保留原值，用户写入不改变待整理状态。
+
+`myagents kb curation context` 返回规则、wiki 规范、wiki 首页和白名单。缺失文件返回 `null`。官方 CLI 对规则、规范和首页使用 `<kb-content>` 包裹并转义。分类解析采用 ``- `路径`：说明``，只读取规则的「分类体系」，忽略代码块。新路径由整理会话提议，经用户通过 Tauri 确认才可加入规则。先发布规则再清理待确认项，使中断后的确认可重复。
+
+`kb wiki write` 只接收 Workspace 内的 UTF-8 文件，大小最多 1 MiB，每库最多 2,000 个页面。目标必须是 `wiki/` 内的 Markdown 相对路径，拒绝父目录、绝对路径、符号链接及 Windows junction。更新同一路径保留 Source ID，规范化内容按原子来源目录事务提交，随后发布命名 wiki 文件。若两步之间中断，Store 在启动或下一次写入时从已提交且摘要校验一致的版本补齐命名文件。通用来源移除只撤销登记，保留的命名页仍占页面额度。搜索索引订阅来源提交广播，来源类型使用 `SourceKind::Wiki`。既有 Tantivy `doc_kind` 区分摘要和切块记录，其与 K8 验收所称 wiki 类型的映射见交付待决项。
+
+`kb wiki log` 只能追加到 `wiki/log.md`，该页不作为可检索来源。lint 报告经 v1 schema 验证，要求 UTC 生成时间、受支持的问题类型、库内 Markdown 路径和属于同一知识库的引用。报告保存在库的 `wiki/lint/`，供后续 UI 展示。
+
+## 待接入章节
 
 ### K9–K11 UI、引用与检索评测
 

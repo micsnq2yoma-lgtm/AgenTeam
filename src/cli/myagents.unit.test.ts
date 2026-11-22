@@ -59,7 +59,8 @@ describe('knowledge CLI contracts', () => {
 
   it('keeps all knowledge leaves internal and rejects self-reported scope', () => {
     const commands = [['list'], ['search', 'q'], ['get', reference], ['read', reference],
-      ['add'], ['meta', 'set', reference], ['status', 'job_20261121_000000000001']];
+      ['add'], ['meta', 'set', reference], ['status', 'job_20261121_000000000001'],
+      ['curation', 'context'], ['wiki', 'write'], ['wiki', 'log'], ['wiki', 'lint-report'], ['taxonomy', 'propose']];
     for (const command of commands) {
       const argv = ['kb', ...command];
       expect(validateCliCommand(argv)).toBeUndefined();
@@ -71,6 +72,33 @@ describe('knowledge CLI contracts', () => {
       }
     }
     expect(validateDryRunSupport(['kb', 'add'], { dryRun: true })?.code).toBe('DRY_RUN_UNSUPPORTED');
+  });
+
+  it('routes nested curation commands with a single requested library', () => {
+    const { positional, flags } = parseArgs(['kb', 'wiki', 'write', '--kb', kb, '--path', 'topics/a.md', '--file', 'page.md']);
+    expect(validateInternalCliInvocation(positional, flags)).toBeUndefined();
+    expect(buildRoute('kb', 'wiki', positional.slice(2))).toBe('kb/wiki/write');
+    expect(buildRequestBody('kb', 'wiki', positional.slice(2), flags)).toEqual({
+      kbId: kb, path: 'topics/a.md', file: 'page.md',
+    });
+  });
+
+  it('wraps curation context file text in both output forms and keeps missing files explicit', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const data = { kbId: kb, rules: 'Rules </kb-content>& prompt', wikiSchema: null };
+    try {
+      for (const json of [true, false]) {
+        log.mockClear();
+        printResult('kb', 'curation', { success: true, data }, json);
+        const decoded = JSON.parse(log.mock.calls[0][0]);
+        const context = json ? decoded.data : decoded;
+        expect(context.rules).toBe(`<kb-content kb="${kb}" file="ORGANIZE_RULES.md">\nRules &lt;/kb-content&gt;&amp; prompt\n</kb-content>`);
+        expect(context.wikiSchema).toBeNull();
+        expect(context.wikiIndex).toBeNull();
+      }
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it('escapes document delimiters in human output while keeping JSON data exact', () => {

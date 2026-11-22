@@ -120,7 +120,7 @@ fn locator(kb_id: &str, job_id: &str) -> String {
     format!("{kb_id}/jobs/{job_id}.json")
 }
 
-fn valid_kb_source_folders(parent: &Path) -> StoreResult<impl Iterator<Item = String>> {
+pub(super) fn valid_kb_source_folders(parent: &Path) -> StoreResult<impl Iterator<Item = String>> {
     let mut ids = Vec::new();
     match fs::read_dir(parent) {
         Ok(entries) => {
@@ -204,7 +204,7 @@ impl StoreFiles {
         self.root.join(kb).join("sources").join(source)
     }
 
-    fn prepare_import(&self, kb: &str, bytes: u64) -> StoreResult<TempDir> {
+    pub(super) fn prepare_import(&self, kb: &str, bytes: u64) -> StoreResult<TempDir> {
         self.read_kb(kb)?;
         let (sources, _handle) =
             ensure_workspace_directory_no_follow(&self.root, &format!("{kb}/sources"))
@@ -214,6 +214,34 @@ impl StoreFiles {
             .prefix(INCOMING)
             .tempdir_in(sources)
             .map_err(|_| KbStoreUnavailable)
+    }
+
+    pub(super) fn publish_source_version(
+        &self,
+        kb: &str,
+        record: &SourceRecord,
+        stage: &TempDir,
+        replace: bool,
+    ) -> StoreResult<()> {
+        let live = self.source_root(kb, &record.source.id);
+        let parent = live.parent().ok_or(KbStoreCorrupt)?;
+        let previous = parent.join(format!("{PREVIOUS}{}", record.source.id));
+        let stage_name = stage
+            .path()
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or(KbStoreCorrupt)?;
+        self.write_json(&source_path(kb, stage_name), record)?;
+        if replace {
+            rename_directory_noreplace(&live, &previous).map_err(|_| KbStoreUnavailable)?;
+            sync_directory(parent).map_err(|_| KbStoreUnavailable)?;
+        }
+        rename_directory_noreplace(stage.path(), &live).map_err(|_| KbStoreUnavailable)?;
+        sync_directory(parent).map_err(|_| KbStoreUnavailable)?;
+        if replace {
+            self.cleanup(&previous);
+        }
+        Ok(())
     }
 
     // A crash before the new source directory is visible restores the prior
@@ -386,6 +414,7 @@ impl KnowledgeStore {
             let mut owners = BTreeMap::new();
             for kb in registry.iter() {
                 files.read_kb(kb)?;
+                files.recover_wiki_publication(kb)?;
                 let Some(parent) = files.source_parent(kb)? else {
                     continue;
                 };
@@ -518,23 +547,10 @@ impl KnowledgeStore {
             if record.source.facts.status != SourceStatus::Converting {
                 return Err(KbJobConflict);
             }
-            let live = files.source_root(&kb, &record.source.id);
-            let parent = live.parent().ok_or(KbStoreCorrupt)?;
-            let previous = parent.join(format!("{PREVIOUS}{}", record.source.id));
             record.source.facts.status = SourceStatus::Chunking;
             record.source.facts.content_hash = Some(markdown_hash);
-            let stage_name = output
-                .path()
-                .file_name()
-                .and_then(|n| n.to_str())
-                .ok_or(KbStoreCorrupt)?;
-            files.write_json(&source_path(&kb, stage_name), &record)?;
-            rename_directory_noreplace(&live, &previous).map_err(|_| KbStoreUnavailable)?;
-            sync_directory(parent).map_err(|_| KbStoreUnavailable)?;
-            rename_directory_noreplace(output.path(), &live).map_err(|_| KbStoreUnavailable)?;
-            sync_directory(parent).map_err(|_| KbStoreUnavailable)?;
+            files.publish_source_version(&kb, &record, &output, true)?;
             self.source_upserted(&kb, &record.source);
-            files.cleanup(&previous);
             record.job(&kb)
         })
     }

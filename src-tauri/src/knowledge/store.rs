@@ -12,10 +12,11 @@ use uuid::Uuid;
 mod chunks;
 pub use chunks::ResolvedFragment;
 mod curation;
+mod wiki;
+pub(crate) use wiki::MAX_WIKI_PAGE_BYTES;
 pub mod ingest;
-pub use curation::{
-    CategoryProposal, CurationContext, PendingCurationSource, CURATION_BATCH_LIMIT,
-};
+#[cfg(test)]
+use curation::CURATION_BATCH_LIMIT;
 
 use crate::durable_fs::{rename_directory_noreplace, sync_directory};
 use crate::utils::file_lock::{with_file_lock_blocking, FileLockOptions};
@@ -88,10 +89,12 @@ pub struct KnowledgeBase {
     pub agent_write_access: AgentWriteAccess,
     pub wiki_enabled: bool,
     pub pending_categories: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub pending_category_reasons: BTreeMap<String, String>,
 }
 
 /// Missing fields retain their values. An explicit null clears the curator.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct KnowledgeBasePatch {
     pub name: Option<String>,
@@ -129,12 +132,13 @@ impl KnowledgeBase {
             agent_write_access: AgentWriteAccess::CuratorOnly,
             wiki_enabled: true,
             pending_categories: Vec::new(),
+            pending_category_reasons: BTreeMap::new(),
         };
         kb.apply_patch(patch)?;
         Ok(kb)
     }
 
-    fn apply_patch(&mut self, patch: KnowledgeBasePatch) -> StoreResult<()> {
+    pub(crate) fn apply_patch(&mut self, patch: KnowledgeBasePatch) -> StoreResult<()> {
         if let Some(name) = patch.name {
             self.name = name;
         }
@@ -157,6 +161,8 @@ impl KnowledgeBase {
             self.wiki_enabled = enabled;
         }
         if let Some(categories) = patch.pending_categories {
+            self.pending_category_reasons
+                .retain(|path, _| categories.contains(path));
             self.pending_categories = categories;
         }
         self.validate()
@@ -326,6 +332,7 @@ pub enum KnowledgeChange {
 pub struct KnowledgeStore {
     app_data_dir: PathBuf,
     changes: broadcast::Sender<KnowledgeChange>,
+    pub(super) curator_control: tokio::sync::Mutex<()>,
 }
 
 impl KnowledgeStore {
@@ -335,6 +342,7 @@ impl KnowledgeStore {
         Self {
             app_data_dir,
             changes,
+            curator_control: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -385,6 +393,10 @@ impl KnowledgeStore {
 
     pub fn list(&self) -> StoreResult<Vec<KnowledgeBase>> {
         self.locked(|files, registry| registry.iter().map(|id| files.read_kb(id)).collect())
+    }
+
+    pub(crate) fn get(&self, kb_id: &str) -> StoreResult<KnowledgeBase> {
+        self.locked_kb(kb_id, None, |files, _| files.read_kb(kb_id))
     }
 
     pub fn create(&self, patch: KnowledgeBasePatch) -> StoreResult<KnowledgeBase> {
@@ -529,7 +541,7 @@ impl KnowledgeStore {
         actor: KnowledgeMetadataOrigin,
         fields: MetadataPatch,
     ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
-        self.write_metadata(kb_id, source_id, actor, fields, |_| Ok(()))
+        self.write_metadata(kb_id, source_id, actor, fields, |_| Ok(((), false)))
     }
 
     pub(crate) fn set_agent_metadata<G>(
@@ -537,7 +549,7 @@ impl KnowledgeStore {
         kb_id: &str,
         source_id: &str,
         fields: MetadataPatch,
-        authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<G>,
+        authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<(G, bool)>,
     ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
         self.write_metadata(
             kb_id,
@@ -564,10 +576,10 @@ impl KnowledgeStore {
         source_id: &str,
         actor: KnowledgeMetadataOrigin,
         fields: MetadataPatch,
-        authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<G>,
+        authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<(G, bool)>,
     ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
         self.locked_kb(kb_id, Some(source_id), |files, _| {
-            let _permit = authorize(&files.read_kb(kb_id)?)?;
+            let (_permit, is_curator) = authorize(&files.read_kb(kb_id)?)?;
             let mut record = files.require_record(kb_id, source_id)?;
             // Only the user grows the category list; an agent proposes instead.
             let approved = (actor == KnowledgeMetadataOrigin::Agent
@@ -622,8 +634,20 @@ impl KnowledgeStore {
                 .values()
                 .any(|outcome| *outcome == MetadataOutcome::Updated)
             {
-                // The curator's write settles this source's turn in the queue.
-                if actor == KnowledgeMetadataOrigin::Agent {
+                // A partial failure can keep the accepted fields, but it
+                // leaves the source queued for a later round. A user lock
+                // already satisfies the corresponding metadata field.
+                if is_curator
+                    && outcomes.values().all(|outcome| {
+                        matches!(
+                            outcome,
+                            MetadataOutcome::Updated
+                                | MetadataOutcome::Rejected {
+                                    code: KbFieldLocked
+                                }
+                        )
+                    })
+                {
                     record.curation_pending = false;
                 }
                 files.write_json(&source_path(kb_id, source_id), &record)?;

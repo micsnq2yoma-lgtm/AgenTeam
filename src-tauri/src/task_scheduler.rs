@@ -292,6 +292,10 @@ impl TaskSchedulerController {
             ulog_error!("[task-scheduler] TaskStore is not initialized");
             return;
         };
+        if let Some(knowledge) = handle.try_state::<Arc<crate::knowledge::store::KnowledgeStore>>()
+        {
+            crate::knowledge::curator_task::recover(knowledge.inner(), store).await;
+        }
         let tasks = store
             .list(TaskListFilter {
                 include_managed: Some(true),
@@ -300,6 +304,9 @@ impl TaskSchedulerController {
             .await;
 
         for task in tasks {
+            if task.managed_kind.as_deref() == Some(crate::task::MANAGED_KIND_KNOWLEDGE_CURATOR) {
+                continue;
+            }
             // Task outcome and Trigger outbox are two crash-durable files. A
             // matching receipt proves this event already entered a terminal
             // Runtime turn and its Task accounting committed; only the outbox
@@ -1240,6 +1247,23 @@ impl TaskSchedulerController {
         execution_is_authorized(&self.executions, task_id, queue_id).await
     }
 
+    pub(crate) async fn authorizes_exact_session(
+        &self,
+        task_id: &str,
+        queue_id: &str,
+        session_id: &str,
+    ) -> bool {
+        self.executions
+            .read()
+            .await
+            .get(task_id)
+            .is_some_and(|execution| {
+                execution.queue_id == queue_id
+                    && !execution.canceled
+                    && execution.session_id.as_deref() == Some(session_id)
+            })
+    }
+
     /// Commit an ordinary Task↔Session relation only after the exact Runtime
     /// queue accepted its first Task turn, then flush comments that were
     /// waiting for the first usable execution Session.
@@ -1250,17 +1274,10 @@ impl TaskSchedulerController {
         session_id: &str,
     ) -> Result<bool, String> {
         let _control = acquire_task_control(task_id).await;
-        let exact = self
-            .executions
-            .read()
+        if !self
+            .authorizes_exact_session(task_id, queue_id, session_id)
             .await
-            .get(task_id)
-            .is_some_and(|execution| {
-                execution.queue_id == queue_id
-                    && !execution.canceled
-                    && execution.session_id.as_deref() == Some(session_id)
-            });
-        if !exact {
+        {
             return Ok(false);
         }
         let store = crate::task::get_task_store()
@@ -3557,18 +3574,18 @@ mod tests {
             .is_none());
         let curator = |_: &KnowledgeBase| {
             let binding = tasks
-                .pin_knowledge_curator(&kb.id, &task_id)
+                .pin_knowledge_curator(&kb.id, &task_id, &task.workspace_id)
                 .map_err(|_| KbStoreUnavailable)?
                 .ok_or(KbAccessDenied)?;
             let execution = scheduler
                 .pin_running_session(&task_id, &queue, "curation-session")
                 .map_err(|_| KbStoreUnavailable)?
                 .ok_or(KbAccessDenied)?;
-            Ok((binding, execution))
+            Ok(((binding, execution), true))
         };
         let ordinary = |settings: &KnowledgeBase| {
             if settings.agent_write_access == AgentWriteAccess::BoundSessions {
-                Ok(())
+                Ok(((), false))
             } else {
                 Err(KbAccessDenied)
             }
@@ -3636,6 +3653,55 @@ mod tests {
         scheduler.capture_egress_interruptions().await;
         assert_eq!(scheduler.interrupted_by_egress.lock().await.get("scheduled"), Some(&(queue, Some(123))));
         assert!(claim_execution_if_open(&scheduler.executions, &scheduler.shutting_down, "fresh", None).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn knowledge_curator_turn_authorization_requires_the_reserved_session_and_queue() {
+        let scheduler = TaskSchedulerController::new();
+        let task_id = "curator-fixture";
+        let session_id = "reserved-session";
+        let queue_id = claim_execution(&scheduler.executions, task_id)
+            .await
+            .unwrap();
+        assert!(
+            !scheduler
+                .authorizes_exact_session(task_id, &queue_id, session_id)
+                .await
+        );
+        scheduler
+            .executions
+            .write()
+            .await
+            .get_mut(task_id)
+            .unwrap()
+            .session_id = Some(session_id.into());
+        assert!(
+            scheduler
+                .authorizes_exact_session(task_id, &queue_id, session_id)
+                .await
+        );
+        assert!(
+            !scheduler
+                .authorizes_exact_session(task_id, &queue_id, "other-session")
+                .await
+        );
+        assert!(
+            !scheduler
+                .authorizes_exact_session(task_id, "other-queue", session_id)
+                .await
+        );
+        scheduler
+            .executions
+            .write()
+            .await
+            .get_mut(task_id)
+            .unwrap()
+            .canceled = true;
+        assert!(
+            !scheduler
+                .authorizes_exact_session(task_id, &queue_id, session_id)
+                .await
+        );
     }
 
     #[tokio::test]

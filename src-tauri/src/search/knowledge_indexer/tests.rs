@@ -1,6 +1,6 @@
 use super::*;
 use crate::knowledge::ingest::{ImportOutcome, KnowledgeIngestManager};
-use crate::knowledge::store::{KnowledgeBasePatch, MetadataPatch, SourceStatus};
+use crate::knowledge::store::{KnowledgeBasePatch, MetadataPatch, SourceKind, SourceStatus};
 use crate::knowledge::types::KnowledgeMetadataOrigin;
 use std::time::{Duration, Instant};
 use tempfile::{tempdir, TempDir};
@@ -78,6 +78,42 @@ fn tags(store: &KnowledgeStore, kb: &str, source: &str, category: &str) {
     store
         .set_metadata(kb, source, KnowledgeMetadataOrigin::User, values)
         .unwrap();
+}
+
+#[test]
+fn knowledge_wiki_pages_are_searchable_and_keep_their_source_identity_on_update() {
+    let temp = tempdir().unwrap();
+    let store = KnowledgeStore::new(temp.path().into());
+    let kb = library(&store, "Wiki");
+    let page = "topics/orchard.md";
+    let mut changes = store.subscribe_changes();
+    let index = KnowledgeIndex::new(temp.path().into());
+    index.rebuild(&store).unwrap();
+    let first = store
+        .write_wiki_page(&kb, page, "# Orchard\n\nbilberry", |_| Ok(()))
+        .unwrap();
+    index.update(&store, &changes.try_recv().unwrap()).unwrap();
+    let hits = lookup(&index, &store, &kb, "bilberry");
+    assert_eq!(hits[0].source_id, first.id);
+    assert_eq!(
+        store
+            .resolve_ref(&hits[0].reference)
+            .unwrap()
+            .source
+            .facts
+            .kind,
+        SourceKind::Wiki
+    );
+    let second = store
+        .write_wiki_page(&kb, page, "# Orchard\n\nloganberry", |_| Ok(()))
+        .unwrap();
+    assert_eq!(first.id, second.id);
+    index.update(&store, &changes.try_recv().unwrap()).unwrap();
+    assert!(lookup(&index, &store, &kb, "bilberry").is_empty());
+    assert_eq!(
+        lookup(&index, &store, &kb, "loganberry")[0].source_id,
+        first.id
+    );
 }
 
 #[test]

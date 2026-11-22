@@ -13,7 +13,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, OnceLock};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tokio::net::TcpListener;
 
 use crate::cron_task::{
@@ -4356,6 +4356,34 @@ async fn task_turn_authorize_handler(
             "ok": false,
             "code": "task_dispatch_canceled",
             "error": "Task execution was canceled before dispatch",
+        }));
+    }
+    if let Some(task) = match task::get_task_store() {
+        Some(store) => store.get(task_id).await,
+        None => None,
+    }
+    .filter(|task| task.managed_kind.as_deref() == Some(task::MANAGED_KIND_KNOWLEDGE_CURATOR))
+    {
+        let authorized = crate::task_scheduler::get_task_scheduler()
+            .authorizes_exact_session(task_id, queue_id, session_id)
+            .await;
+        let knowledge = crate::logger::get_app_handle().and_then(|app| {
+            app.try_state::<std::sync::Arc<crate::knowledge::store::KnowledgeStore>>()
+                .map(|store| std::sync::Arc::clone(store.inner()))
+        });
+        if let (true, Some(store)) = (authorized, knowledge) {
+            if let Ok(Ok(kb_id)) = tokio::task::spawn_blocking(move || {
+                crate::knowledge::curator_task::validate_execution(&store, &task)
+            })
+            .await
+            {
+                return Json(serde_json::json!({ "ok": true, "curatorKnowledgeBaseId": kb_id }));
+            }
+        }
+        return Json(serde_json::json!({
+            "ok": false,
+            "code": "task_dispatch_canceled",
+            "error": "Curator Task no longer owns this library and Session",
         }));
     }
     Json(serde_json::json!({ "ok": true }))

@@ -766,7 +766,9 @@ fn agent_category(
     value: Value,
 ) -> BTreeMap<MetadataKey, MetadataOutcome> {
     store
-        .set_agent_metadata(kb, source, field(MetadataKey::Category, value), |_| Ok(()))
+        .set_agent_metadata(kb, source, field(MetadataKey::Category, value), |_| {
+            Ok(((), true))
+        })
         .unwrap()
 }
 
@@ -775,6 +777,8 @@ fn category_parser_reads_only_the_category_section_outside_code() {
     let rules = "# Rules\n- `ignored`：before the section\n\n## 分类体系\n\n- `客户/A公司`：合同\n- `参考资料`\n- `bad//path`：empty segment\n- `../up`：traversal\n- 没有反引号：not a category\n```\n- `fenced`：inside code\n```\n- `参考资料`：duplicate\n\n## 标签\n- `tag-only`：other section\n";
     assert_eq!(allowed_categories(rules), ["客户/A公司", "参考资料"]);
     assert!(allowed_categories("").is_empty());
+    let fenced = "## 分类体系\n\x60\x60\x60\x60md\n\x60\x60\x60\n- \x60inside\x60：example\n\x60\x60\x60\x60\n    - \x60indented\x60：example\n- \x60colon\x60: wrong delimiter\n- \x60outside\x60：real\n# New chapter\n- \x60other\x60：elsewhere";
+    assert_eq!(allowed_categories(fenced), ["outside"]);
     for bad in [
         "", "/a", "a/", "a//b", " a", "a/ b", "a/../b", "a/./b", "a`b", "a\nb",
     ] {
@@ -833,19 +837,19 @@ fn an_agent_may_only_use_approved_categories_until_the_user_approves_more() {
     // Proposing never approves; the user does.
     assert_eq!(
         store
-            .propose_category(&kb.id, "全新分类", |_| Ok(()))
+            .propose_category(&kb.id, "全新分类", "Fixture reason", |_| Ok(()))
             .unwrap(),
         CategoryProposal::Proposed
     );
     assert_eq!(
         store
-            .propose_category(&kb.id, "全新分类", |_| Ok(()))
+            .propose_category(&kb.id, "全新分类", "Fixture reason", |_| Ok(()))
             .unwrap(),
         CategoryProposal::AlreadyPending
     );
     assert_eq!(
         store
-            .propose_category(&kb.id, &approved, |_| Ok(()))
+            .propose_category(&kb.id, &approved, "Fixture reason", |_| Ok(()))
             .unwrap(),
         CategoryProposal::Allowed
     );
@@ -881,11 +885,11 @@ fn category_proposals_validate_authorize_and_can_be_dismissed() {
     let store = KnowledgeStore::new(data.path().into());
     let kb = store.create(settings("Proposals")).unwrap();
     assert_eq!(
-        store.propose_category(&kb.id, "../x", |_| Ok(())),
+        store.propose_category(&kb.id, "../x", "Fixture reason", |_| Ok(())),
         Err(KnowledgeErrorCode::KbInvalidInput)
     );
     assert_eq!(
-        store.propose_category(&kb.id, "ok", |_| Err::<(), _>(
+        store.propose_category(&kb.id, "ok", "Fixture reason", |_| Err::<(), _>(
             KnowledgeErrorCode::KbAccessDenied
         )),
         Err(KnowledgeErrorCode::KbAccessDenied)
@@ -895,7 +899,9 @@ fn category_proposals_validate_authorize_and_can_be_dismissed() {
         store.confirm_category(&kb.id, "never-proposed"),
         Err(KnowledgeErrorCode::KbNotFound)
     );
-    store.propose_category(&kb.id, "ok", |_| Ok(())).unwrap();
+    store
+        .propose_category(&kb.id, "ok", "Fixture reason", |_| Ok(()))
+        .unwrap();
     store.dismiss_category(&kb.id, "ok").unwrap();
     assert_eq!(
         store.dismiss_category(&kb.id, "ok"),
@@ -903,11 +909,11 @@ fn category_proposals_validate_authorize_and_can_be_dismissed() {
     );
     for index in 0..MAX_PENDING_CATEGORIES {
         store
-            .propose_category(&kb.id, &format!("c{index}"), |_| Ok(()))
+            .propose_category(&kb.id, &format!("c{index}"), "Fixture reason", |_| Ok(()))
             .unwrap();
     }
     assert_eq!(
-        store.propose_category(&kb.id, "one-more", |_| Ok(())),
+        store.propose_category(&kb.id, "one-more", "Fixture reason", |_| Ok(())),
         Err(KnowledgeErrorCode::KbLimitExceeded)
     );
 }
@@ -931,7 +937,9 @@ fn approving_a_category_restores_missing_rules_and_is_repeatable_after_a_crash()
             code: KnowledgeErrorCode::KbCategoryNotAllowed
         }
     );
-    store.propose_category(&kb.id, "新类", |_| Ok(())).unwrap();
+    store
+        .propose_category(&kb.id, "新类", "Fixture reason", |_| Ok(()))
+        .unwrap();
     // Interrupted approval: rules already list the category, kb.json still pending.
     fs::write(&rules, with_category(LIBRARY_TEMPLATES[0].1, "新类")).unwrap();
     store.confirm_category(&kb.id, "新类").unwrap();
@@ -957,6 +965,14 @@ fn a_curators_write_settles_the_pending_mark_but_a_rejected_one_does_not() {
     // A rejected category write changes nothing, so the source stays queued.
     agent_category(&store, &kb.id, &source.id, json!("全新分类"));
     assert_eq!(store.pending_curation(&kb.id).unwrap().0.len(), 1);
+    let mixed = BTreeMap::from([
+        (MetadataKey::Summary, json!("accepted summary")),
+        (MetadataKey::Category, json!("全新分类")),
+    ]);
+    store
+        .set_agent_metadata(&kb.id, &source.id, mixed, |_| Ok(((), true)))
+        .unwrap();
+    assert_eq!(store.pending_curation(&kb.id).unwrap().0.len(), 1);
     // The user's edit is not curation.
     store
         .set_metadata(
@@ -973,7 +989,7 @@ fn a_curators_write_settles_the_pending_mark_but_a_rejected_one_does_not() {
             &kb.id,
             &source.id,
             field(MetadataKey::Summary, json!("s")),
-            |_| Ok(()),
+            |_| Ok(((), true)),
         )
         .unwrap();
     assert!(store.pending_curation(&kb.id).unwrap().0.is_empty());
@@ -1009,7 +1025,7 @@ fn a_curation_round_is_capped_and_the_context_reports_the_remainder() {
                 &kb.id,
                 &source.source_id,
                 field(MetadataKey::Summary, json!("s")),
-                |_| Ok(()),
+                |_| Ok(((), true)),
             )
             .unwrap();
     }
@@ -1023,7 +1039,7 @@ fn the_curation_context_carries_rules_schema_index_and_approved_categories() {
     let data = tempdir().unwrap();
     let store = KnowledgeStore::new(data.path().into());
     let kb = store.create(settings("Context")).unwrap();
-    let context = store.curation_context(&kb.id).unwrap();
+    let context = store.curation_context(&kb.id, |_| Ok(Some(()))).unwrap();
     assert_eq!(context.rules.as_deref(), Some(LIBRARY_TEMPLATES[0].1));
     assert_eq!(context.wiki_schema.as_deref(), Some(LIBRARY_TEMPLATES[1].1));
     assert_eq!(context.wiki_index, None);
@@ -1038,14 +1054,178 @@ fn the_curation_context_carries_rules_schema_index_and_approved_categories() {
     fs::write(root.join("wiki/index.md"), "# index").unwrap();
     assert_eq!(
         store
-            .curation_context(&kb.id)
+            .curation_context(&kb.id, |_| Ok(Some(())))
             .unwrap()
             .wiki_index
             .as_deref(),
         Some("# index")
     );
     assert_eq!(
-        store.curation_context("kb_000000000000"),
+        store.curation_context("kb_000000000000", |_| Ok(Some(()))),
         Err(KnowledgeErrorCode::KbNotFound)
     );
+
+    let source = store.create_source(&kb.id, note()).unwrap();
+    store.mark_curation_pending(&kb.id, &source.id).unwrap();
+    let ordinary = store
+        .curation_context(&kb.id, |_| Ok::<Option<()>, _>(None))
+        .unwrap();
+    assert!(ordinary.pending.is_empty() && !ordinary.more_pending);
+    assert!(ordinary.rules.is_some());
+    let curator = store.curation_context(&kb.id, |_| Ok(Some(()))).unwrap();
+    assert_eq!(curator.pending[0].source_id, source.id);
+    assert_eq!(curator.pending[0].status, SourceStatus::Ready);
+}
+
+#[cfg(any(unix, windows))]
+#[test]
+fn knowledge_wiki_refuses_traversal_and_redirected_ancestors() {
+    let data = tempdir().unwrap();
+    let outside = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Wiki")).unwrap();
+    for path in [
+        "../escape.md",
+        "/absolute.md",
+        "C:/file.md",
+        "topics//gap.md",
+        "topics/a.txt",
+        "topics/./p.md",
+        "topics/CON.md",
+    ] {
+        assert_eq!(
+            store.write_wiki_page(&kb.id, path, "# test", |_| Ok(())),
+            Err(KbInvalidInput)
+        );
+    }
+    let wiki = data.path().join("knowledge").join(&kb.id).join("wiki");
+    fs::create_dir(&wiki).unwrap();
+    let sentinel = outside.path().join("escape.md");
+    fs::write(&sentinel, "untouched original").unwrap();
+    redirect_directory(outside.path(), &wiki.join("topics"));
+    assert_eq!(
+        store.write_wiki_page(&kb.id, "topics/escape.md", "# test", |_| Ok(())),
+        Err(KbInvalidInput)
+    );
+    assert_eq!(fs::read_to_string(sentinel).unwrap(), "untouched original");
+    assert_eq!(fs::read_dir(outside.path()).unwrap().count(), 1);
+    assert!(store.list_sources(&kb.id).unwrap().is_empty());
+}
+
+#[test]
+fn knowledge_wiki_enforces_page_size_and_named_page_capacity() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Wiki limits")).unwrap();
+    let too_large = "a".repeat(MAX_WIKI_PAGE_BYTES as usize + 1);
+    assert_eq!(
+        store.write_wiki_page(&kb.id, "large.md", &too_large, |_| Ok(())),
+        Err(KbLimitExceeded)
+    );
+
+    let root = data.path().join("knowledge").join(&kb.id).join("wiki");
+    fs::create_dir_all(root.join("topics")).unwrap();
+    for index in 0..2000 {
+        fs::write(root.join(format!("topics/{index}.md")), "# Prior entry").unwrap();
+    }
+    assert_eq!(
+        store.write_wiki_page(&kb.id, "new.md", "# New entry", |_| Ok(())),
+        Err(KbLimitExceeded)
+    );
+    store
+        .write_wiki_page(&kb.id, "topics/1.md", "# Updated entry", |_| Ok(()))
+        .unwrap();
+    assert_eq!(
+        fs::read_to_string(root.join("topics/1.md")).unwrap(),
+        "# Updated entry"
+    );
+    assert!(!root.join("new.md").exists());
+}
+
+#[test]
+fn interrupted_wiki_projection_recovers_the_committed_source() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Wiki")).unwrap();
+    let page = "index.md";
+    let text = "# Source\n\nCommitted version";
+    let source = store
+        .write_wiki_page(&kb.id, page, text, |_| Ok(()))
+        .unwrap();
+    let lib = data.path().join("knowledge").join(&kb.id);
+    fs::write(lib.join("wiki/index.md"), "# Prior version").unwrap();
+    let marker = json!({
+        "page": page,
+        "source_id": source.id,
+        "content_hash": source.facts.content_hash,
+    });
+    fs::write(lib.join(".wiki-publication.json"), marker.to_string()).unwrap();
+
+    let restarted = KnowledgeStore::new(data.path().into());
+    restarted.reclaim_ingest_staging().unwrap();
+    assert_eq!(fs::read_to_string(lib.join("wiki/index.md")).unwrap(), text);
+    assert_eq!(
+        fs::read_to_string(lib.join(".wiki-publication.json")).unwrap(),
+        "null"
+    );
+    assert_eq!(restarted.list_sources(&kb.id).unwrap().len(), 1);
+}
+
+#[test]
+fn knowledge_wiki_saves_only_versioned_reports_and_appends_the_log() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Wiki")).unwrap();
+    let mut report = json!({"version": 1, "generatedAt": "2026-11-22T08:00:00Z", "items": [
+        {"kind": "orphan", "page": "topics/Example.md", "message": "No inbound link", "refs": []},
+    ]});
+    assert_eq!(
+        store
+            .save_wiki_lint_report(&kb.id, &serde_json::to_vec(&report).unwrap(), |_| Ok(()))
+            .unwrap(),
+        1
+    );
+    report["items"][0]["page"] = json!("../escape.md");
+    assert_eq!(
+        store.save_wiki_lint_report(&kb.id, &serde_json::to_vec(&report).unwrap(), |_| Ok(())),
+        Err(KbInvalidInput)
+    );
+    store
+        .append_wiki_log(&kb.id, "First change", |_| Ok(()))
+        .unwrap();
+    store
+        .append_wiki_log(&kb.id, "Second change", |_| Ok(()))
+        .unwrap();
+    let wiki = data.path().join("knowledge").join(&kb.id).join("wiki");
+    let log = fs::read_to_string(wiki.join("log.md")).unwrap();
+    assert!(log.find("First change").unwrap() < log.find("Second change").unwrap());
+    assert_eq!(fs::read_dir(wiki.join("lint")).unwrap().count(), 1);
+    report["items"][0]["page"] = json!("index.md");
+    report["items"][0]["refs"] = json!(["kb://kb_000000000000/src_0123456789abcdef"]);
+    assert_eq!(
+        store.save_wiki_lint_report(&kb.id, &serde_json::to_vec(&report).unwrap(), |_| Ok(())),
+        Err(KbInvalidInput)
+    );
+    assert_eq!(
+        store.write_wiki_page(&kb.id, "log.md", "overwrite", |_| Ok(())),
+        Err(KbInvalidInput)
+    );
+}
+
+#[test]
+fn a_bound_non_curator_writes_metadata_without_settling_the_batch() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Wiki")).unwrap();
+    let source = store.create_source(&kb.id, note()).unwrap();
+    store.mark_curation_pending(&kb.id, &source.id).unwrap();
+    store
+        .set_agent_metadata(
+            &kb.id,
+            &source.id,
+            field(MetadataKey::Summary, json!("known")),
+            |_| Ok(((), false)),
+        )
+        .unwrap();
+    assert_eq!(store.pending_curation(&kb.id).unwrap().0.len(), 1);
 }
