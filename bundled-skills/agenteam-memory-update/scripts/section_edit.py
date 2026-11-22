@@ -6,7 +6,7 @@ the USER profile. Rewriting a whole file loses other flows' edits and lets a
 model drop content it did not mean to touch. This tool changes only the
 `## ` sections an edit names, refuses to run if the file changed since it was
 read, can restrict which sections may change, and writes atomically. The
-read, the --base-sha check and the write happen under one lock file, so two
+read, the --base-sha check and the write happen under one OS-level file lock, so two
 writers that started from the same version cannot both succeed: the second one
 waits, sees the new version and gets exit code 2.
 
@@ -166,36 +166,64 @@ def write_atomic(path: Path, text: str) -> None:
         raise
 
 
-LOCK_WAIT_SECONDS = 15.0
-LOCK_STALE_SECONDS = 60.0
+LOCK_WAIT_SECONDS = float(os.environ.get("SECTION_EDIT_LOCK_WAIT", "15"))
+
+
+def lock_path(path: Path) -> Path:
+    """One lock file per target, kept outside the workspace so nothing in it is ever listed or loaded."""
+    key = hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()[:24]
+    return Path(tempfile.gettempdir()) / f"agenteam-section-edit-{key}.lock"
+
+
+def try_lock(handle) -> bool:
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError:
+        return False
+
+
+def unlock(handle) -> None:
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    except OSError:
+        pass
 
 
 @contextmanager
 def file_lock(path: Path):
-    """Exclusive lock beside the file (O_EXCL, portable); a crashed holder's lock expires."""
-    lock = path.with_name(f".{path.name}.lock")
-    deadline = time.monotonic() + LOCK_WAIT_SECONDS
-    while True:
-        try:
-            os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
-            break
-        except FileExistsError:
-            try:
-                if time.time() - lock.stat().st_mtime > LOCK_STALE_SECONDS:
-                    lock.unlink()
-                    continue
-            except FileNotFoundError:
-                continue
+    """Exclusive OS-level lock (flock / LockFileEx). The kernel drops it when the holder exits or
+    crashes, so there is no stale-lock reclaiming and nothing to race on. The lock file itself is
+    never deleted: deleting a lock file is what lets two processes hold "the" lock."""
+    handle = open(lock_path(path), "a+b")
+    try:
+        deadline = time.monotonic() + LOCK_WAIT_SECONDS
+        while not try_lock(handle):
             if time.monotonic() > deadline:
                 raise EditError(EXIT_CHANGED, "LOCK_BUSY", "another edit is still writing this file; read it again and retry")
             time.sleep(0.05)
-    try:
-        yield
-    finally:
         try:
-            lock.unlink()
-        except FileNotFoundError:
-            pass
+            yield
+        finally:
+            unlock(handle)
+    finally:
+        handle.close()
 
 
 def main() -> int:

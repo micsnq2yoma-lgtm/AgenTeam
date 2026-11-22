@@ -223,16 +223,68 @@ test('two writers from the same version cannot both succeed (no lost update)', a
     assert.deepEqual([...codes].sort(), [0, 2], `round ${round}: ${codes}`);
     const text = readFileSync(w.file, 'utf8');
     assert.equal(['alpha', 'beta'].filter(name => text.includes(name)).length, 1);
-    assert.equal(readdirSync(w.dir).filter(name => name.endsWith('.lock')).length, 0);
+    assert.equal(readdirSync(w.dir).filter(name => name.endsWith('.lock')).length, 0, 'no lock file inside the workspace');
   }
 });
 
-test('a lock left by a crashed writer expires instead of blocking forever', t => {
+// A process that holds the file's lock exactly as section_edit.py does, until it is killed.
+function holdLock(file) {
+  const code = [
+    'import sys, time, importlib.util, pathlib',
+    'spec = importlib.util.spec_from_file_location("se", sys.argv[1])',
+    'se = importlib.util.module_from_spec(spec); spec.loader.exec_module(se)',
+    'handle = open(se.lock_path(pathlib.Path(sys.argv[2])), "a+b")',
+    'assert se.try_lock(handle)',
+    'print("held", flush=True)',
+    'time.sleep(60)',
+  ].join('\n');
+  const child = spawn(python, ['-B', '-c', code, SCRIPT, file], { stdio: ['ignore', 'pipe', 'inherit'] });
+  return new Promise(ready => child.stdout.once('data', () => ready(child)));
+}
+
+test('a writer that cannot get the lock fails with LOCK_BUSY and leaves the file alone', async t => {
   const w = workspace(t, DOC);
-  const lock = join(w.dir, '.USER.md.lock');
-  writeFileSync(lock, '');
-  const old = new Date(Date.now() - 120_000);
-  utimesSync(lock, old, old);
-  const result = edit(w, [{ op: 'append', heading: '偏好', content: '- x' }]);
-  assert.equal(result.status, 0);
+  const holder = await holdLock(w.file);
+  t.after(() => holder.kill());
+  const edits = join(w.dir, 'edits.json');
+  writeFileSync(edits, JSON.stringify([{ op: 'append', heading: '偏好', content: '- x' }]));
+  const result = spawnSync(python, ['-B', SCRIPT, '--file', w.file, '--edits', edits], {
+    encoding: 'utf8',
+    env: { ...process.env, SECTION_EDIT_LOCK_WAIT: '0.4' },
+  });
+  assert.equal(result.status, 2);
+  assert.equal(JSON.parse(result.stdout).code, 'LOCK_BUSY');
+  assert.equal(readFileSync(w.file, 'utf8'), DOC);
+});
+
+test('a lock held by a process that dies is released by the OS, not reclaimed by guessing', async t => {
+  const w = workspace(t, DOC);
+  const holder = await holdLock(w.file);
+  holder.kill('SIGKILL');
+  await new Promise(done => holder.once('close', done));
+  assert.equal(edit(w, [{ op: 'append', heading: '偏好', content: '- ok' }]).status, 0);
+});
+
+test('five writers from one version: exactly one succeeds, however they interleave', async t => {
+  const w = workspace(t, DOC);
+  const base = sha(DOC);
+  const run = n => {
+    const edits = join(w.dir, `e-${n}.json`);
+    writeFileSync(edits, JSON.stringify([{ op: 'append', heading: '近期观察', content: `- (2026-11-22) writer${n}` }]));
+    return new Promise(done => {
+      const child = spawn(python, ['-B', SCRIPT, '--file', w.file, '--edits', edits, '--base-sha', base], { stdio: 'ignore' });
+      child.on('close', done);
+    });
+  };
+  for (let round = 0; round < 5; round++) {
+    writeFileSync(w.file, DOC);
+    // A stale lock file of the old design must neither block writers nor let two of them in.
+    const stale = join(w.dir, '.USER.md.lock');
+    writeFileSync(stale, '');
+    utimesSync(stale, new Date(Date.now() - 120_000), new Date(Date.now() - 120_000));
+    const codes = await Promise.all([0, 1, 2, 3, 4].map(run));
+    assert.equal(codes.filter(code => code === 0).length, 1, `round ${round}: ${codes}`);
+    const text = readFileSync(w.file, 'utf8');
+    assert.equal([0, 1, 2, 3, 4].filter(n => text.includes(`writer${n}`)).length, 1);
+  }
 });
