@@ -15,6 +15,7 @@ interface AgentBasicsSectionProps {
 }
 
 function permissionLabel(mode: string | undefined, t: TFunction<'settings'>, tChat: TFunction<'chat'>): string {
+  if (!mode) return t('agentSettings.basics.defaultValue');
   if (mode === 'approval-required' || mode === 'workspace-autonomous' || mode === 'full-autonomous') {
     return tChat(`input.permissionModes.${mode}.label`);
   }

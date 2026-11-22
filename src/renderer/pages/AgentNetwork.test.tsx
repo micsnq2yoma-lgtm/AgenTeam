@@ -146,7 +146,7 @@ describe("Agent network account and device management", () => {
           name: request.name,
         };
       });
-      render(<AgentNetwork />);
+      render(<AgentNetwork mode="settings" />);
       const open = await screen.findByRole("button", {
         name: "查看 Fixture PC 的设备详情",
       });
@@ -194,7 +194,7 @@ describe("Agent network account and device management", () => {
         name: request.name,
       };
     });
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     fireEvent.click(
       await screen.findByRole("button", {
         name: "查看 Fixture Mac 的设备详情",
@@ -232,7 +232,7 @@ describe("Agent network account and device management", () => {
         name: request.name,
       };
     });
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     const open = await screen.findByRole("button", {
       name: "查看 Fixture Mac 的设备详情",
     });
@@ -275,7 +275,7 @@ describe("Agent network account and device management", () => {
           })
         : baseRequest(request),
     );
-    const view = render(<AgentNetwork />);
+    const view = render(<AgentNetwork mode="settings" />);
     fireEvent.click(await screen.findByTitle("更多操作"));
     fireEvent.click(await screen.findByRole("button", { name: "设备重命名" }));
     fireEvent.change(screen.getByRole("textbox"), {
@@ -292,7 +292,7 @@ describe("Agent network account and device management", () => {
       networkId: null,
     };
     mocks.session.mockResolvedValue(null);
-    view.rerender(<AgentNetwork />);
+    view.rerender(<AgentNetwork mode="settings" />);
     await screen.findByRole("status");
     await act(async () => {
       finish({
@@ -306,7 +306,7 @@ describe("Agent network account and device management", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
   it("hides the setup guide after joining, even with no open Agents", async () => {
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     expect(
       await screen.findByText("让设备加入网络"),
     ).toBeInTheDocument();
@@ -339,7 +339,7 @@ describe("Agent network account and device management", () => {
       ],
       complete: false,
     });
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     await screen.findByRole("button", { name: "查看 Fixture PC 的设备详情" });
     expect(
       screen.queryByRole("list"),
@@ -352,7 +352,7 @@ describe("Agent network account and device management", () => {
       state: "disconnected",
       error: { code: "NETWORK_TRANSPORT_FAILED", retryable: false },
     };
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     expect(await screen.findByRole("status")).toHaveTextContent(
       "网络连接失败，正在自动重连",
     );
@@ -364,7 +364,7 @@ describe("Agent network account and device management", () => {
   });
   it("offers read retry without claiming an uncertain save", async () => {
     mocks.devices.mockRejectedValueOnce({ code: "NETWORK_TRANSPORT_FAILED" });
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     expect(await screen.findByRole("alert")).not.toHaveTextContent("保存结果");
     expect(
       screen.queryByRole("list"),
@@ -377,7 +377,7 @@ describe("Agent network account and device management", () => {
     ).toBeInTheDocument();
   });
   it("keeps a real membership write uncertain when its transport result is lost", async () => {
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     await screen.findByRole("button", { name: "加入网络" });
     mocks.request.mockRejectedValueOnce({ code: "NETWORK_TRANSPORT_FAILED" });
     fireEvent.click(screen.getByRole("button", { name: "加入网络" }));
@@ -387,7 +387,7 @@ describe("Agent network account and device management", () => {
   });
   it("reports a details read failure without a save claim", async () => {
     mocks.agents.mockRejectedValueOnce({ code: "NETWORK_REQUEST_UNCONFIRMED" });
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     fireEvent.click(
       await screen.findByRole("button", {
         name: "查看 Fixture Mac 的设备详情",
@@ -401,7 +401,7 @@ describe("Agent network account and device management", () => {
     await waitFor(() => expect(mocks.agents).toHaveBeenCalledTimes(2));
   });
   it("groups an unjoined device apart and keeps membership separate from the whole-card details action", async () => {
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     const details = await screen.findByRole("button", {
       name: "查看 Fixture Mac 的设备详情",
     });
@@ -427,7 +427,7 @@ describe("Agent network account and device management", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
   it("opens the explanation by click and dismisses it by Escape or outside click", async () => {
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     const button = await screen.findByRole("button", { name: "网络说明" });
     const hint =
       "设备间的 Agent 通信在设备端加密，中转服务只转发密文。";
@@ -450,7 +450,7 @@ describe("Agent network account and device management", () => {
       ],
       complete: true,
     });
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     fireEvent.click(
       await screen.findByRole("button", {
         name: "查看 Fixture Mac 的设备详情",
@@ -493,7 +493,7 @@ describe("Agent network account and device management", () => {
             finish = resolve;
           }),
     );
-    const view = render(<AgentNetwork />);
+    const view = render(<AgentNetwork mode="settings" />);
     fireEvent.click(await screen.findByTitle("更多操作"));
     fireEvent.click(await screen.findByRole("button", { name: "退出网络" }));
     const confirmation = (
@@ -518,7 +518,7 @@ describe("Agent network account and device management", () => {
       networkId: null,
     };
     mocks.session.mockResolvedValue(null);
-    view.rerender(<AgentNetwork />);
+    view.rerender(<AgentNetwork mode="settings" />);
     await screen.findByRole("status");
     await act(async () => {
       finish({ ...membership, joined: false });
@@ -564,7 +564,7 @@ describe("Agent network account and device management", () => {
           }
         : { items: [], complete: true },
     );
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     const card = (
       await screen.findByRole("button", { name: "查看 Fixture PC 的设备详情" })
     ).closest("article")!;
@@ -619,7 +619,7 @@ describe("Agent network account and device management", () => {
       ],
       complete: true,
     });
-    render(<AgentNetwork />);
+    render(<AgentNetwork mode="settings" />);
     expect(await screen.findByText("Atmer")).toBeInTheDocument();
     expect(screen.getByText("本机")).toBeInTheDocument();
     expect(screen.queryByText("让设备加入网络")).not.toBeInTheDocument();
@@ -627,13 +627,29 @@ describe("Agent network account and device management", () => {
     expect(
       screen.queryByRole("list"),
     ).not.toBeInTheDocument();
+
+    const onOpenSettings = vi.fn();
+    const overview = render(<AgentNetwork mode="overview" onOpenSettings={onOpenSettings} />);
+    const page = within(overview.getByRole("main"));
+    expect(page.getByRole("heading", { name: "设备组网" })).toBeInTheDocument();
+    expect(page.queryByRole("button", { name: "选择网络" })).not.toBeInTheDocument();
+    fireEvent.click(page.getByRole("button", { name: "组网设置" }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+
+    fireEvent.click(await page.findByRole("button", { name: "查看 Fixture Mac 的设备详情" }));
+    const details = within(screen.getByRole("dialog", { name: "Fixture Mac" }));
+    expect(await details.findByText("Daily helper")).toBeInTheDocument();
+    expect(details.queryByRole("button", { name: "编辑 Atmer 的简介" })).not.toBeInTheDocument();
+    expect(details.queryByRole("switch")).not.toBeInTheDocument();
+    expect(details.queryByTitle("更多操作")).not.toBeInTheDocument();
+    expect(mocks.request.mock.calls.every(([request]) => request.kind === "network")).toBe(true);
   });
 });
 
 it("reads the selected self-hosted network without an official account or changing connection scope", async () => {
   mocks.selected = "self-a";
   mocks.session.mockRejectedValue(new Error("official signed out"));
-  render(<AgentNetwork />);
+  render(<AgentNetwork mode="settings" />);
   await screen.findByRole("button", { name: "查看 Fixture Mac 的设备详情" });
   expect(mocks.session).not.toHaveBeenCalled();
   expect(mocks.devices).toHaveBeenCalledWith("self-a");
@@ -650,7 +666,7 @@ it("pending removal explains stopped connection rather than automatic reconnect"
     state: "disconnected",
     error: { code: "NETWORK_REMOVAL_UNCONFIRMED", retryable: false },
   };
-  render(<AgentNetwork />);
+  render(<AgentNetwork mode="settings" />);
   expect(await screen.findByRole("status")).toHaveTextContent(
     "暂未确认服务端撤销",
   );
@@ -683,7 +699,7 @@ describe("Network header across asynchronous boundaries", () => {
       items: [{ ...device, joined: true }],
       complete: true,
     });
-    const view = render(<AgentNetwork />);
+    const view = render(<AgentNetwork mode="settings" />);
     await screen.findByRole("button", { name: "查看 Fixture Mac 的设备详情" });
     await waitFor(() => expectHeader("1", "0"));
     let finish!: (value: unknown) => void;
@@ -694,7 +710,7 @@ describe("Network header across asynchronous boundaries", () => {
         }),
     );
     mocks.selected = "self-a";
-    view.rerender(<AgentNetwork />);
+    view.rerender(<AgentNetwork mode="settings" />);
     expectHeader("—", "—");
     expect(screen.queryByText("Fixture Mac")).not.toBeInTheDocument();
     await waitFor(() => expect(mocks.devices).toHaveBeenCalledWith("self-a"));

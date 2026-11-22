@@ -18,6 +18,7 @@ export function DeviceCard({
   device,
   catalog,
   isLocal,
+  canManage,
   busy,
   error,
   onOpen,
@@ -30,6 +31,7 @@ export function DeviceCard({
   /** `undefined` while the catalog is still loading. */
   catalog: DeviceCatalog | undefined;
   isLocal: boolean;
+  canManage: boolean;
   busy: boolean;
   error: string | null;
   onOpen: () => void;
@@ -80,18 +82,22 @@ export function DeviceCard({
         <div className="pointer-events-none relative flex items-center gap-3">
           <DeviceIcon device={device} />
           {heading}
-          <button
-            type="button"
-            disabled={busy}
-            aria-busy={busy}
-            onClick={onJoin}
-            className="pointer-events-auto shrink-0 rounded-lg bg-[var(--button-primary-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--button-primary-text)] transition-colors hover:bg-[var(--button-primary-bg-hover)] disabled:cursor-wait disabled:opacity-60"
-          >
-            {t(busy ? "agentNetwork.saving" : "agentNetwork.join")}
-          </button>
-          <div className="pointer-events-auto -mr-1 shrink-0">
-            <DeviceMenu busy={busy} onCopyId={onCopyId} onRename={onRename} />
-          </div>
+          {canManage && (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                aria-busy={busy}
+                onClick={onJoin}
+                className="pointer-events-auto shrink-0 rounded-lg bg-[var(--button-primary-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--button-primary-text)] transition-colors hover:bg-[var(--button-primary-bg-hover)] disabled:cursor-wait disabled:opacity-60"
+              >
+                {t(busy ? "agentNetwork.saving" : "agentNetwork.join")}
+              </button>
+              <div className="pointer-events-auto -mr-1 shrink-0">
+                <DeviceMenu busy={busy} onCopyId={onCopyId} onRename={onRename} />
+              </div>
+            </>
+          )}
         </div>
         {errorLine}
       </article>
@@ -148,14 +154,16 @@ export function DeviceCard({
       <div className="pointer-events-none relative flex items-start gap-3">
         <DeviceIcon device={device} />
         {heading}
-        <div className="pointer-events-auto -mr-1 -mt-1 shrink-0">
-          <DeviceMenu
-            busy={busy}
-            onCopyId={onCopyId}
-            onRename={onRename}
-            onLeave={onLeave}
-          />
-        </div>
+        {canManage && (
+          <div className="pointer-events-auto -mr-1 -mt-1 shrink-0">
+            <DeviceMenu
+              busy={busy}
+              onCopyId={onCopyId}
+              onRename={onRename}
+              onLeave={onLeave}
+            />
+          </div>
+        )}
       </div>
       <div className="pointer-events-none relative flex min-h-[26px] flex-wrap items-center gap-1.5">
         {agents}

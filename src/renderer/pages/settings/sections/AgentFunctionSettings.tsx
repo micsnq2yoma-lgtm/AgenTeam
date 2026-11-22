@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
+import CustomSelect from "@/components/CustomSelect";
 import RuntimeSelector from "@/components/RuntimeSelector";
+import { useToast } from "@/components/Toast";
 import {
   normalizeChatQueueResponseMode,
+  PERMISSION_MODES,
   type AppConfig,
   type ChatQueueResponseMode,
 } from "@/config/types";
@@ -12,9 +15,12 @@ import {
   AGENT_RUNTIME_DISTRIBUTION_POLICY,
   defaultIntegratedRuntimeType,
 } from "../../../../shared/integrated-runtimes/distribution-policy";
+import { normalizeDefaultSessionPermissionMode } from "../../../../shared/runtimeBirthFields";
+import { DefaultModelSetting } from "./DefaultModelSetting";
 
 interface AgentFunctionSettingsProps {
-  config: Pick<AppConfig, "defaultIntegratedRuntime" | "chatQueueResponseMode">;
+  config: Pick<AppConfig, "defaultIntegratedRuntime" | "chatQueueResponseMode">
+    & Partial<Pick<AppConfig, "defaultPermissionMode" | "defaultModelSelection">>;
   updateConfig: (patch: Partial<AppConfig>) => Promise<void>;
 }
 
@@ -23,6 +29,28 @@ export default function AgentFunctionSettings({
   updateConfig,
 }: AgentFunctionSettingsProps) {
   const { t: tSettings } = useTranslation("settings");
+  const { t: tChat } = useTranslation("chat");
+  const toast = useToast();
+  const [savingPermissionMode, setSavingPermissionMode] = useState(false);
+  const permissionMode = normalizeDefaultSessionPermissionMode(config.defaultPermissionMode);
+  const permissionModeLabel = tSettings("general.defaultSessionModeTitle");
+  const defaultRuntime = defaultIntegratedRuntimeType(
+    AGENT_RUNTIME_DISTRIBUTION_POLICY,
+    config.defaultIntegratedRuntime,
+  );
+
+  async function savePermissionMode(value: string) {
+    const next = normalizeDefaultSessionPermissionMode(value);
+    if (next === permissionMode) return;
+    setSavingPermissionMode(true);
+    try {
+      await updateConfig({ defaultPermissionMode: next });
+    } catch {
+      toast.error(tSettings("general.saveFailedRetry"));
+    } finally {
+      setSavingPermissionMode(false);
+    }
+  }
   const [detections, setDetections] = useState<RuntimeDetections>({
     builtin: { installed: true },
     dsh: { installed: false },
@@ -58,10 +86,7 @@ export default function AgentFunctionSettings({
         </div>
         <div className="w-72 max-w-[45%] shrink-0">
           <RuntimeSelector
-            value={defaultIntegratedRuntimeType(
-              AGENT_RUNTIME_DISTRIBUTION_POLICY,
-              config.defaultIntegratedRuntime,
-            )}
+            value={defaultRuntime}
             detections={detections}
             variant="panel"
             integratedOnly
@@ -73,6 +98,28 @@ export default function AgentFunctionSettings({
             }
           />
         </div>
+      </div>
+      <DefaultModelSetting selection={config.defaultModelSelection} runtime={defaultRuntime} updateConfig={updateConfig} />
+      <div className="mt-4 flex items-center justify-between gap-4 border-t border-[var(--line)] pt-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-[var(--ink)]">{permissionModeLabel}</p>
+          <p className="text-xs text-[var(--ink-muted)]">
+            {tSettings("general.defaultSessionModeDescription")}
+            {permissionMode === "plan" && ` ${tSettings("general.defaultSessionModeDshPlan")}`}
+          </p>
+        </div>
+        <CustomSelect
+          ariaLabel={permissionModeLabel}
+          value={permissionMode}
+          options={PERMISSION_MODES.map(({ value }) => ({
+            value,
+            label: tChat(`input.permissionModes.${value}.label`),
+          }))}
+          size="md"
+          className="w-72 max-w-[45%] shrink-0"
+          disabled={savingPermissionMode}
+          onChange={(value) => void savePermissionMode(value)}
+        />
       </div>
       <div className="mt-4 flex items-center justify-between gap-4 border-t border-[var(--line)] pt-4">
         <div className="flex-1">

@@ -15,12 +15,9 @@ import {
 import { acceptNetworkRegistry } from "./store";
 import { JoinNetworkDialog } from "./JoinNetworkDialog";
 export function NetworkSelector({ registry }: { registry: NetworkRegistry }) {
-  const { t } = useTranslation("app");
   return registry.selfhostEnabled === true ? (
     <NetworkSwitcher registry={registry} />
-  ) : (
-    <h1 className="min-w-0 text-2xl font-semibold">{t("agentNetwork.networkName")}</h1>
-  );
+  ) : null;
 }
 function NetworkSwitcher({ registry }: { registry: NetworkRegistry }) {
   const { t } = useTranslation("app");
@@ -63,7 +60,7 @@ function NetworkSwitcher({ registry }: { registry: NetworkRegistry }) {
   }
   return (
     <>
-      <h1 className="min-w-0 text-2xl font-semibold">
+      <h2 className="min-w-0 text-lg font-semibold">
         <button
           ref={anchor}
           type="button"
@@ -75,7 +72,7 @@ function NetworkSwitcher({ registry }: { registry: NetworkRegistry }) {
           <span className="truncate">{current?.name ?? t("agentNetwork.networkName")}</span>
           <ChevronDownIcon className="h-4 w-4 shrink-0" />
         </button>
-      </h1>
+      </h2>
       <Popover
         open={open}
         onClose={() => setOpen(false)}

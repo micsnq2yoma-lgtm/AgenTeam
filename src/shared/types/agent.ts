@@ -157,7 +157,8 @@ export interface AgentConfig {
   providerId?: string;
   model?: string;
   providerEnvJson?: string;
-  permissionMode: string;  // 'plan' | 'auto' | 'fullAgency'
+  /** An unset permission mode inherits the application preference for new desktop sessions. */
+  permissionMode?: string;
   /** #324 — builtin-runtime reasoning effort default ('default' | level; see
    *  shared/reasoningEffort.ts). External runtimes use runtimeConfig.reasoningEffort. */
   reasoningEffort?: string;

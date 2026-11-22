@@ -16,7 +16,7 @@ import { track } from '@/analytics';
 import type { EntryIntent, Surface } from '@/analytics';
 import { type ImageAttachment } from '@/components/SimpleChatInput';
 import { projectTaskExecutionOverrides } from '@/utils/taskProviderProjection';
-import { coerceRuntimeBirthPermissionMode } from '../../shared/runtimeBirthFields';
+import { coerceRuntimeBirthPermissionMode, getDefaultNewSessionPermissionMode } from '../../shared/runtimeBirthFields';
 import { useToast } from '@/components/Toast';
 import { BrandSection } from '@/components/launcher';
 import { useConfig } from '@/hooks/useConfig';
@@ -33,6 +33,8 @@ import {
   MANAGED_BROWSER_MCP_ID,
 } from '../../shared/browserTools';
 import { workspacePathsEqual } from '../../shared/workspacePath';
+import { getInheritedDefaultModel } from '../../shared/providerRoute';
+import { resolveAvailableDefaultModel } from '@/config/services/providerService';
 import {
   getAllMcpServers,
   getEnabledMcpServerIds,
@@ -285,12 +287,21 @@ export default function Launcher({
   const runtimePreferenceRef = useRef(selectedAgent?.runtimePreference);
   runtimePreferenceRef.current = selectedAgent?.runtimePreference;
 
+  const availableDefault = resolveAvailableDefaultModel(
+    getInheritedDefaultModel(config.defaultModelSelection, selectedAgent?.model, selectedWorkspace?.model),
+    providers,
+    apiKeys,
+    providerVerifyStatus,
+  );
+
   // Runtime-aware model/permission lists — adapts input bar for external runtimes
   const resolvedLauncherRuntime: RuntimeType = resolveEffectiveRuntime(
     selectedAgent?.runtime,
     selectedAgent?.runtimePreference,
     selectedAgent?.runtimeConfig?.source,
-    selectedAgent?.providerId,
+    availableDefault && isRuntimeBackedProvider(availableDefault.provider)
+      ? availableDefault.provider.id
+      : selectedAgent?.providerId,
     undefined,
     config.defaultIntegratedRuntime,
   );
@@ -299,7 +310,7 @@ export default function Launcher({
   // Managed Codex is a model-list execution choice, not a rewrite of the
   // Agent's base Integrated Runtime selector. Preserve DSH/Claude preference
   // while the Session birth hint routes Codex to its independent runtime.
-  const launcherRuntime: RuntimeType = selectedAgentUsesManagedCodexProvider
+  const launcherRuntime: RuntimeType = selectedAgentUsesManagedCodexProvider && !availableDefault
     ? resolveEffectiveRuntime(
         selectedAgent?.runtime,
         selectedAgent?.runtimePreference,
@@ -314,11 +325,16 @@ export default function Launcher({
   // separate from user-managed CLI configuration.
   const isExternalRuntime =
     launcherRuntime !== 'builtin' && launcherRuntime !== 'dsh';
+  const defaultModel = !isExternalRuntime && availableDefault
+    && isProviderModelCompatibleWithRuntime(launcherRuntime, availableDefault.provider, availableDefault.model)
+    ? availableDefault.model
+    : undefined;
+  const defaultModelProviderId = defaultModel ? availableDefault?.provider.id : undefined;
   // The same runtime-scoped value drives the menu and the new Session handoff.
   // Cached/configured permissions from another runtime are not portable.
   const effectiveLauncherPermissionMode = (
     projectPermissionModeForRuntime(launcherPermissionMode, launcherRuntime)
-      ?? getDefaultRuntimePermissionMode(launcherRuntime)
+      ?? getDefaultNewSessionPermissionMode(launcherRuntime, config.defaultPermissionMode)
   ) as PermissionMode;
   const runtimeExecutionUnavailable =
     launcherRuntime === 'dsh' &&
@@ -367,6 +383,7 @@ export default function Launcher({
   const launcherProvider = useMemo(() => {
     const id =
       launcherProviderId ??
+      defaultModelProviderId ??
       selectedAgent?.providerId ??
       selectedWorkspace?.providerId ??
       config.defaultProviderId;
@@ -378,6 +395,7 @@ export default function Launcher({
     );
   }, [
     launcherProviderId,
+    defaultModelProviderId,
     selectedAgent,
     selectedWorkspace,
     config.defaultProviderId,
@@ -385,14 +403,16 @@ export default function Launcher({
     apiKeys,
     providerVerifyStatus,
   ]);
+  const effectiveLauncherModel = launcherSelectedModel
+    ?? (launcherProvider?.id === defaultModelProviderId ? defaultModel : undefined);
   const launcherProviderModelIncomplete =
     (!isExternalRuntime && isRuntimeBackedProvider(launcherProvider) &&
-      !(launcherSelectedModel ?? launcherProvider?.primaryModel)?.trim()) ||
+      !(effectiveLauncherModel ?? launcherProvider?.primaryModel)?.trim()) ||
     (launcherRuntime === 'dsh' &&
       !isProviderModelCompatibleWithRuntime(
         launcherRuntime,
         launcherProvider,
-        launcherSelectedModel ?? launcherProvider?.primaryModel,
+        effectiveLauncherModel ?? launcherProvider?.primaryModel,
       ));
   const imageUnderstandingConfiguredForInput = useMemo(() => {
     return isImageUnderstandingSelectionAvailable(
@@ -577,8 +597,10 @@ export default function Launcher({
       workspaceModel: selectedWorkspace?.model,
       defaultProviderId: config.defaultProviderId,
     });
-    if (resolved.providerId) setLauncherProviderId(resolved.providerId);
-    if (resolved.model) setLauncherSelectedModel(resolved.model);
+    if (!defaultModel) {
+      if (resolved.providerId) setLauncherProviderId(resolved.providerId);
+      if (resolved.model) setLauncherSelectedModel(resolved.model);
+    }
     if (lastUsed.mcpEnabledServers)
       setLauncherWorkspaceMcpEnabled(lastUsed.mcpEnabledServers);
     if (lastUsed.enabledPluginIds)
@@ -635,15 +657,15 @@ export default function Launcher({
           : (projectPermissionModeForRuntime(selectedAgent?.permissionMode, launcherRuntime)
             ?? projectPermissionModeForRuntime(selectedWorkspace.permissionMode, launcherRuntime)
             ?? projectPermissionModeForRuntime(config.defaultPermissionMode, launcherRuntime)
-            ?? getDefaultRuntimePermissionMode(launcherRuntime)) as PermissionMode,
+            ?? getDefaultNewSessionPermissionMode(launcherRuntime, config.defaultPermissionMode)) as PermissionMode,
       );
       setLauncherSelectedModel(
-        selectedAgent?.model ?? selectedWorkspace.model ?? undefined,
+        defaultModel ?? selectedAgent?.model ?? selectedWorkspace.model ?? undefined,
       );
       // A project without its own effort uses its provider's 自定义默认设置.
       const providerDefaultEffort = resolveProviderDefaultReasoningEffort(
         config.providerDefaultReasoningEfforts,
-        selectedAgent?.providerId ?? selectedWorkspace.providerId ?? config.defaultProviderId,
+        defaultModelProviderId ?? selectedAgent?.providerId ?? selectedWorkspace.providerId ?? config.defaultProviderId,
       );
       setLauncherReasoningEffort(
         (selectedAgentUsesManagedCodexProvider ? agentRuntimeReasoningEffort : selectedAgent?.reasoningEffort)
@@ -651,9 +673,7 @@ export default function Launcher({
           ?? 'default',
       );
     }
-    setLauncherProviderId(
-      selectedAgent?.providerId ?? selectedWorkspace.providerId ?? undefined,
-    );
+      setLauncherProviderId(defaultModelProviderId ?? selectedAgent?.providerId ?? selectedWorkspace.providerId ?? undefined);
     setLauncherWorkspaceMcpEnabled(
       selectedAgent?.mcpEnabledServers ??
         selectedWorkspace.mcpEnabledServers ??
@@ -688,6 +708,8 @@ export default function Launcher({
     selectedWorkspace?.mcpEnabledServers,
     selectedWorkspace?.enabledOfficialToolIds,
     config.defaultPermissionMode,
+    defaultModel,
+    defaultModelProviderId,
     config.defaultIntegratedRuntime,
     config.defaultProviderId,
     config.providerDefaultReasoningEfforts,
@@ -947,7 +969,7 @@ export default function Launcher({
       // "stale agent.model paired with first-available fallback provider" hole when the
       // primary provider's key was deleted between agent setup and send.
       const launcherModelForProvider =
-        launcherSelectedModel ?? launcherProvider?.primaryModel;
+        effectiveLauncherModel ?? launcherProvider?.primaryModel;
       const providerExecutionIntent =
         !isExternalRuntime && launcherProvider && launcherModelForProvider
           ? toProviderExecutionIntent(
@@ -963,7 +985,7 @@ export default function Launcher({
         !isExternalRuntime &&
         launcherProvider &&
         !isRuntimeBackedProvider(launcherProvider)
-          ? pairBuiltinSelection(launcherProvider, launcherSelectedModel)
+          ? pairBuiltinSelection(launcherProvider, launcherModelForProvider)
           : undefined;
       const runtimeModel = isExternalRuntime
         ? launcherSelectedModel
@@ -1126,6 +1148,7 @@ export default function Launcher({
       launcherProvider,
       effectiveLauncherPermissionMode,
       launcherSelectedModel,
+      effectiveLauncherModel,
       launcherReasoningEffort,
       launcherWorkspaceMcpEnabled,
       launcherGlobalMcpEnabled,
@@ -1167,7 +1190,7 @@ export default function Launcher({
           }
           provider={launcherProvider}
           providers={launcherProviders}
-          selectedModel={launcherSelectedModel}
+          selectedModel={effectiveLauncherModel}
           onProviderChange={handleLauncherProviderChange}
           onModelChange={handleLauncherModelChange}
           reasoningEffort={launcherReasoningEffort}

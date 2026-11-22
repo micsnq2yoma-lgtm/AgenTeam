@@ -22,14 +22,14 @@ describe('Agent execution edits at the config writer', () => {
     const patch = resolveAgentConfigMutation({
       ...agent, runtime: 'dsh', permissionMode: 'full-autonomous',
     }, { runtime: 'builtin' });
-    expect(patch).toMatchObject({ runtime: 'builtin', permissionMode: 'auto' });
+    expect(patch).toMatchObject({ runtime: 'builtin', permissionMode: 'fullAgency' });
     expect(patch.runtimeConfig).toEqual({ envPolicy: { proxy: 'terminal' } });
   });
   it('uses DSH permission keys when switching from Claude SDK', () => {
     const patch = resolveAgentConfigMutation({
       ...agent, runtime: 'builtin', permissionMode: 'fullAgency',
     }, { runtime: 'dsh' });
-    expect(patch).toMatchObject({ runtime: 'dsh', permissionMode: 'approval-required' });
+    expect(patch).toMatchObject({ runtime: 'dsh', permissionMode: 'full-autonomous' });
   });
   it('preserves an explicit valid permission selected with the target runtime', () => {
     expect(resolveAgentConfigMutation({

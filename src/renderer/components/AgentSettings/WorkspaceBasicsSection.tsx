@@ -25,7 +25,8 @@ import RuntimeSelector from '../RuntimeSelector';
 import { PermissionModeIcon, PermissionModeMenuContent, type PermissionModeMenuItem } from '../PermissionModeMenu';
 import { Popover } from '../ui/Popover';
 import type { RuntimeType, RuntimeDetections, RuntimeConfig } from '../../../shared/types/runtime';
-import { getRuntimePermissionModes, isAgentRuntimeSelectorAvailable, resolveEffectiveRuntime } from '../../../shared/types/runtime';
+import { getRuntimePermissionModes, isAgentRuntimeSelectorAvailable, projectPermissionModeForRuntime, resolveEffectiveRuntime } from '../../../shared/types/runtime';
+import { getDefaultNewSessionPermissionMode } from '../../../shared/runtimeBirthFields';
 import { agentUsesManagedCodexProvider, toProviderExecutionIntent } from '../../../shared/providerExecution';
 import { invoke } from '@tauri-apps/api/core';
 import { useToast } from '@/components/Toast';
@@ -313,7 +314,9 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
     setOpenPopup(null);
   }, []);
 
-  const effectivePermissionMode = agent?.permissionMode ?? project?.permissionMode;
+  const effectivePermissionMode = projectPermissionModeForRuntime(agent?.permissionMode, currentRuntime)
+    ?? projectPermissionModeForRuntime(project?.permissionMode, currentRuntime)
+    ?? getDefaultNewSessionPermissionMode(currentRuntime, config.defaultPermissionMode);
   const permissionModeChoices = currentRuntime === 'dsh'
     ? getRuntimePermissionModes('dsh').map(mode => ({
         ...mode,

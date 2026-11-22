@@ -27,11 +27,13 @@ export function AgentRow({
   connectionId,
   agent,
   device,
+  readOnly = false,
   onChanged,
 }: {
   connectionId: string;
   agent: NetworkAgent;
   device: NetworkDevice;
+  readOnly?: boolean;
   onChanged: () => void;
 }) {
   const { t } = useTranslation("app");
@@ -146,7 +148,13 @@ export function AgentRow({
     setEditing(true);
   };
   let descriptionLine = null;
-  if (editing) {
+  if (readOnly) {
+    descriptionLine = agent.description && (
+      <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--ink-secondary)]">
+        {agent.description}
+      </p>
+    );
+  } else if (editing) {
     descriptionLine = (
       <div>
         <textarea
@@ -234,7 +242,7 @@ export function AgentRow({
                 {t("agentNetwork.opened")}
               </span>
             )}
-            {!editing && !description && !agent.enabled && (
+            {!readOnly && !editing && !description && !agent.enabled && (
               <button
                 type="button"
                 onClick={startEditing}
@@ -255,35 +263,37 @@ export function AgentRow({
             {displayPath(agent.path)}
           </p>
         </div>
-        <Tip
-          label={t("agentNetwork.joinToEnable")}
-          disabled={device.joined}
-          className="shrink-0"
-        >
-          <button
-            type="button"
-            role="switch"
-            aria-checked={agent.enabled}
-            aria-label={t("agentNetwork.enableAgent", { name: agent.name })}
-            aria-busy={switchBusy}
-            disabled={!device.joined || switchBusy}
-            onClick={() => {
-              void toggle();
-            }}
-            className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${agent.enabled ? "bg-[var(--accent)]" : "bg-[var(--line-strong)]"}`}
+        {!readOnly && (
+          <Tip
+            label={t("agentNetwork.joinToEnable")}
+            disabled={device.joined}
+            className="shrink-0"
           >
-            {switchBusy ? (
-              <LoaderIcon className="mx-auto h-3.5 w-3.5 animate-spin text-[var(--ink-muted)]" />
-            ) : (
-              <span
-                className={`h-4 w-4 rounded-full bg-[var(--paper-elevated)] shadow-sm transition-transform ${agent.enabled ? "translate-x-4" : ""}`}
-              />
-            )}
-          </button>
-        </Tip>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={agent.enabled}
+              aria-label={t("agentNetwork.enableAgent", { name: agent.name })}
+              aria-busy={switchBusy}
+              disabled={!device.joined || switchBusy}
+              onClick={() => {
+                void toggle();
+              }}
+              className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${agent.enabled ? "bg-[var(--accent)]" : "bg-[var(--line-strong)]"}`}
+            >
+              {switchBusy ? (
+                <LoaderIcon className="mx-auto h-3.5 w-3.5 animate-spin text-[var(--ink-muted)]" />
+              ) : (
+                <span
+                  className={`h-4 w-4 rounded-full bg-[var(--paper-elevated)] shadow-sm transition-transform ${agent.enabled ? "translate-x-4" : ""}`}
+                />
+              )}
+            </button>
+          </Tip>
+        )}
       </div>
       {descriptionLine && <div className="mt-2.5">{descriptionLine}</div>}
-      {error && (
+      {!readOnly && error && (
         <p className="mt-1.5 text-xs text-[var(--error)]" role="alert">
           {error}{" "}
           <button
@@ -297,7 +307,7 @@ export function AgentRow({
           </button>
         </p>
       )}
-      {switchError && (
+      {!readOnly && switchError && (
         <p className="mt-1.5 text-xs text-[var(--error)]" role="alert">
           {switchError}
         </p>

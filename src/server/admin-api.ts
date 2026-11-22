@@ -158,6 +158,7 @@ import {
   type RuntimeConfig,
   type RuntimeSource,
 } from '../shared/types/runtime';
+import { getDefaultNewSessionPermissionMode } from '../shared/runtimeBirthFields';
 import { getExternalRuntime, isRuntimeSupported } from './runtimes/factory';
 import { queryRuntimeModels } from './runtimes/external-session';
 import { isDshModelSelectable } from '../shared/integrated-runtimes/provider-constraints';
@@ -7753,11 +7754,17 @@ export async function handleAgentShow(payload: {
     : (rcModel ?? (agent.model as string | undefined));
   const effectivePermissionMode = usesManagedCodex
     ? (managedCodexProviderPermissionToRuntimePermission(agentPermissionMode) ??
+      managedCodexProviderPermissionToRuntimePermission(project?.permissionMode) ??
+      managedCodexProviderPermissionToRuntimePermission(
+        getDefaultNewSessionPermissionMode('builtin', rootConfig.defaultPermissionMode),
+      ) ??
       'auto-edit')
     : usesExternalCliConfiguration
       ? (projectPermissionModeForRuntime(rcPermissionMode, runtime) ??
         getDefaultRuntimePermissionMode(runtime))
-      : agentPermissionMode;
+      : (projectPermissionModeForRuntime(agentPermissionMode, runtime)
+        ?? projectPermissionModeForRuntime(project?.permissionMode, runtime)
+        ?? getDefaultNewSessionPermissionMode(runtime, rootConfig.defaultPermissionMode));
 
   return {
     success: true,

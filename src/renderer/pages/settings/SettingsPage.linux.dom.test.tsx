@@ -262,15 +262,14 @@ describe('Ubuntu settings availability', () => {
       .toHaveAttribute('aria-selected', 'true');
   });
 
-  it.each([undefined, false, true])('writes the AgentNet developer gate through config (stored: %s)', async (enabled) => {
-    const { unlockDeveloperSection } = await import('@/utils/developerMode');
-    unlockDeveloperSection();
+  it.each([undefined, false, true])('writes the AgentNet switch through Device Network settings (stored: %s)', async (enabled) => {
     settingsMocks.config.agentNetworkSelfhostDevGate = enabled;
-    render(<ToastProvider><Settings mode="settings" initialSection="developer" isActive /></ToastProvider>);
-    const toggle = await screen.findByRole('button', { name: 'Self-hosted AgentNet' });
-    expect(toggle).toHaveAttribute('aria-pressed', String(enabled === true));
+    render(<ToastProvider><Settings mode="settings" initialSection="agent-network" isActive /></ToastProvider>);
+    const toggle = await screen.findByRole('switch', { name: 'Self-hosted AgentNet' });
+    expect(toggle).toHaveAttribute('aria-checked', String(enabled === true));
     fireEvent.click(toggle);
     expect(settingsMocks.updateConfig).toHaveBeenCalledWith({ agentNetworkSelfhostDevGate: enabled !== true });
+    await waitFor(() => expect(toggle).toBeEnabled());
   });
 
 });

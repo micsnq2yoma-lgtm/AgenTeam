@@ -212,6 +212,7 @@ import {
 } from '../../shared/reasoningEffort';
 import {
   createConcreteProviderRoute,
+  getInheritedDefaultModel,
   hasProviderRouteCredential,
   isConcreteProviderRoute,
 } from '../../shared/providerRoute';
@@ -293,7 +294,8 @@ import {
   managedProviderSnapshotProviderId,
   shouldSessionSnapshotUseProviderPicker,
 } from '@/utils/sessionSnapshotProviderProjection';
-import { coerceRuntimeBirthPermissionMode } from '../../shared/runtimeBirthFields';
+import { coerceRuntimeBirthPermissionMode, getDefaultNewSessionPermissionMode } from '../../shared/runtimeBirthFields';
+import { resolveAvailableDefaultModel } from '@/config/services/providerService';
 // CronTaskConfig type is used via useCronTask hook
 
 import {
@@ -754,16 +756,31 @@ export default function Chat({
   const currentAgent = currentProject?.agentId
     ? getAgentById(config, currentProject.agentId)
     : undefined;
+  const availableDefault = isPendingSessionId(sessionId)
+    ? resolveAvailableDefaultModel(
+        getInheritedDefaultModel(config.defaultModelSelection, currentAgent?.model, currentProject?.model),
+        providers,
+        apiKeys,
+        providerVerifyStatus,
+      )
+    : undefined;
   const providerUiRuntime: RuntimeType =
     (sessionRuntime as RuntimeType | null) ??
     resolveEffectiveRuntime(
       currentAgent?.runtime,
       currentAgent?.runtimePreference,
       currentAgent?.runtimeConfig?.source,
-      currentAgent?.providerId,
+      availableDefault && isRuntimeBackedProvider(availableDefault.provider)
+        ? availableDefault.provider.id
+        : currentAgent?.providerId,
       undefined,
       config.defaultIntegratedRuntime,
     );
+  const inheritedModel = availableDefault
+    && (providerUiRuntime === 'builtin' || providerUiRuntime === 'dsh')
+    && isProviderModelCompatibleWithRuntime(providerUiRuntime, availableDefault.provider, availableDefault.model)
+    ? availableDefault
+    : undefined;
   const providerUiProviders = useMemo(
     () => projectProvidersForRuntime(providers, providerUiRuntime),
     [providers, providerUiRuntime],
@@ -773,7 +790,8 @@ export default function Chat({
   const [selectedProviderId, setSelectedProviderId] = useState<
     string | undefined
   >(
-    currentAgent?.providerId ??
+    inheritedModel?.provider.id ??
+      currentAgent?.providerId ??
       currentProject?.providerId ??
       config.defaultProviderId ??
       undefined,
@@ -1411,7 +1429,8 @@ export default function Chat({
     }),
   );
   const [selectedModel, setSelectedModel] = useState<string | undefined>(
-    currentAgent?.model ??
+    inheritedModel?.model ??
+      currentAgent?.model ??
       currentProject?.model ??
       currentProvider?.primaryModel,
   );
@@ -1862,13 +1881,20 @@ export default function Chat({
   const [runtimeModel, setRuntimeModel] = useState<string | undefined>(
     (currentAgent?.runtimeConfig as { model?: string } | undefined)?.model,
   );
+  const defaultRuntimePermissionMode = isPendingSessionId(sessionId)
+    ? getDefaultNewSessionPermissionMode(currentRuntime, config.defaultPermissionMode)
+    : getDefaultRuntimePermissionMode(currentRuntime);
+  const dshWorkspacePermissionMode =
+    projectPermissionModeForRuntime(currentAgent?.permissionMode, 'dsh') ??
+    projectPermissionModeForRuntime(currentProject?.permissionMode, 'dsh');
   const [runtimePermissionMode, setRuntimePermissionMode] = useState<string>(
     coerceExternalRuntimePermissionForUi(
-      (currentAgent?.runtimeConfig as { permissionMode?: string } | undefined)
-        ?.permissionMode,
+      currentRuntime === 'dsh'
+        ? dshWorkspacePermissionMode
+        : currentAgent?.runtimeConfig?.permissionMode,
       currentRuntime,
     ) ||
-      getDefaultRuntimePermissionMode(currentRuntime) ||
+      defaultRuntimePermissionMode ||
       'default',
   );
 
@@ -1893,14 +1919,14 @@ export default function Chat({
       | undefined;
     const saved =
       currentRuntime === 'dsh'
-        ? currentAgent?.permissionMode
+        ? dshWorkspacePermissionMode
         : managedProviderRuntimeActive
           ? currentAgent?.permissionMode
           : cfg?.permissionMode;
     const effective = managedProviderRuntimeActive
       ? (projectManagedCodexPermissionToRuntime(saved) ?? 'auto-edit')
       : (coerceExternalRuntimePermissionForUi(saved, currentRuntime) ??
-        (getDefaultRuntimePermissionMode(currentRuntime) || 'default'));
+        (defaultRuntimePermissionMode || 'default'));
     setRuntimePermissionMode(effective);
     setRuntimeModel(
       currentRuntime === 'dsh'
@@ -2101,7 +2127,7 @@ export default function Chat({
         runtimePermissionMode,
         currentRuntime,
       ) ??
-      getDefaultRuntimePermissionMode(currentRuntime) ??
+      defaultRuntimePermissionMode ??
       'default')
     : undefined;
   // #244: the `permissionMode` useState initializer runs while useConfig() is
@@ -2367,11 +2393,7 @@ export default function Chat({
           // External runtime has its own permission mode state (runtimePermissionMode),
           // while builtin uses permissionMode. Set the correct one based on runtime.
           if (isExternalRuntime) {
-            setRuntimePermissionMode(
-              initialRuntimePermission ??
-                getDefaultRuntimePermissionMode(currentRuntime) ??
-                'default',
-            );
+            setRuntimePermissionMode(effectivePermission);
             const providerPermission = launchMessage.providerExecutionIdentity
               ? managedCodexRuntimePermissionToProviderPermission(
                   launchMessage.permissionMode,
@@ -3601,13 +3623,13 @@ export default function Chat({
     // Re-arm providerInitRef to suppress the deferred provider-change effect (fires next render)
     // that would otherwise override the project-stored model with provider's primaryModel.
     const effectiveProvider =
-      currentAgent?.providerId ?? currentProject.providerId;
+      inheritedModel?.provider.id ?? currentAgent?.providerId ?? currentProject.providerId;
     if (effectiveProvider) {
       setSelectedProviderId(effectiveProvider);
       providerInitRef.current = true;
     }
     // Skip model override when joining existing sidecar — adoption effect will set the correct model
-    const effectiveModel = currentAgent?.model ?? currentProject.model;
+    const effectiveModel = inheritedModel?.model ?? currentAgent?.model ?? currentProject.model;
     if (effectiveModel && configDispositionRef.current === 'push') {
       setSelectedModel(effectiveModel);
     }

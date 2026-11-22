@@ -46,7 +46,6 @@ describe('agentConfigService template Agent defaults', () => {
       enabledOfficialToolIds: ['image-understanding'],
     }), {
       agentId: 'agent-1',
-      defaultPermissionMode: 'auto',
     });
 
     expect(agent).toMatchObject({
@@ -54,12 +53,12 @@ describe('agentConfigService template Agent defaults', () => {
       name: 'workspace',
       enabled: false,
       channels: [],
-      permissionMode: 'auto',
       enabledPluginIds: ['plugin-one'],
       enabledOfficialToolIds: ['image-understanding'],
     });
     expect(agent.heartbeat).toBeUndefined();
     expect(agent.memoryAutoUpdate).toBeUndefined();
+    expect(agent).not.toHaveProperty('permissionMode');
   });
 
   it('applies builtin template defaults and clones nested config objects', () => {
@@ -91,16 +90,17 @@ describe('agentConfigService template Agent defaults', () => {
       templateSource: 'builtin',
       displayName: 'From Template',
       icon: 'lightning',
+      permissionMode: 'plan',
     });
     const agent = buildAgentForProject(sourceProject, {
       agentId: 'agent-1',
-      defaultPermissionMode: 'plan',
       templates,
     });
 
     expect(agent.enabled).toBe(true);
     expect(agent.name).toBe('From Template');
     expect(agent.icon).toBe('lightning');
+    expect(agent.permissionMode).toBe('plan');
     expect(agent.heartbeat).toEqual(templates[0].agentDefaults!.heartbeat);
     expect(agent.memoryAutoUpdate).toEqual(templates[0].agentDefaults!.memoryAutoUpdate);
 
@@ -143,7 +143,7 @@ describe('agentConfigService template Agent defaults', () => {
       displayName: 'Atmer',
     })];
 
-    const result = ensureAllProjectsHaveAgent(cfg, projects, cfg.defaultPermissionMode);
+    const result = ensureAllProjectsHaveAgent(cfg, projects);
 
     expect(result.changed).toBe(true);
     expect(projects[0].isAgent).toBe(true);
@@ -187,7 +187,7 @@ describe('agentConfigService template Agent defaults', () => {
       templateSource: 'builtin',
     })];
 
-    const result = ensureAllProjectsHaveAgent(cfg, projects, cfg.defaultPermissionMode);
+    const result = ensureAllProjectsHaveAgent(cfg, projects);
 
     expect(result.changed).toBe(false);
     expect(cfg.agents![0].enabled).toBe(false);

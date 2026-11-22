@@ -640,9 +640,9 @@ export function getDefaultRuntimePermissionMode(runtime: RuntimeType): string {
  * "user didn't pick anything" should mean "give me whatever lets the AI
  * actually run without blocking on a human approval that never comes".
  *
- * Distinct from getDefaultRuntimePermissionMode() which returns each runtime's
- * INTERACTIVE default (auto/default/full-auto). Those defaults are
- * correct for chat tabs but pathological for cron — they leave WebSearch /
+ * Distinct from getDefaultRuntimePermissionMode(), which returns runtime
+ * fallbacks including those for existing Sessions with missing permission
+ * metadata. Those fallbacks can leave WebSearch /
  * Bash / mcp__* in a pending-approval state that times out on a 10-minute
  * deadline.
  *

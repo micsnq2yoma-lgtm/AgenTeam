@@ -988,6 +988,7 @@ export interface DshCollaborationSettings {
 export interface AppConfig {
   // Default settings for new projects
   defaultProviderId?: string;
+  defaultModelSelection?: { providerId: string; model: string };
   defaultPermissionMode: PermissionMode;
   // Background-agent permission policy (issue #264). Controls what a
   // `run_in_background` sub-agent may do when it hits a tool the SDK can't
@@ -2964,7 +2965,7 @@ export function getEffectiveModelAliases(
 
 export const DEFAULT_CONFIG: AppConfig = {
   defaultProviderId: undefined, // No default — resolved at runtime from first available provider
-  defaultPermissionMode: 'auto',
+  defaultPermissionMode: 'fullAgency',
   backgroundAgentPermissionMode: 'inherit', // background agents inherit granted perms; nothing wider (#264)
   themeId: DEFAULT_THEME_ID,
   themeSelectionExplicit: false,

@@ -277,12 +277,10 @@ export function migrateImBotConfigsToAgents(config: AppConfig, projects: Project
 export function ensureAllProjectsHaveAgent(
   config: AppConfig,
   projects: Project[],
-  defaultPermissionMode?: string,
 ): { changed: boolean } {
   const result = reconcileAgentWorkspaceIdentities(projects, config.agents ?? [], {
     buildAgent: (project, requestedAgentId) => buildAgentForProject(project, {
       agentId: requestedAgentId,
-      defaultPermissionMode,
     }),
   });
   if (!result.changed) return { changed: false };
@@ -323,7 +321,6 @@ export async function reconcilePersistedAgentWorkspaceIdentitiesLocked(
     const projectResolution = reconcileAgentWorkspaceIdentities(projects, initialConfig.agents ?? [], {
       buildAgent: (project, requestedAgentId) => buildAgentForProject(project, {
         agentId: requestedAgentId,
-        defaultPermissionMode: initialConfig.defaultPermissionMode,
         agentDefaults: options.agentDefaultsByProjectId?.get(project.id),
       }),
     });
@@ -369,7 +366,6 @@ export async function reconcilePersistedAgentWorkspaceIdentitiesLocked(
       resolution = reconcileAgentWorkspaceIdentities(projectResolution.projects, current.agents ?? [], {
         buildAgent: (project, requestedAgentId) => buildAgentForProject(project, {
           agentId: requestedAgentId,
-          defaultPermissionMode: current.defaultPermissionMode,
           agentDefaults: options.agentDefaultsByProjectId?.get(project.id),
         }),
       });

@@ -20,11 +20,16 @@
       "usageStats": "Usage",
       "general": "General",
       "proxy": "Network Proxy",
+      "agentNetwork": "Device Network",
       "externalCli": "External Calls",
       "shortcuts": "Shortcut keys",
       "about": "Version",
       "developer": "Developer"
     }
+  },
+  "agentNetwork": {
+    "enableTitle": "Self-hosted AgentNet",
+    "enableDescription": "Enable calls between devices. Turning this off pauses connections and preserves their settings and device credentials."
   },
   "externalCli": {
     "title": "External Calls",
@@ -98,6 +103,14 @@
     "agentFeaturesTitle": "Agent Features",
     "defaultRuntimeTitle": "Default Agent Environment",
     "defaultRuntimeDescription": "Agents use this environment by default. You can change it for individual Agents in Agent settings.",
+    "defaultSessionModeTitle": "Default session mode",
+    "defaultSessionModeDescription": "Applies to new conversations without a separate permission setting.",
+    "defaultSessionModeDshPlan": "Plan mode applies to Claude Agent SDK. DSH uses Ask for approval.",
+    "defaultModelTitle": "Default model",
+    "defaultModelDescription": "Used for new tasks when neither the Agent nor the project specifies a model.",
+    "defaultModelAutomatic": "Select automatically",
+    "defaultModelUnavailable": "Selected model unavailable",
+    "defaultModelNoProviders": "Set up a provider that works with the default Agent environment.",
     "queueModeTitle": "Queue response mode",
     "queueTurnDescription": "Manual messages wait until AI finishes the current turn; session Inbox messages always use realtime delivery",
     "queueRealtimeDescription": "Manual messages reach AI while it is running; session Inbox messages always use realtime delivery",
@@ -2304,8 +2317,6 @@
     "developer": {
       "devModeTitle": "Developer Mode",
       "devModeDescription": "Show log entry buttons on pages, such as Logs and System Info.",
-      "agentNetworkMultiNetworkTitle": "Self-hosted AgentNet",
-      "agentNetworkMultiNetworkDescription": "Enable calls between devices. Turning this off pauses connections and preserves their settings and device credentials.",
       "chatHistoryEntryTitle": "Chat History Entry",
       "chatHistoryEntryDescription": "Show the History button in the AI chat header. Global session search and project session lists remain available when this is off.",
       "codexProviderTitle": "Codex Subscription Provider",

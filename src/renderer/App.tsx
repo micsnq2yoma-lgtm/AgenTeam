@@ -184,6 +184,8 @@ import {
   getManagedCodexProviderReadiness,
 } from '../shared/config-types';
 import { workspacePathsEqual } from '../shared/workspacePath';
+import { getInheritedDefaultModel } from '../shared/providerRoute';
+import { resolveAvailableDefaultModel } from '@/config/services/providerService';
 import type { CapabilityInitialSelect } from '../shared/skillsTypes';
 import {
   ensureSelfAwarenessWorkspace,
@@ -1908,13 +1910,28 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
           if (initialMessageHasExecutionSelection || !configForLaunchBirth) {
             return undefined;
           }
-          if (
-            !agentUsesManagedCodexProvider(agentForLaunchBirth) ||
-            !getManagedCodexProviderReadiness(configForLaunchBirth).selectable
-          ) {
+          const inheritedModel = resolveAvailableDefaultModel(
+            getInheritedDefaultModel(configForLaunchBirth.defaultModelSelection, agentForLaunchBirth?.model, project.model),
+            appProvidersRef.current,
+            appApiKeysRef.current,
+            appProviderVerifyStatusRef.current,
+          );
+          const providerId = inheritedModel?.provider.id
+            ?? (agentUsesManagedCodexProvider(agentForLaunchBirth) ? CODEX_SUBSCRIPTION_PROVIDER_ID : undefined);
+          if (providerId !== CODEX_SUBSCRIPTION_PROVIDER_ID
+            || !getManagedCodexProviderReadiness(configForLaunchBirth).selectable
+            || resolveEffectiveRuntime(
+              agentForLaunchBirth?.runtime,
+              agentForLaunchBirth?.runtimePreference,
+              agentForLaunchBirth?.runtimeConfig?.source,
+              providerId,
+              undefined,
+              configForLaunchBirth.defaultIntegratedRuntime,
+            ) !== 'builtin') {
             return undefined;
           }
           const model =
+            inheritedModel?.model ??
             normalizeStringSetting(agentForLaunchBirth?.model) ??
             normalizeStringSetting(project.model);
           if (!model) {
@@ -4600,7 +4617,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       settings: settingsBinding,
       capabilities: capabilitiesBinding,
       taskcenter: taskCenterBinding,
-      agentnetwork: null,
+      agentnetwork: { onOpenSettings: () => void handleOpenSettings('agent-network') },
       bots: null,
       teamai: { onCreate: () => { setNewAgentPurpose('team-ai'); setNewAgentPanelOpen(true); }, onOpenSession: handleOpenSidebarSession,
         onSelectProject: (tabId, projectId) => tabWorkspaceController.update(tabId, 'teamai', tab => ({ ...tab, projectId })) },
@@ -4613,6 +4630,7 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
     [
       capabilitiesBinding,
       chatBinding,
+      handleOpenSettings,
       handleOpenSidebarSession,
       handleOpenWorkspaceFromSidebar,
       launcherBinding,
