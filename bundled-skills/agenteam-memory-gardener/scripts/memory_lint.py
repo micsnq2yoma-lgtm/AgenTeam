@@ -22,6 +22,8 @@ LOG_GAP_WINDOW_DAYS = 14
 GARDENER_OVERDUE_HOURS = 96
 MOLT_OVERDUE_DAYS = 21
 VERIFIED_STALE_DAYS = 45
+OBSERVATIONS_HEADING = "近期观察"
+OBSERVATIONS_WARN_COUNT = 20
 STATE_FILE = "memory/gardener/state.json"
 
 
@@ -125,6 +127,49 @@ def check_budgets(repo: Path, report: Report, rules: dict[str, list[Path]]) -> N
                 report.warn("budget", f"接近预算 - {desc}")
             else:
                 report.info("budget", f"OK - {desc}")
+
+
+def observation_count(text: str) -> int | None:
+    """Bullet entries under the USER file's "## 近期观察" chapter.
+
+    Returns None when the file does not use that chapter (an older, free-form
+    USER file), so it is never judged against a structure it does not have.
+    Bullets inside fenced code do not count.
+    """
+    inside = False
+    found = False
+    fence: str | None = None
+    count = 0
+    for line in text.splitlines():
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if marker:
+            fence = None if fence and marker.group(1).startswith(fence) else (fence or marker.group(1))
+            continue
+        if fence:
+            continue
+        heading = re.match(r"^## +(.*\S)\s*$", line)
+        if heading:
+            inside = heading.group(1) == OBSERVATIONS_HEADING
+            found = found or inside
+            continue
+        if inside and re.match(r"^\s*[-*] +\S", line):
+            count += 1
+    return count if found else None
+
+
+def check_user_observations(repo: Path, report: Report, user_paths: list[Path]) -> None:
+    for path in user_paths:
+        try:
+            count = observation_count(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            continue
+        if count is None:
+            continue
+        desc = f"{rel(repo, path)}: 近期观察 {count} 条"
+        if count > OBSERVATIONS_WARN_COUNT:
+            report.warn("observations", f"待整理 - {desc}（超过 {OBSERVATIONS_WARN_COUNT} 条）；并入对应章节并删除已并入的条目")
+        else:
+            report.info("observations", f"OK - {desc}")
 
 
 def check_log_gaps(repo: Path, report: Report, today: date) -> None:
@@ -265,6 +310,7 @@ def main() -> int:
     report = Report()
     rules = check_rule_substrate(repo, report)
     check_budgets(repo, report, rules)
+    check_user_observations(repo, report, rules["user"])
     check_log_gaps(repo, report, today)
     check_gardener_deadman(repo, report)
     check_molt_overdue(repo, report, today)

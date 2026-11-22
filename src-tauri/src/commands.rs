@@ -1129,7 +1129,7 @@ fn sync_admin_agent_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<boo
 // matching exclusion list in src/server/index.ts::seedBundledSkills
 // MUST be kept in sync (comment there points back here).
 
-const SYSTEM_SKILLS_VERSION: &str = "67";
+const SYSTEM_SKILLS_VERSION: &str = "68";
 
 /// One process-wide transaction owner for the versioned system-skill
 /// snapshot. Startup automation and ConfigProvider may request convergence at
@@ -1703,7 +1703,7 @@ mod system_skills_tests {
 
     #[test]
     fn system_skill_version_keeps_cuse_and_product_skills_aligned() {
-        assert_eq!(SYSTEM_SKILLS_VERSION, "67");
+        assert_eq!(SYSTEM_SKILLS_VERSION, "68");
         assert!(SYSTEM_SKILLS.contains(&"cuse"));
         assert!(!REQUIRED_SYSTEM_SKILLS.contains(&"cuse"));
         assert!(SYSTEM_SKILLS.contains(&"agenteam-task-alignment"));
