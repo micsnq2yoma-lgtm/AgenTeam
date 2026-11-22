@@ -6,7 +6,7 @@
 
 ## 验收结论
 
-**有条件通过。** AC-S-1 至 AC-S-10 均有通过证据。Clippy 新增告警为 0。按整文件统计的改动模块零告警门禁仍相差 16 条基线告警。Windows 候选全量集成的 33 项失败都出现在全量基线中。Linux 候选全量集成的 5 项失败均由定向基线复验复现。
+**有条件通过。** AC-S-1 至 AC-S-10 均有通过证据。Clippy 新增告警为 0。原候选有 16 条改动模块基线告警，后续独立复验已确认清零。Windows 候选全量集成的 33 项失败都出现在全量基线中。Linux 候选全量集成的 5 项失败均由定向基线复验复现。
 
 ## 验收项
 
@@ -37,7 +37,7 @@
 | D8 | 状态文案及可访问名称进入 zh-CN 和 en-US。主题色使用 token，状态动画遵从 Reduced Motion。 |
 | D9 | `git diff --check a6c3410a 09e3294c` 通过。功能差异落在会话活动链路、侧栏和相应架构文档。 |
 
-`management_api.rs` 3 条、`session_goal/manager.rs` 1 条、`sidecar/manager.rs` 5 条、`sidecar/session_lifecycle.rs` 7 条。四个文件的主跨度告警与基线一致，位置均在本次未改行。按整文件理解的「改动模块 0 告警」尚有这 16 条差距。
+`management_api.rs` 3 条、`session_goal/manager.rs` 1 条、`sidecar/manager.rs` 5 条、`sidecar/session_lifecycle.rs` 7 条。四个文件的主跨度告警与基线一致，位置均在本次未改行。这是本节所验收提交的历史记录。
 
 历史 Windows 集成运行只替换了 HOME。Node 在 Windows 从 USERPROFILE 读取 `os.homedir()`，使测试写入真实 `.agenteam` 会话目录。只读核对记录 41 条索引，至少 8 条可辨认的测试记录，影响窗口涉及 29 个 transcript 文件和 1 个 sessions-v2 文件。当时已向用户披露。真实数据保留原状，复跑使用隔离目录。
 
@@ -54,6 +54,22 @@
 | 被拒绝的 guarded Codex send 向预热进程传递 failure 清理意图 | 失败 | 同名失败 |
 
 两个完整 Windows 运行已按完整测试名比较。Linux 的成对结论限于上表五项。
+
+## Clippy 清理独立复验
+
+基线为 `396f79a0`，最终代码为 `0fb43627`。独立验收从两个 Git 对象分别归档源码，并使用 Debian 容器、Rust 1.92.0 和 Clippy 0.1.92 运行同一命令。
+
+```sh
+cargo clippy --locked --offline --manifest-path src-tauri/Cargo.toml --all-targets --message-format=json
+```
+
+两轮均退出 0，且 `build-finished.success=true`。原始告警记录 372 → 333。按相对路径、告警代码、消息和主跨度文本去重后为 213 → 191。逐条比较出现次数，新增告警 0。8 个改动文件各为 0。差异审查确认未新增 lint suppress 或测试跳过标记。
+
+独立会话通过 `sidecar::` 137 项、`session_activity` 8 项、`session_goal` 24 项和 `management_api` 24 项。其中 Sidecar 用例覆盖换绑、原凭据保留和旧凭据拒绝，以及 7 组平铺 Tauri IPC 参数。复用该会话从最终提交构建的同一个测试二进制，`process_cmd` 9 项和 `webview_policy` 2 项通过，包含新增的两条管道回归和共享滚动条策略。模块测试有重叠。
+
+同一二进制的全量复跑为 1,605 通过、1 失败，仓库原有的 8 个显式 opt-in 用例保持原条件。剩余失败为 `recording::manager::tests::recovery_gap_commit_failure_interrupts_without_reopening_devices`，基线源码补充复跑也失败。开发侧此前还出现 `document_processing::tests::source_copy_rejects_same_inode_same_size_mutation_before_admission` 失败。该用例在基线源码补充全量运行中失败，在最终候选全量复跑中通过。基线补充运行复用了此前在相同生产源码上构建、另含两项独立探针的测试程序，失败以同名原有测试作对照。
+
+首次独立复验复制构建缓存时耗尽系统盘空间，Docker 返回磁盘 I/O 错误。恢复 Docker 后复用现有缓存重跑，日志归档到 D 盘。Rust 测试使用隔离的 HOME/TMP，并由子进程回收器处理容器中的孤儿进程，确保进程树回归能按正常的进程退出语义运行。
 
 ## 真实应用证据
 
