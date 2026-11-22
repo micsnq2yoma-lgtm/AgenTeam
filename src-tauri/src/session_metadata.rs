@@ -64,6 +64,23 @@ pub(crate) fn knowledge_base_ids_for_session(
     data_dir: &Path,
     session_id: &str,
 ) -> crate::knowledge::store::StoreResult<Vec<String>> {
+    read_knowledge_bindings(data_dir, session_id, false)
+}
+
+/// Resolve titles for the exact prepared or published Session during prompt
+/// assembly. Source reads and writes continue to require committed admission.
+pub(crate) fn knowledge_base_ids_for_prompt(
+    data_dir: &Path,
+    session_id: &str,
+) -> crate::knowledge::store::StoreResult<Vec<String>> {
+    read_knowledge_bindings(data_dir, session_id, true)
+}
+
+fn read_knowledge_bindings(
+    data_dir: &Path,
+    session_id: &str,
+    include_prepared: bool,
+) -> crate::knowledge::store::StoreResult<Vec<String>> {
     use crate::knowledge::types::{is_knowledge_base_id, KnowledgeErrorCode};
 
     let sessions = read_persisted_sessions(&data_dir.join("sessions.json"))
@@ -77,7 +94,7 @@ pub(crate) fn knowledge_base_ids_for_session(
     if records.next().is_some() {
         return Err(KnowledgeErrorCode::KbStoreCorrupt);
     }
-    if session["materializationState"].as_str() == Some("prepared") {
+    if !include_prepared && session["materializationState"].as_str() == Some("prepared") {
         return Ok(Vec::new());
     }
     let Some(ids) = session.get("knowledgeBaseIds") else {

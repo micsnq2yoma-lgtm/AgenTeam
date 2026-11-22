@@ -150,7 +150,7 @@ import {
   type SystemSkillAdmissionRequirement,
 } from '../shared/systemSkills';
 import type { OfficialToolId } from '../shared/official-tools';
-import { prepareSessionTranscriptMutation, activateSessionTranscript, claimPreparedSessionForTurnAdmission, commitPreparedSessionForFirstUserTurn, migratePendingSessionIdentity, resolvePendingConversationMutation, saveSessionMetadata, publishForkSession, assertCompleteSessionForkSource, updateSessionTitleFromMessage, updateSessionMetadata, updateSessionMetadataForBinding, getSessionMetadata, loadSessionTranscript } from './SessionStore';
+import { prepareSessionTranscriptMutation, activateSessionTranscript, claimPreparedSessionForTurnAdmission, commitPreparedSessionForFirstUserTurn, migratePendingSessionIdentity, resolvePendingConversationMutation, saveSessionMetadata, publishForkSession, assertCompleteSessionForkSource, updateSessionTitleFromMessage, updateSessionMetadata, updateSessionMetadataForBinding, getSessionMetadata, loadSessionTranscript, flushSessionKnowledgeForDispatch } from './SessionStore';
 import { TranscriptPresentation } from './session-transcript/presentation';
 import { projectTranscriptToolInput, toStoredTranscriptMessage, type TranscriptObject } from '../shared/sessionTranscript';
 import { firePostTurnTitleHook } from './turn-hooks';
@@ -7385,11 +7385,8 @@ function applyDeferredRestartIfNeeded(): void {
 // projection of that prompt's scope; the Session snapshot still owns access.
 let builtinKnowledgeScopeAtQuery = '[]';
 
-function refreshBuiltinKnowledgePromptIfNeeded(): void {
-  const ids = getCurrentProductSessionMetadata()?.knowledgeBaseIds ?? [];
-  if (!lifecycleState.query || JSON.stringify(ids) === builtinKnowledgeScopeAtQuery) return;
-  scheduleDeferredRestart('capabilities');
-  applyDeferredRestartIfNeeded();
+async function readBuiltinKnowledgeLibraries() {
+  return readSessionKnowledgeLibraries(getCurrentProductSessionMetadata()?.knowledgeBaseIds);
 }
 
 function findToolBlockById(toolUseId: string): { tool: ToolUseState } | null {
@@ -9417,7 +9414,6 @@ export async function enqueueUserMessage(
       origin: options?.sessionBirthOrigin,
       allowLazyMaterialization: canLazyMaterializeForThisMessage(),
     });
-    refreshBuiltinKnowledgePromptIfNeeded();
   }
 
   if (admissionTicket?.canceled) {
@@ -9883,6 +9879,7 @@ export async function enqueueUserMessage(
   if (!options?.beforeDispatch) {
     try {
       await surfaceBuiltinUserMessage(directUserSurface, 'pre-admission');
+      await flushSessionKnowledgeForDispatch(sessionId);
     } catch (error) {
       await rollbackFailedBuiltinUserSurface(userMessage.id);
       reportBuiltinAdmissionPersistenceFailure(queueId, requestId, error);
@@ -11355,8 +11352,8 @@ async function startStreamingSession(preWarm = false): Promise<void> {
       : queryProductSessionId;
     const { servers: sdkMcpServersInitial, failures: initialMcpBuildFailures } = await buildSdkMcpServers(browserProductSessionId);
 
-    const queryKnowledgeBaseIds = getCurrentProductSessionMetadata()?.knowledgeBaseIds ?? [];
-    builtinKnowledgeScopeAtQuery = JSON.stringify(queryKnowledgeBaseIds);
+    const queryKnowledgeLibraries = await readBuiltinKnowledgeLibraries();
+    builtinKnowledgeScopeAtQuery = JSON.stringify(queryKnowledgeLibraries);
 
     // Claude default follows the selected model. OpenAI bridge retains its
     // existing SDK-side high setting and resolves upstream effort per request.
@@ -11490,7 +11487,7 @@ async function startStreamingSession(preWarm = false): Promise<void> {
           ...await readChannelPromptOptions(),
           userCliToolsEnabled: cliToolRegistryEnabled,
           enabledOfficialToolIds,
-          knowledgeLibraries: await readSessionKnowledgeLibraries(queryKnowledgeBaseIds),
+          knowledgeLibraries: queryKnowledgeLibraries,
         }),
       },
       cwd: agentDir,
@@ -14354,6 +14351,18 @@ async function* messageGenerator(
       continue;
     }
 
+    const knowledgePromptChanged = !isTurnInFlight()
+      && JSON.stringify(await readBuiltinKnowledgeLibraries()) !== builtinKnowledgeScopeAtQuery;
+    if (knowledgePromptChanged && !isPromotedItemCanceled(item.id)) {
+      // Use the same promotion-preserving restart as a workspace capability
+      // change. No input has crossed into the current Query yet.
+      requeuePromotedItemBeforeSdkDispatch(item);
+      scheduleDeferredRestart('capabilities');
+      applyDeferredRestartIfNeeded();
+      if (promotedQuery) await waitForQueryExit(promotedQuery);
+      return;
+    }
+
     if (isPromotedItemCanceled(item.id)) {
       await rejectPromotedMessageBeforeDispatch(item, {
         accepted: false,
@@ -14652,6 +14661,22 @@ async function* messageGenerator(
       || !isStreamingMessage
       || (!pendingInboxConsumption && getCurrentTurnSourceItem() !== item)
     ) {
+      item.resolve();
+      traceBuiltinInputProgress('input-retired', inputTrace);
+      return;
+    }
+
+    try {
+      await flushSessionKnowledgeForDispatch(sessionId);
+    } catch (error) {
+      const message = reportBuiltinAdmissionPersistenceFailure(item.id, item.requestId, error);
+      finalizeImRequest(item.requestId, 'error', 'failed', buildImErrorPayload(message), true);
+      builtinTurnLifecycle.failAdmittedTurnSetup(message);
+      item.resolve();
+      continue;
+    }
+    if (lifecycleState.abortRequested || builtinInterrupt.isInterrupting() || !isStreamingMessage
+      || (!pendingInboxConsumption && getCurrentTurnSourceItem() !== item)) {
       item.resolve();
       traceBuiltinInputProgress('input-retired', inputTrace);
       return;

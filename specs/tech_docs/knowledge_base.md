@@ -213,7 +213,7 @@ Agent 持有 `knowledgeBaseIds` 默认值。`myagents agent set <id> knowledgeBa
 
 新建 Session 从 Agent 复制列表。旧 Session 的字段缺失表示空范围，读取、分支复制和其他配置补写都不会向当前 Agent 借权。Session 配置 PATCH 支持替换列表或清空为 `[]`。KnowledgeStore 在写入发布前使用 SessionStore 共用的 `sessions.lock` 复核当前范围，Session 改绑和资料写入由此得到明确顺序。已删除的库从列表及搜索范围中过滤，快照不用重写。
 
-共用的产品提示词模板只在 Sidecar 从已授权范围取到有效库时加入知识库段落，给出名称、描述和 `myagents kb` 入口。库文案作为转义后的 JSON 数据投送。Builtin 在既有 Query 替换边界重建提示，外部 Runtime 使用原有 append，Integrated DSH 在根轮次配置应用阶段重建上下文。
+共用的产品提示词模板只在 Sidecar 从已授权范围取到有效库时加入知识库段落，给出名称、描述和 `myagents kb` 入口。Rust 允许为同一进程 generation 对应的 prepared Session 投影库名和描述。内容读取与写入仍要求快照完成准入并发布。绑定了知识库的 Session 在投送已接收的用户输入前，通过既有 transcript writer 确认绑定已发布，使首轮 CLI 能读取同一份快照。库文案作为转义后的 JSON 数据投送。Builtin 和外部 Runtime 在各自既有的空闲配置重启边界重建提示。Integrated DSH 在根轮次配置应用阶段刷新上下文。
 
 ## 待接入章节
 

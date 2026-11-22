@@ -33,7 +33,7 @@ export async function readSessionKnowledgeLibraries(
 ): Promise<SessionKnowledgeLibrary[]> {
   const sidecarId = process.env.MYAGENTS_SIDECAR_ID?.trim();
   if (!sidecarId || !ids?.length) return [];
-  const response = await managementApi('/api/knowledge/list', 'POST', { sidecarId, request: {} });
+  const response = await managementApi('/api/knowledge/prompt', 'POST', { sidecarId, request: {} });
   if (response.ok !== true || !Array.isArray(response.libraries)) return [];
   const bound = new Set(ids);
   return response.libraries.flatMap((entry: unknown) => {

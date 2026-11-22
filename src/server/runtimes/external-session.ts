@@ -148,6 +148,7 @@ import {
   loadSessionTranscript,
   activateSessionTranscript,
   getActiveSessionTranscript,
+  flushSessionKnowledgeForDispatch,
   prepareSessionTranscriptMutation,
 } from '../SessionStore';
 import { firePostTurnTitleHook } from '../turn-hooks';
@@ -675,6 +676,8 @@ let pendingExternalProxyRestart = false;
 let pendingExternalProxyRestartOriginalKey: string | null = null;
 let pendingExternalOfficialToolsRestart = false;
 let pendingExternalCapabilityRestart = false;
+let pendingExternalKnowledgePromptRestart = false;
+const externalKnowledgePromptByProcess = new WeakMap<RuntimeProcess, string>();
 let externalProcessConfigInvalidationInFlight: Promise<void> | null = null;
 let dshDesiredExtensionSnapshot: ManagedCodexExtensionSnapshot | null = null;
 let dshExtensionStatus: RuntimeExtensionDiagnostics | null = null;
@@ -685,6 +688,7 @@ function clearPendingExternalProcessConfigRestarts(): void {
   pendingExternalProxyRestartOriginalKey = null;
   pendingExternalOfficialToolsRestart = false;
   pendingExternalCapabilityRestart = false;
+  pendingExternalKnowledgePromptRestart = false;
   setManagedCodexExtensionRestartPending(false);
 }
 
@@ -693,6 +697,7 @@ function pendingExternalProcessConfigRestartReasons(): string[] {
     ...(pendingExternalProxyRestart ? ['proxy'] : []),
     ...(pendingExternalOfficialToolsRestart ? ['official-tools'] : []),
     ...(pendingExternalCapabilityRestart ? ['capabilities'] : []),
+    ...(pendingExternalKnowledgePromptRestart ? ['knowledge-prompt'] : []),
     ...(isManagedCodexExtensionRestartPending()
       ? ['managed-codex-extensions']
       : []),
@@ -765,6 +770,9 @@ function applyPendingExternalProcessConfigInvalidation(
       }
       if (reasons.includes('capabilities')) {
         pendingExternalCapabilityRestart = true;
+      }
+      if (reasons.includes('knowledge-prompt')) {
+        pendingExternalKnowledgePromptRestart = true;
       }
       if (reasons.includes('managed-codex-extensions')) {
         setManagedCodexExtensionRestartPending(true);
@@ -2219,6 +2227,7 @@ async function persistExternalUserMessageAdmission(params: {
       );
     }
   }
+  await flushSessionKnowledgeForDispatch(params.sessionId);
   const userProjection = params.userChannelProjection;
   const userAdmission: ExternalUserChannelAdmission =
     userProjection.kind === 'skip'
@@ -5053,8 +5062,9 @@ async function _doStartExternalSession(options: {
   const nativeGeneration = getExternalRuntimeGeneration();
   const startOnce = async (resumeId: string | undefined): Promise<RuntimeProcess> => {
     const dshSystemContext = runtimeType === 'dsh' ? await buildDshPrompt() : undefined;
-    let systemPromptAppend = runtimeType === 'dsh'
-      ? '' : buildSystemPromptAppend(options.scenario, await sessionPromptOptions());
+    const nativePromptOptions = runtimeType === 'dsh' ? undefined : await sessionPromptOptions();
+    let systemPromptAppend = nativePromptOptions
+      ? buildSystemPromptAppend(options.scenario, nativePromptOptions) : '';
     if (workspaceInstructions) systemPromptAppend += '\n\n' + workspaceInstructions;
     if (systemPromptOptions.channelBound) {
       systemPromptAppend = appendManagedCodexInteractionLimitPrompt(
@@ -5084,7 +5094,7 @@ async function _doStartExternalSession(options: {
       receiveRuntimeEvent(event);
     };
     currentEventReceiver = receive;
-    return runtime.startSession(
+    const process = await runtime.startSession(
       {
         sessionId: options.sessionId,
         workspacePath: options.workspacePath,
@@ -5113,6 +5123,10 @@ async function _doStartExternalSession(options: {
       },
       receive,
     );
+    if (nativePromptOptions) {
+      externalKnowledgePromptByProcess.set(process, JSON.stringify(nativePromptOptions.knowledgeLibraries));
+    }
+    return process;
   };
 
   let startedProcess: RuntimeProcess | null = null;
@@ -5929,6 +5943,24 @@ async function dispatchExternalMessageOperation(
         queued: false,
         error: error instanceof Error ? error.message : String(error),
       };
+    }
+  }
+
+  const promptProcess = getExternalActiveProcess();
+  if (getCurrentRuntimeType() !== 'dsh' && promptProcess && !promptProcess.exited) {
+    const activeSession = getExternalLifecycleSessionId();
+    const metadata = getExternalSessionMetadata(activeSession);
+    const refresh = await awaitDuringExternalTurnPromotion(
+      readSessionKnowledgeLibraries(metadata?.knowledgeBaseIds),
+      dispatchPromotion,
+    );
+    if (refresh.canceled) return canceledBeforeDispatch();
+    const captured = externalKnowledgePromptByProcess.get(promptProcess) ?? '[]';
+    const missingBirthWithBindings = !metadata
+      && findProjectAgentByWorkspacePath(getExternalLifecycleWorkspacePath())?.knowledgeBaseIds?.length;
+    if (getExternalActiveProcess() === promptProcess && (missingBirthWithBindings
+      || JSON.stringify(refresh.value) !== captured)) {
+      pendingExternalKnowledgePromptRestart = true;
     }
   }
 

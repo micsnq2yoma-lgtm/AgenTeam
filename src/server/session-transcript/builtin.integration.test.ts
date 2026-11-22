@@ -2515,3 +2515,91 @@ it('counts the first tool of a boundary-consumed legacy turn before async plan p
   expect(state.events.filter(([event]) => event === 'chat:message-complete').at(-1)?.[1])
     .toMatchObject({ tool_count: 1, completed_at: expect.any(String) });
 });
+
+// The fixture already supplies state, store, agent, and a controllable writer gate.
+const knowledgeProjectionProbe = vi.hoisted(() => ({
+  diskScopeWhenAssembling: [] as string[][],
+}));
+
+vi.mock('../utils/management-api-client', async original => {
+  const actual = await original<typeof import('../utils/management-api-client')>();
+  return {
+    ...actual,
+    managementApi: async (...args: Parameters<typeof actual.managementApi>) => {
+      if (process.env.MYAGENTS_SIDECAR_ID !== 'knowledge-prompt-probe') return actual.managementApi(...args);
+      const [path] = args;
+      if (path === '/api/im/channel-context') {
+        return { ok: true, channels: [], defaultTarget: null, sourceType: null };
+      }
+      if (path === '/api/knowledge/validate-bindings') return { ok: true };
+      if (path !== '/api/knowledge/list' && path !== '/api/knowledge/prompt') {
+        return actual.managementApi(...args);
+      }
+      let ids: string[] = [];
+      try {
+        const rows = JSON.parse(await readFile(join(state.home, '.agenteam', 'sessions.json'), 'utf8')) as
+          { id: string; materializationState?: string; knowledgeBaseIds?: string[] }[];
+        const current = rows.find(row => row.id === agent.getSessionId());
+        if (current?.materializationState !== 'prepared' || path === '/api/knowledge/prompt') {
+          ids = current?.knowledgeBaseIds ?? [];
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+      knowledgeProjectionProbe.diskScopeWhenAssembling.push(ids);
+      return { ok: true, libraries: ids.map(id => ({ id, name: 'Orchard', description: 'Fruit research' })) };
+    },
+  };
+});
+
+it('captures changed Agent defaults on real lazy birth and gives the first SDK Query its libraries', async () => {
+  const workspace = join(state.home, 'knowledge-workspace');
+  const data = join(state.home, '.agenteam');
+  const configPath = join(data, 'config.json');
+  const before = 'kb_0123456789ab';
+  const after = 'kb_fedcba987654';
+  const homeVariable = process.platform === 'win32' ? 'USERPROFILE' : 'HOME';
+  const previousHome = process.env[homeVariable];
+  vi.stubEnv(homeVariable, state.home);
+  vi.stubEnv('MYAGENTS_SIDECAR_ID', 'knowledge-prompt-probe');
+  knowledgeProjectionProbe.diskScopeWhenAssembling.length = 0;
+  let send: Promise<unknown> | undefined;
+  try {
+    await mkdir(workspace, { recursive: true });
+    await mkdir(data, { recursive: true });
+    await writeFile(configPath, JSON.stringify({
+      agents: [{ id: 'owner', name: 'Owner', enabled: true, runtime: 'builtin', channels: [], knowledgeBaseIds: [before] }],
+    }));
+    await writeFile(join(data, 'projects.json'), JSON.stringify([{ id: 'project', path: workspace, agentId: 'owner' }]));
+    const legacy = await store.createSession(workspace, { runtime: 'builtin' });
+    const { findProjectAgentByWorkspacePath } = await import('../utils/admin-config');
+    const { snapshotForOwnedSession } = await import('../utils/session-snapshot');
+    const oldAgent = findProjectAgentByWorkspacePath(workspace)!;
+    const existing = await store.createSession(workspace, snapshotForOwnedSession(oldAgent as import('../../shared/types/agent').AgentConfig));
+    expect(await store.getActiveSessionTranscript(legacy.id)!.writer.flush()).toBe(true);
+    expect(await store.getActiveSessionTranscript(existing.id)!.writer.flush()).toBe(true);
+    const { handleAgentSet } = await import('../admin-api');
+    await expect(handleAgentSet({ id: 'owner', key: 'knowledgeBaseIds', value: [after] })).resolves.toMatchObject({ success: true });
+
+    await agent.initializeAgent(workspace, null, undefined, { preWarmDisabled: true });
+    state.publicationGate = new Promise<void>(resolve => { releaseWrite = resolve; });
+    send = agent.enqueueUserMessage('first knowledge turn', [], undefined, undefined, undefined, undefined,
+      undefined, undefined, undefined, undefined, undefined, { channelDelivery: NO_CHANNEL_DELIVERY });
+    await vi.waitFor(() => expect(state.publicationBlocked).toBe(true));
+    releaseWrite!();
+    await send;
+
+    await vi.waitFor(() => expect(state.query).toHaveBeenCalled());
+    const firstQuery: Options = state.query.mock.calls[0][0].options;
+    expect(firstQuery.systemPrompt).toMatchObject({ append: expect.stringContaining('Orchard') });
+    expect(knowledgeProjectionProbe.diskScopeWhenAssembling[0]).toEqual([after]);
+    expect(store.getSessionMetadata(agent.getSessionId())?.knowledgeBaseIds).toEqual([after]);
+    expect(store.getSessionMetadata(existing.id)?.knowledgeBaseIds).toEqual([before]);
+    expect(store.getSessionMetadata(legacy.id)?.knowledgeBaseIds).toBeUndefined();
+  } finally {
+    releaseWrite?.();
+    await send?.catch(() => undefined);
+    vi.stubEnv(homeVariable, previousHome);
+    vi.stubEnv('MYAGENTS_SIDECAR_ID', undefined);
+  }
+});

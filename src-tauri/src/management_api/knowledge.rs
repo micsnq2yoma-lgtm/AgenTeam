@@ -292,12 +292,23 @@ async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreRes
     let data_dir = crate::app_dirs::myagents_data_dir().ok_or(KbStoreUnavailable)?;
     let session = caller.product_session_id.clone();
     let session_dir = data_dir.clone();
+    let project_prompt = action == "prompt";
     let scope = spawn_blocking(move || {
-        crate::session_metadata::knowledge_base_ids_for_session(&session_dir, &session).map(Scope)
+        if project_prompt {
+            crate::session_metadata::knowledge_base_ids_for_prompt(&session_dir, &session).map(Scope)
+        } else {
+            crate::session_metadata::knowledge_base_ids_for_session(&session_dir, &session).map(Scope)
+        }
     })
     .await
     .map_err(|_| KbStoreUnavailable)??;
     match action {
+        "prompt" => {
+            if request.as_object().is_none_or(|value| !value.is_empty()) {
+                return Err(KbInvalidInput);
+            }
+            blocking(move || prompt_libraries(&store, &scope)).await
+        }
         "list" => {
             if request.as_object().is_none_or(|value| !value.is_empty()) {
                 return Err(KbInvalidInput);
@@ -421,6 +432,16 @@ fn existing_bindings(store: &KnowledgeStore, mut ids: Vec<String>) -> StoreResul
     let libraries = store.list()?;
     ids.retain(|id| libraries.iter().any(|kb| &kb.id == id));
     Ok(ids)
+}
+
+fn prompt_libraries(store: &KnowledgeStore, scope: &Scope) -> StoreResult<Value> {
+    let libraries: Vec<_> = store
+        .list()?
+        .into_iter()
+        .filter(|kb| scope.require(&kb.id).is_ok())
+        .map(|kb| json!({"id": kb.id, "name": kb.name, "description": kb.description}))
+        .collect();
+    Ok(json!({"ok": true, "libraries": libraries}))
 }
 
 fn list(store: &KnowledgeStore, scope: &Scope) -> StoreResult<Value> {
@@ -644,6 +665,10 @@ mod tests {
         assert_eq!(read("bound").unwrap(), vec![kb]);
         assert!(read("legacy").unwrap().is_empty());
         assert!(read("prepared").unwrap().is_empty());
+        assert_eq!(
+            crate::session_metadata::knowledge_base_ids_for_prompt(tmp.path(), "prepared").unwrap(),
+            [other_kb]
+        );
         assert!(read("unknown").unwrap().is_empty());
         std::fs::write(
             &path,
