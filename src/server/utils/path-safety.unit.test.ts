@@ -1,11 +1,39 @@
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { validateExternalReadPathNode } from './path-safety';
+import type * as PathSafety from './path-safety';
 
 const isWin = process.platform === 'win32';
+
+// path-safety captures homedir() at import, so the module is imported only
+// after HOME points at an isolated directory. Tests must not touch the real
+// user profile (D5), and a real HOME inside a blacklisted tree (e.g. /root when
+// running as root) would make every HOME-relative assertion meaningless.
+// macOS tmpdir lives under /var (blacklisted), so use the gitignored
+// node_modules cache there; elsewhere the OS temp directory is outside the
+// system blacklist.
+const scratchBase = process.platform === 'darwin'
+  ? path.join(process.cwd(), 'node_modules', '.cache')
+  : tmpdir();
+let fakeHome: string;
+let validateExternalReadPathNode: typeof PathSafety.validateExternalReadPathNode;
+const homedir = () => fakeHome;
+
+beforeAll(async () => {
+  mkdirSync(scratchBase, { recursive: true });
+  fakeHome = mkdtempSync(path.join(scratchBase, 'ma-pathsafety-home-'));
+  vi.stubEnv('HOME', fakeHome);
+  vi.stubEnv('USERPROFILE', fakeHome);
+  vi.resetModules();
+  ({ validateExternalReadPathNode } = await import('./path-safety'));
+  vi.unstubAllEnvs();
+});
+
+afterAll(() => {
+  rmSync(fakeHome, { recursive: true, force: true });
+});
 
 describe('validateExternalReadPathNode — input validation', () => {
   it('rejects empty and relative paths', () => {
@@ -52,8 +80,8 @@ describe('validateExternalReadPathNode — blacklist (lexical, no fs)', () => {
 // Symlink-escape defense needs real inodes; POSIX only (Windows symlink needs
 // elevation). The headline attack: ~/.codex/evil_link → /etc, read through it.
 describe.skipIf(isWin)('validateExternalReadPathNode — symlink escape (real fs)', () => {
-  // Sandbox under HOME, NOT os.tmpdir(): on macOS tmpdir is /var/folders/... and
-  // /var is itself blacklisted, which would mask the symlink/realpath checks.
+  // Sandbox under the isolated HOME (see scratchBase above for why not a bare
+  // os.tmpdir() on macOS: /var is blacklisted and would mask these checks).
   let dir: string;
   beforeAll(() => { dir = mkdtempSync(path.join(homedir(), '.ma-pathsafety-test-')); });
   afterAll(() => { rmSync(dir, { recursive: true, force: true }); });
