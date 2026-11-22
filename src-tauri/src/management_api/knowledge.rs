@@ -171,6 +171,16 @@ impl WriteAuthority {
     /// Pin the exact process and curator execution until the Store finishes
     /// publication. Try-locks avoid reversing a lifecycle lock order.
     fn pin(&self, kb: &KnowledgeBase) -> StoreResult<impl Sized> {
+        // Session PATCH publishes under this same lock. Keep it only during
+        // the short Store mutation so a removal and a write have one order.
+        let session_lock = crate::utils::file_lock::acquire_file_lock_blocking(
+            &self.data_dir.join("sessions.lock"),
+            crate::utils::file_lock::FileLockOptions {
+                timeout: std::time::Duration::ZERO,
+                ..Default::default()
+            },
+        )
+        .map_err(|_| KbStoreUnavailable)?;
         let scope = Scope(crate::session_metadata::knowledge_base_ids_for_session(
             &self.data_dir,
             &self.caller.product_session_id,
@@ -202,7 +212,7 @@ impl WriteAuthority {
         } else {
             (None, None)
         };
-        Ok((sidecars, task, run))
+        Ok((session_lock, sidecars, task, run))
     }
 }
 
@@ -226,6 +236,45 @@ pub(super) async fn handle(
             matches!(action.as_str(), "add" | "meta-set"),
         )),
     }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BindingValidation {
+    ids: Vec<String>,
+}
+
+fn check_binding_ids(store: &KnowledgeStore, ids: &[String]) -> StoreResult<()> {
+    if ids.iter().any(|id| !is_knowledge_base_id(id)) {
+        return Err(KbInvalidInput);
+    }
+    let libraries = store.list()?;
+    if ids
+        .iter()
+        .any(|id| !libraries.iter().any(|kb| &kb.id == id))
+    {
+        return Err(KbNotFound);
+    }
+    Ok(())
+}
+
+/// Config writers can check submitted IDs; this operation returns no library data.
+pub(super) async fn validate_bindings(Json(value): Json<Value>) -> (HeaderMap, Json<Value>) {
+    let result = async {
+        let BindingValidation { ids } = decode(value)?;
+        let app = crate::logger::get_app_handle().ok_or(KbStoreUnavailable)?;
+        let store = app
+            .try_state::<Arc<KnowledgeStore>>()
+            .ok_or(KbStoreUnavailable)?;
+        let store = Arc::clone(store.inner());
+        blocking(move || {
+            check_binding_ids(&store, &ids)?;
+            Ok(json!({"ok": true}))
+        })
+        .await
+    }
+    .await;
+    no_store_json(result.unwrap_or_else(|code| error_response(code, false)))
 }
 
 async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreResult<Value> {
@@ -267,7 +316,13 @@ async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreRes
             {
                 return Err(KbInvalidInput);
             }
-            let kb_ids = scope.select(query.kb_ids)?;
+            let mut kb_ids = scope.select(query.kb_ids)?;
+            if !kb_ids.is_empty() {
+                let registry = Arc::clone(&store);
+                kb_ids = spawn_blocking(move || existing_bindings(&registry, kb_ids))
+                    .await
+                    .map_err(|_| KbStoreUnavailable)??;
+            }
             if kb_ids.is_empty() {
                 return Ok(json!({"ok": true, "mode": "bm25", "hits": []}));
             }
@@ -362,6 +417,12 @@ async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreRes
     }
 }
 
+fn existing_bindings(store: &KnowledgeStore, mut ids: Vec<String>) -> StoreResult<Vec<String>> {
+    let libraries = store.list()?;
+    ids.retain(|id| libraries.iter().any(|kb| &kb.id == id));
+    Ok(ids)
+}
+
 fn list(store: &KnowledgeStore, scope: &Scope) -> StoreResult<Value> {
     let mut libraries = Vec::new();
     // The current Library registry can remove bindings still present in an
@@ -371,7 +432,11 @@ fn list(store: &KnowledgeStore, scope: &Scope) -> StoreResult<Value> {
         .into_iter()
         .filter(|kb| scope.require(&kb.id).is_ok())
     {
-        let source_count = store.list_sources(&kb.id)?.len();
+        let source_count = match store.list_sources(&kb.id) {
+            Ok(sources) => sources.len(),
+            Err(KbNotFound) => continue,
+            Err(error) => return Err(error),
+        };
         libraries.push(json!({
             "id": kb.id, "name": kb.name, "description": kb.description, "sourceCount": source_count,
         }));
@@ -710,3 +775,24 @@ mod tests {
         assert_eq!(fs::read_to_string(file).unwrap(), "an original snapshot");
     }
 }
+    #[test]
+    fn knowledge_binding_validation_and_queries_omit_deleted_libraries() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = KnowledgeStore::new(temp.path().into());
+        let live = store
+            .create(crate::knowledge::store::KnowledgeBasePatch {
+                name: Some("Live".into()), ..Default::default()
+            })
+            .unwrap();
+        let stale = store
+            .create(crate::knowledge::store::KnowledgeBasePatch {
+                name: Some("Deleted".into()), ..Default::default()
+            })
+            .unwrap();
+        let ids = vec![live.id.clone(), stale.id.clone()];
+        assert!(check_binding_ids(&store, &ids).is_ok());
+        store.delete(&stale.id).unwrap();
+        assert!(matches!(check_binding_ids(&store, &ids), Err(KbNotFound)));
+        assert_eq!(existing_bindings(&store, ids.clone()).unwrap(), vec![live.id]);
+        assert_eq!(list(&store, &Scope(ids)).unwrap()["libraries"].as_array().unwrap().len(), 1);
+    }

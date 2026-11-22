@@ -141,6 +141,15 @@ describe('Agent/Project configuration intent ownership', () => {
     expect(state.project.model).toBe('claude-opus-4-6');
   });
 
+  it('shares the Agent intent lock for library defaults without mirroring them to Project', async () => {
+    const kb = 'kb_0123456789ab';
+    await patchAgentConfig('agent-1', { knowledgeBaseIds: [kb] });
+    expect(state.events.slice(0, 4)).toEqual(['intent:start', 'agent-disk', 'config-notify', 'intent:end']);
+    await patchAgentConfig('agent-1', { model: 'claude-opus-4-6' });
+    expect(state.config.agents?.[0]).toMatchObject({ knowledgeBaseIds: [kb], model: 'claude-opus-4-6' });
+    expect(state.project).not.toHaveProperty('knowledgeBaseIds');
+  });
+
   it('preserves an old raw workspacePath while patching another Agent field', async () => {
     Object.assign(state.config.agents?.[0] ?? {}, { workspacePath: '/legacy/location' });
 

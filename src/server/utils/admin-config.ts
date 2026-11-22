@@ -199,6 +199,7 @@ export interface AdminAppConfig {
 export interface AgentConfigSlim {
   mcpEnabledServers?: string[];
   mcpServersJson?: string;
+  knowledgeBaseIds?: string[];
   id: string;
   name: string;
   enabled: boolean;

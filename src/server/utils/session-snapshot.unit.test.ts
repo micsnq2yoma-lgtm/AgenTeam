@@ -19,6 +19,17 @@ function makeAgent(overrides: Partial<AgentConfig>): AgentConfig {
   };
 }
 
+it.each(['builtin', 'dsh', 'codex'] as const)('freezes %s library bindings at Session birth', runtime => {
+  const before = 'kb_0123456789ab';
+  const after = 'kb_fedcba987654';
+  const agent = makeAgent({ runtime, knowledgeBaseIds: [before] });
+  const existing = snapshotForOwnedSession(agent);
+  agent.knowledgeBaseIds![0] = after;
+  expect(existing.knowledgeBaseIds).toEqual([before]);
+  expect(snapshotForOwnedSession(agent).knowledgeBaseIds).toEqual([after]);
+  expect(snapshotForForkedSession(existing as SessionMetadata, snapshotForOwnedSession(agent)).knowledgeBaseIds).toEqual([before]);
+});
+
 describe('snapshotForOwnedSession — reasoning effort capture (#324)', () => {
   it('DSH freezes an authoritative integrated binding and ordinary Provider route', () => {
     const snap = snapshotForOwnedSession(makeAgent({

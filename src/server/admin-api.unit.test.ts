@@ -3621,6 +3621,27 @@ describe('admin-api MCP project scope', () => {
     expect(sessionEngineMocks.updateMcpServers).toHaveBeenCalledWith([expect.objectContaining({ id: 'custom' })]);
   });
 
+  it('validates Agent knowledge defaults and leaves config and Project unchanged on rejection', async () => {
+    const { handleAgentSet } = await import('./admin-api');
+    const workspacePath = join(scratch, 'knowledge-agent-set');
+    const projectPath = join(scratch, '.agenteam', 'projects.json');
+    const kb = 'kb_0123456789ab';
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
+      agents: [{ id: 'owner', name: 'Owner', enabled: true, workspacePath, model: 'unchanged' }],
+    });
+    writeJson(projectPath, [{ id: 'project', path: workspacePath, agentId: 'owner' }]);
+    const previous = readConfig();
+    const project = readFileSync(projectPath, 'utf8');
+    managementApiMocks.managementApi.mockResolvedValueOnce({ ok: false, code: 'KB_NOT_FOUND' });
+    expect(await handleAgentSet({ id: 'owner', key: 'knowledgeBaseIds', value: [kb] }))
+      .toMatchObject({ success: false, code: 'KB_NOT_FOUND' });
+    expect(readConfig()).toEqual(previous);
+    expect(await handleAgentSet({ id: 'owner', key: 'knowledgeBaseIds', value: [kb, kb] }))
+      .toMatchObject({ success: true });
+    expect(readConfig()).toMatchObject({ agents: [{ knowledgeBaseIds: [kb], model: 'unchanged' }] });
+    expect(readFileSync(projectPath, 'utf8')).toBe(project);
+  });
+
   it('supports an explicit Agent MCP selection without changing globally disabled availability', async () => {
     const { handleAgentSet } = await import('./admin-api');
     const workspacePath = join(scratch, 'agent-mcp-set');

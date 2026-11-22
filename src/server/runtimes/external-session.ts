@@ -214,6 +214,7 @@ import {
   snapshotForForkedSession,
   snapshotForOwnedSession,
 } from '../utils/session-snapshot';
+import { readSessionKnowledgeLibraries } from '../utils/knowledge-bindings';
 import { lookupModelContextLength } from '../utils/model-capabilities';
 import {
   filterRuntimeConfigPatchForSnapshot,
@@ -4656,18 +4657,16 @@ async function _doStartExternalSession(options: {
     userCliToolsEnabled: isCliToolRegistryEnabled(),
     enabledOfficialToolIds,
   } as const;
-  const baseSystemPrompt =
-    runtimeType === 'dsh'
-      ? ''
-      : buildSystemPromptAppend(options.scenario, systemPromptOptions);
-  const dshSystemContext =
-    runtimeType === 'dsh'
-      ? buildDshSystemContext(
-          options.scenario,
-          systemPromptOptions,
-          resolveDshWorkspaceSupplement(options.workspacePath),
-        )
-      : undefined;
+  const sessionPromptOptions = async () => ({
+    ...systemPromptOptions,
+    knowledgeLibraries: await readSessionKnowledgeLibraries(
+      getExternalSessionMetadata(options.sessionId)?.knowledgeBaseIds,
+    ),
+  });
+  const dshWorkspaceSupplement = runtimeType === 'dsh'
+    ? resolveDshWorkspaceSupplement(options.workspacePath) : '';
+  const buildDshPrompt = async () =>
+    buildDshSystemContext(options.scenario, await sessionPromptOptions(), dshWorkspaceSupplement);
 
   // Cross-runtime workspace protocol: append workspace instruction files
   // so external runtimes receive the same project context as the builtin SDK.
@@ -4680,17 +4679,6 @@ async function _doStartExternalSession(options: {
   if (workspaceInstructions) {
     console.log(
       `[external-session] Injecting workspace instructions for ${runtimeType} (${workspaceInstructions.length} bytes)`,
-    );
-  }
-  let systemPromptAppend = workspaceInstructions
-    ? baseSystemPrompt + '\n\n' + workspaceInstructions
-    : baseSystemPrompt;
-  if (systemPromptOptions.channelBound) {
-    systemPromptAppend = appendManagedCodexInteractionLimitPrompt(
-      systemPromptAppend,
-      runtimeType,
-      runtimeSource,
-      options.scenario,
     );
   }
 
@@ -5063,7 +5051,17 @@ async function _doStartExternalSession(options: {
   };
   let currentEventReceiver: ((event: UnifiedEvent) => void) | undefined;
   const nativeGeneration = getExternalRuntimeGeneration();
-  const startOnce = (resumeId: string | undefined): Promise<RuntimeProcess> => {
+  const startOnce = async (resumeId: string | undefined): Promise<RuntimeProcess> => {
+    const dshSystemContext = runtimeType === 'dsh' ? await buildDshPrompt() : undefined;
+    let systemPromptAppend = runtimeType === 'dsh'
+      ? '' : buildSystemPromptAppend(options.scenario, await sessionPromptOptions());
+    if (workspaceInstructions) systemPromptAppend += '\n\n' + workspaceInstructions;
+    if (systemPromptOptions.channelBound) {
+      systemPromptAppend = appendManagedCodexInteractionLimitPrompt(
+        systemPromptAppend, runtimeType, runtimeSource, options.scenario,
+      );
+    }
+    assertExternalTurnPromotionCurrent(options.dispatchPromotion ?? null);
     let writer = getActiveSessionTranscript(options.sessionId)?.writer;
     const receive = (event: UnifiedEvent): void => {
       writer ??= getActiveSessionTranscript(options.sessionId)?.writer;
@@ -5097,7 +5095,7 @@ async function _doStartExternalSession(options: {
         systemPromptAppend,
         ...(dshSystemContext === undefined
           ? {}
-          : { systemContext: dshSystemContext }),
+          : { systemContext: dshSystemContext, refreshProductSystemContext: buildDshPrompt }),
         model: startModel,
         providerRoute: runtimeType === 'dsh'
           ? options.messageOperation?.runtimeConfig.providerRoute
@@ -9335,6 +9333,10 @@ export async function prewarmExternalSession(options: {
   // effect may fire before that state settles. Backend check uses the
   // authoritative source (SessionStore) and closes the race-window hole.
   const meta = getExternalSessionMetadata(options.sessionId);
+  if (runtimeType !== 'dsh' && !meta
+    && findProjectAgentByWorkspacePath(options.workspacePath)?.knowledgeBaseIds?.length) {
+    return { prewarmed: false, reason: 'The Session has not captured its library bindings' };
+  }
   const persistedRuntimeType = meta?.runtimeBinding
     ? runtimeTypeForBinding(meta.runtimeBinding)
     : meta?.runtime;

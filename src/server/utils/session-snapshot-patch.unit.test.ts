@@ -15,6 +15,17 @@ function metadata(partial: Partial<SessionMetadata> = {}): SessionMetadata {
 }
 
 describe('buildSessionSnapshotPatchUpdates', () => {
+  it('does not inherit Agent libraries on legacy promotion and clears a Session binding explicitly', () => {
+    const kb = 'kb_0123456789ab';
+    const common = { baseSnapshot: { knowledgeBaseIds: [kb] }, nowIso: '2026-06-24T01:00:00.000Z' };
+    expect(buildSessionSnapshotPatchUpdates({
+      ...common, existing: metadata(), payload: { model: 'new-model' },
+    })).not.toHaveProperty('knowledgeBaseIds');
+    expect(buildSessionSnapshotPatchUpdates({
+      ...common, existing: metadata({ knowledgeBaseIds: [kb] }), payload: { knowledgeBaseIds: null },
+    }).knowledgeBaseIds).toEqual([]);
+  });
+
   it('promotes a legacy model-only patch with a complete snapshot baseline', () => {
     const updates = buildSessionSnapshotPatchUpdates({
       existing: metadata({ runtime: 'builtin' }),

@@ -80,6 +80,8 @@ export interface SessionStartOptions {
   systemPromptAppend?: string;
   /** Declarative Host context used only by the Integrated DSH Runtime. */
   systemContext?: DshSystemContextSnapshot;
+  /** Re-project the owned Product snapshot at an Integrated DSH root boundary. */
+  refreshProductSystemContext?: () => Promise<DshSystemContextSnapshot>;
   model?: string;
   /** Product-owned DSH birth selection; credentials remain Host-owned. */
   providerRoute?: ProviderRoute;

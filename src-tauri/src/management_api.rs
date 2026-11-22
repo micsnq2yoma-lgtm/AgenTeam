@@ -147,6 +147,10 @@ pub async fn start_management_api() -> Result<u16, String> {
         .route("/api/app/config-changed", post(app_config_changed_handler))
         .route("/api/external-cli/admit", post(external_cli_admit_handler))
         .route("/api/session/text-page", post(session_text_page_handler))
+        .route(
+            "/api/knowledge/validate-bindings",
+            post(knowledge::validate_bindings),
+        )
         .route("/api/knowledge/{action}", post(knowledge::handle))
         .route(
             "/api/agent-network/discovery",

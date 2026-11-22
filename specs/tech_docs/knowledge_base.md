@@ -207,9 +207,17 @@ TaskStore 持有内部整理任务的库 ID，TaskScheduler 核对唯一匹配�
 
 `kb read` 按 UTF-8 完整字符返回最多 64 KiB，PDF 页和标题按原 Markdown 范围读取。分页令牌跟随 Session、进程 generation、来源版本和选择范围，并由 App 内存中的密钥认证。切换会话、重启 App 或修改原文后，从第一页重新读取。普通输出用 `<kb-content>` 包住片段，并转义原文内可能打断边界的字符。JSON 保留原始字段。检索最多 16 条查询，每条最多 4096 UTF-8 字节。
 
+## K6 Agent 默认绑定与 Session 快照
+
+Agent 持有 `knowledgeBaseIds` 默认值。`myagents agent set <id> knowledgeBaseIds '[...]'` 先由 Rust KnowledgeStore 验证库 ID，再在既有 Agent 配置意图锁内修改 Agent 最新记录。Renderer 的 Agent 配置服务使用同一把锁。Project 不镜像知识库绑定。
+
+新建 Session 从 Agent 复制列表。旧 Session 的字段缺失表示空范围，读取、分支复制和其他配置补写都不会向当前 Agent 借权。Session 配置 PATCH 支持替换列表或清空为 `[]`。KnowledgeStore 在写入发布前使用 SessionStore 共用的 `sessions.lock` 复核当前范围，Session 改绑和资料写入由此得到明确顺序。已删除的库从列表及搜索范围中过滤，快照不用重写。
+
+共用的产品提示词模板只在 Sidecar 从已授权范围取到有效库时加入知识库段落，给出名称、描述和 `myagents kb` 入口。库文案作为转义后的 JSON 数据投送。Builtin 在既有 Query 替换边界重建提示，外部 Runtime 使用原有 append，Integrated DSH 在根轮次配置应用阶段重建上下文。
+
 ## 待接入章节
 
-### K6–K7 Session 绑定与 Skill
+### K7 知识库 Skill
 
 ### K8 元数据与 wiki 整理
 

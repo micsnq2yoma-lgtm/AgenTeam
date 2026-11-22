@@ -546,6 +546,19 @@ pub fn with_file_lock_blocking<F, T>(
 where
     F: FnOnce() -> Result<T, FileLockError>,
 {
+    let _guard = acquire_file_lock_blocking(lock_path, opts)?;
+    mutator()
+}
+
+pub(crate) struct FileLockGuard {
+    path: PathBuf,
+    owner_token: String,
+}
+
+pub(crate) fn acquire_file_lock_blocking(
+    lock_path: &Path,
+    opts: FileLockOptions,
+) -> Result<FileLockGuard, FileLockError> {
     if let Some(parent) = lock_path.parent() {
         fs::create_dir_all(parent).map_err(FileLockError::Io)?;
     }
@@ -584,33 +597,28 @@ where
         }
     }
 
-    let result = mutator();
+    Ok(FileLockGuard {
+        path: lock_path.to_path_buf(),
+        owner_token: our_token,
+    })
+}
 
-    // Release-race guard (Pattern 5 fix #4): another process may have broken
-    // our lock as stale (e.g. we paused past stale_ms) and acquired its own
-    // lock under the same path. Verify ownership before removing — mirror of
-    // Node `file-lock.ts` and required for cross-process parity.
-    let owner_path = lock_path.join("owner");
-    match fs::read_to_string(&owner_path) {
-        Ok(s) if s.trim_ascii() == our_token => {
-            let _ = fs::remove_dir_all(lock_path);
-        }
-        Ok(other) => {
-            ulog_warn!(
-                "[file-lock] our lock at {} was broken as stale; not deleting current holder's lock (owner={})",
-                lock_path.display(),
-                other.trim_ascii()
-            );
-        }
-        Err(_) => {
-            // Owner file missing or unreadable (lock dir may already be gone or
-            // another process is mid-write). Treat as ours — best-effort cleanup
-            // so we don't leak the dir. If the dir was already removed,
-            // remove_dir_all returns NotFound which we ignore.
-            let _ = fs::remove_dir_all(lock_path);
+impl Drop for FileLockGuard {
+    fn drop(&mut self) {
+        // An owner that lost its lease must leave the newer owner's lock alone.
+        match fs::read_to_string(self.path.join("owner")) {
+            Ok(owner) if owner.trim_ascii() != self.owner_token => {
+                ulog_warn!(
+                    "[file-lock] our lock at {} was broken as stale; not deleting current holder's lock (owner={})",
+                    self.path.display(),
+                    owner.trim_ascii()
+                );
+            }
+            _ => {
+                let _ = fs::remove_dir_all(&self.path);
+            }
         }
     }
-    result
 }
 
 /// Async wrapper — runs the blocking lock acquisition + the mutator on a tokio

@@ -535,6 +535,7 @@ import {
   managedCodexNotReadyMessage,
 } from './utils/managed-codex-readiness';
 import { buildSessionSnapshotPatchUpdates } from './utils/session-snapshot-patch';
+import { validateKnowledgeBindings } from './utils/knowledge-bindings';
 import {
   resolveLastVisibleTurnPreview,
   shrinkSessionMessagesForClient,
@@ -4147,6 +4148,7 @@ async function main() {
           enabledOfficialToolIds?:
             | import('../shared/official-tools').OfficialToolId[]
             | null;
+          knowledgeBaseIds?: string[] | null;
           providerId?: string | null;
           providerRoute?: ProviderRoute | null;
           providerExecutionIdentity?: RuntimeBackedProviderIdentity | null;
@@ -4207,6 +4209,13 @@ async function main() {
         // dropdown — confusing UX (Codex round-4 caught). Only the fields
         // that genuinely represent "session was used" should refresh it. Title
         // edits and pinning are organizational actions, so neither affects recency.
+        if (payload.knowledgeBaseIds !== undefined) {
+          const bindings = await validateKnowledgeBindings(payload.knowledgeBaseIds === null ? [] : payload.knowledgeBaseIds);
+          if (!bindings.ok) {
+            return jsonResponse({ success: false, code: bindings.code, error: bindings.error }, bindings.status);
+          }
+          payload.knowledgeBaseIds = bindings.ids;
+        }
         const touchedRecencyField = shouldBumpSessionRecency(payload);
 
         let updated: SessionMetadata | null = null;

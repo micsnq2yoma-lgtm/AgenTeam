@@ -200,6 +200,7 @@ import { trackServer } from './analytics';
 import { getCurrentRuntimeType, isExternalRuntime } from './runtimes/factory';
 import { decideBuiltinSessionResume } from './utils/builtin-session-resume';
 import { snapshotForForkedSession } from './utils/session-snapshot';
+import { readSessionKnowledgeLibraries } from './utils/knowledge-bindings';
 import { resolveBuiltinSdkSessionId } from './utils/session-runtime-identity';
 import {
   commitPendingProductSession,
@@ -7380,6 +7381,17 @@ function applyDeferredRestartIfNeeded(): void {
   schedulePreWarm();
 }
 
+// The query retains its assembled prompt until replacement. This key is a
+// projection of that prompt's scope; the Session snapshot still owns access.
+let builtinKnowledgeScopeAtQuery = '[]';
+
+function refreshBuiltinKnowledgePromptIfNeeded(): void {
+  const ids = getCurrentProductSessionMetadata()?.knowledgeBaseIds ?? [];
+  if (!lifecycleState.query || JSON.stringify(ids) === builtinKnowledgeScopeAtQuery) return;
+  scheduleDeferredRestart('capabilities');
+  applyDeferredRestartIfNeeded();
+}
+
 function findToolBlockById(toolUseId: string): { tool: ToolUseState } | null {
   const product = getBuiltinProductContent();
   if (product) {
@@ -9405,6 +9417,7 @@ export async function enqueueUserMessage(
       origin: options?.sessionBirthOrigin,
       allowLazyMaterialization: canLazyMaterializeForThisMessage(),
     });
+    refreshBuiltinKnowledgePromptIfNeeded();
   }
 
   if (admissionTicket?.canceled) {
@@ -10817,6 +10830,8 @@ async function startStreamingSession(preWarm = false): Promise<void> {
   if (sessionMutationBarrier) await sessionMutationBarrier;
   await resolvePendingBuiltinConversationMutationForActiveSession();
   await awaitSessionTermination(10_000, 'startStreamingSession');
+  if (preWarm && !getCurrentProductSessionMetadata()
+    && findProjectAgentByWorkspacePath(agentDir)?.knowledgeBaseIds?.length) return;
 
   // (issue #174) Cold-start abort race: enqueueUserMessage schedules this
   // function via setTimeout(0) after pushing to queueState.messageQueue. If the user
@@ -11340,6 +11355,9 @@ async function startStreamingSession(preWarm = false): Promise<void> {
       : queryProductSessionId;
     const { servers: sdkMcpServersInitial, failures: initialMcpBuildFailures } = await buildSdkMcpServers(browserProductSessionId);
 
+    const queryKnowledgeBaseIds = getCurrentProductSessionMetadata()?.knowledgeBaseIds ?? [];
+    builtinKnowledgeScopeAtQuery = JSON.stringify(queryKnowledgeBaseIds);
+
     // Claude default follows the selected model. OpenAI bridge retains its
     // existing SDK-side high setting and resolves upstream effort per request.
     const sdkEffort = configState.currentProviderEnv?.apiProtocol === 'openai'
@@ -11472,6 +11490,7 @@ async function startStreamingSession(preWarm = false): Promise<void> {
           ...await readChannelPromptOptions(),
           userCliToolsEnabled: cliToolRegistryEnabled,
           enabledOfficialToolIds,
+          knowledgeLibraries: await readSessionKnowledgeLibraries(queryKnowledgeBaseIds),
         }),
       },
       cwd: agentDir,
