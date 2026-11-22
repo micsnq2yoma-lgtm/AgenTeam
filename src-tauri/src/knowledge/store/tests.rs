@@ -689,3 +689,65 @@ fn knowledge_unpublished_sources_are_invisible() {
 }
 
 mod acceptance;
+
+#[test]
+fn new_libraries_publish_with_the_curator_rule_templates() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Templates")).unwrap();
+    let root = data.path().join("knowledge").join(&kb.id);
+    for (name, template) in LIBRARY_TEMPLATES {
+        assert_eq!(fs::read_to_string(root.join(name)).unwrap(), template);
+    }
+    assert!(LIBRARY_TEMPLATES[0].1.contains("## 分类体系"));
+    assert!(LIBRARY_TEMPLATES[1].1.contains("kb://"));
+
+    // The rules belong to the user once created: later updates and a reopened
+    // Store never restore the template over an edit.
+    fs::write(root.join("ORGANIZE_RULES.md"), "edited").unwrap();
+    store
+        .update(
+            &kb.id,
+            KnowledgeBasePatch {
+                description: Some("after edit".into()),
+                ..KnowledgeBasePatch::default()
+            },
+        )
+        .unwrap();
+    drop(store);
+    let reopened = KnowledgeStore::new(data.path().into());
+    assert_eq!(reopened.list().unwrap().len(), 1);
+    assert_eq!(
+        fs::read_to_string(root.join("ORGANIZE_RULES.md")).unwrap(),
+        "edited"
+    );
+}
+
+#[test]
+fn library_template_writes_refuse_a_redirected_library_directory() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    store.create(settings("Seed")).unwrap();
+    let outside = tempdir().unwrap();
+    let files = StoreFiles {
+        app: data.path().into(),
+        root: data.path().join("knowledge"),
+    };
+    let staged = "kb_00000000abcd";
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(outside.path(), files.root.join(staged)).unwrap();
+    #[cfg(windows)]
+    {
+        let status = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(files.root.join(staged))
+            .arg(outside.path())
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+    assert!(files
+        .write_text(&format!("{staged}/ORGANIZE_RULES.md"), "x")
+        .is_err());
+    assert_eq!(fs::read_dir(outside.path()).unwrap().count(), 0);
+}

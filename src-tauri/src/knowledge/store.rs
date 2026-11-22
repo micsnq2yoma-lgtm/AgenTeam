@@ -37,6 +37,23 @@ const REMOVED: &str = ".removed-";
 const STAGING: &str = ".staging-";
 const MAX_JSON_BYTES: u64 = 2 * 1024 * 1024;
 const DEFAULT_CURATION_INTERVAL: u32 = 4320;
+/// User-editable curation rules seeded into every new library. The curator
+/// Skill owns the template text so the rules and the workflow that reads them
+/// ship together; the Store only copies them before the library is published.
+pub(crate) const LIBRARY_TEMPLATES: [(&str, &str); 2] = [
+    (
+        "ORGANIZE_RULES.md",
+        include_str!(
+            "../../../bundled-skills/myagents-knowledge-curator/references/ORGANIZE_RULES.md"
+        ),
+    ),
+    (
+        "WIKI_SCHEMA.md",
+        include_str!(
+            "../../../bundled-skills/myagents-knowledge-curator/references/WIKI_SCHEMA.md"
+        ),
+    ),
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -369,7 +386,11 @@ impl KnowledgeStore {
             )?;
             let kb = KnowledgeBase::from_patch(id, patch)?;
             // Publication of kbs.json is the visibility boundary. A staged
-            // directory has no readers until its settings are fully synced.
+            // directory has no readers until its settings and default rules
+            // are fully synced, so a library never appears without them.
+            for (name, template) in LIBRARY_TEMPLATES {
+                files.write_text(&format!("{}/{name}", kb.id), template)?;
+            }
             files.write_json(&format!("{}/kb.json", kb.id), &kb)?;
             sync_directory(&files.root).map_err(|_| KbStoreUnavailable)?;
             registry.insert(kb.id.clone());
@@ -666,6 +687,20 @@ impl StoreFiles {
         let target =
             write_workspace_file_no_follow(&self.app, &format!("knowledge/{relative}"), &bytes)
                 .map_err(|_| KbStoreUnavailable)?;
+        sync_directory(target.parent().expect("Store file has parent"))
+            .map_err(|_| KbStoreUnavailable)
+    }
+
+    fn write_text(&self, relative: &str, text: &str) -> StoreResult<()> {
+        if text.len() as u64 > MAX_JSON_BYTES {
+            return Err(KbLimitExceeded);
+        }
+        let target = write_workspace_file_no_follow(
+            &self.app,
+            &format!("knowledge/{relative}"),
+            text.as_bytes(),
+        )
+        .map_err(|_| KbStoreUnavailable)?;
         sync_directory(target.parent().expect("Store file has parent"))
             .map_err(|_| KbStoreUnavailable)
     }
