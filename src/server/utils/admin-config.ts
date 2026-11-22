@@ -50,6 +50,7 @@ import {
 import type { AgentConfig, ChannelConfig } from '../../shared/types/agent';
 import {
   IMAGE_UNDERSTANDING_TOOL_ID,
+  KNOWLEDGE_TOOL_ID,
   SPEECH_RECOGNITION_TOOL_ID,
   getExplicitImageInputSupport,
   isImageUnderstandingToolConfigured,
@@ -795,7 +796,7 @@ function configuredOfficialToolSet(
   // authorization/configuration fact. Keep an authorized speech ID in the
   // Session snapshot so the Admin boundary can return a precise
   // SPEECH_RESOURCE_REQUIRED error when the local model pack is absent.
-  const configured = new Set<OfficialToolId>([SPEECH_RECOGNITION_TOOL_ID]);
+  const configured = new Set<OfficialToolId>([KNOWLEDGE_TOOL_ID, SPEECH_RECOGNITION_TOOL_ID]);
   if (isImageUnderstandingToolCallable(config)) {
     configured.add(IMAGE_UNDERSTANDING_TOOL_ID);
   }

@@ -1177,6 +1177,14 @@ impl TaskSchedulerController {
             })
     }
 
+    pub(crate) async fn owns_running_session(&self, task_id: &str, session_id: &str) -> bool {
+        self.executions.read().await.get(task_id).is_some_and(|run| {
+            !run.canceled
+                && run.state == TaskExecutionState::Running
+                && run.session_id.as_deref() == Some(session_id)
+        })
+    }
+
     pub async fn execution_projections_snapshot(&self) -> HashMap<String, TaskExecutionProjection> {
         self.executions
             .read()
@@ -3479,6 +3487,59 @@ mod tests {
         .unwrap();
         let store = crate::task::TaskStore::new(data_dir);
         (dir, store)
+    }
+
+    #[tokio::test]
+    async fn knowledge_writes_require_the_exact_running_curator_unless_bound_sessions_are_enabled() {
+        use crate::knowledge::{
+            store::{
+                AgentWriteAccess, KnowledgeBasePatch, KnowledgeStore, MetadataKey, MetadataPatch,
+                SourceFacts, SourceKind, SourceStatus,
+            },
+            types::KnowledgeErrorCode::KbAccessDenied,
+        };
+
+        let data = tempfile::tempdir().unwrap();
+        let knowledge = KnowledgeStore::new(data.path().into());
+        let kb = knowledge.create(KnowledgeBasePatch {
+            name: Some("Orchard".into()),
+            ..Default::default()
+        }).unwrap();
+        let source = knowledge.create_source(&kb.id, SourceFacts {
+            kind: SourceKind::Note, current_path: None, content_hash: None,
+            file_fingerprint: None, status: SourceStatus::Ready,
+        }).unwrap();
+        let mut task = matrix_task(TaskExecutionMode::Recurring);
+        task.managed_kind = Some(crate::task::MANAGED_KIND_KNOWLEDGE_CURATOR.into());
+        task.curator_knowledge_base_id = Some(kb.id.clone());
+        let (_data, tasks) = store_with_task(&task);
+        let task_id = tasks.knowledge_curator_task(&kb.id).await.unwrap();
+        assert!(tasks.knowledge_curator_task("kb_000000000000").await.is_none());
+
+        let scheduler = TaskSchedulerController::new();
+        let queue = claim_execution_if_open(
+            &scheduler.executions, &scheduler.shutting_down, &task_id, None,
+        ).await.unwrap();
+        assert!(scheduler.bind_execution_session(&task_id, &queue, "curation-session").await);
+        scheduler.executions.write().await.get_mut(&task_id).unwrap().state = TaskExecutionState::Running;
+        let curator = scheduler.owns_running_session(&task_id, "curation-session").await;
+        let ordinary = scheduler.owns_running_session(&task_id, "ordinary-session").await;
+        assert!(curator);
+        assert!(!ordinary);
+        let patch = || MetadataPatch::from([(MetadataKey::Summary, serde_json::json!("orchard"))]);
+        assert_eq!(
+            knowledge.set_agent_metadata(&kb.id, &source.id, patch(), ordinary),
+            Err(KbAccessDenied),
+        );
+        assert!(knowledge.set_agent_metadata(&kb.id, &source.id, patch(), curator).is_ok());
+        scheduler.cancel_execution(&task_id).await;
+        assert!(!scheduler.owns_running_session(&task_id, "curation-session").await);
+
+        knowledge.update(&kb.id, KnowledgeBasePatch {
+            agent_write_access: Some(AgentWriteAccess::BoundSessions),
+            ..Default::default()
+        }).unwrap();
+        assert!(knowledge.set_agent_metadata(&kb.id, &source.id, patch(), ordinary).is_ok());
     }
 
     #[tokio::test]

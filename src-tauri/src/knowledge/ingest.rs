@@ -104,19 +104,37 @@ impl KnowledgeIngestManager {
     pub fn import_files(self: &Arc<Self>, kb_id: &str, paths: Vec<PathBuf>) -> Vec<ImportOutcome> {
         paths
             .into_iter()
-            .map(|path| match self.admit(kb_id, &path) {
+            .map(|path| match self.admit(kb_id, &path, None) {
                 Ok(receipt) => ImportOutcome::Accepted { receipt },
                 Err(code) => ImportOutcome::Rejected { error: code.into() },
             })
             .collect()
     }
 
-    fn admit(self: &Arc<Self>, kb_id: &str, path: &Path) -> StoreResult<ImportReceipt> {
+    pub(crate) fn import_workspace_file(
+        self: &Arc<Self>,
+        kb_id: &str,
+        workspace: &Path,
+        file: &Path,
+        curator: bool,
+    ) -> StoreResult<ImportReceipt> {
+        self.admit(kb_id, file, Some((workspace, curator)))
+    }
+
+    fn admit(
+        self: &Arc<Self>,
+        kb_id: &str,
+        path: &Path,
+        agent: Option<(&Path, bool)>,
+    ) -> StoreResult<ImportReceipt> {
         if !is_knowledge_base_id(kb_id) {
             return Err(KnowledgeErrorCode::KbInvalidInput);
         }
         let mut queue = self.open_queue()?;
-        let receipt = self.store.enqueue_file(kb_id, path)?;
+        let receipt = match agent {
+            Some(scope) => self.store.enqueue_input(kb_id, path, Some(scope)),
+            None => self.store.enqueue_file(kb_id, path),
+        }?;
         if let Some(job) = &receipt.job {
             if !receipt.duplicate {
                 queue.pending.push_back(job.id.clone());

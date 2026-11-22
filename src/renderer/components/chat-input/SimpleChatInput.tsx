@@ -1765,11 +1765,11 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                           >
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium text-[var(--ink)] truncate">
-                                {tool.name}
+                                {t(`officialTools.${tool.id}.name`, { ns: 'common', defaultValue: tool.name })}
                               </div>
                               {tool.description && (
                                 <div className="text-xs text-[var(--ink-muted)] truncate">
-                                  {tool.description}
+                                  {t(`officialTools.${tool.id}.description`, { ns: 'common', defaultValue: tool.description })}
                                 </div>
                               )}
                             </div>

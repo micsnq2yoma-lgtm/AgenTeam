@@ -1,8 +1,10 @@
 import { MODEL_ADD_OPTIONS } from '../shared/modelAddOptions';
+import { KNOWLEDGE_COMMAND_FLAGS } from '../shared/knowledge/cli-contract';
 
 /** Additional internal command options. Shared options come from externalCliCapabilities.
  * Keep each entry with its request-body handler; arbitrary options are not forwarded. */
 export const INTERNAL_CLI_FLAGS: Readonly<Record<string, readonly string[]>> = {
+  ...KNOWLEDGE_COMMAND_FLAGS,
   "anydoc/convert": ["file","fileValueMissing","output","password","waitInvalidValue","wait"],
   "anydoc/list": ["limit"],
   "speech/transcribe": ["file","fileValueMissing","output","waitInvalidValue","wait"],

@@ -28,6 +28,8 @@ import {
 import { networkAddress } from '../shared/agentNetworkRouting';
 import { REMOTE_DEADLINES } from '@myagents/agent-network-protocol';
 import { INTERNAL_CLI_FLAGS } from './internalCliFlags';
+import { buildKnowledgeInput, printKnowledgeResult } from './knowledge';
+import { isKnowledgeCommand, KNOWLEDGE_COMMAND_FLAGS } from '../shared/knowledge/cli-contract';
 import { SKILL_INSTALL_TIMEOUT_MS } from '../shared/skillDownloadPolicy';
 
 // Long loopback operations are bounded by callApi's AbortSignal, including
@@ -107,6 +109,18 @@ export function parseArgs(args: string[]): { positional: string[]; flags: Record
       const key = eq >= 0 ? raw.slice(0, eq) : raw;
       spellings.set(camelCase(key), `--${key}`);
       const inlineValue = eq >= 0 ? raw.slice(eq + 1) : undefined;
+      if (positional[0] === 'kb' && (key === 'kb' || key === 'query')) {
+        const next = args[i + 1];
+        const consumesNext = inlineValue === undefined && next !== undefined && !next.startsWith('--');
+        const value = inlineValue ?? (consumesNext ? next : '');
+        const previous = flags[key];
+        const items: unknown[] = Array.isArray(previous) ? previous : [];
+        if (previous !== undefined && !Array.isArray(previous)) items.push(previous);
+        items.push(value);
+        flags[key] = items;
+        i += consumesNext ? 2 : 1;
+        continue;
+      }
       // Boolean flags (no value follows). Missing entries trigger the
       // generic key-value branch below — which consumes the NEXT token as
       // value when it doesn't start with `--`. That silently eats short
@@ -377,6 +391,7 @@ Usage: myagents <command> [options]
 Commands:
   anydoc    Convert one local document to Markdown (including offline OCR)
   speech    Transcribe one local audio/video attachment with local models
+  kb        Search, read, import and organize Session knowledge
   mcp       Manage MCP tool servers
   vision    Official image-understanding CLI tool
   tool      Manage registered CLI tools (Lab-gated; enable in Settings first)
@@ -804,6 +819,11 @@ export function printResult(
 
   if (group === 'speech') {
     printSpeechResult(action, result);
+    return;
+  }
+
+  if (group === 'kb' && result.success && result.data && typeof result.data === 'object') {
+    printKnowledgeResult(action, result.data as Record<string, unknown>);
     return;
   }
 
@@ -3101,6 +3121,7 @@ export function buildRoute(group: string, action: string, rest: string[]): strin
   if (group === 'speech' && action === 'wait') {
     return 'speech/status';
   }
+  if (group === 'kb' && action === 'meta' && rest[0] === 'set') return 'kb/meta/set';
   if (group === 'task' && action === 'trigger') {
     const triggerAction = rest[0] || 'validate';
     return `task/trigger/${triggerAction}`;
@@ -3160,6 +3181,7 @@ export function buildRoute(group: string, action: string, rest: string[]): strin
 }
 
 const PUBLISHED_ADMIN_ROUTES = new Set([
+  ...Object.keys(KNOWLEDGE_COMMAND_FLAGS),
   'anydoc/convert', 'anydoc/status', 'anydoc/cancel', 'anydoc/list',
   'speech/transcribe', 'speech/status', 'speech/cancel', 'speech/list',
   'mcp/list', 'mcp/show', 'mcp/add', 'mcp/remove', 'mcp/enable', 'mcp/disable', 'mcp/env', 'mcp/test',
@@ -3187,7 +3209,7 @@ const PUBLISHED_ADMIN_ROUTES = new Set([
 ]);
 
 const PUBLISHED_COMMAND_GROUPS = new Set([
-  'anydoc', 'speech', 'mcp', 'tool', 'vision', 'model', 'agent', 'runtime', 'diagnose', 'cron', 'goal', 'im', 'widget',
+  'anydoc', 'speech', 'kb', 'mcp', 'tool', 'vision', 'model', 'agent', 'runtime', 'diagnose', 'cron', 'goal', 'im', 'widget',
   'plugin', 'cc-plugin', 'skill', 'config', 'task', 'thought', 'record', 'session',
   'status', 'reload', 'version',
 ]);
@@ -3965,6 +3987,21 @@ export function buildRequestBody(
   rest: string[],
   flags: Record<string, unknown>,
 ): Record<string, unknown> {
+  if (group === 'kb') {
+    const route = buildRoute(group, action, rest);
+    if (!isKnowledgeCommand(route)) return exitAgentCliError(flags, {
+      code: 'UNKNOWN_COMMAND', error: 'Unknown knowledge command.', suggestedCommand: 'myagents kb --help',
+    });
+    try {
+      return buildKnowledgeInput(route, action === 'meta' ? rest.slice(1) : rest, flags);
+    } catch (error) {
+      return exitAgentCliError(flags, {
+        code: 'KB_INVALID_INPUT',
+        error: error instanceof Error ? error.message : 'Invalid knowledge command arguments.',
+        suggestedCommand: `myagents ${route.replaceAll('/', ' ')} --help`,
+      });
+    }
+  }
   if (group === 'anydoc') {
     return buildAnydocRequestBody(action, rest, flags);
   }

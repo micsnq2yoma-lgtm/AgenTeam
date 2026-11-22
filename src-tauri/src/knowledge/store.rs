@@ -498,7 +498,43 @@ impl KnowledgeStore {
         actor: KnowledgeMetadataOrigin,
         fields: MetadataPatch,
     ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
+        self.write_metadata(kb_id, source_id, actor, fields, None)
+    }
+
+    pub(crate) fn set_agent_metadata(
+        &self,
+        kb_id: &str,
+        source_id: &str,
+        fields: MetadataPatch,
+        curator: bool,
+    ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
+        self.write_metadata(
+            kb_id,
+            source_id,
+            KnowledgeMetadataOrigin::Agent,
+            fields,
+            Some(curator),
+        )
+    }
+
+    pub(crate) fn check_agent_write(&self, kb_id: &str, curator: bool) -> StoreResult<()> {
+        self.locked_kb(kb_id, None, |files, _| {
+            files.require_agent_write(kb_id, curator)
+        })
+    }
+
+    fn write_metadata(
+        &self,
+        kb_id: &str,
+        source_id: &str,
+        actor: KnowledgeMetadataOrigin,
+        fields: MetadataPatch,
+        curator: Option<bool>,
+    ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
         self.locked_kb(kb_id, Some(source_id), |files, _| {
+            if let Some(curator) = curator {
+                files.require_agent_write(kb_id, curator)?;
+            }
             let mut record = files.require_record(kb_id, source_id)?;
             let source = &mut record.source;
             let updated_at = Utc::now().to_rfc3339();
@@ -660,6 +696,15 @@ impl StoreFiles {
             }
         }
         Ok(registry)
+    }
+
+    fn require_agent_write(&self, kb: &str, curator: bool) -> StoreResult<()> {
+        let kb = self.read_kb(kb)?;
+        if kb.agent_write_access == AgentWriteAccess::BoundSessions || curator {
+            Ok(())
+        } else {
+            Err(KbAccessDenied)
+        }
     }
 
     fn read_kb(&self, id: &str) -> StoreResult<KnowledgeBase> {

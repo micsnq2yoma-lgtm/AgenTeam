@@ -261,6 +261,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
     - `kb meta set <source-ref> [--summary-file <f>] [--tags a,b] [--category <path>] [--type <t>] [--date <YYYY-MM-DD>] [--entities-file <f>] [--duplicate-of <source-ref>] [--json]`
     - `kb status <job-id> [--json]`
   - **写命令权限**：`add`、`meta set` 遵守 `agentWriteAccess`。`curator-only` 时，Rust 通过 TaskStore 确认调用方 Session 正是该知识库整理 Task 的当前执行 Session；否则返回 `KB_ACCESS_DENIED`，并附 recoveryHint 说明怎么在知识库设置里开启。
+    - K5 预先定义只由 TaskStore 持久化的整理任务与知识库绑定，并校验 TaskScheduler 的当前执行会话。测试用隔离的内部 Task 记录覆盖绑定权限。K8 接入正式创建、更新和调度。
   - **人类可读输出**里，每个片段用 `<kb-content ref="...">…</kb-content>` 包住；JSON 模式只返回字段。片段约 300 字。
   - 对未知 flag fail closed；这组命令没有 `--dry-run`。
 - **验收**：

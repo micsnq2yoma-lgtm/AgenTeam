@@ -22,6 +22,7 @@ import {
   stat,
 } from 'fs/promises';
 import { isAsyncQuestionReply, type AsyncQuestionReply } from '../shared/asyncUserQuestions';
+import { isKnowledgeCommand } from '../shared/knowledge/cli-contract';
 import { spawn as subprocessSpawn } from './utils/subprocess';
 import { fileResponse, sniffMime } from './utils/file-response';
 import { lookupExternalAttachment } from './runtimes/tool-attachments';
@@ -1456,6 +1457,7 @@ async function routeAdminApi(
     return await api.handleAnydocList(
       payload as Parameters<typeof api.handleAnydocList>[0],
     );
+  if (isKnowledgeCommand(route)) return await api.handleKnowledge(route, payload as Record<string, unknown>);
   if (route === 'speech/transcribe')
     return await api.handleSpeechTranscribe(
       payload as Parameters<typeof api.handleSpeechTranscribe>[0],

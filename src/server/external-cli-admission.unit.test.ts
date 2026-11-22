@@ -8,6 +8,7 @@ import {
   admitAdminRequest,
   externalTaskWorkspaceFailure,
 } from './external-cli-admission';
+import { KNOWLEDGE_COMMAND_FLAGS } from '../shared/knowledge/cli-contract';
 
 function request(headers: Record<string, string> = {}): Request {
   return new Request('http://127.0.0.1:31415/api/admin/status', {
@@ -61,6 +62,13 @@ describe('external CLI admission', () => {
       status: 403,
       response: { code: 'EXTERNAL_CLI_CAPABILITY_NOT_OPEN' },
     });
+    expect(managementApi).not.toHaveBeenCalled();
+  });
+
+  it.each(Object.keys(KNOWLEDGE_COMMAND_FLAGS))('rejects an external bearer on %s', async route => {
+    managementApi.mockResolvedValue({ ok: true, allowed: true });
+    await expect(admitAdminRequest(request({ Authorization: 'Bearer external-token' }), route))
+      .resolves.toMatchObject({ status: 403, response: { code: 'EXTERNAL_CLI_CAPABILITY_NOT_OPEN' } });
     expect(managementApi).not.toHaveBeenCalled();
   });
 

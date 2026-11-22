@@ -40,6 +40,7 @@ rustls-pemfile = "2.2"
 rustls-platform-verifier = "=0.6.2"
 rcgen = { version = "=0.14.10", default-features = false, features = ["ring", "pem"] }
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
+hmac = "0.12"
 jsonwebtoken = { version = "=11.1.0", default-features = false, features = ["rust_crypto"] }
 # `macos-private-api` is required for transparent webview windows on macOS —
 # the floating ball / companion panels (PRD 0.2.35) are transparent NSPanels.

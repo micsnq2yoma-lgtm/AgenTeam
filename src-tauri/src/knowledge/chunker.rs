@@ -328,33 +328,11 @@ fn collect_blocks(
             }
             continue;
         };
-        let mut depth = 1;
-        let mut name = String::new();
-        let is_heading = matches!(&tag, Tag::Heading { .. });
-        for (child, _) in events.by_ref() {
-            match child {
-                Event::Start(_) => depth += 1,
-                Event::End(_) => {
-                    depth -= 1;
-                    if depth == 0 {
-                        break;
-                    }
-                }
-                Event::Text(t) | Event::Code(t) if is_heading => name.push_str(&t),
-                Event::SoftBreak | Event::HardBreak if is_heading => name.push(' '),
-                _ => {}
-            }
-        }
+        let name = block_heading_text(&tag, &mut events);
         match tag {
             Tag::Heading { level, .. } => {
                 let level = level as usize;
-                let page = if level == 2 {
-                    name.strip_prefix("Page ")
-                        .and_then(|n| n.trim().parse::<u32>().ok())
-                        .filter(|&n| n > 0)
-                } else {
-                    None
-                };
+                let page = page_heading(level, &name);
                 builder.previous = None;
                 if let Some(n) = page {
                     builder.page = Some(n);
@@ -373,4 +351,54 @@ fn collect_blocks(
         }
     }
     Ok(has_heading)
+}
+
+fn block_heading_text<'a>(
+    tag: &Tag<'_>,
+    events: &mut impl Iterator<Item = (Event<'a>, Range<usize>)>,
+) -> String {
+    let mut depth = 1;
+    let mut name = String::new();
+    let is_heading = matches!(tag, Tag::Heading { .. });
+    for (event, _) in events {
+        match event {
+            Event::Start(_) => depth += 1,
+            Event::End(_) => {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            Event::Text(text) | Event::Code(text) if is_heading => name.push_str(&text),
+            Event::SoftBreak | Event::HardBreak if is_heading => name.push(' '),
+            _ => {}
+        }
+    }
+    name
+}
+
+pub(crate) fn page_heading(level: usize, name: &str) -> Option<u32> {
+    if level != 2 {
+        return None;
+    }
+    name.strip_prefix("Page ")
+        .and_then(|number| number.trim().parse::<u32>().ok())
+        .filter(|&number| number > 0)
+}
+
+pub(crate) fn top_level_headings(
+    markdown: &str,
+) -> impl Iterator<Item = (usize, String, usize)> + '_ {
+    let mut events = Parser::new_ext(markdown, Options::ENABLE_TABLES).into_offset_iter();
+    std::iter::from_fn(move || {
+        while let Some((event, span)) = events.next() {
+            if let Event::Start(tag) = event {
+                let name = block_heading_text(&tag, &mut events);
+                if let Tag::Heading { level, .. } = tag {
+                    return Some((level as usize, name, span.start));
+                }
+            }
+        }
+        None
+    })
 }

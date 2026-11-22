@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { KNOWLEDGE_CLI_HELP } from '../shared/knowledge/cli-contract';
 
 const agentSessionMocks = vi.hoisted(() => ({
   agentDir: undefined as string | undefined,
@@ -12,6 +13,18 @@ const agentSessionMocks = vi.hoisted(() => ({
   getQueueStatus: vi.fn(() => []),
   forceReloadActiveSession: vi.fn(),
 }));
+
+describe('knowledge leaf help', () => {
+  it('documents the exact read syntax and cursor joining contract', () => {
+    expect(KNOWLEDGE_CLI_HELP['kb/read']).toMatchInlineSnapshot(`
+      "myagents kb read <source-ref> [--page <n> | --heading "<title>"] [--cursor <cursor>] [--json]
+
+      Pass a kb:// source reference. Page is a positive number and heading is an exact title.
+      Returns up to 64 KiB of Markdown. Repeat the request with the same source and selector,
+      plus the supplied nextCursor, to read the following slice."
+    `);
+  });
+});
 
 const managementApiMocks = vi.hoisted(() => ({
   managementApi: vi.fn(async (_path?: string): Promise<Record<string, unknown>> => ({ ok: true, taskUpdated: 0, cronUpdated: 0 })),

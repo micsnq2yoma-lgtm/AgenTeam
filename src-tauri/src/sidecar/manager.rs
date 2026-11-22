@@ -2499,6 +2499,14 @@ mod completion_claim_tests {
         assert!(manager
             .resolve_session_process_source("another-process", generation)
             .is_none());
+        // The knowledge API uses this same resolution for every read/write.
+        manager.sidecar_generations.insert("session-real".into(), generation + 1);
+        assert!(manager.resolve_session_process_source(&management_id, generation).is_none());
+        assert_eq!(
+            manager.resolve_session_process_source(&management_id, generation + 1)
+                .expect("replacement generation").product_session_id,
+            "session-real",
+        );
     }
 
     #[test]

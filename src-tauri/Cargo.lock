@@ -4480,6 +4480,7 @@ dependencies = [
  "futures-util",
  "fuzzy-matcher",
  "get-selected-text",
+ "hmac",
  "image",
  "jsonwebtoken",
  "junction",

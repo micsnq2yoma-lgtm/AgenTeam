@@ -1,6 +1,7 @@
 import { readChannelIdentities, projectConfiguredChannel, projectScopedChannels } from './utils/channel-discovery';
 import { nextAgentNetworkExposureRevision } from "../shared/config-types";
 import { MODEL_ADD_OPTIONS_HELP } from '../shared/modelAddOptions';
+import { KNOWLEDGE_CLI_HELP, type KnowledgeCommand } from '../shared/knowledge/cli-contract';
 import { resolveAgentConfigMutation, mutationForAgentModelSelection, type AgentModelSelection } from '../shared/agentConfigMutation';
 import { APP_BUILD_IDENTITY, SIDECAR_BUILD_IDENTITY, SIDECAR_STARTED_AT } from './build-identity';
 import { CLAUDE_AGENT_SDK_IMPLEMENTATION_VERSION } from '../shared/integrated-runtimes/identity';
@@ -2944,6 +2945,7 @@ OPTIONS
 };
 
 const HELP_TEXTS: Record<string, string> = {
+  ...KNOWLEDGE_CLI_HELP,
   ...LEAF_HELP,
   anydoc: `myagents anydoc — Convert one local document to Markdown with offline OCR
 
@@ -4767,6 +4769,16 @@ export async function handleAnydocList(payload: {
     `/api/document/list${qsFrom({ limit: payload.limit })}`,
   );
   return wrapMgmtResponse(response);
+}
+
+export async function handleKnowledge(
+  route: KnowledgeCommand,
+  request: Record<string, unknown>,
+): Promise<AdminResponse> {
+  const { sessionId } = getSessionEngine().getCurrentSessionContext();
+  const sidecarId = sessionId ? process.env.MYAGENTS_SIDECAR_ID ?? '' : '';
+  const action = route.slice('kb/'.length).replace('/', '-');
+  return wrapMgmtResponse(await managementApi(`/api/knowledge/${action}`, 'POST', { sidecarId, request }));
 }
 
 type SpeechAdminCaller = {

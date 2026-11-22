@@ -112,6 +112,10 @@ export function ToolboxSection({
 
       <div className="grid grid-cols-2 gap-4">
         {officialTools.map((tool) => {
+          const name = t(`officialTools.${tool.id}.name`, { ns: 'common', defaultValue: tool.name });
+          const description = t(`officialTools.${tool.id}.description`, {
+            ns: 'common', defaultValue: tool.description,
+          });
           const isEnabled = officialEnabledIds.includes(tool.id);
           const isEnabling = officialToolEnabling[tool.id] ?? false;
           const needsConfig = officialToolNeedsConfig[tool.id] ?? false;
@@ -131,9 +135,9 @@ export function ToolboxSection({
                   )}
                   <h3
                     className="min-w-0 truncate font-semibold text-[var(--ink)]"
-                    title={tool.name}
+                    title={name}
                   >
-                    {tool.name}
+                    {name}
                   </h3>
                   {isEnabling && (
                     <LoaderIcon className="h-3.5 w-3.5 shrink-0 animate-spin text-[var(--info)]" />
@@ -173,9 +177,9 @@ export function ToolboxSection({
               </div>
               <p
                 className="mt-1 truncate text-xs text-[var(--ink-muted)]"
-                title={tool.description}
+                title={description}
               >
-                {tool.description}
+                {description}
               </p>
               {needsConfig && (
                 <p className="mt-1 text-xs text-[var(--warning)]">
