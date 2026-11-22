@@ -1201,10 +1201,12 @@ impl TaskSchedulerController {
         task_id: &str,
         queue_id: &str,
         session_id: &str,
-    ) -> Option<impl Sized> {
-        let guard = Arc::clone(&self.executions).try_read_owned().ok()?;
-        let run = guard.get(task_id)?;
-        (run.queue_id == queue_id && run.is_running_session(session_id)).then_some(guard)
+    ) -> Result<Option<impl Sized>, tokio::sync::TryLockError> {
+        let guard = Arc::clone(&self.executions).try_read_owned()?;
+        let matches = guard
+            .get(task_id)
+            .is_some_and(|run| run.queue_id == queue_id && run.is_running_session(session_id));
+        Ok(matches.then_some(guard))
     }
 
     pub async fn execution_projections_snapshot(&self) -> HashMap<String, TaskExecutionProjection> {
@@ -3518,7 +3520,7 @@ mod tests {
                 AgentWriteAccess, KnowledgeBase, KnowledgeBasePatch, KnowledgeStore, MetadataKey,
                 MetadataPatch, SourceFacts, SourceKind, SourceStatus,
             },
-            types::KnowledgeErrorCode::KbAccessDenied,
+            types::KnowledgeErrorCode::{KbAccessDenied, KbStoreUnavailable},
         };
 
         let data = tempfile::tempdir().unwrap();
@@ -3549,11 +3551,18 @@ mod tests {
             Some(queue.as_str())
         );
         assert!(scheduler.running_session_queue(&task_id, "ordinary-session").await.is_none());
-        assert!(scheduler.pin_running_session(&task_id, "replaced-queue", "curation-session").is_none());
+        assert!(scheduler
+            .pin_running_session(&task_id, "replaced-queue", "curation-session")
+            .unwrap()
+            .is_none());
         let curator = |_: &KnowledgeBase| {
-            let binding = tasks.pin_knowledge_curator(&kb.id, &task_id).ok_or(KbAccessDenied)?;
+            let binding = tasks
+                .pin_knowledge_curator(&kb.id, &task_id)
+                .map_err(|_| KbStoreUnavailable)?
+                .ok_or(KbAccessDenied)?;
             let execution = scheduler
                 .pin_running_session(&task_id, &queue, "curation-session")
+                .map_err(|_| KbStoreUnavailable)?
                 .ok_or(KbAccessDenied)?;
             Ok((binding, execution))
         };
@@ -3570,6 +3579,13 @@ mod tests {
             Err(KbAccessDenied),
         );
         assert!(knowledge.set_agent_metadata(&kb.id, &source.id, patch(), curator).is_ok());
+        {
+            let _scheduler_write = scheduler.executions.write().await;
+            assert_eq!(
+                knowledge.set_agent_metadata(&kb.id, &source.id, patch(), curator),
+                Err(KbStoreUnavailable),
+            );
+        }
         scheduler.cancel_execution(&task_id).await;
         assert_eq!(
             knowledge.set_agent_metadata(&kb.id, &source.id, patch(), curator),

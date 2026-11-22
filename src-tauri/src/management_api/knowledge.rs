@@ -190,10 +190,13 @@ impl WriteAuthority {
         let (task, run) = if kb.agent_write_access == AgentWriteAccess::CuratorOnly {
             let (task_id, queue_id) = self.curator.as_ref().ok_or(KbAccessDenied)?;
             let task = crate::task::get_task_store()
-                .and_then(|store| store.pin_knowledge_curator(&kb.id, task_id))
+                .ok_or(KbAccessDenied)?
+                .pin_knowledge_curator(&kb.id, task_id)
+                .map_err(|_| KbStoreUnavailable)?
                 .ok_or(KbAccessDenied)?;
             let run = crate::task_scheduler::get_task_scheduler()
                 .pin_running_session(task_id, queue_id, &current.product_session_id)
+                .map_err(|_| KbStoreUnavailable)?
                 .ok_or(KbAccessDenied)?;
             (Some(task), Some(run))
         } else {
@@ -665,5 +668,45 @@ mod tests {
             junction::delete(&link).unwrap();
             junction::delete(&in_scope_link).unwrap();
         }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn knowledge_api_import_refuses_a_shared_windows_writer() {
+        use std::fs::{self, OpenOptions};
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Storage::FileSystem::{FILE_SHARE_READ, FILE_SHARE_WRITE};
+
+        let temp = tempfile::tempdir().unwrap();
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).unwrap();
+        let file = workspace.join("note.txt");
+        fs::write(&file, "an original snapshot").unwrap();
+        let writer = || {
+            OpenOptions::new()
+                .write(true)
+                .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+                .open(&file)
+        };
+        let open_writer = writer().unwrap();
+        let store = Arc::new(KnowledgeStore::new(temp.path().join("app")));
+        let kb = store
+            .create(KnowledgeBasePatch {
+                name: Some("Snapshots".into()),
+                ..Default::default()
+            })
+            .unwrap();
+        let ingest = Arc::new(KnowledgeIngestManager::new(Arc::clone(&store), None));
+        assert!(matches!(
+            ingest.import_workspace_file(&kb.id, &workspace, Path::new("note.txt"), |_| Ok(())),
+            Err(KbSourceInUse)
+        ));
+        assert!(store.list_sources(&kb.id).unwrap().is_empty());
+        drop(open_writer);
+        assert!(ingest
+            .import_workspace_file(&kb.id, &workspace, Path::new("note.txt"), |_| Ok(()))
+            .is_ok());
+        ingest.shutdown().unwrap();
+        assert_eq!(fs::read_to_string(file).unwrap(), "an original snapshot");
     }
 }

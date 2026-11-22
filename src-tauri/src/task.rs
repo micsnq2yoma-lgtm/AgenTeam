@@ -3124,10 +3124,14 @@ impl TaskStore {
         unique_knowledge_curator(&tasks, kb_id).map(|task| task.id.clone())
     }
 
-    pub(crate) fn pin_knowledge_curator(&self, kb_id: &str, task_id: &str) -> Option<impl Sized> {
-        let guard = Arc::clone(&self.inner).try_read_owned().ok()?;
-        let task = unique_knowledge_curator(&guard, kb_id)?;
-        (task.id == task_id).then_some(guard)
+    pub(crate) fn pin_knowledge_curator(
+        &self,
+        kb_id: &str,
+        task_id: &str,
+    ) -> Result<Option<impl Sized>, tokio::sync::TryLockError> {
+        let guard = Arc::clone(&self.inner).try_read_owned()?;
+        let matches = unique_knowledge_curator(&guard, kb_id).is_some_and(|task| task.id == task_id);
+        Ok(matches.then_some(guard))
     }
 
     pub async fn get_ordinary(&self, id: &str) -> Result<Task, String> {

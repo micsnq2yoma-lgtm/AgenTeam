@@ -1,10 +1,4 @@
 {
-  "officialTools": {
-    "knowledge": {
-      "name": "知识库",
-      "description": "检索并阅读当前会话已绑定的知识库资料。"
-    }
-  },
   "knowledgeTable": {
     "truncatedHeader": "…（表头已截断：共 {{total}} 列，显示前 {{shown}} 列；完整表头见 {{ref}}）",
     "rowPart": "（第 {{row}} 行 · 第 {{part}}/{{total}} 段）",
