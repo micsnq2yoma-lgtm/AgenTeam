@@ -1812,18 +1812,6 @@ fn release_session_sidecar_blocking(
     }
 }
 
-/// Blocking-thread-only owner release entrypoint.
-///
-/// This exists for lifecycle pollers that already run on a dedicated
-/// `std::thread`. Tokio/async callers must use [`release_session_sidecar`].
-pub(crate) fn release_session_sidecar_from_blocking_thread(
-    manager: &ManagedSidecarManager,
-    session_id: &str,
-    owner: &SidecarOwner,
-) -> Result<bool, String> {
-    release_session_sidecar_blocking(manager, session_id, owner)
-}
-
 /// Async-safe owner release entrypoint. The exact generation drain, Browser
 /// Host retirement request, and process drop are intentionally executed on a
 /// blocking worker; callers on Tokio must never enter reqwest's blocking
@@ -1849,6 +1837,7 @@ pub async fn release_session_sidecar(
 /// operation for an owner whose handover may temporarily span two Sessions.
 /// All removals are committed under one manager lock before any exact process
 /// drain is awaited.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) async fn release_session_owner_everywhere(
     manager: &ManagedSidecarManager,
     owner: &SidecarOwner,

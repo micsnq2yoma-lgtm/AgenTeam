@@ -59,9 +59,15 @@ impl SidecarSessionSnapshot {
     }
 }
 
-/// Only active work consumes the safety budget; a human wait pauses it.
-fn advance_active_budget(spent: Duration, step: Duration, waiting_for_user: bool) -> Duration {
-    if waiting_for_user {
+/// A polling interval adjacent to a human wait cannot be attributed entirely
+/// to active work. Preserve the remaining budget for the resumed turn.
+fn advance_active_budget(
+    spent: Duration,
+    step: Duration,
+    was_waiting_for_user: bool,
+    waiting_for_user: bool,
+) -> Duration {
+    if was_waiting_for_user || waiting_for_user {
         spent
     } else {
         spent.saturating_add(step)
@@ -269,6 +275,12 @@ pub fn start_headless_background_completion<R: Runtime>(
     Ok(BackgroundCompletionResult::new(session_id, true))
 }
 
+enum BackgroundCompletionEnd<'a> {
+    Idle(&'a SidecarSessionSnapshot),
+    ActiveTimeout,
+    Unreachable,
+}
+
 /// Polling loop that runs in a background thread.
 /// Checks session state every BG_POLL_INTERVAL_SECS until AI finishes,
 /// then removes the BackgroundCompletion owner (which may stop the Sidecar).
@@ -288,40 +300,14 @@ fn poll_background_completion<R: Runtime>(
     let bg_owner = SidecarOwner::BackgroundCompletion(session_id.to_string());
     let mut consecutive_http_failures: u32 = 0;
     let mut expected_generation = initial_generation;
-    // Active time spent, and whether the latest current-generation snapshot
-    // reported a human wait (the interval just slept is attributed to it).
+    // Count intervals observed active on the current generation. Keep spent
+    // time across a replacement, but never carry its predecessor's wait state.
     let mut active_spent = Duration::ZERO;
     let mut waiting_for_user = false;
     const MAX_HTTP_FAILURES: u32 = 3;
 
     loop {
         thread::sleep(poll_interval);
-        active_spent = advance_active_budget(active_spent, poll_interval, waiting_for_user);
-
-        // Safety budget (active work only)
-        if active_spent > max_duration {
-            ulog_warn!(
-                "[bg-completion] Session {} hit safety timeout ({} min of active work), stopping",
-                session_id,
-                BG_MAX_DURATION_SECS / 60
-            );
-            let sidecar_stopped = match release_session_sidecar_from_blocking_thread(
-                manager, session_id, &bg_owner,
-            ) {
-                Ok(stopped) => stopped,
-                Err(error) => {
-                    ulog_error!(
-                        "[bg-completion] Failed to release timed-out owner for session {}: {}",
-                        session_id,
-                        error
-                    );
-                    false
-                }
-            };
-            finish_background_completion(app_handle, session_id, sidecar_stopped);
-            return;
-        }
-
         let binding = {
             let mut manager_guard = match manager.lock() {
                 Ok(g) => g,
@@ -356,6 +342,7 @@ fn poll_background_completion<R: Runtime>(
             );
             expected_generation = Some(binding.generation);
             consecutive_http_failures = 0;
+            waiting_for_user = false;
         }
 
         // Check session state via HTTP (lock released, no contention), then
@@ -375,126 +362,113 @@ fn poll_background_completion<R: Runtime>(
             continue;
         }
 
-        match snapshot {
-            Some(ref snapshot) if snapshot.is_busy() => {
+        let end = match snapshot.as_ref() {
+            Some(snapshot) if snapshot.is_busy() => {
                 consecutive_http_failures = 0;
-                waiting_for_user = snapshot.waiting_for_user;
-                ulog_debug!(
-                    "[bg-completion] Session {} still active (state: {}), continuing poll",
-                    session_id,
-                    snapshot.session_state
+                // A permission prompt may have started during this exact
+                // interval. Inspect the new snapshot before deciding to stop.
+                active_spent = advance_active_budget(
+                    active_spent,
+                    poll_interval,
+                    waiting_for_user,
+                    snapshot.waiting_for_user,
                 );
-                continue;
-            }
-            Some(snapshot) => {
-                let completion_identity = snapshot
-                    .completion_terminal
-                    .as_ref()
-                    .map(|terminal| (terminal.session_id.as_str(), terminal.turn_id.as_str()));
-                let release = manager.lock().ok().map(|mut manager_guard| {
-                    manager_guard.release_background_owner_if_current(
+                waiting_for_user = snapshot.waiting_for_user;
+                if waiting_for_user || active_spent <= max_duration {
+                    ulog_debug!(
+                        "[bg-completion] Session {} still active (state: {}), continuing poll",
                         session_id,
-                        &bg_owner,
-                        binding,
-                        completion_identity,
-                    )
-                });
-                match release {
-                    Some(BackgroundOwnerRelease::Released {
-                        sidecar_stopped,
-                        completion_claim,
-                        drain,
-                    }) => {
-                        if let Err(error) = finish_session_owner_release(
-                            manager,
-                            SessionOwnerRelease {
-                                removed: true,
-                                stopped: sidecar_stopped,
-                                drain,
-                            },
-                        ) {
-                            ulog_error!(
-                                "[bg-completion] Failed to finish owner retirement for session {}: {}",
-                                session_id,
-                                error
-                            );
-                            return;
-                        }
-                        ulog_info!(
-                            "[bg-completion] Session {} finished on generation {} (state: {})",
-                            session_id,
-                            binding.generation,
-                            snapshot.session_state
-                        );
-                        if let (Some(terminal), Some(claim)) =
-                            (snapshot.completion_terminal, completion_claim)
-                        {
-                            crate::notification::submit_session_completion(
-                                app_handle, terminal, claim,
-                            );
-                        }
-                        finish_background_completion(app_handle, session_id, sidecar_stopped);
-                        return;
-                    }
-                    Some(BackgroundOwnerRelease::Stale) => {
-                        consecutive_http_failures = 0;
-                        continue;
-                    }
-                    Some(BackgroundOwnerRelease::Gone) | None => return,
+                        snapshot.session_state
+                    );
+                    continue;
                 }
+                BackgroundCompletionEnd::ActiveTimeout
             }
+            Some(snapshot) => BackgroundCompletionEnd::Idle(snapshot),
             None => {
                 consecutive_http_failures += 1;
-                if consecutive_http_failures >= MAX_HTTP_FAILURES {
-                    let release = manager.lock().ok().map(|mut manager_guard| {
-                        manager_guard.release_background_owner_if_current(
-                            session_id, &bg_owner, binding, None,
-                        )
-                    });
-                    match release {
-                        Some(BackgroundOwnerRelease::Released {
-                            sidecar_stopped,
-                            drain,
-                            ..
-                        }) => {
-                            if let Err(error) = finish_session_owner_release(
-                                manager,
-                                SessionOwnerRelease {
-                                    removed: true,
-                                    stopped: sidecar_stopped,
-                                    drain,
-                                },
-                            ) {
-                                ulog_error!(
-                                    "[bg-completion] Failed to finish unreachable owner retirement for session {}: {}",
-                                    session_id,
-                                    error
-                                );
-                                return;
-                            }
-                            ulog_warn!(
-                                "[bg-completion] Session {} generation {} HTTP unreachable {} consecutive times, giving up",
-                                session_id, binding.generation, consecutive_http_failures
-                            );
-                            finish_background_completion(app_handle, session_id, sidecar_stopped);
-                            return;
-                        }
-                        Some(BackgroundOwnerRelease::Stale) => {
-                            consecutive_http_failures = 0;
-                            continue;
-                        }
-                        Some(BackgroundOwnerRelease::Gone) | None => return,
-                    }
+                if consecutive_http_failures < MAX_HTTP_FAILURES {
+                    ulog_warn!(
+                        "[bg-completion] Session {} HTTP unreachable ({}/{}), retrying...",
+                        session_id,
+                        consecutive_http_failures,
+                        MAX_HTTP_FAILURES
+                    );
+                    continue;
                 }
-                ulog_warn!(
-                    "[bg-completion] Session {} HTTP unreachable ({}/{}), retrying...",
-                    session_id,
-                    consecutive_http_failures,
-                    MAX_HTTP_FAILURES
-                );
+                BackgroundCompletionEnd::Unreachable
+            }
+        };
+
+        let completion_terminal = match &end {
+            BackgroundCompletionEnd::Idle(snapshot) => snapshot.completion_terminal.as_ref(),
+            _ => None,
+        };
+        let completion_identity = completion_terminal
+            .map(|terminal| (terminal.session_id.as_str(), terminal.turn_id.as_str()));
+        let release = manager.lock().ok().map(|mut manager_guard| {
+            manager_guard.release_background_owner_if_current(
+                session_id,
+                &bg_owner,
+                binding,
+                completion_identity,
+            )
+        });
+        let (sidecar_stopped, completion_claim, drain) = match release {
+            Some(BackgroundOwnerRelease::Released {
+                sidecar_stopped,
+                completion_claim,
+                drain,
+            }) => (sidecar_stopped, completion_claim, drain),
+            Some(BackgroundOwnerRelease::Stale) => {
+                consecutive_http_failures = 0;
                 continue;
             }
+            Some(BackgroundOwnerRelease::Gone) | None => return,
+        };
+        if let Err(error) = finish_session_owner_release(
+            manager,
+            SessionOwnerRelease {
+                removed: true,
+                stopped: sidecar_stopped,
+                drain,
+            },
+        ) {
+            ulog_error!(
+                "[bg-completion] Failed to finish owner retirement for session {}: {}",
+                session_id,
+                error
+            );
+            return;
         }
+        match end {
+            BackgroundCompletionEnd::Idle(idle) => {
+                ulog_info!(
+                    "[bg-completion] Session {} finished on generation {} (state: {})",
+                    session_id,
+                    binding.generation,
+                    idle.session_state
+                );
+                let terminal = snapshot.and_then(|snapshot| snapshot.completion_terminal);
+                if let (Some(terminal), Some(claim)) = (terminal, completion_claim) {
+                    crate::notification::submit_session_completion(app_handle, terminal, claim);
+                }
+            }
+            BackgroundCompletionEnd::ActiveTimeout => ulog_warn!(
+                "[bg-completion] Session {} generation {} hit safety timeout ({} min of active work)",
+                session_id,
+                binding.generation,
+                BG_MAX_DURATION_SECS / 60
+            ),
+            BackgroundCompletionEnd::Unreachable => ulog_warn!(
+                "[bg-completion] Session {} generation {} HTTP unreachable {} consecutive times, giving up",
+                session_id,
+                binding.generation,
+                consecutive_http_failures
+            ),
+        }
+        finish_background_completion(app_handle, session_id, sidecar_stopped);
+        return;
     }
 }
 
@@ -580,23 +554,40 @@ mod tests {
         // Two hours blocked on an approval spends nothing.
         let mut spent = Duration::ZERO;
         for _ in 0..(2 * BG_MAX_DURATION_SECS / BG_POLL_INTERVAL_SECS) {
-            spent = advance_active_budget(spent, step, true);
+            spent = advance_active_budget(spent, step, true, true);
         }
         assert_eq!(spent, Duration::ZERO);
 
         // Active work still hits the cap, so a runaway turn is bounded.
         for _ in 0..=(BG_MAX_DURATION_SECS / BG_POLL_INTERVAL_SECS) {
-            spent = advance_active_budget(spent, step, false);
+            spent = advance_active_budget(spent, step, false, false);
         }
         assert!(spent > max);
 
         // Mixed: waiting intervals are excluded from the total.
-        let mixed = [false, true, true, false]
-            .into_iter()
-            .fold(Duration::ZERO, |acc, waiting| {
-                advance_active_budget(acc, step, waiting)
+        let mixed = [false, false, true, true, false, false]
+            .windows(2)
+            .fold(Duration::ZERO, |acc, interval| {
+                advance_active_budget(acc, step, interval[0], interval[1])
             });
         assert_eq!(mixed, step * 2);
+    }
+
+    #[test]
+    fn entering_human_wait_at_the_budget_boundary_preserves_time_to_resume() {
+        let step = Duration::from_secs(BG_POLL_INTERVAL_SECS);
+        let max = Duration::from_secs(BG_MAX_DURATION_SECS);
+        let spent_before_wait = max - step;
+
+        // The prompt appeared after the last running sample. Intervals that
+        // straddle the prompt and approval both retain the remaining budget.
+        let spent = advance_active_budget(spent_before_wait, step * 2, false, true);
+        assert_eq!(spent, spent_before_wait);
+        let spent = advance_active_budget(spent, step, true, false);
+        assert_eq!(spent, spent_before_wait);
+        let spent = advance_active_budget(spent, step, false, false);
+        assert_eq!(spent, max);
+        assert!(advance_active_budget(spent, step, false, false) > max);
     }
 
     #[test]
