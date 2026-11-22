@@ -1,12 +1,12 @@
 ---
-name: myagents-knowledge
+name: agenteam-knowledge
 description: >-
   当前 Session 绑定了知识库，且用户的问题可能要依据库内资料回答时使用：查找、引用或核对资料中的事实、条款、数据、会议记录与文档内容，或把一个本地文件导入知识库。通过内置 `myagents kb` CLI 检索和读取，回答时必须附 `kb://` 引用。不用于本地文件格式转换（用 myagents-anydoc）、长期记忆的记录与整理（用 memory 系列），也不用于知识库的批量整理（由整理 Task 负责）。
 metadata:
   author: MyAgents
 ---
 
-# myagents-knowledge — 检索并引用知识库
+# agenteam-knowledge — 检索并引用知识库
 
 知识库由 Desktop App 持有。当前 Session 能访问哪些库由产品在出生时固化，CLI 自动识别当前 Session；不要也无法自行传入 Session、Workspace 或其他范围参数。
 

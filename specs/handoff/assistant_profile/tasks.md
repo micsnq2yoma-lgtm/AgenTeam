@@ -26,12 +26,12 @@ A1 画像模板与 Skill ──┬─ A2 BOOTSTRAP 与结果回到聊天
                       └─ A3 记忆 Skill 的章节归属与预算
 ```
 
-## A1 画像模板与 `myagents-user-profile` Skill
+## A1 画像模板与 `agenteam-user-profile` Skill
 
-- **必读**：方案 §3；`bundled-skills/myagents-knowledge/SKILL.md` 与 `src/shared/knowledge/skills.test.ts`（Skill 与 CLI 一致性测试的写法）；`src/shared/systemSkills.ts`、`src-tauri/src/commands.rs` 的 `SYSTEM_SKILLS`；`src-tauri/src/workspace_files/memory_rules.rs`；`bundled-skills/myagents-anydoc/SKILL.md`。
+- **必读**：方案 §3；`bundled-skills/agenteam-knowledge/SKILL.md` 与 `src/shared/knowledge/skills.test.ts`（Skill 与 CLI 一致性测试的写法）；`src/shared/systemSkills.ts`、`src-tauri/src/commands.rs` 的 `SYSTEM_SKILLS`；`src-tauri/src/workspace_files/memory_rules.rs`；`bundled-skills/myagents-anydoc/SKILL.md`。
 - **范围**：
   - `src/shared/default-user.md` 与 `bundled-workspaces/atmer/.claude/rules/03-USER.md` 改为方案 §3.1 的八个章节：基本信息、背景、沟通风格、工作方式、偏好、写作风格、近期观察、来源概况。每节下方写一句该节写什么、谁可以写（§3.3），供模型和用户阅读。atmer 模板保留现有的语气与 BOOTSTRAP 提示。
-  - 新增 required system Skill `bundled-skills/myagents-user-profile/SKILL.md`。description 写明"仅当系统或用户明确指定完整名称时使用"，与 memory 系列一致。内容包括：
+  - 新增 required system Skill `bundled-skills/agenteam-user-profile/SKILL.md`。description 写明"仅当系统或用户明确指定完整名称时使用"，与 memory 系列一致。内容包括：
     - 三种模式与选择方式：首次生成、增量更新、定向更正（方案 §3.1）；
     - 读取顺序：先读现有 `03-USER.md`，再读任务说明列出的资料；本地文档用 AnyDoc 转换，URL 用 Runtime 的网页工具；
     - 写作规则：连贯说明、第三人称、用名字、不用性别代词、用户的语言；**只保留理解，不保留原文**（R-A2）；来源概况只写概括；
@@ -53,7 +53,7 @@ A1 画像模板与 Skill ──┬─ A2 BOOTSTRAP 与结果回到聊天
 - **必读**：方案 §3.2；`bundled-workspaces/atmer/.claude/commands/BOOTSTRAP.md`；`bundled-skills/myagents-task-automation/SKILL.md`（`myagents task create-direct`、`run` 与 leaf help）；`src/server/session-engine/task-notification.ts`（Task 结果回到聊天）。
 - **范围**：
   - BOOTSTRAP 在确定助理名字和风格之后，增加"想让我更了解你吗"一步：说明可以给简历、个人网站、作品、几份自己写的文档或一个文件夹，也可以跳过。
-  - 用户给了资料时，助理写一份自包含的 `task.md`（资料清单、首次生成、用户排除的内容、要求加载 `myagents-user-profile`、最终报告格式），用 `myagents task create-direct ... --executionMode once --runMode new-session` 创建并 `run`。参数一律以当前 leaf help 为准。
+  - 用户给了资料时，助理写一份自包含的 `task.md`（资料清单、首次生成、用户排除的内容、要求加载 `agenteam-user-profile`、最终报告格式），用 `myagents task create-direct ... --executionMode once --runMode new-session` 创建并 `run`。参数一律以当前 leaf help 为准。
   - 没有资料时不创建 Task。BOOTSTRAP 之外，用户说"更新我的画像"或"这里写错了"时，同样创建 Task，分别走增量更新和定向更正。
   - Task 结果回到聊天后，助理发一条简短消息：一两句总结、一条从资料中看到的具体观察、一件之后可以帮忙接手的事；有矛盾时向用户确认。
   - 只读取用户明确给出的文件、文件夹和 URL（R-A1）。

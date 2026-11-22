@@ -60,8 +60,9 @@ pub const REQUIRED_SYSTEM_SKILLS: &[&str] = &[
     "myagents-speech-recognition",
     "myagents-task-automation",
     "myagents-docs",
-    "myagents-knowledge",
-    "myagents-knowledge-curator",
+    "agenteam-knowledge",
+    "agenteam-knowledge-curator",
+    "agenteam-user-profile",
 ];
 
 pub fn is_required_system_skill(name: &str) -> bool {
@@ -93,7 +94,7 @@ mod tests {
         let root = tempfile::tempdir().expect("tempdir");
         fs::write(
             root.path().join("skills-config.json"),
-            r#"{"disabled":["myagents-task-alignment","myagents-memory-update","myagents-memory-gardener","myagents-memory-molt","myagents-cli","myagents-anydoc","myagents-speech-recognition","myagents-task-automation","myagents-docs","myagents-knowledge","myagents-knowledge-curator","ordinary-skill"]}"#,
+            r#"{"disabled":["myagents-task-alignment","myagents-memory-update","myagents-memory-gardener","myagents-memory-molt","myagents-cli","myagents-anydoc","myagents-speech-recognition","myagents-task-automation","myagents-docs","agenteam-knowledge","agenteam-knowledge-curator","agenteam-user-profile","ordinary-skill"]}"#,
         )
         .expect("write skills config");
 

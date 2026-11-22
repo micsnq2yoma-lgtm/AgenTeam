@@ -1,27 +1,40 @@
-# USER.md - About Your Human
+# USER.md - 关于用户
 
-Use this file to capture stable context about the user. Keep it respectful, concise, and useful for future work.
+这份文件记录对用户稳定、可重复使用的了解。保持尊重、简洁，对以后的工作有用；不要把它写成对用户的档案。章节标题固定不变，内容用用户自己的语言写。每个章节下面的提示说明这一节写什么、由谁来写。
 
-## Profile
+## 基本信息
 
-- Name:
-- Timezone:
-- Preferred language:
-- Preferred form of address:
+<!-- 写：称呼、名字、语言、时区。由：用户本人或首次对话填写。 -->
 
-## Working Preferences
+- 名字：
+- 称呼：
+- 语言：
+- 时区：
 
-- Communication style:
-- Decision style:
-- Level of detail:
-- Things to avoid:
+## 背景
 
-## Stable Context
+<!-- 写：现在做什么——组织、产品或项目、职责、合作方、进展，以及简要的过往经历。由：用户资料整理（agenteam-user-profile）。 -->
 
-- Roles, projects, and responsibilities that often matter:
-- Long-running goals or themes:
-- Important constraints:
+## 沟通风格
 
-## Observations
+<!-- 写：语气、正式程度、直接程度、开场与收尾习惯、对不同对象的差异，并说明这些如何影响回复。由：用户资料整理。 -->
 
-Add durable observations only when they have repeated value. Avoid turning raw conversation logs into a dossier.
+## 工作方式
+
+<!-- 写：如何开始任务、节奏、决策依据、协作与交接、审阅与交付方式。由：用户资料整理。 -->
+
+## 偏好
+
+<!-- 写：长期稳定的信息、输出、协作、工具偏好。由：用户资料整理；记忆整理时把"近期观察"里被反复验证的内容并入这里。 -->
+
+## 写作风格
+
+<!-- 写：句子节奏、段落、用词、标点和格式习惯，用于以用户的口吻起草。由：用户资料整理。 -->
+
+## 近期观察
+
+<!-- 写：日常对话中新学到、尚未归入上面各节的内容，每条带日期。由：日常记忆更新只追加到这里；整理时并入对应章节并删除已并入的条目。 -->
+
+## 来源概况
+
+<!-- 写：画像用过哪些资料，只做概括（例如"个人网站与简历，2026-11"），不放原文。由：用户资料整理。 -->

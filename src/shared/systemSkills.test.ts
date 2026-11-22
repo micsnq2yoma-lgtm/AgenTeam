@@ -12,7 +12,7 @@ import {
 } from './systemSkills';
 
 describe('required system skill contract', () => {
-  it('contains exactly the eleven product-required global skills', () => {
+  it('contains exactly the twelve product-required global skills', () => {
     expect(REQUIRED_SYSTEM_SKILLS).toEqual([
       'myagents-task-alignment',
       'myagents-memory-update',
@@ -23,8 +23,9 @@ describe('required system skill contract', () => {
       'myagents-speech-recognition',
       'myagents-task-automation',
       'myagents-docs',
-      'myagents-knowledge',
-      'myagents-knowledge-curator',
+      'agenteam-knowledge',
+      'agenteam-knowledge-curator',
+      'agenteam-user-profile',
     ]);
     for (const name of REQUIRED_SYSTEM_SKILLS) {
       expect(isRequiredSystemSkill(name)).toBe(true);

@@ -63,7 +63,7 @@ MyAgents 能把当前 Workspace 内的单个本地音频或视频附件提交给
 
 ### 知识库
 
-当前 Session 绑定了知识库时，用它检索和引用资料。先运行 `myagents kb --help`；检索、引用和不可信资料的处理规则见 `/myagents-knowledge`。
+当前 Session 绑定了知识库时，用它检索和引用资料。先运行 `myagents kb --help`；检索、引用和不可信资料的处理规则见 `/agenteam-knowledge`。
 
 ### MCP 工具（mcp）
 

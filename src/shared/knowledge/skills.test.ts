@@ -8,8 +8,8 @@ const read = (relative: string) =>
   readFileSync(resolve(process.cwd(), relative), 'utf8').replace(/\r\n/g, '\n');
 
 const SKILLS = {
-  knowledge: read('bundled-skills/myagents-knowledge/SKILL.md'),
-  curator: read('bundled-skills/myagents-knowledge-curator/SKILL.md'),
+  knowledge: read('bundled-skills/agenteam-knowledge/SKILL.md'),
+  curator: read('bundled-skills/agenteam-knowledge-curator/SKILL.md'),
 };
 
 const camel = (flag: string) => flag.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
@@ -70,13 +70,13 @@ describe('knowledge Skills track the K5 CLI contract', () => {
     expect(description(SKILLS.knowledge)).toMatch(/myagents-anydoc/);
     expect(description(SKILLS.knowledge)).toMatch(/memory/);
     expect(description(SKILLS.knowledge)).toMatch(/kb:\/\//);
-    expect(description(SKILLS.curator)).toMatch(/仅当系统或用户明确指定完整名称 `myagents-knowledge-curator`/);
+    expect(description(SKILLS.curator)).toMatch(/仅当系统或用户明确指定完整名称 `agenteam-knowledge-curator`/);
   });
 });
 
 describe('library rule templates', () => {
-  const rules = read('bundled-skills/myagents-knowledge-curator/references/ORGANIZE_RULES.md');
-  const schema = read('bundled-skills/myagents-knowledge-curator/references/WIKI_SCHEMA.md');
+  const rules = read('bundled-skills/agenteam-knowledge-curator/references/ORGANIZE_RULES.md');
+  const schema = read('bundled-skills/agenteam-knowledge-curator/references/WIKI_SCHEMA.md');
 
   it('lists categories in the one-per-line form the curator and Store rely on', () => {
     const section = rules.split('## 分类体系')[1].split('\n## ')[0];

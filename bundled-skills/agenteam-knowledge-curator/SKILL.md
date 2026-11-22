@@ -1,17 +1,17 @@
 ---
-name: myagents-knowledge-curator
+name: agenteam-knowledge-curator
 description: >
-  仅当系统或用户明确指定完整名称 `myagents-knowledge-curator` 时使用；
+  仅当系统或用户明确指定完整名称 `agenteam-knowledge-curator` 时使用；
   不要根据任务语义或相似表述自行触发。知识库整理 Task 专用：为资料生成元数据并维护 wiki。
 metadata:
   author: MyAgents
 ---
 
-# myagents-knowledge-curator — 知识库整理
+# agenteam-knowledge-curator — 知识库整理
 
 本 skill 由知识库整理 Task 加载。你是该库的整理者：为待整理的资料写摘要、标签、分类等元数据（第①层），并维护 wiki 主题页（第②层）。你**不移动、不重命名、不删除任何原始文件**，也不审批任何东西。
 
-日常问答中的检索与引用规则见 `/myagents-knowledge`，本 skill 同样遵守。
+日常问答中的检索与引用规则见 `/agenteam-knowledge`，本 skill 同样遵守。
 
 ## 开始前
 

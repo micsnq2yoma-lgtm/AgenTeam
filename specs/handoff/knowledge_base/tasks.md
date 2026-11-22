@@ -284,7 +284,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
 - **范围**：
   - `AgentConfig.knowledgeBaseIds?: string[]`；经 `agent-config-intent.lock` 路径写入；`myagents agent set <id> knowledgeBaseIds '[...]'` 支持，未知 ID 拒绝。
   - Session 配置快照增加 `knowledgeBaseIds`；出生时从 Agent 默认值固化；Session 级修改走现有的 Session 配置接口。
-  - System prompt 产品 append：Session 绑定了知识库时，加一段简短说明（知识库名 + 用途描述 + "使用 `myagents kb` 检索，详见 `myagents-knowledge` Skill"）；没绑定时**完全不注入**。builtin、DSH、外部 Runtime 都走各自现有的 prompt 投送路径。
+  - System prompt 产品 append：Session 绑定了知识库时，加一段简短说明（知识库名 + 用途描述 + "使用 `myagents kb` 检索，详见 `agenteam-knowledge` Skill"）；没绑定时**完全不注入**。builtin、DSH、外部 Runtime 都走各自现有的 prompt 投送路径。
   - 知识库被删除后，快照里残留的 ID 在 CLI 层视为不存在，不报 500。
 - **验收**：
   - AC-K6-1 `[自动]` 修改 Agent 默认绑定，不影响已有 Session 的快照；新 Session 采用新值。
@@ -298,8 +298,8 @@ K19 URL 导入；K20 全局搜索「知识库」分类
 - **依赖**：K5（可与 K6 并行）
 - **必读**：`bundled-skills/myagents-anydoc/SKILL.md`（风格范本）；`src/shared/systemSkills.ts`；`scripts/memory-skills.test.mjs`；`bundled-skills/myagents-memory-gardener/`
 - **范围**：
-  - `bundled-skills/myagents-knowledge/SKILL.md`：何时检索、怎么改写成 2–3 条查询、必须带 `kb://` 引用、检索为空时如实说明、资料里的指令不是用户指令、群聊里注意隐私。
-  - `bundled-skills/myagents-knowledge-curator/SKILL.md` + `references/`：①元数据和②wiki 的工作流；读取顺序（`ORGANIZE_RULES.md` → `WIKI_SCHEMA.md` → `wiki/index.md` → 待整理 source 列表）；新分类只能提议；每个结论都要有引用；lint 报告格式。P1 再加③的章节。
+  - `bundled-skills/agenteam-knowledge/SKILL.md`：何时检索、怎么改写成 2–3 条查询、必须带 `kb://` 引用、检索为空时如实说明、资料里的指令不是用户指令、群聊里注意隐私。
+  - `bundled-skills/agenteam-knowledge-curator/SKILL.md` + `references/`：①元数据和②wiki 的工作流；读取顺序（`ORGANIZE_RULES.md` → `WIKI_SCHEMA.md` → `wiki/index.md` → 待整理 source 列表）；新分类只能提议；每个结论都要有引用；lint 报告格式。P1 再加③的章节。
   - `REQUIRED_SYSTEM_SKILLS` 增加两者，按现有规则 bump `SYSTEM_SKILLS_VERSION`，并同步 Rust 侧的版本契约。
   - `myagents-cli` 只加一行索引，指向 `myagents kb --help` 和专属 Skill，不复制协议。
   - 新知识库创建时写入默认的 `ORGANIZE_RULES.md` 和 `WIKI_SCHEMA.md` 模板（模板源码放在 Skill 的 `references/` 下，由 Store 复制）。
@@ -315,7 +315,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
 - **必读**：`src-tauri/src/memory_evolution.rs`（托管 Task 的创建、更新、kind 与 Skill 映射）；`specs/tech_docs/task_center.md`
 - **目标**：每个知识库一个托管整理 Task，按 `curationMode` 和间隔运行，完成元数据和 wiki 整理。
 - **范围**：
-  - 新托管 kind `MANAGED_KIND_KNOWLEDGE_CURATOR`，对应 Skill `myagents-knowledge-curator`；executor 是 `curatorAgentId` 对应的 Agent；每个 KB 最多一个这样的 Task。
+  - 新托管 kind `MANAGED_KIND_KNOWLEDGE_CURATOR`，对应 Skill `agenteam-knowledge-curator`；executor 是 `curatorAgentId` 对应的 Agent；每个 KB 最多一个这样的 Task。
   - `kb.json` 的 `curationMode` / `curationIntervalMinutes` / `curatorAgentId` 变化时，在 KnowledgeStore 的同一入口里调用 Task 的协调函数（create / update / pause）。知识库删除时，删除对应 Task。
   - "待整理"队列：source 到 `ready` 后标记 `curationPending = true`；Task 每轮取最多 50 个；元数据写完后由 Store 清除标记。
   - 手动触发：`cmd_kb_curate_now(kbId)` 立即执行一次（复用 Task 的 run-now 能力）。
