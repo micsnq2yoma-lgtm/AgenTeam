@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -48,6 +48,19 @@ preface line
 
 - (2026-11-01) 喜欢表格
 `;
+
+// Widens the window between reading the file and writing it, so a missing or unshared lock shows up every time.
+const SLOW_READ_HARNESS = [
+  'import sys, time, runpy, pathlib',
+  'real = pathlib.Path.read_bytes',
+  'def slow(self):',
+  '    data = real(self)',
+  "    if self.name == 'USER.md': time.sleep(0.4)",
+  '    return data',
+  'pathlib.Path.read_bytes = slow',
+  'sys.argv = sys.argv[1:]',
+  'runpy.run_path(sys.argv[0], run_name="__main__")',
+].join('\n');
 
 test('--show reports the file hash and the section titles', t => {
   const w = workspace(t, DOC);
@@ -148,7 +161,7 @@ test('CRLF files keep their line endings and no temp file is left behind', t => 
   assert.equal(edit(w, [{ op: 'append', heading: '近期观察', content: '- new' }]).status, 0);
   const after = readFileSync(w.file, 'utf8');
   assert.ok(!/[^\r]\n/.test(after), 'every newline is CRLF');
-  assert.deepEqual(readdirSync(w.dir).sort(), ['USER.md', 'edits.json']);
+  assert.deepEqual(readdirSync(w.dir).sort(), ['.USER.md.lock', 'USER.md', 'edits.json']);
 });
 
 test('works on the shipped USER template: chapters keep their ownership hints', t => {
@@ -202,18 +215,7 @@ test('two writers from the same version cannot both succeed (no lost update)', a
     writeFileSync(edits, JSON.stringify([{ op: 'append', heading: '近期观察', content: `- (2026-11-22) ${marker}` }]));
     return new Promise(done => {
       // Widen the window between reading the file and writing it, so a missing lock shows up every time.
-      const harness = [
-        'import sys, time, runpy, pathlib',
-        'real = pathlib.Path.read_bytes',
-        'def slow(self):',
-        '    data = real(self)',
-        "    if self.name == 'USER.md': time.sleep(0.4)",
-        '    return data',
-        'pathlib.Path.read_bytes = slow',
-        'sys.argv = sys.argv[1:]',
-        'runpy.run_path(sys.argv[0], run_name="__main__")',
-      ].join('\n');
-      const child = spawn(python, ['-B', '-c', harness, SCRIPT, '--file', w.file, '--edits', edits, '--base-sha', base], { stdio: 'ignore' });
+      const child = spawn(python, ['-B', '-c', SLOW_READ_HARNESS, SCRIPT, '--file', w.file, '--edits', edits, '--base-sha', base], { stdio: 'ignore' });
       child.on('close', code => done(code));
     });
   };
@@ -223,7 +225,6 @@ test('two writers from the same version cannot both succeed (no lost update)', a
     assert.deepEqual([...codes].sort(), [0, 2], `round ${round}: ${codes}`);
     const text = readFileSync(w.file, 'utf8');
     assert.equal(['alpha', 'beta'].filter(name => text.includes(name)).length, 1);
-    assert.equal(readdirSync(w.dir).filter(name => name.endsWith('.lock')).length, 0, 'no lock file inside the workspace');
   }
 });
 
@@ -272,7 +273,11 @@ test('five writers from one version: exactly one succeeds, however they interlea
     const edits = join(w.dir, `e-${n}.json`);
     writeFileSync(edits, JSON.stringify([{ op: 'append', heading: '近期观察', content: `- (2026-11-22) writer${n}` }]));
     return new Promise(done => {
-      const child = spawn(python, ['-B', SCRIPT, '--file', w.file, '--edits', edits, '--base-sha', base], { stdio: 'ignore' });
+      // Each writer has its own temp directory, as separate sandboxes do: the lock must not depend on it.
+      const tmp = join(w.dir, `tmp-${n}`);
+      mkdirSync(tmp, { recursive: true });
+      const env = { ...process.env, TMPDIR: tmp, TEMP: tmp, TMP: tmp };
+      const child = spawn(python, ['-B', '-c', SLOW_READ_HARNESS, SCRIPT, '--file', w.file, '--edits', edits, '--base-sha', base], { stdio: 'ignore', env });
       child.on('close', done);
     });
   };

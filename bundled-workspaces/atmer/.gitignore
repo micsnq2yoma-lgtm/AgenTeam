@@ -21,3 +21,6 @@ workspace/
 
 # Credentials (never commit secrets)
 .config/
+
+# Edit-lock files kept beside shared memory files
+.*.lock

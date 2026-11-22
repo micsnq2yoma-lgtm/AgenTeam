@@ -170,9 +170,10 @@ LOCK_WAIT_SECONDS = float(os.environ.get("SECTION_EDIT_LOCK_WAIT", "15"))
 
 
 def lock_path(path: Path) -> Path:
-    """One lock file per target, kept outside the workspace so nothing in it is ever listed or loaded."""
-    key = hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()[:24]
-    return Path(tempfile.gettempdir()) / f"agenteam-section-edit-{key}.lock"
+    """The lock sits beside the file it protects. It must not depend on anything that can differ
+    between callers (a per-process temp directory, the working directory): every writer of one file
+    has to reach the same lock. Only `.md` files are loaded as rules, so this dotfile is inert."""
+    return path.resolve().with_name(f".{path.name}.lock")
 
 
 def try_lock(handle) -> bool:
@@ -210,7 +211,8 @@ def unlock(handle) -> None:
 def file_lock(path: Path):
     """Exclusive OS-level lock (flock / LockFileEx). The kernel drops it when the holder exits or
     crashes, so there is no stale-lock reclaiming and nothing to race on. The lock file itself is
-    never deleted: deleting a lock file is what lets two processes hold "the" lock."""
+    never deleted: deleting a lock file is what lets two processes hold "the" lock. A caller that
+    cannot create it (read-only directory) gets exit 5 instead of an unlocked write."""
     handle = open(lock_path(path), "a+b")
     try:
         deadline = time.monotonic() + LOCK_WAIT_SECONDS
