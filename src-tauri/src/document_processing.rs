@@ -7,7 +7,7 @@ use crate::local_inference::{
     LocalInferenceRuntimeRegistry,
 };
 use crate::process_cmd;
-use crate::workspace_files::path_safety::open_regular_file_no_follow;
+use crate::workspace_files::path_safety::{file_is_in_use, open_regular_file_no_follow_classified};
 use chrono::{DateTime, Duration, Local, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -24,8 +24,8 @@ use std::time::Duration as StdDuration;
 use tokio::sync::Notify;
 
 const QUEUE_LIMIT: usize = 16;
-const MAX_SOURCE_BYTES: u64 = 512 * 1024 * 1024;
-const MAX_OUTPUT_BYTES: u64 = 128 * 1024 * 1024;
+pub(crate) const MAX_SOURCE_BYTES: u64 = 512 * 1024 * 1024;
+pub(crate) const MAX_OUTPUT_BYTES: u64 = 128 * 1024 * 1024;
 const MIN_FREE_RESERVE_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_CONTROL_FRAME_BYTES: usize = 1024 * 1024;
 const MAX_WORKER_STDERR_DIAGNOSTIC_BYTES: usize = 64 * 1024;
@@ -314,9 +314,47 @@ impl DocumentServiceError {
     }
 }
 
+enum PendingInput {
+    Original(same_file::Handle),
+    Snapshot(SourceVersion),
+}
+
+impl PendingInput {
+    /// The original handle is released when the first private copy succeeds.
+    /// A later Worker generation can only reopen that copy.
+    fn prepare(
+        &mut self,
+        path: &Path,
+        size: u64,
+        mut checkpoint: impl FnMut() -> Result<(), &'static str>,
+    ) -> Result<Option<String>, String> {
+        let version = || -> Result<SourceVersion, String> {
+            reject_link_ancestors(path, false).map_err(|_| "DOCUMENT_INPUT_READ_FAILED")?;
+            let file = open_regular_file_no_follow_classified(path, "document snapshot")
+                .map_err(|_| "DOCUMENT_INPUT_READ_FAILED")?;
+            Ok(source_version(
+                &file.metadata().map_err(|_| "DOCUMENT_INPUT_READ_FAILED")?,
+            ))
+        };
+        match self {
+            Self::Original(handle) => {
+                let hash = copy_source(handle.as_file_mut(), path, size, checkpoint)?;
+                *self = Self::Snapshot(version()?);
+                Ok(Some(hash))
+            }
+            Self::Snapshot(expected) => {
+                checkpoint()?;
+                if version()? != *expected {
+                    return Err("DOCUMENT_SOURCE_CHANGED".into());
+                }
+                Ok(None)
+            }
+        }
+    }
+}
+
 struct PendingJob {
-    source: same_file::Handle,
-    source_version: SourceVersion,
+    input: PendingInput,
     password: Option<SecretString>,
     private_dir: PathBuf,
     staging_dir: PathBuf,
@@ -330,6 +368,10 @@ struct SourceVersion {
     len: u64,
     modified: Option<std::time::SystemTime>,
     created: Option<std::time::SystemTime>,
+    #[cfg(unix)]
+    device: u64,
+    #[cfg(unix)]
+    inode: u64,
     #[cfg(unix)]
     ctime: i64,
     #[cfg(unix)]
@@ -566,14 +608,7 @@ impl DocumentProcessingManager {
                 "Choose one supported local document and retry.",
             ));
         }
-        let source =
-            open_regular_file_no_follow(&source_path, "document source").map_err(|_| {
-                DocumentServiceError::new(
-                    "DOCUMENT_SOURCE_PERMISSION_DENIED",
-                    "The source file cannot be opened without following links.",
-                    "Check file permissions and retry.",
-                )
-            })?;
+        let source = open_document_source(&source_path)?;
         let source_metadata = source.metadata().map_err(|_| {
             DocumentServiceError::new(
                 "DOCUMENT_SOURCE_PERMISSION_DENIED",
@@ -588,7 +623,6 @@ impl DocumentProcessingManager {
                 "Choose a smaller source file and retry.",
             ));
         }
-        let source_version = source_version(&source_metadata);
         let source = same_file::Handle::from_file(source).map_err(|_| {
             DocumentServiceError::new(
                 "DOCUMENT_SOURCE_PERMISSION_DENIED",
@@ -745,8 +779,7 @@ impl DocumentProcessingManager {
         state.pending.insert(
             job_id.clone(),
             PendingJob {
-                source,
-                source_version,
+                input: PendingInput::Original(source),
                 password: request.password,
                 private_dir,
                 staging_dir,
@@ -1001,12 +1034,9 @@ impl DocumentProcessingManager {
             .checked_add(std::time::Duration::from_secs(JOB_DEADLINE_SECONDS))
             .unwrap_or_else(std::time::Instant::now);
         let input_path = pending.private_dir.join("input").join("source.bin");
-        let source_hash = match copy_source(
-            pending.source.as_file_mut(),
-            &input_path,
-            job.source.size_bytes,
-            &pending.source_version,
-            || {
+        match pending
+            .input
+            .prepare(&input_path, job.source.size_bytes, || {
                 if std::time::Instant::now() >= deadline {
                     Err("DOCUMENT_TIMEOUT")
                 } else if self.job_can_start_worker(&job.job_id, generation) {
@@ -1014,9 +1044,9 @@ impl DocumentProcessingManager {
                 } else {
                     Err("DOCUMENT_CANCELLED")
                 }
-            },
-        ) {
-            Ok(hash) => hash,
+            }) {
+            Ok(Some(hash)) => self.update_source_hash(&job.job_id, hash),
+            Ok(None) => {}
             Err(code) => {
                 if code == "DOCUMENT_CANCELLED" {
                     self.finish_cancelled_if_needed(&job.job_id, generation);
@@ -1031,8 +1061,7 @@ impl DocumentProcessingManager {
                 cleanup_pending(&pending);
                 return;
             }
-        };
-        self.update_source_hash(&job.job_id, source_hash);
+        }
         // Only process birth is covered by the app-wide lifecycle permit.
         // Admission copy is cancellable owner work and must never make update
         // or App exit wait before the Manager has a ChildTree it can settle.
@@ -2111,19 +2140,83 @@ fn is_worker_failure_code(code: &str) -> bool {
     )
 }
 
+fn open_document_source(path: &Path) -> Result<File, DocumentServiceError> {
+    open_regular_file_no_follow_classified(path, "document source").map_err(|error| {
+        if error.is_in_use() {
+            return DocumentServiceError::new(
+                "DOCUMENT_SOURCE_IN_USE",
+                "The source file is in use and cannot be copied.",
+                "Close the application writing the file and submit it again.",
+            );
+        }
+        DocumentServiceError::new(
+            "DOCUMENT_SOURCE_PERMISSION_DENIED",
+            "The source file cannot be opened without following links.",
+            "Check file permissions and retry.",
+        )
+    })
+}
+
+fn source_read_error(error: std::io::Error) -> &'static str {
+    if file_is_in_use(&error) {
+        "DOCUMENT_SOURCE_IN_USE"
+    } else {
+        "DOCUMENT_INPUT_READ_FAILED"
+    }
+}
+
+#[cfg(windows)]
+fn open_snapshot_reader(source: &File) -> Result<File, &'static str> {
+    use std::os::windows::io::{AsRawHandle, FromRawHandle};
+    use windows_sys::Win32::Foundation::{GENERIC_READ, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::Storage::FileSystem::{ReOpenFile, FILE_SHARE_READ};
+
+    // Reopen the original kernel file object, never a possibly replaced path.
+    // The read-only sharing restriction lasts exactly as long as this File.
+    let handle = unsafe { ReOpenFile(source.as_raw_handle(), GENERIC_READ, FILE_SHARE_READ, 0) };
+    if handle == INVALID_HANDLE_VALUE {
+        return Err(source_read_error(std::io::Error::last_os_error()));
+    }
+    // ReOpenFile returned a new owned handle; File closes it on every exit.
+    Ok(unsafe { File::from_raw_handle(handle) })
+}
+
+/// Snapshot a held source into a fresh file in the Knowledge Store's private
+/// staging directory, with the same byte, version and digest checks as AnyDoc.
+pub(crate) fn copy_knowledge_original(
+    source: &mut File,
+    destination: &Path,
+    expected_size: u64,
+) -> Result<String, String> {
+    let metadata = source
+        .metadata()
+        .map_err(|_| "DOCUMENT_INPUT_READ_FAILED")?;
+    if !metadata.is_file() || metadata.len() != expected_size {
+        return Err("DOCUMENT_SOURCE_CHANGED".into());
+    }
+    if expected_size > MAX_SOURCE_BYTES {
+        return Err("DOCUMENT_RESOURCE_LIMIT".into());
+    }
+    copy_source(source, destination, expected_size, || Ok(()))
+}
+
 fn copy_source(
     source: &mut File,
     destination: &Path,
     expected_size: u64,
-    expected_version: &SourceVersion,
     mut checkpoint: impl FnMut() -> Result<(), &'static str>,
 ) -> Result<String, String> {
-    if source_version(
+    #[cfg(windows)]
+    let mut locked = open_snapshot_reader(source)?;
+    #[cfg(windows)]
+    let source = &mut locked;
+    // Queuing pins identity. The first background read defines content.
+    let expected_version = source_version(
         &source
             .metadata()
             .map_err(|_| "DOCUMENT_INPUT_READ_FAILED")?,
-    ) != *expected_version
-    {
+    );
+    if expected_version.len != expected_size {
         return Err("DOCUMENT_SOURCE_CHANGED".into());
     }
     source
@@ -2139,15 +2232,16 @@ fn copy_source(
     let mut buffer = [0_u8; 128 * 1024];
     loop {
         checkpoint().map_err(str::to_string)?;
-        let read = source
-            .read(&mut buffer)
-            .map_err(|_| "DOCUMENT_INPUT_READ_FAILED".to_string())?;
+        let read = source.read(&mut buffer).map_err(source_read_error)?;
         if read == 0 {
             break;
         }
         total += read as u64;
         if total > MAX_SOURCE_BYTES {
             return Err("DOCUMENT_RESOURCE_LIMIT".into());
+        }
+        if total > expected_size {
+            return Err("DOCUMENT_SOURCE_CHANGED".into());
         }
         output
             .write_all(&buffer[..read])
@@ -2161,7 +2255,7 @@ fn copy_source(
         &source
             .metadata()
             .map_err(|_| "DOCUMENT_INPUT_READ_FAILED")?,
-    ) != *expected_version
+    ) != expected_version
     {
         return Err("DOCUMENT_SOURCE_CHANGED".into());
     }
@@ -2181,6 +2275,10 @@ fn source_version(metadata: &fs::Metadata) -> SourceVersion {
         len: metadata.len(),
         modified: metadata.modified().ok(),
         created: metadata.created().ok(),
+        #[cfg(unix)]
+        device: metadata.dev(),
+        #[cfg(unix)]
+        inode: metadata.ino(),
         #[cfg(unix)]
         ctime: metadata.ctime(),
         #[cfg(unix)]
@@ -2513,7 +2611,10 @@ fn ensure_free_space(
     Ok(())
 }
 
-fn reject_link_ancestors(path: &Path, allow_missing: bool) -> Result<(), DocumentServiceError> {
+pub(crate) fn reject_link_ancestors(
+    path: &Path,
+    allow_missing: bool,
+) -> Result<(), DocumentServiceError> {
     let mut current = PathBuf::new();
     for component in path.components() {
         match component {
@@ -2624,7 +2725,7 @@ fn looks_like_file_output(path: &Path) -> bool {
         })
 }
 
-fn supported_extension(path: &Path) -> Option<&'static str> {
+pub(crate) fn supported_extension(path: &Path) -> Option<&'static str> {
     match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
         "doc" => Some("doc"),
         "docx" => Some("docx"),
@@ -3210,10 +3311,7 @@ fn prepare_pending_for_retry(pending: &mut PendingJob) -> Result<(), String> {
         sync_directory(parent)
             .map_err(|_| "staging retry reservation was not durable".to_string())?;
     }
-    cleanup_private_input(&pending.private_dir);
-    let input = pending.private_dir.join("input");
-    fs::create_dir(&input).map_err(|_| "private retry input unavailable".to_string())?;
-    set_private_permissions(&input).map_err(|_| "private retry input unavailable".to_string())
+    Ok(())
 }
 
 fn cleanup_private_input(private_dir: &Path) {
@@ -3533,8 +3631,13 @@ fn worker_error(job_id: &str, code: &str, retryable: bool) -> DocumentJobError {
             "Choose a smaller document or split it before retrying.",
             Some("myagents anydoc convert --help"),
         ),
+        "DOCUMENT_SOURCE_IN_USE" => (
+            "The source file is in use and cannot be copied.",
+            "Close the application writing the file and submit it again.",
+            Some("myagents anydoc convert --file <input>"),
+        ),
         "DOCUMENT_SOURCE_CHANGED" | "DOCUMENT_INPUT_READ_FAILED" => (
-            "The source changed or became unreadable while the job was being admitted.",
+            "The source changed or became unreadable while the private snapshot was being copied.",
             "Wait for the source application to finish saving, then submit a new job.",
             Some("myagents anydoc convert --file <input>"),
         ),
@@ -3607,6 +3710,7 @@ fn worker_code_retryable(code: &str) -> bool {
         code,
         "DOCUMENT_PASSWORD_REQUIRED"
             | "DOCUMENT_PASSWORD_INVALID"
+            | "DOCUMENT_SOURCE_IN_USE"
             | "DOCUMENT_SOURCE_CHANGED"
             | "DOCUMENT_INPUT_READ_FAILED"
             | "DOCUMENT_RESOURCE_MISSING"
@@ -3781,51 +3885,127 @@ mod tests {
     }
 
     #[test]
-    fn source_copy_rejects_same_inode_same_size_mutation_before_admission() {
+    fn source_copy_uses_the_version_present_at_the_first_read() {
         let root = tempfile::tempdir().unwrap();
-        let source_path = root.path().join("source.bin");
-        fs::write(&source_path, b"aaaa").unwrap();
-        let mut source = File::open(&source_path).unwrap();
-        let expected = source_version(&source.metadata().unwrap());
+        let path = root.path().join("source.bin");
+        let snapshot = root.path().join("copy.bin");
+        fs::write(&path, b"aaaa").unwrap();
+        let mut source = File::open(&path).unwrap();
+        let mtime = source.metadata().unwrap().modified().unwrap();
 
-        fs::write(&source_path, b"bbbb").unwrap();
-        let error = copy_source(
-            &mut source,
-            &root.path().join("copy.bin"),
-            4,
-            &expected,
-            || Ok(()),
-        )
-        .unwrap_err();
-
-        assert_eq!(error, "DOCUMENT_SOURCE_CHANGED");
+        // Queuing holds a file handle without reading content. Even an edit
+        // with the original modification time belongs to the version we copy.
+        fs::write(&path, b"bbbb").unwrap();
+        OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(mtime)
+            .unwrap();
+        let hash = copy_source(&mut source, &snapshot, 4, || Ok(())).unwrap();
+        assert_eq!(hash, format!("{:x}", Sha256::digest(b"bbbb")));
+        assert_eq!(fs::read(snapshot).unwrap(), b"bbbb");
     }
 
     #[test]
+    fn source_copy_is_independent_of_later_edits() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("source.bin");
+        let snapshot = root.path().join("copy.bin");
+        fs::write(&path, b"snapshot text").unwrap();
+        let mut source = File::open(&path).unwrap();
+        let hash = copy_source(&mut source, &snapshot, 13, || Ok(())).unwrap();
+        fs::write(&path, b"new user text").unwrap();
+        let bytes = fs::read(snapshot).unwrap();
+        assert_eq!(bytes, b"snapshot text");
+        assert_eq!(hash, format!("{:x}", Sha256::digest(&bytes)));
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn source_copy_rejects_same_inode_mutation_during_copy() {
         let root = tempfile::tempdir().unwrap();
-        let source_path = root.path().join("source.bin");
-        fs::write(&source_path, vec![b'a'; 384 * 1024]).unwrap();
-        let mut source = File::open(&source_path).unwrap();
-        let expected = source_version(&source.metadata().unwrap());
+        let path = root.path().join("source.bin");
+        let length = 384 * 1024;
+        fs::write(&path, vec![b'a'; length]).unwrap();
+        let mut source = File::open(&path).unwrap();
         let mut checkpoints = 0;
-
-        let error = copy_source(
+        let result = copy_source(
             &mut source,
             &root.path().join("copy.bin"),
-            expected.len,
-            &expected,
+            length as u64,
             || {
                 checkpoints += 1;
                 if checkpoints == 2 {
-                    fs::write(&source_path, vec![b'b'; 384 * 1024]).unwrap();
+                    fs::write(&path, vec![b'b'; length]).unwrap();
+                    // A deterministic, observable version change on coarse filesystems.
+                    File::open(&path)
+                        .unwrap()
+                        .set_modified(std::time::UNIX_EPOCH)
+                        .unwrap();
                 }
                 Ok(())
             },
-        )
-        .unwrap_err();
+        );
+        assert_eq!(result.unwrap_err(), "DOCUMENT_SOURCE_CHANGED");
+    }
 
-        assert_eq!(error, "DOCUMENT_SOURCE_CHANGED");
+    #[cfg(unix)]
+    #[test]
+    fn source_copy_checks_metadata_after_the_last_data_read() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("source.bin");
+        fs::write(&path, b"data").unwrap();
+        let mut source = File::open(&path).unwrap();
+        let mut checkpoints = 0;
+        let result = copy_source(&mut source, &root.path().join("copy.bin"), 4, || {
+            checkpoints += 1;
+            if checkpoints == 2 {
+                File::open(&path)
+                    .unwrap()
+                    .set_modified(std::time::UNIX_EPOCH)
+                    .unwrap();
+            }
+            Ok(())
+        });
+        assert_eq!(result.unwrap_err(), "DOCUMENT_SOURCE_CHANGED");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn source_copy_refuses_an_existing_writer_and_blocks_writes_until_finished() {
+        use windows_sys::Win32::Foundation::ERROR_SHARING_VIOLATION;
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("source.bin");
+        let snapshot = root.path().join("copy.bin");
+        fs::write(&path, b"data").unwrap();
+        use std::os::windows::fs::OpenOptionsExt;
+        let exclusive = OpenOptions::new()
+            .write(true)
+            .share_mode(0)
+            .open(&path)
+            .unwrap();
+        assert_eq!(
+            open_document_source(&path).unwrap_err().code,
+            "DOCUMENT_SOURCE_IN_USE"
+        );
+        drop(exclusive);
+        let mut source = open_document_source(&path).unwrap();
+        let writer = OpenOptions::new().write(true).open(&path).unwrap();
+        assert_eq!(
+            copy_source(&mut source, &snapshot, 4, || Ok(())).unwrap_err(),
+            "DOCUMENT_SOURCE_IN_USE"
+        );
+        assert!(!snapshot.exists());
+        drop(writer);
+        copy_source(&mut source, &snapshot, 4, || {
+            let err = OpenOptions::new().write(true).open(&path).unwrap_err();
+            assert_eq!(err.raw_os_error(), Some(ERROR_SHARING_VIOLATION as i32));
+            Ok(())
+        })
+        .unwrap();
+        fs::write(&path, b"next").unwrap();
+        assert_eq!(fs::read(snapshot).unwrap(), b"data");
     }
 
     #[test]
@@ -3840,7 +4020,6 @@ mod tests {
             &mut source,
             &root.path().join("copy.bin"),
             expected.len,
-            &expected,
             || Err("DOCUMENT_TIMEOUT"),
         )
         .unwrap_err();
@@ -3864,10 +4043,8 @@ mod tests {
         let source_path = root.path().join("source.bin");
         fs::write(&source_path, b"data").unwrap();
         let source_file = File::open(&source_path).unwrap();
-        let source_version = source_version(&source_file.metadata().unwrap());
         let pending = PendingJob {
-            source: same_file::Handle::from_file(source_file).unwrap(),
-            source_version,
+            input: PendingInput::Original(same_file::Handle::from_file(source_file).unwrap()),
             password: None,
             private_dir,
             staging_dir: staging.clone(),
@@ -3887,18 +4064,19 @@ mod tests {
     }
 
     #[test]
-    fn live_preemption_requeues_exact_document_job_without_partial_staging() {
+    fn live_preemption_requeues_same_job_with_first_snapshot_and_without_partial_staging() {
         let data = tempfile::tempdir().unwrap();
         let output = tempfile::tempdir().unwrap();
         let job_id = "20260815_7f3a91c2b6d4";
         let generation = 3;
-        let job = test_job(job_id, output.path(), DocumentJobState::Running);
+        let mut job = test_job(job_id, output.path(), DocumentJobState::Running);
+        job.source.size_bytes = 4;
         let manager = test_manager(data.path(), job, generation);
 
         let private_dir = data.path().join("jobs").join(job_id);
         let input_dir = private_dir.join("input");
         fs::create_dir(&input_dir).unwrap();
-        fs::write(input_dir.join("source.bin"), b"private input").unwrap();
+        let snapshot = input_dir.join("source.bin");
         let staging = output.path().join(format!(".{job_id}.staging"));
         fs::create_dir(&staging).unwrap();
         let token = "a".repeat(32);
@@ -3909,11 +4087,9 @@ mod tests {
 
         let source_path = data.path().join("source.pdf");
         fs::write(&source_path, b"data").unwrap();
-        let source_file = File::open(&source_path).unwrap();
-        let source_version = source_version(&source_file.metadata().unwrap());
-        let pending = PendingJob {
-            source: same_file::Handle::from_file(source_file).unwrap(),
-            source_version,
+        let source_file = open_document_source(&source_path).unwrap();
+        let mut pending = PendingJob {
+            input: PendingInput::Original(same_file::Handle::from_file(source_file).unwrap()),
             password: Some(SecretString("retry-secret".into())),
             private_dir: private_dir.clone(),
             staging_dir: staging.clone(),
@@ -3922,6 +4098,15 @@ mod tests {
             output_root_identity: same_file::Handle::from_path(output.path()).unwrap(),
         };
 
+        let digest = pending
+            .input
+            .prepare(&snapshot, 4, || Ok(()))
+            .unwrap()
+            .unwrap();
+        manager.update_source_hash(job_id, digest.clone());
+        // A save-by-replacement can proceed after admission even on Windows.
+        fs::rename(&source_path, data.path().join("prior.pdf")).unwrap();
+        fs::write(&source_path, b"edited after snapshot").unwrap();
         manager.settle_ocr_yield(job_id, generation, pending);
 
         let state = manager.state.lock().unwrap();
@@ -3937,7 +4122,23 @@ mod tests {
             token
         );
         assert!(input_dir.is_dir());
-        assert_eq!(fs::read_dir(input_dir).unwrap().count(), 0);
+        assert_eq!(fs::read_dir(input_dir).unwrap().count(), 1);
+        drop(state);
+        let (resumed, mut pending, next_generation) = manager.take_next_job().unwrap().unwrap();
+        assert_eq!(resumed.job_id, job_id);
+        assert_ne!(next_generation, generation);
+        assert_eq!(resumed.source.sha256.as_deref(), Some(digest.as_str()));
+        assert_eq!(
+            pending
+                .input
+                .prepare(&snapshot, resumed.source.size_bytes, || Ok(()))
+                .unwrap(),
+            None
+        );
+        assert_eq!(fs::read(&snapshot).unwrap(), b"data");
+        assert_eq!(fs::read(&source_path).unwrap(), b"edited after snapshot");
+        cleanup_pending(&pending);
+        assert!(!snapshot.exists());
     }
 
     #[test]

@@ -257,6 +257,9 @@ pub fn shutdown_for_update_verified<R: Runtime>(
     // The document Worker is an App-owned native child and may hold bundled
     // PDFium/ONNX Runtime files open. Settle it at the same verified update
     // boundary before an installer replaces those resources.
+    if let Some(ingest) = app_handle.try_state::<Arc<crate::knowledge::ingest::KnowledgeIngestManager>>() {
+        ingest.shutdown().map_err(|code| format!("knowledge ingestion shutdown: {code:?}"))?;
+    }
     if let Some(document_manager) = crate::document_processing::global() {
         document_manager.shutdown()?;
     }

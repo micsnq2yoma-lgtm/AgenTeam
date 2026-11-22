@@ -6,7 +6,10 @@ name: Test
 on:
   pull_request:
   push:
-    branches: [main, "dev/**"]
+    branches: [main, "dev/**", "feat/kb-*", "fix/anydoc-same-tick-rewrite"]
+
+permissions:
+  contents: read
 
 # Cancel superseded runs on the same ref to save CI minutes.
 concurrency:
@@ -54,6 +57,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Limit disk use for the two AnyDoc Clippy builds
+        if: (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'
+        run: printf '%s\n' CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 >> "$GITHUB_ENV"
+      - name: Limit disk use for K4 native resource and release tests
+        if: (github.head_ref || github.ref_name) == 'feat/kb-k4-index'
+        run: printf '%s\n' CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 >> "$GITHUB_ENV"
       - name: Install Tauri system dependencies
         run: |
           sudo apt-get update
@@ -100,13 +111,161 @@ jobs:
           printf 'ci placeholder\n' > src-tauri/resources/playwright-control/playwright/.ci-placeholder
           printf 'ci placeholder\n' > src-tauri/resources/playwright-control/playwright-core/.ci-placeholder
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - if: startsWith(github.head_ref || github.ref_name, 'feat/kb-')
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib knowledge
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D clippy::disallowed_methods -D clippy::disallowed_macros
+      - name: Compare knowledge branch Clippy diagnostics with its main baseline
+        if: startsWith(github.head_ref || github.ref_name, 'feat/kb-')
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          base=$(git merge-base origin/main "$CANDIDATE_SHA")
+          evidence="$RUNNER_TEMP/kb-clippy"
+          mkdir -p "$evidence"
+          compiler=$(rustc --version)
+          clippy=$(cargo clippy --version)
+          for revision in "$base" "$CANDIDATE_SHA"; do
+            git switch --detach "$revision"
+            pinned=$(python3 -c 'import tomllib; print(tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])')
+            actual=$(rustc --version)
+            [[ "$actual" == "rustc $pinned "* && "$actual" == "$compiler" && "$(cargo clippy --version)" == "$clippy" ]]
+            echo "$revision $actual $(cargo clippy --version)"
+            cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --message-format=json > "$evidence/$revision.jsonl"
+          done
+          python3 scripts/compare-clippy-warnings.test.py
+          python3 scripts/compare-clippy-warnings.py "$evidence/$base.jsonl" "$evidence/$CANDIDATE_SHA.jsonl"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && startsWith(github.head_ref || github.ref_name, 'feat/kb-') }}
+        with:
+          name: knowledge-clippy-diagnostics
+          path: ${{ runner.temp }}/kb-clippy/*.jsonl
+
+      - uses: actions/setup-node@v4
+        if: (github.head_ref || github.ref_name) == 'feat/kb-k4-index'
+        with:
+          node-version: '24'
+      - name: Measure K4 release search latency over 10,000 chunks
+        if: (github.head_ref || github.ref_name) == 'feat/kb-k4-index'
+        timeout-minutes: 30
+        env:
+          CARGO_BUILD_JOBS: '2'
+        run: |
+          set -euo pipefail
+          test_name=search::knowledge_indexer::tests::knowledge_bm25_10k_chunks_keeps_p95_below_100ms
+          log="$RUNNER_TEMP/k4-benchmark.log"
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib "$test_name" \
+            -- --exact --ignored --nocapture | tee "$log"
+          grep -F '10000 chunks, 120 samples, p95=' "$log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$log"
+      - name: Verify K4 retrieval after five real document conversions
+        if: (github.head_ref || github.ref_name) == 'feat/kb-k4-index'
+        timeout-minutes: 40
+        env:
+          CARGO_BUILD_JOBS: '2'
+          CMAKE_BUILD_PARALLEL_LEVEL: '2'
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          node --input-type=module <<'NODE'
+          import { withResourcePrepareLock } from './scripts/document-processing-resource-cache.mjs';
+          import { prepareDocumentProcessing } from './scripts/prepare-document-processing.mjs';
+          import { parseNativeInferenceArgs } from './scripts/prepare-native-inference.mjs';
+          const options = parseNativeInferenceArgs(['x86_64-unknown-linux-gnu']);
+          await withResourcePrepareLock(
+            'src-tauri/resources/document-processing-cache',
+            () => prepareDocumentProcessing(options),
+          );
+          NODE
+          export MYAGENTS_KB_TEST_RESOURCE_ROOT="$PWD/src-tauri/resources"
+          test_name=search::knowledge_indexer::tests::resource_backed_ingestion_indexes_five_formats_end_to_end
+          log="$RUNNER_TEMP/k4-resource-test.log"
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --lib "$test_name" \
+            -- --exact --ignored --nocapture | tee "$log"
+          grep -Fx "test $test_name ... ok" "$log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$log"
+      - name: Compare complete Clippy diagnostics for the AnyDoc fix
+        if: "!cancelled() && (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'"
+        env:
+          BASELINE_SHA: d2ebb8e3d1f4b73242b8d0e51f5250dde66d444a
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/anydoc-clippy"
+          mkdir -p "$evidence"
+          git fetch --no-tags --depth=1 origin "$BASELINE_SHA" "$CANDIDATE_SHA"
+          trap 'git switch --detach "$GITHUB_SHA"' EXIT
+          rustc +1.92.0 -Vv
+          cargo +1.92.0 clippy --version
+          # Reuse dependencies at one absolute path. Recheck the application
+          # itself even if Cargo restored artifacts from an earlier run.
+          for revision in "$BASELINE_SHA" "$CANDIDATE_SHA"; do
+            git switch --detach "$revision"
+            test "$(git rev-parse HEAD)" = "$revision"
+            cargo +1.92.0 clean --manifest-path src-tauri/Cargo.toml -p myagents
+            cargo +1.92.0 clippy --manifest-path src-tauri/Cargo.toml --locked \
+              --all-targets --message-format=json \
+              > "$evidence/$revision.jsonl"
+          done
+          python3 - "$evidence/$BASELINE_SHA.jsonl" "$evidence/$CANDIDATE_SHA.jsonl" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          root = Path.cwd()
+
+          def warnings(filename):
+              found = set()
+              finished = False
+              application = False
+              with open(filename, encoding="utf-8") as lines:
+                  for line in lines:
+                      event = json.loads(line)
+                      if event["reason"] == "build-finished":
+                          finished = event["success"]
+                      if event["reason"] == "compiler-artifact" and event["target"]["name"] == "app_lib":
+                          application = True
+                      if event["reason"] != "compiler-message":
+                          continue
+                      diagnostic = event["message"]
+                      if diagnostic["level"] == "error":
+                          raise ValueError(f"{filename}: {diagnostic['message']}")
+                      if diagnostic["level"] != "warning":
+                          continue
+                      lint = (diagnostic["code"] or {}).get("code", "")
+                      manifest = Path(event["manifest_path"])
+                      names = [s["file_name"] for s in diagnostic["spans"] if s["is_primary"]]
+                      for name in names or [manifest]:
+                          path = manifest.parent / name
+                          if not path.exists() and (root / name).exists():
+                              path = root / name
+                          found.add((lint, os.path.relpath(path.resolve(), root), diagnostic["message"]))
+              if not (finished and application):
+                  raise ValueError(f"{filename}: expected a successful complete application build")
+              return found
+
+          baseline, candidate = map(warnings, sys.argv[1:])
+          added = candidate - baseline
+          print(f"Baseline {Path(sys.argv[1]).stem}: {len(baseline)} warnings")
+          print(f"Candidate {Path(sys.argv[2]).stem}: {len(candidate)} warnings; {len(added)} new")
+          for warning in sorted(added):
+              print(json.dumps(warning, ensure_ascii=False))
+          sys.exit(bool(added))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: "!cancelled() && (github.head_ref || github.ref_name) == 'fix/anydoc-same-tick-rewrite'"
+        with:
+          name: anydoc-clippy-diagnostics
+          path: ${{ runner.temp }}/anydoc-clippy/*.jsonl
+          if-no-files-found: error
+          retention-days: 7
 
   # `--all-targets` above covers Rust target kinds for Linux; it does not
   # type-check or execute `cfg(windows)`. Run workspace IO tests natively:
   # compile-only checks cannot detect invalid OS rename parameters (#641).
   windows-rust:
-    name: Windows cargo check · workspace IO
+    name: Windows cargo check · workspace and knowledge IO
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -168,7 +327,7 @@ jobs:
           Copy-Item (Join-Path $env:WINDIR 'System32\vcruntime140.dll') src-tauri/resources/vcruntime140.dll
           Copy-Item (Join-Path $env:WINDIR 'System32\vcruntime140_1.dll') src-tauri/resources/vcruntime140_1.dll
       - run: cargo check --manifest-path src-tauri/Cargo.toml --locked
-      - name: Run native workspace IO tests with Tauri's application manifest
+      - name: Run native workspace and knowledge tests with Tauri's application manifest
         shell: pwsh
         run: |
           $messages = & cargo test --manifest-path src-tauri/Cargo.toml --locked --lib --no-run --message-format=json
@@ -190,7 +349,45 @@ jobs:
           & $mt -nologo -manifest $manifest "-outputresource:$testExecutable;#1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $testExecutable 'workspace_files::'
-          exit $LASTEXITCODE
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $testExecutable 'knowledge::'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $testExecutable 'document_processing::' --format pretty --color never | Tee-Object -Variable documentResults
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $requiredCases = @(
+            'document_processing::tests::source_copy_refuses_an_existing_writer_and_blocks_writes_until_finished'
+            'document_processing::tests::live_preemption_requeues_same_job_with_first_snapshot_and_without_partial_staging'
+          )
+          foreach ($required in $requiredCases) {
+            if ($documentResults -notcontains "test $required ... ok") { throw "Missing passing Windows test: $required" }
+          }
+          if (-not ($documentResults -match '^test result: ok\. [1-9][0-9]* passed; 0 failed;')) {
+            throw 'Expected a nonempty passing document_processing:: suite'
+          }
+      - name: Verify native K4 index rebuild and search on Windows
+        if: (github.head_ref || github.ref_name) == 'feat/kb-k4-index'
+        shell: pwsh
+        run: |
+          # The previous step embeds the Windows application manifest. Invoking
+          # Cargo again can replace that executable with an unpatched one.
+          $exe = Get-ChildItem -Path src-tauri/target/debug/deps/app_lib-*.exe -File |
+            Select-Object -ExpandProperty FullName
+          if (@($exe).Count -ne 1) { throw 'Expected one application library test executable' }
+          & $exe 'search::knowledge_indexer::' --color never | Tee-Object -Variable indexResults
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $case = 'search::knowledge_indexer::tests::missing_segment_or_old_schema_rebuilds_only_the_knowledge_projection'
+          if ($indexResults -notcontains "test $case ... ok") {
+            throw 'Expected the native knowledge-index recovery test to execute successfully'
+          }
+          $case = 'workspace_files::markdown_assets::tests::concurrent_unique_writes_publish_complete_distinct_files'
+          for ($run = 1; $run -le 64; $run++) {
+            $out = & $exe --exact $case --color never
+            if ($LASTEXITCODE -ne 0 -or $out -notcontains "test $case ... ok") {
+              $out | Write-Output
+              throw "Concurrent attachment publication failed on repeat $run"
+            }
+          }
+          Write-Output "Native concurrent attachment publication: 64/64 repetitions passed"
       - name: Inspect native test loader imports on failure
         if: failure()
         shell: pwsh

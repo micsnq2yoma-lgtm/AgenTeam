@@ -74,13 +74,15 @@ queued/running/cancelling --App restart/shutdown--> interrupted
 
 - 全 App FIFO 上限 16（running 计入），当前并发固定为 1。
 - admission 打开 source 的 no-follow regular-file handle；queued job 持有该 handle，避免 path 后续被替换成别的文件。
-- running 首先把 held source 分块复制到私有 `input/source.bin` 并计算 SHA-256；每块检查 cancellation/deadline，实际字节数以及复制前后的 size、mtime/ctime（Windows 为 last-write time）必须与 admission metadata 一致。即使同一 inode 被等长改写也 fail closed 为 `DOCUMENT_SOURCE_CHANGED`。
+- 后台 running 阶段从排队时持有的文件对象顺序读取一次，每块最多 128 KiB，复制到私有 `input/source.bin` 的同时计算 SHA-256，逐块检查取消、超时和大小限制。第一次复制决定本次转换的输入。首次读取前发生的等长改写，以复制时的内容为准。私有快照写完并同步后交给 Worker，之后用户修改原件不影响产物。接收请求时不读取正文。
+- Windows 在复制期间通过 `ReOpenFile` 对同一个文件对象获取只允许 `FILE_SHARE_READ` 的读句柄。存在写入方时返回可重试的 `DOCUMENT_SOURCE_IN_USE`。复制期间无法取得新的写句柄，结束或取消后立即释放该限制。
+- Unix/macOS 从持有的文件描述符读取，复制前、读至 EOF 后均核对设备号、inode、长度、修改时间和状态变更时间，任一变化返回 `DOCUMENT_SOURCE_CHANGED`。时间戳精度取决于文件系统。若写入方在一次复制期间等长改写且所有可观测元数据都相同，无法检测到该变化。摘要标识实际复制出的字节。此边界使后台可在单次读取中生成快照，也让接收请求可以立即返回。
 - Worker 使用 `process_cmd::new()` + `spawn_tree()`；环境清空，stdin/stdout 仅承载私有协议，stderr 不进入用户错误。
 - job deadline 从 source admission copy 开始计 30 分钟。cancel 先持久化 `cancelling`，再发送 exact `(jobId,generation)` frame，给 Worker 15 秒 cooperative settlement，之后 force-stop 并最多再等 10 秒确认 exact tree 已退出；cancel、timeout 与成功发布在同一 Manager lock 内裁决，发布 IO 后、写入成功终态前再次以 monotonic deadline 确定逻辑 commit time，超时不能因 watchdog 等锁而赢得成功。
 - App shutdown 先关闭 admission，把所有非终态持久化为 `interrupted`，释放 queued handle，随后发送 cancel 并给 retained Worker tree 10 秒 cooperative settlement；force-stop 后最多再等 10 秒。Worker 已发合法 terminal 时允许最多 30 秒自然退出，terminal 后挂起也必须由同一 `ChildTree` deadline 收敛。
 - Worker crash 不自动重试；当前 job 失败为 `DOCUMENT_WORKER_CRASHED`，用户显式重试会创建新 ID。
 - 结构化解析、native PDF 文本提取和渲染不占本地推理名额。Worker 只有在确认图片或具体 PDF 页需要 PP-OCR 时才发送 exact-generation `ocr_lease_requested`；Manager 从 App-global `LocalComputeCoordinator` 取得 `DocumentOcr` lease 后才回复 `grant_ocr_lease`，Worker 在此之前不能加载 OCR session 或执行 tensor inference。
-- Record live ASR 到达时，lease 的只读 yield signal 立即触发 exact OCR Worker generation cancel；15 秒仍未退出才 force-stop，并最多再等 10 秒。Document job 保持原 ID，authenticated staging 中的未发布内容被清空，私有输入重新准备后回到 FIFO；该过程不写 failed terminal、不发布 partial artifact。非 live workload 只影响下一次 admission，不抢占已运行 OCR。用户 cancel / App shutdown 与 yield 竞态时仍由 Document Manager 当前状态裁决，用户 cancel 优先。
+- Record live ASR 到达时，lease 的只读 yield signal 立即触发 exact OCR Worker generation cancel；15 秒仍未退出才 force-stop，并最多再等 10 秒。Document job 保持原 ID，authenticated staging 中的未发布内容被清空，已完成的私有快照和首次读取时的 SHA-256 随同一 job 回到 FIFO。恢复时验证快照并将其交给下一代 Worker。首次复制成功即释放原件句柄，期间原文件可被改写或替换；该过程不写 failed terminal、不发布 partial artifact。非 live workload 只影响下一次 admission，不抢占已运行 OCR。用户 cancel / App shutdown 与 yield 竞态时仍由 Document Manager 当前状态裁决，用户 cancel 优先。
 
 ## 私有 framed protocol
 

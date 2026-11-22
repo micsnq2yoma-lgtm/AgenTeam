@@ -21,6 +21,7 @@ pub const SCHEMA_VERSION: u32 = 3;
 // their existing schema so a history-search upgrade does not rebuild them.
 pub const SESSION_SCHEMA_VERSION: u32 = 4;
 pub const RECORD_SCHEMA_VERSION: u32 = 2;
+pub(super) const KNOWLEDGE_SCHEMA_VERSION: u32 = 1;
 
 fn chinese_text_options() -> TextOptions {
     TextOptions::default().set_stored().set_indexing_options(
@@ -144,4 +145,42 @@ pub struct RecordFields {
     pub tags: Field,
     pub content: Field,
     pub media_ms: Field,
+}
+
+pub(super) struct KnowledgeFields {
+    pub kb_id: Field,
+    pub source_id: Field,
+    pub source_key: Field,
+    pub chunk_id: Field,
+    pub doc_kind: Field,
+    pub title: Field,
+    pub prefix: Field,
+    pub text: Field,
+    pub tags: Field,
+    pub tag_filter: Field,
+    pub category: Field,
+    pub doc_type: Field,
+    pub page: Field,
+}
+
+pub(super) fn knowledge_schema() -> (Schema, KnowledgeFields) {
+    let mut builder = Schema::builder();
+    let raw_id = (STRING | STORED).set_fast(None);
+    let chinese = chinese_text_options();
+    let fields = KnowledgeFields {
+        kb_id: builder.add_text_field("kb_id", raw_id.clone()),
+        source_id: builder.add_text_field("source_id", raw_id.clone()),
+        source_key: builder.add_text_field("source_key", STRING),
+        chunk_id: builder.add_text_field("chunk_id", raw_id),
+        doc_kind: builder.add_text_field("doc_kind", STRING),
+        title: builder.add_text_field("title", chinese.clone()),
+        prefix: builder.add_text_field("prefix", chinese.clone()),
+        text: builder.add_text_field("text", chinese.clone()),
+        tags: builder.add_text_field("tags", chinese),
+        tag_filter: builder.add_text_field("tag_filter", STRING),
+        category: builder.add_text_field("category", STRING),
+        doc_type: builder.add_text_field("doc_type", STRING),
+        page: builder.add_u64_field("page", STORED),
+    };
+    (builder.build(), fields)
 }

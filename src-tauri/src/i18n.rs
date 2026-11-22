@@ -115,6 +115,10 @@ fn read_ui_language_from(config_path: &std::path::Path) -> UiLanguage {
     }
 }
 
+pub(crate) fn locale_from_config(path: &std::path::Path) -> SupportedLocale {
+    effective_locale(read_ui_language_from(path))
+}
+
 pub fn current_ui_language() -> UiLanguage {
     if let Some(dir) = crate::app_dirs::myagents_data_dir() {
         let value = read_ui_language_from(&dir.join("config.json"));
