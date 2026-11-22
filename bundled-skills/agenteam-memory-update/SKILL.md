@@ -48,6 +48,17 @@ USER 文件使用固定章节（含 `## 近期观察`）时，只往"近期观�
 
 没有"近期观察"章节的旧式 USER 文件，沿用原有做法，不为它新增章节。
 
+**用脚本写，不要整份改写文件。** `section_edit.py` 只改你点名的 `## ` 章节，其余内容逐字不变；文件在你读取之后被别的 Session 改过时拒绝写入；`--allow` 让程序强制章节归属，而不只靠自觉：
+
+```bash
+python3 <skill>/scripts/section_edit.py --file <USER 文件> --show
+python3 <skill>/scripts/section_edit.py --file <USER 文件> --edits <edits.json> --base-sha <上一步的 sha256> --allow 近期观察 --max-bytes 20480
+```
+
+`edits.json` 是列表，每项 `{"op": "replace|add|delete|append", "heading": "章节标题", "content": "内容"}`：`replace` 重写章节正文（章节开头标明谁来写的注释会保留），`append` 在章节末尾追加，`add` 新增章节，`delete` 删除章节。内容里不能出现 `## ` 标题。退出码 2 表示文件已被改动：重新 `--show`、重新判断，再提交一次；3 表示该章节不允许改，不要换别的方式绕过；4 表示结果超出大小上限，先精简。没有任何编辑通过时不会写入。
+
+追加新认识用 `append`。更正基本信息时把 `--allow` 换成 `基本信息`。
+
 ## 谨慎原则
 
 错误的长期记忆通常比暂时缺失更有害。区分用户明确表达、可观察的互动事实和模型推断，

@@ -56,6 +56,17 @@ USER 文件使用固定章节（含 `## 近期观察`，章节为：基本信息
 
 没有"近期观察"章节的旧式 USER 文件，沿用原有整编方式，不为它新增章节。
 
+**用脚本写，不要整份改写文件。** `section_edit.py` 只改你点名的 `## ` 章节，其余内容逐字不变；文件在你读取之后被别的 Session 改过时拒绝写入；`--allow` 让程序强制章节归属，而不只靠自觉：
+
+```bash
+python3 <skill>/scripts/section_edit.py --file <USER 文件> --show
+python3 <skill>/scripts/section_edit.py --file <USER 文件> --edits <edits.json> --base-sha <上一步的 sha256> --allow 背景,沟通风格,工作方式,偏好,写作风格,近期观察 --max-bytes 20480
+```
+
+`edits.json` 是列表，每项 `{"op": "replace|add|delete|append", "heading": "章节标题", "content": "内容"}`：`replace` 重写章节正文（章节开头标明谁来写的注释会保留），`append` 在章节末尾追加，`add` 新增章节，`delete` 删除章节。内容里不能出现 `## ` 标题。退出码 2 表示文件已被改动：重新 `--show`、重新判断，再提交一次；3 表示该章节不允许改，不要换别的方式绕过；4 表示结果超出大小上限，先精简。没有任何编辑通过时不会写入。
+
+并入时对主体章节用 `replace`（带上合并后的完整内容），对"近期观察"用 `replace` 写回保留下来的条目；这样既不会漏掉其他章节，也不会碰"基本信息"和"来源概况"。
+
 ## 报告格式
 
 ```markdown

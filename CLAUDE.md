@@ -92,6 +92,7 @@ Builtin SDK、Integrated DSH 与 Claude Code / Codex 等外部 Runtime 的 sessi
 | Session ID、状态同步、恢复、配置归置、builtin Query / pre-warm 生命周期、Inbox 与 `session start/send/watch` | `specs/tech_docs/session_architecture.md`；transcript 持久化与回放再读 `specs/tech_docs/session_transcript_v2.md` |
 | 系统提示词组装、场景 Prompt、Workspace 指令注入 | `specs/tech_docs/system_prompt_architecture.md`；逐轮隐藏消息再读 `specs/tech_docs/system_reminder_protocol.md` |
 | Agent Runtime | `specs/tech_docs/multi_agent_runtime.md`；Integrated DSH 再读 `specs/tech_docs/myagents_dsh_integrated_runtime.md` |
+| 助理用户画像、USER 文件章节归属、记忆维护与记忆变化提醒 | `specs/tech_docs/assistant_profile.md`；提醒协议再读 `specs/tech_docs/system_reminder_protocol.md` |
 | Task / Thought / Goal / Cron provider routing | `specs/tech_docs/task_center.md`、`specs/tech_docs/task_provider_routing.md` |
 | 跨设备 Agent 网络、设备身份 / 连接、协议包更新 | `specs/tech_docs/agent_network.md`；同时涉及 Session 投递时再读 `specs/tech_docs/session_architecture.md` 的 Inbox 章节 |
 | IM Bot / Telegram / Dingtalk / 飞书 | `specs/tech_docs/im_integration_architecture.md` |
