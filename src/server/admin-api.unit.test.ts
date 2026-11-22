@@ -4402,7 +4402,7 @@ describe('admin-api Agent / Session discovery', () => {
           runtimeSource: 'integrated',
           providerId: 'deepseek',
           model: 'deepseek-v4-flash',
-          permissionMode: 'fullAgency',
+          permissionMode: 'full-autonomous',
         },
       },
     });

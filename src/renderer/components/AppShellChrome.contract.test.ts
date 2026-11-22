@@ -354,7 +354,7 @@ describe('App Shell chrome contract', () => {
       'className="mx-auto flex max-w-4xl gap-1 px-4"',
     );
     expect(settings).toContain(
-      'className="h-full flex-1 overflow-y-auto overscroll-contain"',
+      'className="h-full min-w-0 flex-1 overflow-y-auto overscroll-contain"',
     );
   });
 
