@@ -1,0 +1,60 @@
+name: Verify the 0.6.8 recovery window
+
+on:
+  push:
+    branches: [codex/qa-recovery-window-068]
+    paths:
+      - .github/workflows/qa-recovery-window-068.yml
+      - qa/recovery-window-068.mjs
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  recovery:
+    if: github.repository == 'micsnq2yoma-lgtm/AgenTeam'
+    runs-on: windows-2022
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 44887122339
+          name: AgenTeam-Windows-x64-d2ebb8e3d1f4b73242b8d0e51f5250dde66d444a
+          path: candidate
+          github-token: ${{ github.token }}
+      - name: Open the isolated installed recovery window and inspect its UI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = Get-Item 'candidate/AgenTeam_0.6.8_x64-setup.exe'
+          $digest = (Get-FileHash -LiteralPath $package.FullName).Hash.ToLowerInvariant()
+          $record = (Get-Content -LiteralPath 'candidate/SHA256SUMS' -Raw).Trim()
+          if ($record -cne "$digest  $($package.Name)") { throw 'Candidate checksum mismatch' }
+          Write-Host "Candidate SHA-256 $digest"
+          $target = Join-Path $env:RUNNER_TEMP 'recovery-candidate'
+          $nsis = Start-Process $package.FullName -ArgumentList '/S',"/D=$target" -WindowStyle Hidden -Wait -PassThru
+          if ($nsis.ExitCode -ne 0) { throw "NSIS exit code $($nsis.ExitCode)" }
+          $exe = Get-Item (Join-Path $target 'AgenTeam.exe')
+          if ($exe.VersionInfo.ProductVersion -notin @('0.6.8','0.6.8.0')) { throw 'Wrong installed version' }
+          $profileDir = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.agenteam'
+          if (Test-Path (Join-Path $profileDir 'config.json')) { throw 'Expected an unused runner profile' }
+          New-Item -ItemType Directory $profileDir -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $profileDir 'config.json') -Encoding utf8NoBOM -Value '{"egressRestriction":{"enabled":true,"expectedIp":"invalid-qa-address"}}'
+          $cdp = '--remote-debugging-port=19386 --remote-debugging-address=127.0.0.1'
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = $cdp
+          $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:RUNNER_TEMP 'recovery-webview-profile'
+          $env:AGENTEAM_QA_INSTALL = $target
+          $app = Start-Process $exe.FullName -WindowStyle Hidden -PassThru
+          try {
+            & (Join-Path $target 'nodejs/node.exe') qa/recovery-window-068.mjs
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery window UI verification failed' }
+            $owner = (Get-Content -Raw (Join-Path $profileDir 'app.lock')).Trim()
+            if ($owner -ne [string]$app.Id) { throw 'Recovery is not owned by the installed candidate process' }
+            "Verified native recovery for $($exe.VersionInfo.ProductVersion), SHA-256 $digest" >> $env:GITHUB_STEP_SUMMARY
+          } finally {
+            if (!$app.HasExited) { Stop-Process -Id $app.Id -Force }
+          }
