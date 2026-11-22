@@ -1,7 +1,7 @@
 # 助理用户画像：任务拆分与验收（A1–A3）
 
 > 配套设计：同目录 `proposal.md`（下称**方案**），§7 的决定已于 2026-11-22 由用户确认。
-> 执行者：**Codex 协作者**。验收者：**Claude**。
+> 执行与自检：**Claude**（2026-11-22 起不再使用协作者）。
 > 本文与方案冲突时以本文为准；本文与代码现状冲突时，先停下来在交付报告里说明，不要自行二选一。
 
 ## 0. 通用规则
@@ -16,8 +16,7 @@
 分支、CI 与交付：
 
 - 分支名用 `dev/assistant-a<n>-<短名>`，例如 `dev/assistant-a1-profile-skill`。**Test 工作流只在 `main`、`dev/**`、`feat/kb-*` 上自动运行**，用其他前缀不会触发 CI。
-- 不在 `main` 提交，不合并，不推 tag。交付报告写在 `specs/handoff/assistant_profile/delivery/A<n>.md`，随分支提交。
-- Claude 验收后把结论写入 `specs/handoff/assistant_profile/acceptance/A<n>.md`。合并由用户授权。
+- 不在 `main` 直接提交，不推 tag。交付报告写在 `specs/handoff/assistant_profile/delivery/A<n>.md`，自检结论写入 `specs/handoff/assistant_profile/acceptance/A<n>.md`，随分支提交。合并到 `main` 需要用户授权。
 
 ## 1. 依赖
 
