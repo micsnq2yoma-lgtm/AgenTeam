@@ -1,7 +1,7 @@
 import { notifySessionActivityTransition } from './session-engine/activity-reporter';
 import { captureChannelTurn, effectiveChannelDelivery, channelContextForInput, decorateChannelQuery, channelInputSource } from './session-core/channel-context';
 import { readChannelPromptOptions } from './tools/channel-messaging';
-import { desktopContextOf } from '../shared/agentMentions';
+import { desktopContextOf, desktopQueryOwnsEnvelope } from '../shared/agentMentions';
 import { buildTurnProviderAnalytics } from './session-core/turn-analytics';
 import { selectBuiltinRewindBoundary } from './session-core/builtin-rewind-boundary';
 import { createBuiltinInterruptController } from './builtin-session/interrupt';
@@ -14387,7 +14387,7 @@ async function* messageGenerator(
           const source = channelInputSource(item.analyticsSource, item.requestId, item.analyticsOrigin, item.turnOwner, item.inputSource === 'inbox');
           const inbound = item.requestId ? imRequestRegistry.get(item.requestId)?.channelInbound : undefined;
           const context = channelContextForInput(item.channelSnapshot, item.channelDelivery, source, inbound);
-          const ownedEnvelope = !!(item.desktopQuery?.primaryContext || item.desktopQuery?.agentMentions?.length) || !!item.channelPrimaryReminder || item.inputSource === 'inbox';
+          const ownedEnvelope = desktopQueryOwnsEnvelope(item.desktopQuery) || !!item.channelPrimaryReminder || item.inputSource === 'inbox';
           item.messageText = decorateChannelQuery(item.messageText, context, ownedEnvelope);
           if (Array.isArray(item.message.content)) {
             const textBlock = item.message.content.findLast(block => block.type === 'text');

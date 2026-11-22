@@ -511,7 +511,12 @@ export function decorateChannelQuery(
         + body.slice(instructionEnd + '</instruction>'.length);
       return `<system-reminder>\n${rendered}\n</system-reminder>${tail ? `\n${tail}` : ''}`;
     }
-    const mentions = body.indexOf("<AGENT_MENTIONS>");
+    // Agent mentions and the memory refresh notice follow the Channel facts,
+    // so a Channel-only primary keeps CHANNEL_CONTEXT as its leading tag.
+    const trailing = ["<AGENT_MENTIONS>", "<MEMORY_REFRESH>"]
+      .map(tag => body.indexOf(tag))
+      .filter(index => index >= 0);
+    const mentions = trailing.length ? Math.min(...trailing) : -1;
     const prefix = mentions < 0 ? body : body.slice(0, mentions).trimEnd();
     const suffix = mentions < 0 ? "" : body.slice(mentions);
     return `<system-reminder>\n${[prefix, channel, suffix].filter(Boolean).join("\n")}\n</system-reminder>${tail ? `\n${tail}` : ""}`;

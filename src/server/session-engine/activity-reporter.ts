@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { SessionCompletionStatus } from '../../shared/sessionCompletion';
 import { managementApi } from '../utils/management-api-client';
 import { projectSessionActivity } from './observation';
+import { memoryRefreshTracker } from './memory-refresh';
 import type { SessionEngine } from './types';
 
 type ActivityReport = 'running' | 'waiting_for_user' | 'idle' | SessionCompletionStatus;
@@ -127,7 +128,10 @@ export function beginSessionActivityRebind(
   };
 }
 
+const TURN_END_EVENTS = /^chat:message-(?:complete|stopped|error)$/;
+
 /** The adapters feed their existing lifecycle edges into one reporter. */
 export function notifySessionActivityTransition(event?: string): void {
+  if (event !== undefined && TURN_END_EVENTS.test(event)) memoryRefreshTracker.absorbTurnWrites();
   if (event === undefined || TRANSITION_EVENTS.test(event)) sampleActivity?.();
 }

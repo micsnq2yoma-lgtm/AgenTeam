@@ -39,16 +39,18 @@ export async function prepareDesktopQuery(
       request: {
         ...request,
         desktopQuery:
-          request.queryPrimaryContext || requiredSystemSkill
+          request.queryPrimaryContext || requiredSystemSkill || request.queryMemoryRefresh
             ? {
                 visibleText: request.text,
                 requiredSystemSkill,
                 primaryContext: request.queryPrimaryContext,
+                memoryRefresh: request.queryMemoryRefresh,
               }
             : undefined,
         text: composeQueryReminder({
           visibleText: request.text,
           primaryContext: request.queryPrimaryContext,
+          memoryRefresh: request.queryMemoryRefresh,
         }),
       },
       needsReselect: false,
@@ -116,11 +118,13 @@ export async function prepareDesktopQuery(
           };
         }),
         primaryContext: request.queryPrimaryContext,
+        memoryRefresh: request.queryMemoryRefresh,
       },
       text: composeQueryReminder({
         visibleText: request.text,
         primaryContext: request.queryPrimaryContext,
         agentMentions: mentions,
+        memoryRefresh: request.queryMemoryRefresh,
       }),
     },
     needsReselect: mentions.length !== selectors.length,

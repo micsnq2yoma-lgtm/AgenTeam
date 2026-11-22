@@ -13,6 +13,8 @@ import {
   updateExternalRuntimeConfig,
 } from '../runtimes/external-session';
 import { prepareDesktopQuery } from './query-reminder';
+import { memoryRefreshTracker, type MemoryRefreshObservation } from './memory-refresh';
+import { appendMemoryRefresh } from '../../shared/memoryRefresh';
 import { createBuiltinSessionEngine } from './builtin-adapter';
 import { createExternalSessionEngine } from './external-adapter';
 import { createDshSessionEngine } from '../integrated-runtimes/dsh/adapter';
@@ -29,12 +31,51 @@ import { managementApi } from '../utils/management-api-client';
 import { cancelTaskSessionBirth } from './task-session-birth';
 import { notifySessionActivityTransition } from './activity-reporter';
 
+/** Deliver a workspace instruction change notice with the first admitted turn after it. */
+async function withMemoryRefresh<T>(
+  workspacePath: string | undefined,
+  attach: (observation: MemoryRefreshObservation) => Promise<T>,
+  admitted: (result: T) => boolean,
+): Promise<T> {
+  const observation = memoryRefreshTracker.observe(workspacePath);
+  let result: T;
+  try {
+    result = await attach(observation);
+  } catch (error) {
+    observation.release();
+    throw error;
+  }
+  if (admitted(result)) observation.commit();
+  else observation.release();
+  return result;
+}
+
 function queryFacade(engine:SessionEngine):SessionEngine {
   return {...engine,
     async sendDesktopMessage(request) {
-      const prepared = await prepareDesktopQuery(request);
-      const result = await engine.sendDesktopMessage(prepared.request);
-      return { ...result, ...(prepared.needsReselect ? { agentMentionsNeedReselect: true } : {}) };
+      // A retry replays the notice stored with the original query.
+      const send = async (observation?: MemoryRefreshObservation) => {
+        const prepared = await prepareDesktopQuery(observation?.notice
+          ? { ...request, queryMemoryRefresh: observation.notice }
+          : request);
+        const result = await engine.sendDesktopMessage(prepared.request);
+        return { ...result, ...(prepared.needsReselect ? { agentMentionsNeedReselect: true } : {}) };
+      };
+      if (request.queryMemoryRefresh) return send();
+      return withMemoryRefresh(request.workspacePath, send, result => result.success);
+    },
+    enqueueImMessage(request) {
+      return withMemoryRefresh(request.workspacePath, observation => engine.enqueueImMessage(observation.notice
+        // The adapter merges CHANNEL_CONTEXT into this envelope instead of adding a second one.
+        ? { ...request, message: appendMemoryRefresh(request.message, observation.notice), channelPrimaryReminder: true }
+        : request), result => result.success);
+    },
+    enqueueInboxMessage(request) {
+      return withMemoryRefresh(request.workspacePath, observation => engine.enqueueInboxMessage(observation.notice
+        // Builtin already treats Inbox input as owning its envelope; external
+        // Runtimes need the flag when the event has no session-inbox origin.
+        ? { ...request, text: appendMemoryRefresh(request.text, observation.notice), channelPrimaryReminder: true }
+        : request), result => result.queued && !result.error);
     },
     async respondPermission(...args) {
       const accepted = await engine.respondPermission(...args);

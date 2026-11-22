@@ -1,5 +1,9 @@
 import { TASK_ALIGNMENT_SKILL_REQUIREMENT } from "../../shared/systemSkills";
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { parseLeadingSystemReminder } from '../../shared/systemReminder';
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -607,6 +611,77 @@ describe('session-engine selector and adapters', () => {
     mocks.state.useExternal = true;
     mocks.state.externalImContext = { senderId: 'external-sender' };
     expect(getSessionEngine().getActiveImBridgeTurnContext()).toEqual({ senderId: 'external-sender' });
+  });
+
+  describe('MEMORY_REFRESH', () => {
+    const rulesOf = (workspace: string) => join(workspace, '.claude', 'rules');
+    const makeWorkspace = () => {
+      const workspace = mkdtempSync(join(tmpdir(), 'memory-refresh-facade-'));
+      mkdirSync(rulesOf(workspace), { recursive: true });
+      writeFileSync(join(rulesOf(workspace), '04-MEMORY.md'), '## Preferences\n- short answers\n');
+      return workspace;
+    };
+    const im = (workspacePath: string, message: string) => getSessionEngine().enqueueImMessage({
+      message, requestId: `im-${message}`, sessionId: 'sid', workspacePath,
+      scenario: { type: 'im', platform: 'feishu', sourceType: 'private' },
+    });
+
+    it('tells a long-lived IM Session once when memory changed between turns', async () => {
+      const workspace = makeWorkspace();
+      try {
+        await im(workspace, 'first');
+        expect(mocks.enqueueUserMessage.mock.calls.at(-1)?.[0]).toBe('first');
+
+        writeFileSync(join(rulesOf(workspace), '04-MEMORY.md'), '## Preferences\n- detailed answers\n');
+        await im(workspace, 'second');
+        const [text, , , , , , , , , , , options] = mocks.enqueueUserMessage.mock.calls.at(-1)!;
+        expect(text).toContain('<MEMORY_REFRESH>');
+        expect(text).toContain('.claude/rules/04-MEMORY.md');
+        expect(text).not.toContain('detailed answers');
+        expect(options).toMatchObject({ channelPrimaryReminder: true });
+        expect(parseLeadingSystemReminder(text as string).visibleText).toBe('second');
+
+        await im(workspace, 'third');
+        expect(mocks.enqueueUserMessage.mock.calls.at(-1)?.[0]).toBe('third');
+      } finally {
+        rmSync(workspace, { recursive: true, force: true });
+      }
+    });
+
+    it('keeps the notice for the next turn when admission is rejected, and stores it for Desktop retry', async () => {
+      const workspace = makeWorkspace();
+      try {
+        await im(workspace, 'baseline');
+        writeFileSync(join(rulesOf(workspace), '04-MEMORY.md'), '## Preferences\n- changed\n');
+        mocks.enqueueUserMessage.mockResolvedValueOnce({ queued: false, error: 'busy' });
+        expect((await im(workspace, 'rejected')).success).toBe(false);
+
+        await getSessionEngine().sendDesktopMessage({
+          text: 'desktop', sessionId: 'sid', workspacePath: workspace, scenario: { type: 'desktop' },
+        });
+        const call = mocks.enqueueUserMessage.mock.calls.at(-1)!;
+        expect(call[0]).toContain('<MEMORY_REFRESH>');
+        expect(JSON.stringify(call)).toContain('"memoryRefresh"');
+      } finally {
+        rmSync(workspace, { recursive: true, force: true });
+      }
+    });
+
+    it('marks external Inbox input as owning the envelope so Channel context joins it', async () => {
+      const workspace = makeWorkspace();
+      try {
+        mocks.state.useExternal = true;
+        await getSessionEngine().enqueueInboxMessage({ text: 'baseline', sessionId: 'sid', workspacePath: workspace });
+        expect(mocks.enqueueExternalSendForInbox.mock.calls.at(-1)?.[1]).not.toHaveProperty('channelPrimaryReminder', true);
+        writeFileSync(join(rulesOf(workspace), '03-USER.md'), '## Context\n- new\n');
+        await getSessionEngine().enqueueInboxMessage({ text: 'handoff', sessionId: 'sid', workspacePath: workspace });
+        const [text, context] = mocks.enqueueExternalSendForInbox.mock.calls.at(-1)!;
+        expect(text).toContain('<MEMORY_REFRESH>');
+        expect(context).toMatchObject({ channelPrimaryReminder: true });
+      } finally {
+        rmSync(workspace, { recursive: true, force: true });
+      }
+    });
   });
 
   it('routes desktop sends through builtin while preserving desktop metadata', async () => {

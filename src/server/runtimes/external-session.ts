@@ -3,7 +3,7 @@ import { CHANNEL_MANAGED_CODEX_LIMITS } from '../../shared/channelPrompt';
 import { readChannelPromptOptions } from '../tools/channel-messaging';
 import { captureChannelTurn, effectiveChannelDelivery, channelContextForInput, decorateChannelQuery, channelInputSource } from '../session-core/channel-context';
 import { getExternalChannelSnapshot, setExternalChannelSnapshot } from './external-session/turn-lifecycle';
-import { desktopContextOf } from '../../shared/agentMentions';
+import { desktopContextOf, desktopQueryOwnsEnvelope } from '../../shared/agentMentions';
 import { runtimeProviderAnalytics } from '../session-core/turn-analytics';
 import type { AskUserQuestionAnswers } from '../../shared/types/askUserQuestion';
 import type { RuntimeAgentWorkControl } from '../../shared/types/subagent-lifecycle';
@@ -2011,7 +2011,7 @@ function decoratePreparedExternalChannelInput(text: string, context: ExternalSen
   const source = channelInputSource(context.analyticsSource ?? context.scenario.type, context.requestId, context.analyticsOrigin, context.turnOwner);
   const inbound = getExternalChannelInbound(context.requestId);
   return decorateChannelQuery(text, channelContextForInput(context.channelSnapshot, context.channelDelivery, source, inbound),
-    !!(context.desktopQuery?.primaryContext || context.desktopQuery?.agentMentions?.length) || !!context.channelPrimaryReminder || context.analyticsOrigin?.kind === 'session-inbox' || context.analyticsOrigin?.surface === 'task_notification');
+    desktopQueryOwnsEnvelope(context.desktopQuery) || !!context.channelPrimaryReminder || context.analyticsOrigin?.kind === 'session-inbox' || context.analyticsOrigin?.surface === 'task_notification');
 }
 
 function commitExternalChannelInput(context: ExternalSendContext): void {

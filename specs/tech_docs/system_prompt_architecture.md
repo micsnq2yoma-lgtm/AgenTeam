@@ -266,7 +266,8 @@ payload，而 UI 只展示 envelope 后的 visible tail 或 badge。它适合 Tu
 - 浮球当前窗口、选中文本和截图上下文；
 - Space IssueDelivery；
 - IM Heartbeat、群聊身份/回复规则和群聊自定义指令；
-- Memory Update、watchdog resume、跨 Session 事件。
+- Memory Update、watchdog resume、跨 Session 事件；
+- 工作区指令文件（含助理记忆）在 Session 出生后发生变化的 `MEMORY_REFRESH` 提醒。
 
 生产、解析、escaping、badge、搜索/标题/预览过滤及前端接入 Checklist 全部以
 [`system_reminder_protocol.md`](./system_reminder_protocol.md) 为准。这里只保留选择边界：

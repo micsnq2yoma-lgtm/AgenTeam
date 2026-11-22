@@ -46,6 +46,8 @@ export type DesktopMessageRequest = {
   agentMentions?: import("../../shared/agentMentions").AgentMentionSnapshot[]; primaryContext?: import("../../shared/agentMentions").DesktopPrimaryContext;
   /** Product-only primary context supplied by the Goal owner, never raw XML. */
   queryPrimaryContext?: import("../../shared/agentMentions").QueryPrimaryContext;
+  /** Instruction change notice chosen by the facade, or replayed from the stored query on retry. */
+  queryMemoryRefresh?: import("../../shared/memoryRefresh").MemoryRefreshNotice;
   clientRequestId?: string;
   asyncQuestionReply?: AsyncQuestionReply;
   text: string;
@@ -136,6 +138,8 @@ export type InboxMessageRequest = {
   queueId?: string;
   /** Final prepared-session claim at the Runtime dispatch boundary. */
   beforeDispatch?: DispatchGuard;
+  /** The text already starts with a product envelope that Channel context must join. */
+  channelPrimaryReminder?: boolean;
 };
 
 export type InboxAdmissionResult = {
