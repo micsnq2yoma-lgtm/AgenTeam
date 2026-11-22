@@ -95,6 +95,8 @@ Claude SDK 与 DSH 的权限展示名称可以相同，传参词汇仍各自独�
 
 Managed Runtime 的目标下载版本以 `src/shared/managed-codex-runtime.json` 为唯一锁定源；当前进程使用安装器已经原子发布并校验的 installed identity。更新下载期间不得因为目标锁变化而阻断现有健康版本或已有 Session。
 
+Windows 安装器用 `WinVerifyTrust` 校验暂存的 Codex 可执行文件，并从同一次校验的签名状态读取签名证书。证书 SHA-256 必须与已验证清单一致，清单声明发布者时也须核对证书主题。此步骤独立于 PowerShell 及其模块环境，任何校验失败都在发布新版本前终止安装。
+
 ### Integrated DSH identity
 
 打包时的 DSH 来源由 [构建资源准备](build_resource_preparation.md#integrated-dsh-构建来源) 选定。Release lock 是正式包的 authority；显式本地 Dev 构建从已验证 handoff 派生一次性 effective lock。两种来源都在打包前冻结相同的 TypeScript/Rust 运行身份，不进入 Agent 设置或 Session 可变配置。

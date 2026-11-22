@@ -2,13 +2,13 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{ErrorKind, Read};
 use std::path::{Component, Path, PathBuf};
-use std::process::{ChildStderr, ChildStdout, Output, Stdio};
+#[cfg(target_os = "macos")]
+use std::process::Output;
+use std::process::{ChildStderr, ChildStdout, Stdio};
 use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-#[cfg(target_os = "windows")]
-use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -16,6 +16,9 @@ use zip::ZipArchive;
 
 use crate::utils::file_lock::{with_file_lock_blocking, FileLockError, FileLockOptions};
 use crate::{ulog_error, ulog_info, ulog_warn};
+
+#[cfg(target_os = "windows")]
+mod windows_signature;
 
 const CODEX_PROVIDER_ID: &str = "codex-sub";
 pub(crate) const REQUIRED_VERSION: &str = env!("MYAGENTS_MANAGED_CODEX_VERSION");
@@ -822,7 +825,7 @@ async fn download_artifact_with_direct_fallback(
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(target_os = "macos")]
 fn truncate_command_output(bytes: &[u8]) -> String {
     let text = String::from_utf8_lossy(bytes).trim().to_string();
     if text.chars().count() <= MAX_CAPTURED_OUTPUT_CHARS {
@@ -836,7 +839,7 @@ fn truncate_command_output(bytes: &[u8]) -> String {
     truncated
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(target_os = "macos")]
 fn command_failure(label: &str, output: &Output) -> String {
     let stdout = truncate_command_output(&output.stdout);
     let stderr = truncate_command_output(&output.stderr);
@@ -938,15 +941,6 @@ fn verify_macos_platform_signature(
 }
 
 #[cfg(target_os = "windows")]
-fn encode_powershell(script: &str) -> String {
-    let mut utf16le = Vec::with_capacity(script.len() * 2);
-    for c in script.encode_utf16() {
-        utf16le.extend_from_slice(&c.to_le_bytes());
-    }
-    general_purpose::STANDARD.encode(utf16le)
-}
-
-#[cfg(target_os = "windows")]
 fn powershell_path() -> PathBuf {
     if let Some(path) = crate::system_binary::find("powershell.exe")
         .or_else(|| crate::system_binary::find("powershell"))
@@ -964,136 +958,13 @@ fn powershell_path() -> PathBuf {
 }
 
 #[cfg(target_os = "windows")]
-fn decode_powershell_text_output(bytes: &[u8]) -> String {
-    if bytes.starts_with(&[0xff, 0xfe]) || looks_like_utf16le(bytes) {
-        let units: Vec<u16> = bytes
-            .chunks_exact(2)
-            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
-            .collect();
-        return String::from_utf16_lossy(&units);
-    }
-    if bytes.starts_with(&[0xfe, 0xff]) {
-        let units: Vec<u16> = bytes
-            .chunks_exact(2)
-            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
-            .collect();
-        return String::from_utf16_lossy(&units);
-    }
-    String::from_utf8_lossy(bytes).to_string()
-}
-
-#[cfg(target_os = "windows")]
-fn looks_like_utf16le(bytes: &[u8]) -> bool {
-    if bytes.len() < 8 {
-        return false;
-    }
-    let sampled = bytes.iter().skip(1).step_by(2).take(32).count();
-    if sampled == 0 {
-        return false;
-    }
-    let nul_odd_bytes = bytes
-        .iter()
-        .skip(1)
-        .step_by(2)
-        .take(32)
-        .filter(|byte| **byte == 0)
-        .count();
-    nul_odd_bytes * 2 >= sampled
-}
-
-#[cfg(target_os = "windows")]
-fn decode_powershell_base64_utf8_output(bytes: &[u8], label: &str) -> Result<String, String> {
-    let text = decode_powershell_text_output(bytes);
-    let encoded: String = text
-        .chars()
-        .filter(|ch| !ch.is_whitespace() && *ch != '\u{feff}' && *ch != '\0')
-        .collect();
-    if encoded.is_empty() {
-        return Err(format!("[managed-codex] {} output is empty", label));
-    }
-    let decoded = general_purpose::STANDARD.decode(encoded).map_err(|e| {
-        format!(
-            "[managed-codex] {} output is not valid base64: {}",
-            label, e
-        )
-    })?;
-    String::from_utf8(decoded)
-        .map_err(|e| format!("[managed-codex] {} output is not UTF-8: {}", label, e))
-}
-
-#[cfg(target_os = "windows")]
 fn verify_windows_platform_signature(
     executable: &Path,
     signing: &ManagedCodexArtifactSigning,
 ) -> Result<ManagedCodexSigningVerification, String> {
-    let executable_utf8 = executable
-        .to_str()
-        .ok_or_else(|| "[managed-codex] executable path is not UTF-8".to_string())?;
-    let encoded_path = general_purpose::STANDARD.encode(executable_utf8.as_bytes());
-    let script = format!(
-        r#"
-$ErrorActionPreference = 'Stop'
-$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-$OutputEncoding = $utf8NoBom
-[Console]::OutputEncoding = $utf8NoBom
-$path = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{encoded_path}'))
-$sig = Get-AuthenticodeSignature -LiteralPath $path
-$cert = $sig.SignerCertificate
-$sha256 = $null
-if ($cert -ne $null) {{
-  $sha256 = [System.BitConverter]::ToString($cert.GetCertHash('SHA256')).Replace('-', '').ToLowerInvariant()
-}}
-$json = [ordered]@{{
-  status = [string]$sig.Status
-  statusMessage = [string]$sig.StatusMessage
-  subject = if ($cert -ne $null) {{ [string]$cert.Subject }} else {{ $null }}
-  sha256 = $sha256
-}} | ConvertTo-Json -Compress
-[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($json))
-"#
-    );
-    let encoded = encode_powershell(&script);
-    let shell = powershell_path();
-    let output = crate::process_cmd::new(shell.as_os_str())
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-EncodedCommand",
-            &encoded,
-        ])
-        .output()
-        .map_err(|e| format!("[managed-codex] Failed to spawn PowerShell: {}", e))?;
-    if !output.status.success() {
-        return Err(command_failure("Get-AuthenticodeSignature", &output));
-    }
-    let stdout = decode_powershell_base64_utf8_output(&output.stdout, "Authenticode")?;
-    let parsed: Value = serde_json::from_str(stdout.trim())
-        .map_err(|e| format!("[managed-codex] Authenticode JSON parse failed: {}", e))?;
-    let status = parsed
-        .get("status")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    if status != "Valid" {
-        let message = parsed
-            .get("statusMessage")
-            .and_then(Value::as_str)
-            .unwrap_or(status);
-        return Err(format!(
-            "[managed-codex] Authenticode status is not Valid: {}",
-            message
-        ));
-    }
-
-    let actual_sha = parsed
-        .get("sha256")
-        .and_then(Value::as_str)
-        .and_then(|v| non_empty_trimmed(Some(v)))
-        .ok_or_else(|| {
-            "[managed-codex] Authenticode signer certificate SHA-256 missing".to_string()
-        })?;
-    let actual_sha = normalize_sha256_hex(&actual_sha)?;
+    let signer = windows_signature::verify(executable)
+        .map_err(|error| format!("[managed-codex] {error}"))?;
+    let actual_sha = signer.certificate_sha256;
     let expected_sha = signing
         .certificate_sha256
         .as_deref()
@@ -1108,10 +979,7 @@ $json = [ordered]@{{
         ));
     }
 
-    let publisher = parsed
-        .get("subject")
-        .and_then(Value::as_str)
-        .and_then(|v| non_empty_trimmed(Some(v)));
+    let publisher = non_empty_trimmed(Some(&signer.subject));
     if let Some(expected_publisher) = non_empty_trimmed(signing.publisher.as_deref()) {
         let actual = publisher.as_deref().unwrap_or("").to_ascii_lowercase();
         if !actual.contains(&expected_publisher.to_ascii_lowercase()) {
@@ -3140,31 +3008,6 @@ mod tests {
             .as_deref()
             .unwrap_or_default()
             .contains("binary is missing"));
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn powershell_base64_utf8_output_decodes_utf8_and_utf16le_shell_output() {
-        let json =
-            r#"{"status":"Valid","statusMessage":"已验证","subject":"CN=OpenAI","sha256":"abc"}"#;
-        let encoded = general_purpose::STANDARD.encode(json.as_bytes());
-
-        let utf8_output = format!("{}\r\n", encoded);
-        assert_eq!(
-            decode_powershell_base64_utf8_output(utf8_output.as_bytes(), "Authenticode")
-                .expect("utf8 powershell output"),
-            json
-        );
-
-        let mut utf16le_output = Vec::new();
-        for unit in format!("\u{feff}{}\r\n", encoded).encode_utf16() {
-            utf16le_output.extend_from_slice(&unit.to_le_bytes());
-        }
-        assert_eq!(
-            decode_powershell_base64_utf8_output(&utf16le_output, "Authenticode")
-                .expect("utf16le powershell output"),
-            json
-        );
     }
 
     #[test]
