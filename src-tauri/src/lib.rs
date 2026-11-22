@@ -10,6 +10,7 @@ pub mod browser_identity_store;
 pub mod browser_resource;
 pub mod browser_runtime_authority;
 pub mod cli;
+pub mod profile_sync;
 pub mod cliproxy;
 mod commands;
 pub mod config_io;
@@ -1054,6 +1055,8 @@ pub fn run() {
             // sweep handles upgrade backlog without requiring any Sidecar.
             crash_artifact_retention::start_crash_artifact_retention_owner();
             tauri::async_runtime::spawn(grok_auth::reconcile_provider_projection());
+            // Shared user-profile chapters flow from the primary assistant to the others.
+            profile_sync::start_background_sync();
             let network_sidecar_state = app.state::<sidecar::ManagedSidecarManager>().inner().clone();
             agent_network::registry::start(
                 app.handle().clone(),
