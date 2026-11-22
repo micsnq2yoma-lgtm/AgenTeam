@@ -198,7 +198,7 @@ import {
 } from '../../shared/browserTools';
 import {
   IMAGE_UNDERSTANDING_TOOL_ID,
-  OFFICIAL_TOOLS,
+  TOGGLEABLE_OFFICIAL_TOOLS,
   normalizeOfficialToolIds,
   type OfficialToolId,
 } from '../../shared/official-tools';
@@ -6879,7 +6879,7 @@ export default function Chat({
                         ? handleMcpRetry
                         : undefined
                     }
-              officialTools={OFFICIAL_TOOLS}
+              officialTools={TOGGLEABLE_OFFICIAL_TOOLS}
               workspaceOfficialToolEnabled={workspaceOfficialToolEnabled}
               globalOfficialToolEnabled={globalOfficialToolEnabled}
               officialToolNeedsConfig={officialToolNeedsConfig}

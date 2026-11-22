@@ -9,6 +9,7 @@ type SessionSnapshotPatchKey =
   | 'mcpEnabledServers'
   | 'enabledPluginIds'
   | 'enabledOfficialToolIds'
+  | 'knowledgeBaseIds'
   | 'providerId'
   | 'providerRoute'
   | 'providerExecutionIdentity'
@@ -25,6 +26,7 @@ const SNAPSHOT_KEYS = [
   'mcpEnabledServers',
   'enabledPluginIds',
   'enabledOfficialToolIds',
+  'knowledgeBaseIds',
   'providerId',
   'providerRoute',
   'providerExecutionIdentity',
@@ -91,7 +93,9 @@ export function buildSessionSnapshotPatchUpdates(args: {
   for (const key of SNAPSHOT_KEYS) {
     if (!hasOwnSnapshotPayloadKey(args.payload, key)) continue;
     const value = args.payload[key];
-    (explicit as Record<string, unknown>)[key] = value === null ? undefined : value;
+    (explicit as Record<string, unknown>)[key] = value === null
+      ? key === 'knowledgeBaseIds' ? [] : undefined
+      : value;
     wroteSnapshotField = true;
   }
 
@@ -143,6 +147,8 @@ export function buildSessionSnapshotPatchUpdates(args: {
     ...copyPresentSnapshotFields(args.baseSnapshot),
     ...copyPresentSnapshotFields(args.existing),
   };
+  // A legacy Session never inherited library access from the current Agent.
+  if (args.existing.knowledgeBaseIds === undefined) delete baseline.knowledgeBaseIds;
   const runtime = (baseline.runtime ?? args.baseSnapshot?.runtime ?? args.existing.runtime ?? 'builtin') as RuntimeType;
   baseline.runtime ??= runtime;
   baseline.permissionMode ??= getDefaultRuntimePermissionMode(runtime);

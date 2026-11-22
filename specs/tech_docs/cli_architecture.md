@@ -523,6 +523,12 @@ Speech 是官方稳定命令组，不属于 MCP，也不受用户 CLI 工具注�
 
 `myagents speech list` 只返回调用 Session 最近的 durable job；这不是用户可选 filter。工具被该 Session 禁用、没有真实 Session/Workspace、caller generation 过期或资源未安装时都 fail closed。`wait` 收到 Ctrl-C 退出 130，但不会取消 App job；用户可用同一 Session 的 status/cancel 继续处理。底层 Worker、模型与恢复契约见 [`recording_and_speech_recognition.md`](./recording_and_speech_recognition.md)。
 
+#### `myagents kb` 会话知识库
+
+应用内置 CLI 将 `list/search/get/read/add/meta set/status` 发往当前 Session 的 `/api/admin/kb/*`。Admin handler 使用 SessionEngine 的受管进程身份，将调用转发到 Rust Management API，并透传错误码与恢复提示。外部 token 的静态清单不包含这些命令。
+
+Rust 通过 process generation 取得会话和工作区，并用会话已持久化的知识库快照限制范围。导入和元数据写入由知识库与 Task authority 裁决。文件参数按当前工作区解析，逐段拒绝链接，读取游标绑到会话、原文版本及页或标题。参数、范围和持久化规则见 [知识库技术文档](./knowledge_base.md#k5-management-api-与-cli)。
+
 ### CLI 工具注册表实验门控
 
 用户注册 CLI 工具注册表（`myagents tool ...`、设置页「工具箱 / CLI 工具」、`tool-creator` skill、用户工具 prompt 注入）受 `config.cliToolRegistryEnabled` 控制。该开关位于「设置 → 关于&反馈 → 实验室」，默认关闭，且不能通过通用 `myagents config set cliToolRegistryEnabled ...` 修改，避免 AI 自行绕过人类可见的实验开关。

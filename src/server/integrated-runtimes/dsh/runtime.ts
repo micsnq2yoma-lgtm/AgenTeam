@@ -1464,6 +1464,8 @@ export class DshRuntime implements AgentRuntime {
     if (process.activeOperationId) throw new Error('DSH already owns an active root turn');
     // Global collaboration choices become effective through the existing
     // configuration owner at the next user-turn boundary, including a warm process.
+    const systemContext = await process.options.refreshProductSystemContext?.();
+    if (systemContext) process.options.systemContext = systemContext;
     const desired = await compileConfiguration(process.options, { model: process.configuration.profile.modelId,
       permissionMode: process.desiredPermissionMode, reasoningEffort: process.configuration.reasoningEffort }, process.configuration);
     if (desired.revision !== process.configuration.revision) await this.applyConfiguration(process, desired);

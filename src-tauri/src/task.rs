@@ -434,6 +434,7 @@ fn default_task_executor_agent() -> TaskExecutor {
 pub const MANAGED_KIND_MEMORY_GARDENER: &str = "memory_gardener";
 pub const MANAGED_KIND_MEMORY_MOLT: &str = "memory_molt";
 pub const MANAGED_KIND_MEMORY_AUTO_UPDATE_BATCH: &str = "memory_auto_update_batch";
+pub(crate) const MANAGED_KIND_KNOWLEDGE_CURATOR: &str = "knowledge_curator";
 pub const MANAGED_TASK_ERROR: &str =
     "Managed scheduled jobs are internal and cannot be managed from ordinary Task surfaces";
 
@@ -443,6 +444,7 @@ pub fn is_supported_managed_kind(kind: &str) -> bool {
         MANAGED_KIND_MEMORY_GARDENER
             | MANAGED_KIND_MEMORY_MOLT
             | MANAGED_KIND_MEMORY_AUTO_UPDATE_BATCH
+            | MANAGED_KIND_KNOWLEDGE_CURATOR
     )
 }
 
@@ -605,6 +607,10 @@ pub struct Task {
     /// lists, but kept in task history/session records for auditability.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub managed_kind: Option<String>,
+    /// App-owned resource identity for a knowledge curator. Ordinary Task
+    /// create and update payloads cannot assign it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) curator_knowledge_base_id: Option<String>,
     #[serde(
         default,
         rename = "sourceRecordId",
@@ -2654,6 +2660,7 @@ impl TaskStore {
             runtime_config: input.runtime_config,
             mcp_enabled_servers: normalize_mcp_override(input.mcp_enabled_servers),
             managed_kind,
+            curator_knowledge_base_id: None,
             source_record_id: input.source_record_id,
             legacy_source_thought_id: None,
             session_ids: Vec::new(),
@@ -2827,6 +2834,7 @@ impl TaskStore {
             runtime_config: input.runtime_config,
             mcp_enabled_servers: normalize_mcp_override(input.mcp_enabled_servers),
             managed_kind,
+            curator_knowledge_base_id: None,
             source_record_id: input.source_record_id,
             legacy_source_thought_id: None,
             session_ids: Vec::new(),
@@ -3005,6 +3013,7 @@ impl TaskStore {
             runtime_config: None,
             mcp_enabled_servers: None,
             managed_kind: None,
+            curator_knowledge_base_id: None,
             source_record_id: None,
             legacy_source_thought_id: None,
             session_ids: vec![input.current_session_id.clone()],
@@ -3108,6 +3117,21 @@ impl TaskStore {
 
     pub async fn get(&self, id: &str) -> Option<Task> {
         self.inner.read().await.get(id).cloned()
+    }
+
+    pub(crate) async fn knowledge_curator_task(&self, kb_id: &str) -> Option<String> {
+        let tasks = self.inner.read().await;
+        unique_knowledge_curator(&tasks, kb_id).map(|task| task.id.clone())
+    }
+
+    pub(crate) fn pin_knowledge_curator(
+        &self,
+        kb_id: &str,
+        task_id: &str,
+    ) -> Result<Option<impl Sized>, tokio::sync::TryLockError> {
+        let guard = Arc::clone(&self.inner).try_read_owned()?;
+        let matches = unique_knowledge_curator(&guard, kb_id).is_some_and(|task| task.id == task_id);
+        Ok(matches.then_some(guard))
     }
 
     pub async fn get_ordinary(&self, id: &str) -> Result<Task, String> {
@@ -4957,6 +4981,19 @@ static TASK_STORE: std::sync::OnceLock<Arc<TaskStore>> = std::sync::OnceLock::ne
 
 pub fn set_task_store(store: Arc<TaskStore>) {
     let _ = TASK_STORE.set(store);
+}
+
+fn unique_knowledge_curator<'a>(
+    tasks: &'a HashMap<String, Task>,
+    kb_id: &str,
+) -> Option<&'a Task> {
+    let mut tasks = tasks.values().filter(|task| {
+        !task.deleted
+            && task.managed_kind.as_deref() == Some(MANAGED_KIND_KNOWLEDGE_CURATOR)
+            && task.curator_knowledge_base_id.as_deref() == Some(kb_id)
+    });
+    let task = tasks.next()?;
+    tasks.next().is_none().then_some(task)
 }
 
 pub fn get_task_store() -> Option<&'static Arc<TaskStore>> {

@@ -79,6 +79,14 @@ export function getActiveSessionTranscript(sessionId: string): SessionTranscript
     return active?.isRevoked ? undefined : active;
 }
 
+/** Make a bound Session's snapshot visible to the Rust CLI admission owner. */
+export async function flushSessionKnowledgeForDispatch(sessionId: string): Promise<void> {
+    const active = getActiveSessionTranscript(sessionId);
+    if (active?.metadata.knowledgeBaseIds?.length && !(await active.writer.flush())) {
+        throw new Error('The Session knowledge bindings could not be published');
+    }
+}
+
 export function subscribeTranscriptSaveStatus(listener: (status: TranscriptSaveStatus) => void): () => void {
     transcriptStatusListeners.add(listener);
     return () => transcriptStatusListeners.delete(listener);
@@ -4213,6 +4221,7 @@ export async function updateSessionMetadata(
         | 'mcpEnabledServers'
         | 'enabledPluginIds'
         | 'enabledOfficialToolIds'
+        | 'knowledgeBaseIds'
         | 'providerId'
         | 'providerRoute'
         | 'providerExecutionIdentity'

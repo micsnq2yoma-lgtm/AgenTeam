@@ -1,9 +1,11 @@
 export const IMAGE_UNDERSTANDING_TOOL_ID = 'image-understanding' as const;
 export const SPEECH_RECOGNITION_TOOL_ID = 'speech-recognition' as const;
+export const KNOWLEDGE_TOOL_ID = 'knowledge' as const;
 
 export type OfficialToolId =
   | typeof IMAGE_UNDERSTANDING_TOOL_ID
-  | typeof SPEECH_RECOGNITION_TOOL_ID;
+  | typeof SPEECH_RECOGNITION_TOOL_ID
+  | typeof KNOWLEDGE_TOOL_ID;
 
 export interface ImageUnderstandingToolSettings {
   providerId?: string;
@@ -37,7 +39,7 @@ export interface OfficialToolDefinition {
   name: string;
   description: string;
   badge: 'CLI';
-  cliGroup: 'vision' | 'speech';
+  cliGroup: 'vision' | 'speech' | 'kb';
   requiresConfig: boolean;
 }
 
@@ -58,7 +60,19 @@ export const OFFICIAL_TOOLS: readonly OfficialToolDefinition[] = [
     cliGroup: 'speech',
     requiresConfig: false,
   },
+  {
+    id: KNOWLEDGE_TOOL_ID,
+    name: 'Knowledge base',
+    description: 'Search and read sources from knowledge bases bound to the Session.',
+    badge: 'CLI',
+    cliGroup: 'kb',
+    requiresConfig: false,
+  },
 ] as const;
+
+export const TOGGLEABLE_OFFICIAL_TOOLS = OFFICIAL_TOOLS.filter(
+  tool => tool.id !== KNOWLEDGE_TOOL_ID,
+);
 
 const OFFICIAL_TOOL_ID_SET = new Set<string>(OFFICIAL_TOOLS.map(tool => tool.id));
 

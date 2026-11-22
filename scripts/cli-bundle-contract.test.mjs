@@ -166,6 +166,20 @@ test('built CLI keeps internal surfaces and the public external contract', async
     assert.match(aliasHelp.stdout, /myagents task remove <taskId>/);
     assert.doesNotMatch(aliasHelp.stdout, /myagents task delete <taskId>/);
 
+    const beforeExternalKnowledge = requests.length;
+    await assert.rejects(
+      execFileAsync(process.execPath, [outfile, 'kb', 'list', '--json'], {
+        cwd: repoRoot,
+        env: { ...externalEnv, MYAGENTS_SESSION_ID: '' },
+      }),
+      error => {
+        assert.equal(error.code, 2);
+        assert.equal(JSON.parse(error.stdout).success, false);
+        return true;
+      },
+    );
+    assert.equal(requests.length, beforeExternalKnowledge);
+
     await assert.rejects(
       execFileAsync(process.execPath, [outfile, 'task', 'start', 'task-1', '--mystery', '--json'], {
         cwd: repoRoot,
@@ -278,7 +292,7 @@ test('built CLI keeps internal surfaces and the public external contract', async
       });
       const scopedAddress = scopedServer.address();
       assert.ok(scopedAddress && typeof scopedAddress === 'object');
-      for (const args of [['agent', 'current'], ['task', 'list'], ['goal', 'list']]) {
+      for (const args of [['agent', 'current'], ['task', 'list'], ['goal', 'list'], ['kb', 'list']]) {
         const output = await execFileAsync(process.execPath, [outfile, ...args, '--json'], {
           cwd: scratch,
           env: { ...process.env, VITEST: '', MYAGENTS_PORT: String(scopedAddress.port), MYAGENTS_SESSION_ID: sessionId, MYAGENTS_INTERNAL_CLI_TOKEN: 'internal-test-capability' },
@@ -286,6 +300,7 @@ test('built CLI keeps internal surfaces and the public external contract', async
         assert.match(output.stdout, new RegExp(sessionId));
         assert.equal(scopedRequests.at(-1).header, sessionId);
         assert.equal(scopedRequests.at(-1).sessionId, sessionId);
+        if (args[0] === 'kb') assert.equal(scopedRequests.at(-1).path, '/api/admin/kb/list');
       }
     }
     const beforeInvalid = requests.length + scopedRequests.length;

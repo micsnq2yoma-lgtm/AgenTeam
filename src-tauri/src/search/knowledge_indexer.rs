@@ -63,7 +63,8 @@ pub enum KnowledgeSearchStatus {
     Failed,
 }
 
-#[derive(Default)]
+#[derive(Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct KnowledgeSearchFilters {
     pub tag: Option<String>,
     pub category: Option<String>,

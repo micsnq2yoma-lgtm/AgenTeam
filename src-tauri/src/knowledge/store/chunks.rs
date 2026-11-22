@@ -77,17 +77,9 @@ impl KnowledgeStore {
         kb: &str,
         source: &KnowledgeSource,
     ) -> Result<Vec<KnowledgeChunk>, ReadFailure> {
-        let expected = source.facts.content_hash.as_deref().ok_or(KbStoreCorrupt)?;
-        let relative = format!("knowledge/{kb}/sources/{}/content.md", source.id);
-        let (_, bytes) =
-            read_workspace_file_no_follow(&self.app_data_dir, &relative, MAX_OUTPUT_BYTES)
-                .map_err(|_| KbStoreUnavailable)?;
-        if format!("{:x}", Sha256::digest(&bytes)) != expected {
-            return Err(KbStoreCorrupt.into());
-        }
-        let markdown = std::str::from_utf8(&bytes).map_err(|_| KbStoreCorrupt)?;
+        let markdown = self.read_published_content(kb, source)?;
         let locale = crate::i18n::locale_from_config(&self.app_data_dir.join("config.json"));
-        chunk_markdown(kb, &source.id, source.display_title(), markdown, locale).map_err(|err| {
+        chunk_markdown(kb, &source.id, source.display_title(), &markdown, locale).map_err(|err| {
             match err {
                 ChunkError::GraphemeExceedsBudget(position) => ReadFailure {
                     code: KnowledgeErrorCode::KbChunkUnsplittable,
@@ -97,6 +89,22 @@ impl KnowledgeStore {
                 ChunkError::InsufficientContextSpace => KbLimitExceeded.into(),
             }
         })
+    }
+
+    pub(crate) fn read_published_content(
+        &self,
+        kb: &str,
+        source: &KnowledgeSource,
+    ) -> StoreResult<String> {
+        let expected = source.facts.content_hash.as_deref().ok_or(KbStoreCorrupt)?;
+        let relative = format!("knowledge/{kb}/sources/{}/content.md", source.id);
+        let (_, bytes) =
+            read_workspace_file_no_follow(&self.app_data_dir, &relative, MAX_OUTPUT_BYTES)
+                .map_err(|_| KbStoreUnavailable)?;
+        if format!("{:x}", Sha256::digest(&bytes)) != expected {
+            return Err(KbStoreCorrupt);
+        }
+        String::from_utf8(bytes).map_err(|_| KbStoreCorrupt)
     }
 
     /// Project one committed source for a derived reader. If its content or

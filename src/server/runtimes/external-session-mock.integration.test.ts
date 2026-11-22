@@ -10597,3 +10597,85 @@ describe('external SessionEngine with fake runtime', () => {
     ).toBe(false);
   });
 });
+
+// Explicit legacy rows are persisted synchronously by the fixture's real SessionStore.
+const knowledgeProjectionProbe = vi.hoisted(() => ({ sessionId: '' }));
+
+vi.mock('../utils/management-api-client', async original => {
+  const actual = await original<typeof import('../utils/management-api-client')>();
+  return {
+    ...actual,
+    managementApi: async (...args: Parameters<typeof actual.managementApi>) => {
+      if (process.env.MYAGENTS_SIDECAR_ID !== 'knowledge-prompt-probe') return actual.managementApi(...args);
+      const [path] = args;
+      if (path === '/api/im/channel-context') {
+        return { ok: true, channels: [], defaultTarget: null, sourceType: null };
+      }
+      if (path !== '/api/knowledge/list' && path !== '/api/knowledge/prompt') {
+        return actual.managementApi(...args);
+      }
+      const homeDirectory = process.platform === 'win32' ? process.env.USERPROFILE! : process.env.HOME!;
+      let ids: string[] = [];
+      try {
+        const rows = JSON.parse(readFileSync(join(homeDirectory, '.agenteam', 'sessions.json'), 'utf8')) as
+          { id: string; materializationState?: string; knowledgeBaseIds?: string[] }[];
+        const current = rows.find(row => row.id === knowledgeProjectionProbe.sessionId);
+        if (current?.materializationState !== 'prepared' || path === '/api/knowledge/prompt') {
+          ids = current?.knowledgeBaseIds ?? [];
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+      return { ok: true, libraries: ids.map(id => ({ id, name: 'Orchard', description: 'Fruit research' })) };
+    },
+  };
+});
+
+it.each(['bind', 'clear', 'Agent default changes before birth'] as const)(
+  'rebuilds the warm Codex process prompt when %s',
+  async mode => {
+    const kb = 'kb_0123456789ab';
+    const harness = await createHarness([{ kind: 'success', text: 'answer' }]);
+    const sessionId = 'knowledge-prompt-codex';
+    const workspacePath = join(harness.home, 'workspace');
+    const data = join(harness.home, '.agenteam');
+    const nativeStart = vi.spyOn(harness.runtime, 'startSession');
+    const coldIds = mode === 'clear' ? [kb] : [];
+    const updatedIds = mode === 'clear' ? [] : [kb];
+    knowledgeProjectionProbe.sessionId = sessionId;
+    const previousSidecar = process.env.MYAGENTS_SIDECAR_ID;
+    vi.stubEnv('MYAGENTS_SIDECAR_ID', 'knowledge-prompt-probe');
+    try {
+      if (mode !== 'Agent default changes before birth') {
+        await harness.sessionStore.saveSessionMetadata({
+          id: sessionId, agentDir: workspacePath, title: 'Existing Session',
+          createdAt: '2026-01-01T00:00:00Z', lastActiveAt: '2026-01-01T00:00:00Z',
+          runtime: 'codex', knowledgeBaseIds: coldIds,
+        });
+      }
+
+      await expect(harness.externalSession.prewarmExternalSession({
+        sessionId, workspacePath, scenario: { type: 'desktop' },
+      })).resolves.toEqual({ prewarmed: true });
+      expect(nativeStart.mock.calls[0]?.[0].systemPromptAppend?.includes('Orchard')).toBe(coldIds.length > 0);
+
+      if (mode === 'Agent default changes before birth') {
+        writeFileSync(join(data, 'config.json'), JSON.stringify({
+          agents: [{ id: 'owner', name: 'Owner', enabled: true, runtime: 'codex', channels: [], knowledgeBaseIds: updatedIds }],
+        }));
+        writeFileSync(join(data, 'projects.json'), JSON.stringify([{ id: 'project', path: workspacePath, agentId: 'owner' }]));
+      } else {
+        await expect(harness.sessionStore.updateSessionMetadata(sessionId, { knowledgeBaseIds: updatedIds }, () => true))
+          .resolves.toMatchObject({ knowledgeBaseIds: updatedIds });
+      }
+
+      const result = await harness.engine.sendDesktopMessage(desktopRequest(sessionId, workspacePath, 'first user turn'));
+      await expect(result.dispatchAcceptance).resolves.toMatchObject({ accepted: true });
+      await waitFor(() => harness.runtime.sentMessages.length === 1, 'turn admission');
+      expect(harness.sessionStore.getSessionMetadata(sessionId)?.knowledgeBaseIds).toEqual(updatedIds);
+      expect(nativeStart.mock.calls.at(-1)?.[0].systemPromptAppend?.includes('Orchard')).toBe(updatedIds.length > 0);
+    } finally {
+      vi.stubEnv('MYAGENTS_SIDECAR_ID', previousSidecar);
+    }
+  },
+);

@@ -153,6 +153,8 @@ export interface SessionMetadata {
   enabledPluginIds?: string[];
   /** Snapshot MyAgents official CLI tool enabled list. Separate from MCP/plugin ids. */
   enabledOfficialToolIds?: import('../../shared/official-tools').OfficialToolId[];
+  /** Library scope owned by this Product Session. Missing legacy values grant no access. */
+  knowledgeBaseIds?: string[];
   /** Snapshot providerId. For owned sessions, undefined means "not pinned". */
   providerId?: string;
   /** Snapshot provider/model route identity. This is the canonical builtin provider identity. */

@@ -762,7 +762,8 @@ export async function patchAgentConfig(
   patch: AgentConfigMutation,
   options: { memoryAutoUpdateReconcileFailure?: 'defer' | 'throw' } = {},
 ): Promise<AgentConfig | undefined> {
-  if (!touchesProjectMirroredAgentField(patch)) {
+  const mirrorsProject = touchesProjectMirroredAgentField(patch);
+  if (!mirrorsProject && patch.knowledgeBaseIds === undefined) {
     const result = await persistAgentConfigPatch(agentId, patch);
     await projectLiveAgentConfigPatch(agentId, patch, result, options);
     return result.updated;
@@ -772,6 +773,7 @@ export async function patchAgentConfig(
     agentId,
     patch,
     async () => {
+      if (!mirrorsProject) return undefined;
       // Resolve the association only after joining the cross-process intent
       // lock. Caller-held React state is a replica and may already be stale.
       const [config, projects] = await Promise.all([loadAppConfig(), loadProjects()]);

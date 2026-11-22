@@ -44,9 +44,8 @@ pub(crate) fn redact_session_metadata(mut session: Value) -> Option<Value> {
     Some(session)
 }
 
-fn read_session_metadata(agent_dir: Option<String>) -> Result<Vec<Value>, String> {
-    let path = sessions_path()?;
-    let content = match std::fs::read_to_string(&path) {
+fn read_persisted_sessions(path: &Path) -> Result<Vec<Value>, String> {
+    let content = match std::fs::read_to_string(path) {
         Ok(content) => content,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(e) => {
@@ -57,8 +56,65 @@ fn read_session_metadata(agent_dir: Option<String>) -> Result<Vec<Value>, String
             ))
         }
     };
-    let sessions: Vec<Value> = serde_json::from_str(crate::utils::bom::strip_bom(&content))
-        .map_err(|e| format!("解析 sessions.json 失败：{} ({})", path.display(), e))?;
+    serde_json::from_str(crate::utils::bom::strip_bom(&content))
+        .map_err(|e| format!("解析 sessions.json 失败：{} ({})", path.display(), e))
+}
+
+pub(crate) fn knowledge_base_ids_for_session(
+    data_dir: &Path,
+    session_id: &str,
+) -> crate::knowledge::store::StoreResult<Vec<String>> {
+    read_knowledge_bindings(data_dir, session_id, false)
+}
+
+/// Resolve titles for the exact prepared or published Session during prompt
+/// assembly. Source reads and writes continue to require committed admission.
+pub(crate) fn knowledge_base_ids_for_prompt(
+    data_dir: &Path,
+    session_id: &str,
+) -> crate::knowledge::store::StoreResult<Vec<String>> {
+    read_knowledge_bindings(data_dir, session_id, true)
+}
+
+fn read_knowledge_bindings(
+    data_dir: &Path,
+    session_id: &str,
+    include_prepared: bool,
+) -> crate::knowledge::store::StoreResult<Vec<String>> {
+    use crate::knowledge::types::{is_knowledge_base_id, KnowledgeErrorCode};
+
+    let sessions = read_persisted_sessions(&data_dir.join("sessions.json"))
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?;
+    let mut records = sessions
+        .iter()
+        .filter(|session| session["id"].as_str() == Some(session_id));
+    let Some(session) = records.next() else {
+        return Ok(Vec::new());
+    };
+    if records.next().is_some() {
+        return Err(KnowledgeErrorCode::KbStoreCorrupt);
+    }
+    if !include_prepared && session["materializationState"].as_str() == Some("prepared") {
+        return Ok(Vec::new());
+    }
+    let Some(ids) = session.get("knowledgeBaseIds") else {
+        return Ok(Vec::new());
+    };
+    let ids: Vec<String> =
+        serde_json::from_value(ids.clone()).map_err(|_| KnowledgeErrorCode::KbStoreCorrupt)?;
+    if ids.iter().any(|id| !is_knowledge_base_id(id)) {
+        return Err(KnowledgeErrorCode::KbStoreCorrupt);
+    }
+    Ok(ids
+        .into_iter()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect())
+}
+
+fn read_session_metadata(agent_dir: Option<String>) -> Result<Vec<Value>, String> {
+    let path = sessions_path()?;
+    let sessions = read_persisted_sessions(&path)?;
     let sessions_dir = path.parent().unwrap_or(Path::new(".")).join("sessions");
     let agent_dir_identity = agent_dir
         .as_deref()

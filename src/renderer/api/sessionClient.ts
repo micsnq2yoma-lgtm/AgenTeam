@@ -106,6 +106,7 @@ export interface SessionMetadata {
     enabledPluginIds?: string[];
     /** Snapshot MyAgents official CLI tool enabled list. */
     enabledOfficialToolIds?: OfficialToolId[];
+    knowledgeBaseIds?: string[];
     providerId?: string;
     providerRoute?: ProviderRoute;
     /** Provider-facing identity for runtime-backed providers such as Managed Codex. */
@@ -342,6 +343,7 @@ export async function updateSession(
         mcpEnabledServers?: string[] | null;
         enabledPluginIds?: string[] | null;
         enabledOfficialToolIds?: OfficialToolId[] | null;
+        knowledgeBaseIds?: string[] | null;
         providerId?: string | null;
         providerRoute?: ProviderRoute | null;
         providerExecutionIdentity?: RuntimeBackedProviderIdentity | null;

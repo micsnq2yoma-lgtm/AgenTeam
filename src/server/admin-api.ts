@@ -1,6 +1,7 @@
 import { readChannelIdentities, projectConfiguredChannel, projectScopedChannels } from './utils/channel-discovery';
 import { nextAgentNetworkExposureRevision } from "../shared/config-types";
 import { MODEL_ADD_OPTIONS_HELP } from '../shared/modelAddOptions';
+import { KNOWLEDGE_CLI_HELP, type KnowledgeCommand } from '../shared/knowledge/cli-contract';
 import { resolveAgentConfigMutation, mutationForAgentModelSelection, type AgentModelSelection } from '../shared/agentConfigMutation';
 import { APP_BUILD_IDENTITY, SIDECAR_BUILD_IDENTITY, SIDECAR_STARTED_AT } from './build-identity';
 import { CLAUDE_AGENT_SDK_IMPLEMENTATION_VERSION } from '../shared/integrated-runtimes/identity';
@@ -100,6 +101,7 @@ import {
   ADMIN_LOOPBACK_TIMEOUT_MS,
   managementApi,
 } from './utils/management-api-client';
+import { validateKnowledgeBindings } from './utils/knowledge-bindings';
 import { getSessionEngine, inspectRuntime } from './session-engine';
 import { getSessionsByAgentDir, isHistoryVisibleSession } from './SessionStore';
 import {
@@ -2145,6 +2147,7 @@ const AGENT_SET_FIELDS = [
   'model',
   'permissionMode',
   'mcpEnabledServers',
+  'knowledgeBaseIds',
 ] as const;
 
 export async function handleAgentSet(payload: {
@@ -2184,6 +2187,14 @@ export async function handleAgentSet(payload: {
       return { success: false, error: 'enabled must be a boolean' };
     }
     return value ? handleAgentEnable({ id }) : handleAgentDisable({ id });
+  }
+
+  if (key === 'knowledgeBaseIds') {
+    const binding = await validateKnowledgeBindings(value);
+    if (!binding.ok) return { success: false, code: binding.code, error: binding.error };
+    return modifyAgentConfigIntent(id, agent => ({
+      ok: true, agent: { ...agent, knowledgeBaseIds: binding.ids },
+    }), 'set');
   }
 
   if (key === 'mcpEnabledServers') {
@@ -2945,6 +2956,7 @@ OPTIONS
 };
 
 const HELP_TEXTS: Record<string, string> = {
+  ...KNOWLEDGE_CLI_HELP,
   ...LEAF_HELP,
   anydoc: `myagents anydoc — Convert one local document to Markdown with offline OCR
 
@@ -4361,13 +4373,14 @@ Restores its workspace visibility through the lifecycle owner. --json returns
 the result. Inspect agent show for the resulting configuration.`,
   'agent/set': `myagents agent set <agentId> <key> <value> — Change local Agent configuration
 
-Keys: enabled, runtime, runtimeConfig, providerId, model, permissionMode, mcpEnabledServers.
+Keys: enabled, runtime, runtimeConfig, providerId, model, permissionMode, mcpEnabledServers, knowledgeBaseIds.
 Values are parsed as JSON when valid; quote strings/JSON for your shell.
 Use runtime list/describe before selecting runtime-specific values.
 Configuration intent is validated by the Agent owner; providerId/model/permissionMode
 also update the Project mirror and live channels. mcpEnabledServers accepts a JSON
 array of catalogue IDs and changes future defaults; globally disabled servers remain
-unavailable. Existing Session configuration
+unavailable. knowledgeBaseIds accepts a JSON array of library IDs for new Sessions.
+Existing Session configuration
 has its own lifecycle; Agent defaults do not prove its effective permissions.
 --json returns the result. Read agent show first; network references and unknown
 keys are not supported. There is no --dry-run.`,
@@ -4768,6 +4781,16 @@ export async function handleAnydocList(payload: {
     `/api/document/list${qsFrom({ limit: payload.limit })}`,
   );
   return wrapMgmtResponse(response);
+}
+
+export async function handleKnowledge(
+  route: KnowledgeCommand,
+  request: Record<string, unknown>,
+): Promise<AdminResponse> {
+  const { sessionId } = getSessionEngine().getCurrentSessionContext();
+  const sidecarId = sessionId ? process.env.MYAGENTS_SIDECAR_ID ?? '' : '';
+  const action = route.slice('kb/'.length).replace('/', '-');
+  return wrapMgmtResponse(await managementApi(`/api/knowledge/${action}`, 'POST', { sidecarId, request }));
 }
 
 type SpeechAdminCaller = {

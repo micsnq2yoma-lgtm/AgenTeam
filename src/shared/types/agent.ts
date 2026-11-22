@@ -172,6 +172,8 @@ export interface AgentConfig {
   enabledPluginIds?: string[];
   /** MyAgents official CLI tools enabled for this Agent. Separate from MCP/plugin ids. */
   enabledOfficialToolIds?: OfficialToolId[];
+  /** Default library bindings for new Product Sessions. */
+  knowledgeBaseIds?: string[];
   /** Per-project Skill/Command disabled overrides. The owning Project selects
    * this Agent by stable `agentId`; workspace files never mirror the value. */
   capabilitySelection?: ProjectCapabilitySelectionV1;

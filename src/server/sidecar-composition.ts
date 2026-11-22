@@ -171,7 +171,7 @@ const SESSION_ADMIN_ROUTES = new Set([
   'reload',
 ]);
 
-const SESSION_ADMIN_PREFIXES = ['goal/', 'session/'] as const;
+const SESSION_ADMIN_PREFIXES = ['goal/', 'kb/', 'session/'] as const;
 
 const COMMON_ADMIN_PREFIXES = [
   'agent/',

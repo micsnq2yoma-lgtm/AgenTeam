@@ -36,6 +36,7 @@ export type OwnedSessionSnapshot = Pick<
   | 'mcpEnabledServers'
   | 'enabledPluginIds'
   | 'enabledOfficialToolIds'
+  | 'knowledgeBaseIds'
   | 'providerId'
   | 'providerRoute'
   | 'providerExecutionIdentity'
@@ -73,6 +74,7 @@ export function snapshotForForkedSession(
     enabledOfficialToolIds: source.enabledOfficialToolIds
       ? [...source.enabledOfficialToolIds]
       : fallback?.enabledOfficialToolIds ? [...fallback.enabledOfficialToolIds] : undefined,
+    ...(source.knowledgeBaseIds ? { knowledgeBaseIds: [...source.knowledgeBaseIds] } : {}),
     providerId: source.providerId ?? fallback?.providerId,
     providerRoute: source.providerRoute ?? fallback?.providerRoute,
     providerExecutionIdentity: source.providerExecutionIdentity ?? fallback?.providerExecutionIdentity,
@@ -192,7 +194,7 @@ export function snapshotForImSession(
  * compiler used by ordinary Runtime changes; integrated Provider choices carry.
  */
 export function snapshotForImRuntimeSwitch(
-  source: Pick<SessionMetadata, 'runtime' | 'runtimeSource' | 'permissionMode' | 'providerId' | 'model' | 'reasoningEffort' | 'providerEnvJson' | 'mcpEnabledServers' | 'enabledPluginIds' | 'enabledOfficialToolIds'>,
+  source: Pick<SessionMetadata, 'runtime' | 'runtimeSource' | 'permissionMode' | 'providerId' | 'model' | 'reasoningEffort' | 'providerEnvJson' | 'mcpEnabledServers' | 'enabledPluginIds' | 'enabledOfficialToolIds' | 'knowledgeBaseIds'>,
   runtime: RuntimeType,
 ): OwnedSessionSnapshot {
   const integrated = source.runtime === 'builtin' || source.runtime === 'dsh';
@@ -208,6 +210,7 @@ export function snapshotForImRuntimeSwitch(
     mcpEnabledServers: source.mcpEnabledServers ?? [],
     enabledPluginIds: source.enabledPluginIds ?? [],
     enabledOfficialToolIds: source.enabledOfficialToolIds ?? [],
+    knowledgeBaseIds: source.knowledgeBaseIds,
   };
   return snapshotForImSession(agent, { runtimeOverride: runtime,
     runtimeSourceOverride: runtime === 'codex' || runtime === 'claude-code' ? 'system-cli' : undefined });
@@ -262,6 +265,7 @@ export function snapshotForOwnedSession(
       mcpEnabledServers: agent.mcpEnabledServers ? [...agent.mcpEnabledServers] : undefined,
       enabledPluginIds: agent.enabledPluginIds ? [...agent.enabledPluginIds] : undefined,
       enabledOfficialToolIds: agent.enabledOfficialToolIds ? [...agent.enabledOfficialToolIds] : undefined,
+      ...(agent.knowledgeBaseIds ? { knowledgeBaseIds: [...agent.knowledgeBaseIds] } : {}),
       providerId: providerExecutionIdentity.providerId,
       providerRoute: undefined,
       providerExecutionIdentity,
@@ -299,6 +303,7 @@ export function snapshotForOwnedSession(
     mcpEnabledServers: snapshotAgent.mcpEnabledServers ? [...snapshotAgent.mcpEnabledServers] : undefined,
     enabledPluginIds: snapshotAgent.enabledPluginIds ? [...snapshotAgent.enabledPluginIds] : undefined,
     enabledOfficialToolIds: snapshotAgent.enabledOfficialToolIds ? [...snapshotAgent.enabledOfficialToolIds] : undefined,
+    ...(snapshotAgent.knowledgeBaseIds ? { knowledgeBaseIds: [...snapshotAgent.knowledgeBaseIds] } : {}),
     providerId: builtinProviderId,
     providerRoute,
     providerExecutionIdentity: undefined,

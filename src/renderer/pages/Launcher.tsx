@@ -73,7 +73,7 @@ import {
 } from '../../shared/providerExecution';
 import {
   IMAGE_UNDERSTANDING_TOOL_ID,
-  OFFICIAL_TOOLS,
+  TOGGLEABLE_OFFICIAL_TOOLS,
   normalizeOfficialToolIds,
   type OfficialToolId,
 } from '../../shared/official-tools';
@@ -1203,7 +1203,7 @@ export default function Launcher({
           globalMcpEnabled={launcherGlobalMcpEnabled}
           mcpServers={launcherMcpServers}
           onWorkspaceMcpToggle={handleWorkspaceMcpToggle}
-          officialTools={OFFICIAL_TOOLS}
+          officialTools={TOGGLEABLE_OFFICIAL_TOOLS}
           workspaceOfficialToolEnabled={launcherOfficialToolEnabled}
           globalOfficialToolEnabled={launcherGlobalOfficialToolEnabled}
           officialToolNeedsConfig={launcherOfficialToolNeedsConfig}

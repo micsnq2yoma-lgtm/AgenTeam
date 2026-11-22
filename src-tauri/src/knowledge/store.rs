@@ -498,7 +498,45 @@ impl KnowledgeStore {
         actor: KnowledgeMetadataOrigin,
         fields: MetadataPatch,
     ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
+        self.write_metadata(kb_id, source_id, actor, fields, |_| Ok(()))
+    }
+
+    pub(crate) fn set_agent_metadata<G>(
+        &self,
+        kb_id: &str,
+        source_id: &str,
+        fields: MetadataPatch,
+        authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<G>,
+    ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
+        self.write_metadata(
+            kb_id,
+            source_id,
+            KnowledgeMetadataOrigin::Agent,
+            fields,
+            authorize,
+        )
+    }
+
+    pub(crate) fn check_agent_write<G>(
+        &self,
+        kb_id: &str,
+        authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<G>,
+    ) -> StoreResult<()> {
+        self.locked_kb(kb_id, None, |files, _| {
+            authorize(&files.read_kb(kb_id)?).map(drop)
+        })
+    }
+
+    fn write_metadata<G>(
+        &self,
+        kb_id: &str,
+        source_id: &str,
+        actor: KnowledgeMetadataOrigin,
+        fields: MetadataPatch,
+        authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<G>,
+    ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
         self.locked_kb(kb_id, Some(source_id), |files, _| {
+            let _permit = authorize(&files.read_kb(kb_id)?)?;
             let mut record = files.require_record(kb_id, source_id)?;
             let source = &mut record.source;
             let updated_at = Utc::now().to_rfc3339();

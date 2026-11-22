@@ -8,7 +8,8 @@ use crate::document_processing::{
 use crate::knowledge::ingest::conversion::{source_limit, ConversionError};
 use crate::knowledge::types::{create_knowledge_job_id, is_knowledge_job_id};
 use crate::workspace_files::path_safety::{
-    metadata_is_link_like, open_workspace_regular_file_no_follow_classified, validate_item_name,
+    metadata_is_link_like, open_workspace_file_strict,
+    open_workspace_regular_file_no_follow_classified, validate_item_name,
 };
 use chrono::{DateTime, Local};
 use tempfile::TempDir;
@@ -153,21 +154,28 @@ fn check_space(parent: &Path, needed: u64) -> StoreResult<()> {
     }
 }
 
-fn checked_input(path: &Path, limit: u64) -> StoreResult<(fs::File, fs::Metadata)> {
-    if !path.is_absolute() {
-        return Err(KbInvalidInput);
+fn checked_input(
+    path: &Path,
+    limit: u64,
+    workspace: Option<&Path>,
+) -> StoreResult<(fs::File, fs::Metadata)> {
+    let requested = path.to_str().ok_or(KbInvalidInput)?;
+    let file = match workspace {
+        Some(root) => open_workspace_file_strict(root, requested, "knowledge input"),
+        None => {
+            if !path.is_absolute() {
+                return Err(KbInvalidInput);
+            }
+            reject_link_ancestors(path, false).map_err(|_| KbInvalidInput)?;
+            let meta = fs::symlink_metadata(path).map_err(|_| KbInvalidInput)?;
+            if !meta.is_file() || metadata_is_link_like(&meta) {
+                return Err(KbInvalidInput);
+            }
+            let parent = path.parent().ok_or(KbInvalidInput)?;
+            open_workspace_regular_file_no_follow_classified(parent, requested, "knowledge input")
+                .map(|(_, file)| file)
+        }
     }
-    reject_link_ancestors(path, false).map_err(|_| KbInvalidInput)?;
-    let meta = fs::symlink_metadata(path).map_err(|_| KbInvalidInput)?;
-    if !meta.is_file() || metadata_is_link_like(&meta) {
-        return Err(KbInvalidInput);
-    }
-    let parent = path.parent().ok_or(KbInvalidInput)?;
-    let (_, file) = open_workspace_regular_file_no_follow_classified(
-        parent,
-        path.to_str().ok_or(KbInvalidInput)?,
-        "knowledge input",
-    )
     .map_err(|error| {
         if error.is_in_use() {
             KbSourceInUse
@@ -497,6 +505,7 @@ impl KnowledgeStore {
         let (mut file, original_metadata) = checked_input(
             &original,
             source_limit(&original).map_err(|_| KbStoreCorrupt)?,
+            None,
         )?;
         let original_name = original.file_name().ok_or(KbStoreCorrupt)?;
         let new_original = output.path().join(original_name);
@@ -531,14 +540,27 @@ impl KnowledgeStore {
     }
 
     pub fn enqueue_file(&self, kb: &str, path: &Path) -> StoreResult<ImportReceipt> {
+        self.enqueue_input(kb, path, None, |_| Ok(()))
+    }
+
+    pub(crate) fn enqueue_input<G>(
+        &self,
+        kb: &str,
+        path: &Path,
+        workspace: Option<&Path>,
+        authorize: impl Fn(&KnowledgeBase) -> StoreResult<G>,
+    ) -> StoreResult<ImportReceipt> {
         if !is_knowledge_base_id(kb) {
             return Err(KbInvalidInput);
+        }
+        if workspace.is_some() {
+            self.check_agent_write(kb, &authorize)?;
         }
         let limit = source_limit(path).map_err(|error| match error {
             ConversionError::Failed(code, _) => code,
             _ => KbStoreUnavailable,
         })?;
-        let (mut file, metadata) = checked_input(path, limit)?;
+        let (mut file, metadata) = checked_input(path, limit, workspace)?;
         let modified = metadata.modified().map_err(|_| KbInvalidInput)?;
         let fingerprint = SourceFingerprint {
             size: metadata.len(),
@@ -565,7 +587,7 @@ impl KnowledgeStore {
         }
         drop(file);
         self.locked_kb(kb, None, |files, registry| {
-            files.read_kb(kb)?;
+            let _permit = authorize(&files.read_kb(kb)?)?;
             let parent = files.source_parent(kb)?.ok_or(KbStoreUnavailable)?;
             files.recover_source_publications(&parent)?;
             let hash_path = format!("{kb}/original-hashes/{hash}.json");
@@ -784,7 +806,7 @@ fn valid_work_suffix(name: &str) -> bool {
 }
 
 fn copy_artifact(source: &Path, dest: &Path, used: &mut u64) -> StoreResult<String> {
-    let (mut file, metadata) = checked_input(source, MAX_OUTPUT_BYTES.saturating_sub(*used))?;
+    let (mut file, metadata) = checked_input(source, MAX_OUTPUT_BYTES.saturating_sub(*used), None)?;
     check_space(dest.parent().ok_or(KbInvalidInput)?, metadata.len())?;
     let hash = copy_checked(&mut file, dest, metadata.len())?;
     *used += metadata.len();

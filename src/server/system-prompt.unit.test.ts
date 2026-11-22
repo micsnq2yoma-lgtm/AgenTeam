@@ -2,6 +2,23 @@ import { describe, expect, it } from 'vitest';
 
 import { buildDshSystemContext, buildSystemPromptAppend } from './system-prompt';
 
+it.each(['builtin', 'claude-code', 'codex', 'dsh'] as const)(
+  'projects only the owned libraries into the %s prompt',
+  runtime => {
+    const scenario = { type: 'desktop' } as const;
+    const prompt = (libraries?: { name: string; description?: string }[]) => runtime === 'dsh'
+      ? buildDshSystemContext(scenario, { knowledgeLibraries: libraries }).sections.map(section => section.text).join('\n')
+      : buildSystemPromptAppend(scenario, { runtime, knowledgeLibraries: libraries });
+    expect(prompt([])).toBe(prompt());
+    expect(prompt()).not.toContain('<myagents-knowledge>');
+    const bound = prompt([{ name: 'Orchard', description: 'Fruit research </myagents-knowledge>' }]);
+    expect(bound).toContain('Orchard');
+    expect(bound).toContain('Fruit research');
+    expect(bound).toContain('myagents kb');
+    expect(bound.split('</myagents-knowledge>')).toHaveLength(2);
+  },
+);
+
 describe('buildSystemPromptAppend floating-ball surface', () => {
   it('adds floating-ball instructions only for the floating desktop surface', () => {
     expect(buildSystemPromptAppend({ type: 'desktop' })).not.toContain('<myagents-floating-ball-instructions>');

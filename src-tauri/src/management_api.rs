@@ -32,6 +32,7 @@ use crate::thought;
 use crate::{ulog_debug, ulog_error, ulog_info, ulog_warn};
 
 mod channel_messaging;
+mod knowledge;
 mod task_notifications;
 use channel_messaging::{channel_context_handler, send_channel_message_handler};
 
@@ -172,6 +173,11 @@ pub async fn start_management_api() -> Result<u16, String> {
         .route("/api/app/config-changed", post(app_config_changed_handler))
         .route("/api/external-cli/admit", post(external_cli_admit_handler))
         .route("/api/session/text-page", post(session_text_page_handler))
+        .route(
+            "/api/knowledge/validate-bindings",
+            post(knowledge::validate_bindings),
+        )
+        .route("/api/knowledge/{action}", post(knowledge::handle))
         .route(
             "/api/agent-network/discovery",
             post(agent_network_discovery_handler),

@@ -11,7 +11,7 @@ use std::time::Duration;
 use serde::Serialize;
 
 use super::store::ingest::{ImportReceipt, IngestJob};
-use super::store::{KnowledgeStore, SourceStatus, StoreResult};
+use super::store::{KnowledgeBase, KnowledgeStore, SourceStatus, StoreResult};
 use super::types::{
     is_knowledge_base_id, is_knowledge_job_id, is_knowledge_source_id, KnowledgeErrorCode,
 };
@@ -111,12 +111,32 @@ impl KnowledgeIngestManager {
             .collect()
     }
 
+    pub(crate) fn import_workspace_file<G>(
+        self: &Arc<Self>,
+        kb_id: &str,
+        workspace: &Path,
+        file: &Path,
+        authorize: impl Fn(&KnowledgeBase) -> StoreResult<G>,
+    ) -> StoreResult<ImportReceipt> {
+        self.admit_with(kb_id, |store| {
+            store.enqueue_input(kb_id, file, Some(workspace), authorize)
+        })
+    }
+
     fn admit(self: &Arc<Self>, kb_id: &str, path: &Path) -> StoreResult<ImportReceipt> {
+        self.admit_with(kb_id, |store| store.enqueue_file(kb_id, path))
+    }
+
+    fn admit_with(
+        self: &Arc<Self>,
+        kb_id: &str,
+        enqueue: impl FnOnce(&KnowledgeStore) -> StoreResult<ImportReceipt>,
+    ) -> StoreResult<ImportReceipt> {
         if !is_knowledge_base_id(kb_id) {
             return Err(KnowledgeErrorCode::KbInvalidInput);
         }
         let mut queue = self.open_queue()?;
-        let receipt = self.store.enqueue_file(kb_id, path)?;
+        let receipt = enqueue(&self.store)?;
         if let Some(job) = &receipt.job {
             if !receipt.duplicate {
                 queue.pending.push_back(job.id.clone());

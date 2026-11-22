@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { KNOWLEDGE_CLI_HELP } from '../shared/knowledge/cli-contract';
 
 const agentSessionMocks = vi.hoisted(() => ({
   agentDir: undefined as string | undefined,
@@ -12,6 +13,18 @@ const agentSessionMocks = vi.hoisted(() => ({
   getQueueStatus: vi.fn(() => []),
   forceReloadActiveSession: vi.fn(),
 }));
+
+describe('knowledge leaf help', () => {
+  it('documents the exact read syntax and cursor joining contract', () => {
+    expect(KNOWLEDGE_CLI_HELP['kb/read']).toMatchInlineSnapshot(`
+      "myagents kb read <source-ref> [--page <n> | --heading "<title>"] [--cursor <cursor>] [--json]
+
+      Pass a kb:// source reference. Page is a positive number and heading is an exact title.
+      Returns up to 64 KiB of Markdown. Repeat the request with the same source and selector,
+      plus the supplied nextCursor, to read the following slice."
+    `);
+  });
+});
 
 const managementApiMocks = vi.hoisted(() => ({
   managementApi: vi.fn(async (_path?: string): Promise<Record<string, unknown>> => ({ ok: true, taskUpdated: 0, cronUpdated: 0 })),
@@ -3606,6 +3619,27 @@ describe('admin-api MCP project scope', () => {
     expect(await handleMcpEnable({ id: 'custom', scope: 'project' })).toMatchObject({ success: true });
     expect(readConfig()).toMatchObject({ agents: [{ mcpEnabledServers: ['legacy-unavailable', 'custom'] }] });
     expect(sessionEngineMocks.updateMcpServers).toHaveBeenCalledWith([expect.objectContaining({ id: 'custom' })]);
+  });
+
+  it('validates Agent knowledge defaults and leaves config and Project unchanged on rejection', async () => {
+    const { handleAgentSet } = await import('./admin-api');
+    const workspacePath = join(scratch, 'knowledge-agent-set');
+    const projectPath = join(scratch, '.agenteam', 'projects.json');
+    const kb = 'kb_0123456789ab';
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
+      agents: [{ id: 'owner', name: 'Owner', enabled: true, workspacePath, model: 'unchanged' }],
+    });
+    writeJson(projectPath, [{ id: 'project', path: workspacePath, agentId: 'owner' }]);
+    const previous = readConfig();
+    const project = readFileSync(projectPath, 'utf8');
+    managementApiMocks.managementApi.mockResolvedValueOnce({ ok: false, code: 'KB_NOT_FOUND' });
+    expect(await handleAgentSet({ id: 'owner', key: 'knowledgeBaseIds', value: [kb] }))
+      .toMatchObject({ success: false, code: 'KB_NOT_FOUND' });
+    expect(readConfig()).toEqual(previous);
+    expect(await handleAgentSet({ id: 'owner', key: 'knowledgeBaseIds', value: [kb, kb] }))
+      .toMatchObject({ success: true });
+    expect(readConfig()).toMatchObject({ agents: [{ knowledgeBaseIds: [kb], model: 'unchanged' }] });
+    expect(readFileSync(projectPath, 'utf8')).toBe(project);
   });
 
   it('supports an explicit Agent MCP selection without changing globally disabled availability', async () => {

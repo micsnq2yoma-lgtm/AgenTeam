@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PRESET_PROVIDERS } from '../../../shared/config-types';
 import { RuntimeSteerUnavailableError, type UnifiedEvent } from '../../runtimes/types';
+import { buildDshSystemContext } from '../../system-prompt';
 import { DshRuntime } from './runtime';
 import { DshAttachmentRegistry } from './attachments';
 import { compileDshProductExtensionPlane } from './extension-compiler';
@@ -73,8 +74,13 @@ describe('DSH native collaboration boundaries', () => {
     });
     const runtime = new DshRuntime();
     const events: UnifiedEvent[] = [];
+    const scenario = { type: 'desktop' } as const;
+    let knowledgeLibraries: { name: string }[] = [];
+    const systemContext = buildDshSystemContext(scenario, { knowledgeLibraries });
     const process = await runtime.startSession({ sessionId: 'session-steer-reject', workspacePath,
-      permissionMode: 'full-autonomous', scenario: { type: 'desktop' } }, event => events.push(event));
+      permissionMode: 'full-autonomous', scenario, systemContext,
+      refreshProductSystemContext: async () => buildDshSystemContext(scenario, { knowledgeLibraries }),
+    }, event => events.push(event));
     try {
       const liveSource = { revision: 'live-extensions', workspacePath,
         skills: [], commands: [], agents: [], mcpServers: [], dynamicTools: [] };
@@ -100,7 +106,14 @@ describe('DSH native collaboration boundaries', () => {
       // Native Plan state has its own owner; it cannot publish a permission
       // projection that overwrites the Product Session's desired mode.
       expect(events).toEqual([]);
+      const contextAtStartup = fixture.request.mock.calls.find(call => call[0] === 'session/create')?.[1].systemContext;
+      expect(contextAtStartup).toEqual(systemContext);
+      expect(JSON.stringify(contextAtStartup)).not.toContain('myagents-knowledge');
+      knowledgeLibraries = [{ name: 'Orchard' }];
       await runtime.sendMessage(process, 'A', [], { clientUserMessageId: 'user-A', clientOperationId: 'root-A', allowRealtimeSteer: true });
+      const contextAtTurn = fixture.request.mock.calls.filter(call => call[0] === 'config/apply').at(-1)?.[1].systemContext;
+      expect(contextAtTurn).toEqual(buildDshSystemContext(scenario, { knowledgeLibraries }));
+      expect(JSON.stringify(contextAtTurn)).toContain('<myagents-knowledge>');
       const beforeDispatch = vi.fn(async () => {});
       await expect(runtime.steerMessage(process, 'C', [], { clientUserMessageId: 'user-C', clientOperationId: 'root-A', beforeDispatch }))
         .rejects.toBeInstanceOf(RuntimeSteerUnavailableError);

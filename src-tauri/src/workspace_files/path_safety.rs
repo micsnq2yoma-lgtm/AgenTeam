@@ -626,8 +626,25 @@ pub(crate) fn read_workspace_file_no_follow_classified(
     requested: &str,
     max_bytes: u64,
 ) -> Result<(PathBuf, Vec<u8>), RegularFileError> {
-    let (canonical, mut file) =
+    let (canonical, file) =
         open_workspace_regular_file_no_follow_classified(workspace_root, requested, "attachment")?;
+    let bytes = read_opened_workspace_file(file, max_bytes)?;
+    Ok((canonical, bytes))
+}
+
+pub(crate) fn read_workspace_file_strict(
+    workspace_root: &Path,
+    requested: &str,
+    max_bytes: u64,
+) -> Result<Vec<u8>, RegularFileError> {
+    let file = open_workspace_file_strict(workspace_root, requested, "attachment")?;
+    read_opened_workspace_file(file, max_bytes)
+}
+
+fn read_opened_workspace_file(
+    mut file: fs::File,
+    max_bytes: u64,
+) -> Result<Vec<u8>, RegularFileError> {
     let metadata = file
         .metadata()
         .map_err(|e| RegularFileError::io("Failed to inspect opened attachment", e))?;
@@ -642,7 +659,7 @@ pub(crate) fn read_workspace_file_no_follow_classified(
     if bytes.len() as u64 > max_bytes {
         return Err(format!("Attachment exceeds {} bytes", max_bytes).into());
     }
-    Ok((canonical, bytes))
+    Ok(bytes)
 }
 
 /// Open a regular file beneath the exact Workspace root without following a
@@ -683,16 +700,73 @@ pub(crate) fn open_workspace_regular_file_no_follow_classified(
     let relative = canonical
         .strip_prefix(&canonical_root)
         .map_err(|_| "Attachment path escapes the current workspace".to_string())?;
+    let file = open_workspace_relative_regular_file(
+        &canonical_root,
+        relative,
+        label,
+        #[cfg(windows)]
+        WORKSPACE_READ_SHARE,
+    )?;
+    Ok((canonical, file))
+}
+
+/// Resolve a caller-supplied path lexically before opening any of its
+/// components relative to the workspace. A link is rejected even if its
+/// target lies inside the same workspace.
+pub(crate) fn open_workspace_file_strict(
+    workspace_root: &Path,
+    requested: &str,
+    label: &str,
+) -> Result<fs::File, RegularFileError> {
+    use crate::commands::normalize_security_path;
+
+    let root = fs::canonicalize(workspace_root)
+        .map_err(|e| RegularFileError::io("Failed to resolve workspace path", e))?;
+    let requested = normalize_security_path(PathBuf::from(requested));
+    let compatible_root = normalize_security_path(root.clone());
+    let relative = if requested.is_absolute() {
+        requested
+            .strip_prefix(&compatible_root)
+            .map_err(|_| "Attachment path escapes the current workspace".to_string())?
+    } else {
+        requested.as_path()
+    };
+    let path = resolve_inside_workspace(
+        &root,
+        relative
+            .to_str()
+            .ok_or_else(|| "Attachment path is not valid UTF-8".to_string())?,
+    )?;
+    let relative = path
+        .strip_prefix(&root)
+        .map_err(|_| "Attachment path escapes the current workspace".to_string())?;
+    open_workspace_relative_regular_file(
+        &root,
+        relative,
+        label,
+        #[cfg(windows)]
+        windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ,
+    )
+}
+
+fn open_workspace_relative_regular_file(
+    canonical_root: &Path,
+    relative: &Path,
+    label: &str,
+    #[cfg(windows)] share_mode: u32,
+) -> Result<fs::File, RegularFileError> {
     if relative.as_os_str().is_empty() {
         return Err("Attachment path must be a regular file".to_string().into());
     }
 
     #[cfg(unix)]
-    let file = open_relative_file_no_follow(&canonical_root, relative, false)?;
+    let file = open_relative_file_no_follow(canonical_root, relative, false)?;
     #[cfg(windows)]
-    let (file, opened_parent) = open_windows_workspace_file_no_follow(&canonical_root, relative)?;
+    let (file, opened_parent) =
+        open_windows_workspace_file_no_follow(canonical_root, relative, share_mode, || {})?;
     #[cfg(all(not(unix), not(windows)))]
     let file = {
+        let canonical = canonical_root.join(relative);
         let metadata = fs::symlink_metadata(&canonical)
             .map_err(|e| RegularFileError::io("Failed to inspect attachment", e))?;
         if metadata.file_type().is_symlink() || !metadata.is_file() {
@@ -711,11 +785,11 @@ pub(crate) fn open_workspace_regular_file_no_follow_classified(
     }
     #[cfg(windows)]
     verify_windows_workspace_parent(
-        &canonical_root,
+        canonical_root,
         relative.parent().unwrap_or_else(|| Path::new("")),
         &opened_parent,
     )?;
-    Ok((canonical, file))
+    Ok(file)
 }
 
 /// Create/open a directory beneath the Workspace one component at a time,
@@ -1502,25 +1576,25 @@ fn verify_windows_workspace_parent(
 }
 
 #[cfg(windows)]
-fn open_windows_workspace_file_no_follow(
-    root: &Path,
-    relative: &Path,
-) -> Result<(fs::File, fs::File), RegularFileError> {
-    open_windows_workspace_file_no_follow_impl(root, relative, || {})
-}
+const WORKSPACE_READ_SHARE: u32 = {
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+    };
+    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
+};
 
 #[cfg(windows)]
-fn open_windows_workspace_file_no_follow_impl<F: FnOnce()>(
+fn open_windows_workspace_file_no_follow<F: FnOnce()>(
     root: &Path,
     relative: &Path,
+    share_mode: u32,
     after_parent_opened: F,
 ) -> Result<(fs::File, fs::File), RegularFileError> {
     use windows_sys::Wdk::Storage::FileSystem::{
         FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_REPARSE_POINT, FILE_SYNCHRONOUS_IO_NONALERT,
     };
     use windows_sys::Win32::Storage::FileSystem::{
-        FILE_ATTRIBUTE_NORMAL, FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_SHARE_DELETE,
-        FILE_SHARE_READ, FILE_SHARE_WRITE, SYNCHRONIZE,
+        FILE_ATTRIBUTE_NORMAL, FILE_READ_ATTRIBUTES, FILE_READ_DATA, SYNCHRONIZE,
     };
 
     let leaf = relative
@@ -1536,7 +1610,7 @@ fn open_windows_workspace_file_no_follow_impl<F: FnOnce()>(
         &parent,
         leaf,
         FILE_READ_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        share_mode,
         FILE_OPEN,
         FILE_NON_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT,
         FILE_ATTRIBUTE_NORMAL,
@@ -2440,9 +2514,10 @@ mod tests {
         fs::write(outside.join("value.txt"), "outside").unwrap();
 
         let canonical_ws = fs::canonicalize(&ws).unwrap();
-        let (mut file, opened_parent) = open_windows_workspace_file_no_follow_impl(
+        let (mut file, opened_parent) = open_windows_workspace_file_no_follow(
             &fs::canonicalize(&ws).unwrap(),
             Path::new("safe/value.txt"),
+            WORKSPACE_READ_SHARE,
             || {
                 fs::rename(&safe, &moved).unwrap();
                 junction::create(&outside, &safe).unwrap();

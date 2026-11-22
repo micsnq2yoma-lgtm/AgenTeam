@@ -17,7 +17,7 @@ mod schema;
 mod searcher;
 mod session_indexer;
 mod tokenizer;
-mod util;
+pub(crate) mod util;
 mod watcher;
 
 use serde::Serialize;
