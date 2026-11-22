@@ -56,6 +56,8 @@ interface CustomSelectProps {
   };
   /** Accessible name when no external <label> is associated with the trigger. */
   ariaLabel?: string;
+  /** Wrap plain-text menu labels and expose the full label on hover. */
+  showFullLabels?: boolean;
 }
 
 export default function CustomSelect({
@@ -73,6 +75,7 @@ export default function CustomSelect({
   showSelectedSuffix = false,
   footerAction,
   ariaLabel,
+  showFullLabels = false,
 }: CustomSelectProps) {
   const { t } = useTranslation('app');
   const resolvedPlaceholder = placeholder ?? t('common.selectPlaceholder');
@@ -105,6 +108,7 @@ export default function CustomSelect({
         type="button"
         aria-label={ariaLabel}
         disabled={disabled}
+        title={showFullLabels && !isOpen ? selectedOption?.label : undefined}
         onClick={(event) => {
           // Native accessibility activation may click without moving focus.
           // Keep Escape in this select's existing keyboard/focus owner.
@@ -185,6 +189,7 @@ export default function CustomSelect({
                 <button
                   key={option.value}
                   type="button"
+                  title={showFullLabels ? option.label : undefined}
                   onClick={() => handleSelect(option.value)}
                   // Item font size mirrors the trigger's: `size='md'`
                   // → `text-sm` (14px) so options read at parity with
@@ -201,7 +206,9 @@ export default function CustomSelect({
                   {option.icon && <span className="shrink-0">{option.icon}</span>}
                   <span className="min-w-0">
                     {option.content ?? (
-                      <span className="block truncate">{option.label}</span>
+                      <span className={showFullLabels ? 'block whitespace-normal wrap-anywhere' : 'block truncate'}>
+                        {option.label}
+                      </span>
                     )}
                   </span>
                   {option.value === value && (

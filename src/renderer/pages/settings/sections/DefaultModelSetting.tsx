@@ -58,6 +58,7 @@ export function DefaultModelSetting({ selection, runtime, updateConfig }: Defaul
         size="md"
         className="w-72 max-w-[45%] shrink-0"
         popoverMinWidth={220}
+        showFullLabels
         onChange={next => void save(next)}
       />
     </div>
