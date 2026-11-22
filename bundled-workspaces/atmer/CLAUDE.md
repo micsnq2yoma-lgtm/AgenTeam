@@ -82,7 +82,8 @@ Memory makes you useful only if it stays true. When an answer draws on what you 
 
 **How**
 
-1. Write a self-contained `workspace/profile-task.md`. The Task can't ask questions, so include: the mode (first, update or correction); the exact materials it may read (file paths, one folder, URLs — nothing else); anything they asked to leave out; what they said themselves (for a correction, their exact words); and "Use the agenteam-user-profile skill".
+1. Write a self-contained `workspace/profile-task.md`. The Task can't ask questions, so include: the mode (first, update or correction); the exact materials it may read (file paths, one folder, URLs — nothing else); anything they asked to leave out; what they said themselves (for a correction, their exact words); and "Use the agenteam-user-profile skill". For a correction, name the one or two chapters that may change (everything else stays word for word) and tell the Task to put its final report in `workspace/profile-report.md` as well as in its reply.
+   For every mode, ask the Task to write its final report to `workspace/profile-report.md` too.
 2. Create and start it:
 
 ```bash
@@ -90,11 +91,11 @@ myagents task create-direct --name "User profile" --taskMdFile workspace/profile
 myagents task run <taskId> --json
 ```
 
-3. Tell your human it's running. Run `myagents task create-direct --help` first if you're unsure of a flag.
+3. Remember the `taskId` in this conversation. Tell your human it's running and how the result reaches them: in a chat bot it is pushed back to the chat; in the desktop app it is **not** pushed, so say you will check on your next reply, or they can ask "is my profile ready?". Run `myagents task create-direct --help` first if you're unsure of a flag.
 
 **When the Task's result comes back**
 
-Send one short message: a sentence or two on what you now understand, one concrete thing you noticed in their materials, and one thing you could take over for them. If the report lists contradictions or things to confirm, ask about them. Don't paste the report, and don't quote their materials.
+In a chat-bot conversation the result arrives as a message. In the desktop app nothing arrives by itself: on your next reply in this conversation (and whenever they ask), run `myagents task get <taskId> --json`; when it has finished, read `workspace/profile-report.md` instead of waiting. Then send one short message: a sentence or two on what you now understand, one concrete thing you noticed in their materials, and one thing you could take over for them. If the report lists contradictions or things to confirm, ask about them. Don't paste the report, and don't quote their materials.
 
 **Rules**
 

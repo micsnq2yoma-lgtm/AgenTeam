@@ -70,4 +70,24 @@ describe('assistant profile flow rules', () => {
     expect(CLAUDE).toMatch(/add a dated line under 近期观察/);
     expect(CLAUDE).not.toMatch(/New understanding of your human → update `03-USER.md`\n/);
   });
+
+  it('BOOTSTRAP writes only 基本信息, enforced by the edit tool, and never 来源概况 on skip', () => {
+    expect(BOOTSTRAP).toMatch(/section_edit\.py[^\n]*--allow 基本信息/);
+    expect(BOOTSTRAP).toMatch(/do not write 来源概况/);
+  });
+
+  it('does not promise a desktop push-back: the assistant checks the Task and reads the report file', () => {
+    const section = CLAUDE.split('## Know Your Human')[1].split('\n## ')[0];
+    expect(section).toMatch(/in the desktop app it is \*\*not\*\* pushed/);
+    expect(section).toContain('myagents task get <taskId>');
+    expect(section).toContain('workspace/profile-report.md');
+    const skill = read('bundled-skills/agenteam-user-profile/SKILL.md');
+    expect(skill).toContain('workspace/profile-report.md');
+  });
+
+  it('a correction may only change the chapters it names', () => {
+    const skill = read('bundled-skills/agenteam-user-profile/SKILL.md');
+    expect(skill).toMatch(/定向更正只列被指出的那一两个章节/);
+    expect(CLAUDE).toMatch(/name the one or two chapters that may change/);
+  });
 });

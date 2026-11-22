@@ -122,7 +122,7 @@ test('only bullets of the 近期观察 chapter count, and fenced code is ignored
 });
 
 test('the memory skills describe the same chapter ownership as the profile skill', () => {
-  const read = name => readFileSync(join(root, 'bundled-skills', name, 'SKILL.md'), 'utf8');
+  const read = name => readFileSync(join(root, 'bundled-skills', name, 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
   const update = read('agenteam-memory-update');
   const gardener = read('agenteam-memory-gardener');
   const profile = read('agenteam-user-profile');

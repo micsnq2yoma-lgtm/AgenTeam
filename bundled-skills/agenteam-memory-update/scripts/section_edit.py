@@ -5,7 +5,10 @@ Memory flows (memory update, Gardener, the profile Task) share files such as
 the USER profile. Rewriting a whole file loses other flows' edits and lets a
 model drop content it did not mean to touch. This tool changes only the
 `## ` sections an edit names, refuses to run if the file changed since it was
-read, can restrict which sections may change, and writes atomically.
+read, can restrict which sections may change, and writes atomically. The
+read, the --base-sha check and the write happen under one lock file, so two
+writers that started from the same version cannot both succeed: the second one
+waits, sees the new version and gets exit code 2.
 
   section_edit.py --file USER.md --show
   section_edit.py --file USER.md --edits edits.json --base-sha <sha> \
@@ -19,7 +22,7 @@ edits.json is a list of {"op": "replace|add|delete|append", "heading": "...",
   delete   remove an existing section
   append   add lines at the end of an existing section
 
-Exit codes: 0 ok, 2 file changed since --base-sha, 3 section not allowed,
+Exit codes: 0 ok, 2 file changed since --base-sha (or lock busy), 3 section not allowed,
 4 result too large, 5 invalid input. Nothing is written unless every edit
 passes.
 """
@@ -33,6 +36,8 @@ import os
 import re
 import sys
 import tempfile
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 HEADING = re.compile(r"^## +(.*\S)\s*$")
@@ -161,6 +166,38 @@ def write_atomic(path: Path, text: str) -> None:
         raise
 
 
+LOCK_WAIT_SECONDS = 15.0
+LOCK_STALE_SECONDS = 60.0
+
+
+@contextmanager
+def file_lock(path: Path):
+    """Exclusive lock beside the file (O_EXCL, portable); a crashed holder's lock expires."""
+    lock = path.with_name(f".{path.name}.lock")
+    deadline = time.monotonic() + LOCK_WAIT_SECONDS
+    while True:
+        try:
+            os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            break
+        except FileExistsError:
+            try:
+                if time.time() - lock.stat().st_mtime > LOCK_STALE_SECONDS:
+                    lock.unlink()
+                    continue
+            except FileNotFoundError:
+                continue
+            if time.monotonic() > deadline:
+                raise EditError(EXIT_CHANGED, "LOCK_BUSY", "another edit is still writing this file; read it again and retry")
+            time.sleep(0.05)
+    try:
+        yield
+    finally:
+        try:
+            lock.unlink()
+        except FileNotFoundError:
+            pass
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--file", required=True)
@@ -171,8 +208,21 @@ def main() -> int:
     parser.add_argument("--show", action="store_true", help="print the file's sha256 and section titles")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
-
     path = Path(args.file)
+    if args.show or args.dry_run:
+        return run(args, path)
+    try:
+        with file_lock(path):
+            return run(args, path)
+    except EditError as error:
+        print(json.dumps({"ok": False, "code": error.name, "message": error.message}, ensure_ascii=False))
+        return error.code
+    except OSError as error:
+        print(json.dumps({"ok": False, "code": "UNREADABLE", "message": str(error)}, ensure_ascii=False))
+        return EXIT_INVALID
+
+
+def run(args: argparse.Namespace, path: Path) -> int:
     try:
         raw = path.read_bytes()
         text = raw.decode("utf-8")

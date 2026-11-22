@@ -12,8 +12,9 @@
 //! is append-only) whose USER file has the fixed chapters, so a legacy
 //! free-form profile never becomes the source of a sync it cannot feed.
 //!
-//! A target's previous file is saved beside it before it is changed, so a hand
-//! edit to a synced chapter is recoverable.
+//! A target's previous file is saved beside it before every overwrite, so a hand
+//! edit to a synced chapter is recoverable even when it was made after an
+//! earlier sync the same day.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -211,8 +212,17 @@ pub struct SyncReport {
     pub deferred: Vec<PathBuf>,
 }
 
-fn backup_name(date: &str) -> String {
-    format!("{USER_FILE}.bak-{date}")
+/// A backup name for `stamp` that does not exist yet: a second overwrite in the
+/// same second gets a numeric suffix instead of replacing the first copy.
+fn free_backup_name(target: &Path, stamp: &str) -> String {
+    let base = format!("{USER_FILE}.bak-{stamp}");
+    let mut name = base.clone();
+    let mut n = 2;
+    while target.join(&name).exists() {
+        name = format!("{base}-{n}");
+        n += 1;
+    }
+    name
 }
 
 fn prune_backups(workspace: &Path) {
@@ -234,9 +244,9 @@ fn prune_backups(workspace: &Path) {
     }
 }
 
-/// Sync `workspaces` (in registration order). `date` names the backup, so one
-/// day keeps the oldest saved copy rather than a copy of an already-synced file.
-pub fn reconcile(workspaces: &[PathBuf], date: &str) -> SyncReport {
+/// Sync `workspaces` (in registration order). `stamp` (sortable, e.g.
+/// `YYYYMMDD-HHMMSS`) names the backup of each file that is about to change.
+pub fn reconcile(workspaces: &[PathBuf], stamp: &str) -> SyncReport {
     let mut report = SyncReport::default();
     let profiles: Vec<(&PathBuf, Vec<u8>)> = workspaces
         .iter()
@@ -260,10 +270,8 @@ pub fn reconcile(workspaces: &[PathBuf], date: &str) -> SyncReport {
             report.deferred.push((*target).clone());
             continue;
         }
-        let backup = backup_name(date);
-        if !target.join(&backup).exists()
-            && write_workspace_file_no_follow(target, &backup, bytes).is_err()
-        {
+        let backup = free_backup_name(target, stamp);
+        if write_workspace_file_no_follow(target, &backup, bytes).is_err() {
             continue;
         }
         if write_workspace_file_no_follow(target, USER_FILE, merged.as_bytes()).is_ok() {
@@ -314,8 +322,8 @@ pub fn run_once() {
     if workspaces.len() < 2 {
         return;
     }
-    let date = chrono::Local::now().format("%Y%m%d").to_string();
-    let report = reconcile(&workspaces, &date);
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let report = reconcile(&workspaces, &stamp);
     if !report.updated.is_empty() {
         crate::ulog_info!(
             "[profile-sync] shared profile chapters synced to {} assistant workspace(s)",

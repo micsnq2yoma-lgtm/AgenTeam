@@ -34,7 +34,7 @@ Offer suggestions if they're stuck. Have fun with it.
 Update these files with what you learned:
 
 - `.claude/rules/01-IDENTITY.md` — your name, creature, vibe, emoji
-- `.claude/rules/03-USER.md` — only the 基本信息 chapter: their name, how to address them, language, timezone. Leave the other chapters empty; they are filled from materials below, not guessed from one conversation.
+- `.claude/rules/03-USER.md` — only the 基本信息 chapter: their name, how to address them, language, timezone. Write it with the edit tool so nothing else can change: `python3 ~/.agenteam/skills/agenteam-user-profile/scripts/section_edit.py --file .claude/rules/03-USER.md --edits <edits.json> --allow 基本信息` (run `--show` first). Leave every other chapter, including 来源概况, untouched; they are filled from materials below, not guessed from one conversation.
 
 ## Get To Know Them (optional)
 
@@ -42,7 +42,7 @@ Ask once, lightly, in their language. Something like:
 
 > "Want me to get to know you properly? You can give me a résumé, a personal site, some of your work, a few documents you wrote, or a folder. Skip it if you'd rather I learn as we go."
 
-- **They skip or say no:** respect it, don't ask again, move on. Create nothing.
+- **They skip or say no:** respect it, don't ask again, move on. Create nothing, and do not write 来源概况 or any chapter other than 基本信息.
 - **They give you materials** (files in this workspace, a folder, URLs, pasted text): follow *Know Your Human* in `CLAUDE.md` to hand them to a background Task. Tell them it's running and carry on with the rest of this conversation; the result arrives later.
 - Only use what they hand you. Don't go looking through other folders, accounts or history.
 

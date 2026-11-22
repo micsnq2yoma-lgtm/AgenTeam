@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -159,7 +159,7 @@ test('works on the shipped USER template: chapters keep their ownership hints', 
     { op: 'append', heading: '近期观察', content: '- (2026-11-22) 喜欢简短回复' },
   ], '--allow', '背景,近期观察', '--max-bytes', '20480');
   assert.equal(result.status, 0);
-  const after = readFileSync(w.file, 'utf8');
+  const after = readFileSync(w.file, 'utf8').replace(/\r\n/g, '\n'); // a Windows checkout turns the template into CRLF
   assert.match(after, /## 背景\n\n<!-- 写：现在做什么[^\n]*由：用户资料整理[^\n]*-->\n\n在一家小公司做产品。\n/);
   assert.deepEqual(show(w).sections, ['基本信息', '背景', '沟通风格', '工作方式', '偏好', '写作风格', '近期观察', '来源概况']);
 });
@@ -192,4 +192,47 @@ test('each skill allows exactly the chapters it owns, and no two flows own the s
   // Only the profile task writes the source summary; only update and gardener touch the observation log.
   assert.ok(profile.has('来源概况') && !update.has('来源概况'));
   assert.ok(gardener.has('近期观察') && update.has('近期观察'));
+});
+
+test('two writers from the same version cannot both succeed (no lost update)', async t => {
+  const w = workspace(t, DOC);
+  const base = sha(DOC);
+  const start = marker => {
+    const edits = join(w.dir, `edits-${marker}.json`);
+    writeFileSync(edits, JSON.stringify([{ op: 'append', heading: '近期观察', content: `- (2026-11-22) ${marker}` }]));
+    return new Promise(done => {
+      // Widen the window between reading the file and writing it, so a missing lock shows up every time.
+      const harness = [
+        'import sys, time, runpy, pathlib',
+        'real = pathlib.Path.read_bytes',
+        'def slow(self):',
+        '    data = real(self)',
+        "    if self.name == 'USER.md': time.sleep(0.4)",
+        '    return data',
+        'pathlib.Path.read_bytes = slow',
+        'sys.argv = sys.argv[1:]',
+        'runpy.run_path(sys.argv[0], run_name="__main__")',
+      ].join('\n');
+      const child = spawn(python, ['-B', '-c', harness, SCRIPT, '--file', w.file, '--edits', edits, '--base-sha', base], { stdio: 'ignore' });
+      child.on('close', code => done(code));
+    });
+  };
+  for (let round = 0; round < 2; round++) {
+    writeFileSync(w.file, DOC);
+    const codes = await Promise.all([start('alpha'), start('beta')]);
+    assert.deepEqual([...codes].sort(), [0, 2], `round ${round}: ${codes}`);
+    const text = readFileSync(w.file, 'utf8');
+    assert.equal(['alpha', 'beta'].filter(name => text.includes(name)).length, 1);
+    assert.equal(readdirSync(w.dir).filter(name => name.endsWith('.lock')).length, 0);
+  }
+});
+
+test('a lock left by a crashed writer expires instead of blocking forever', t => {
+  const w = workspace(t, DOC);
+  const lock = join(w.dir, '.USER.md.lock');
+  writeFileSync(lock, '');
+  const old = new Date(Date.now() - 120_000);
+  utimesSync(lock, old, old);
+  const result = edit(w, [{ op: 'append', heading: '偏好', content: '- x' }]);
+  assert.equal(result.status, 0);
 });

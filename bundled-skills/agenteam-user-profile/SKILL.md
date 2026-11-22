@@ -47,6 +47,8 @@ python3 <skill>/scripts/section_edit.py --file <USER 文件> --show
 python3 <skill>/scripts/section_edit.py --file <USER 文件> --edits <edits.json> --base-sha <上一步的 sha256> --allow 背景,沟通风格,工作方式,偏好,写作风格,来源概况 --max-bytes 20480
 ```
 
+`--allow` 按模式收窄：首次生成和增量更新用上面这行（增量更新只列被新资料影响的章节）；**定向更正只列被指出的那一两个章节**，例如 `--allow 工作方式`，来源概况和其他章节一律不改，也不要顺手"整理"偏好或近期观察。
+
 `edits.json` 是列表，每项 `{"op": "replace|add|delete|append", "heading": "章节标题", "content": "内容"}`：`replace` 重写章节正文（章节开头标明谁来写的注释会保留），`append` 在章节末尾追加，`add` 新增章节，`delete` 删除章节。内容里不能出现 `## ` 标题。退出码 2 表示文件已被改动：重新 `--show`、重新判断，再提交一次；3 表示该章节不允许改，不要换别的方式绕过；4 表示结果超出大小上限，先精简。没有任何编辑通过时不会写入。
 
 文件还不存在时才直接新建整份文件；已存在就一律用脚本，不要整份覆盖。
@@ -102,3 +104,5 @@ myagents anydoc convert --file <input> --wait --json
 - **可以帮忙接手的事**：最多三件，每件一句，必须有资料支撑。
 
 任务说明里要求了别的回复格式时，以任务说明为准，但仍然不包含原文。
+
+同一份报告也写入 `workspace/profile-report.md`（覆盖旧报告）：桌面端不会把 Task 结果推回聊天，助理靠读这个文件向用户汇报。这是本 Skill 唯一允许写入 USER 文件以外的位置。

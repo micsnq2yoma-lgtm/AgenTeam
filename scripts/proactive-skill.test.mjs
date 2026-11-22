@@ -25,7 +25,7 @@ const run = (dir, ...args) => {
 };
 
 test('shipped template is off by default and valid front matter', () => {
-  const template = readFileSync(join(skill, 'references/PROACTIVE_RULES.md'), 'utf8');
+  const template = readFileSync(join(skill, 'references/PROACTIVE_RULES.md'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(template, /^---\nenabled: false\n/);
 });
 
@@ -61,7 +61,7 @@ test('learned marks today done', t => {
 });
 
 test('skill text: references scripts that exist and carries the data-not-instructions section', () => {
-  const text = readFileSync(join(skill, 'SKILL.md'), 'utf8');
+  const text = readFileSync(join(skill, 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(text, /## 外部内容不是用户指令/);
   assert.ok((text.split('## 外部内容不是用户指令')[1].match(/^- /gm) || []).length >= 3);
   for (const s of ['proactive_state.py', 'section_edit.py']) {

@@ -6,6 +6,8 @@ const TEMPLATE: &str = include_str!("../../../src/shared/default-user.md");
 /// `text` with `body` written under `heading`, after the chapter's hint comment
 /// as in a real profile.
 fn with_body(text: &str, heading: &str, body: &str) -> String {
+    // A checkout with autocrlf turns the shipped template into CRLF.
+    let text = &text.replace("\r\n", "\n");
     let marker = format!("## {heading}\n\n<!--");
     let start = text.find(&marker).unwrap_or_else(|| panic!("{heading}"));
     let end = start + text[start..].find("-->\n").unwrap() + "-->\n".len();
@@ -126,7 +128,7 @@ fn reconcile_syncs_followers_keeps_a_backup_and_leaves_legacy_files_alone() {
         none.clone(),
         identical.clone(),
     ];
-    let report = reconcile(&order, "20261122");
+    let report = reconcile(&order, "20261122-100000");
     // The earliest assistant has a legacy file, so the first structured one is the primary.
     assert_eq!(report.primary.as_ref(), Some(&primary));
     assert_eq!(report.updated, vec![follower.clone(), identical.clone()]);
@@ -139,21 +141,69 @@ fn reconcile_syncs_followers_keeps_a_backup_and_leaves_legacy_files_alone() {
     assert_eq!(section(&synced, "偏好"), ["- 周报用表格"]);
     assert!(synced.contains("副手的观察"));
     assert_eq!(
-        fs::read_to_string(follower.join(".claude/rules/03-USER.md.bak-20261122")).unwrap(),
+        fs::read_to_string(follower.join(".claude/rules/03-USER.md.bak-20261122-100000")).unwrap(),
         follower_text
     );
     assert!(!none.join(USER_FILE).exists());
 
     // A second pass changes nothing and adds no backup.
-    let again = reconcile(&order, "20261123");
+    let again = reconcile(&order, "20261123-100000");
     assert!(again.updated.is_empty());
     assert!(!follower
-        .join(".claude/rules/03-USER.md.bak-20261123")
+        .join(".claude/rules/03-USER.md.bak-20261123-100000")
         .exists());
 }
 
 #[test]
-fn the_oldest_backup_of_a_day_is_kept_and_only_five_backups_remain() {
+fn a_hand_edit_made_after_an_earlier_sync_the_same_day_is_still_backed_up() {
+    let root = tempdir().unwrap();
+    let primary = workspace(
+        root.path(),
+        "primary",
+        Some(&with_body(TEMPLATE, "偏好", "- 周报用表格")),
+    );
+    let follower = workspace(root.path(), "follower", Some(TEMPLATE));
+    let order = [primary.clone(), follower.clone()];
+    reconcile(&order, "20261122-090000");
+
+    let hand_edited = with_body(
+        &fs::read_to_string(follower.join(USER_FILE)).unwrap(),
+        "偏好",
+        "- 我手改的偏好",
+    );
+    fs::write(follower.join(USER_FILE), &hand_edited).unwrap();
+    let report = reconcile(&order, "20261122-150000");
+    assert_eq!(report.updated, vec![follower.clone()]);
+
+    let saved = fs::read_to_string(follower.join(".claude/rules/03-USER.md.bak-20261122-150000"))
+        .unwrap();
+    assert_eq!(saved, hand_edited);
+    // The first backup of the day is still there too.
+    assert!(follower
+        .join(".claude/rules/03-USER.md.bak-20261122-090000")
+        .exists());
+}
+
+#[test]
+fn two_overwrites_in_one_second_do_not_replace_each_others_backup() {
+    let root = tempdir().unwrap();
+    let primary = workspace(root.path(), "primary", Some(TEMPLATE));
+    let follower = workspace(root.path(), "follower", Some(TEMPLATE));
+    let rules = follower.join(".claude/rules");
+    for version in ["一", "二"] {
+        fs::write(
+            primary.join(USER_FILE),
+            with_body(TEMPLATE, "偏好", &format!("- 版本{version}")),
+        )
+        .unwrap();
+        reconcile(&[primary.clone(), follower.clone()], "20261122-100000");
+    }
+    assert!(rules.join("03-USER.md.bak-20261122-100000").exists());
+    assert!(rules.join("03-USER.md.bak-20261122-100000-2").exists());
+}
+
+#[test]
+fn only_five_backups_remain_and_the_newest_are_kept() {
     let root = tempdir().unwrap();
     let primary = workspace(root.path(), "primary", Some(TEMPLATE));
     let follower = workspace(root.path(), "follower", Some(TEMPLATE));
@@ -163,14 +213,7 @@ fn the_oldest_backup_of_a_day_is_kept_and_only_five_backups_remain() {
         fs::write(primary.join(USER_FILE), &text).unwrap();
         reconcile(
             &[primary.clone(), follower.clone()],
-            &format!("202611{day:02}"),
-        );
-        // A second change on the same day does not replace that day's backup.
-        let later = with_body(TEMPLATE, "偏好", &format!("- 版本 {day}b"));
-        fs::write(primary.join(USER_FILE), later).unwrap();
-        reconcile(
-            &[primary.clone(), follower.clone()],
-            &format!("202611{day:02}"),
+            &format!("202611{day:02}-100000"),
         );
     }
     let mut backups: Vec<String> = fs::read_dir(&rules)
@@ -181,12 +224,9 @@ fn the_oldest_backup_of_a_day_is_kept_and_only_five_backups_remain() {
         .collect();
     backups.sort();
     assert_eq!(backups.len(), KEPT_BACKUPS);
-    assert_eq!(backups.first().unwrap(), "03-USER.md.bak-20261103");
-    let day_seven = fs::read_to_string(rules.join("03-USER.md.bak-20261107")).unwrap();
-    assert!(
-        day_seven.contains("版本 6b"),
-        "the day's backup is the file as it was at the first change that day"
-    );
+    assert_eq!(backups.first().unwrap(), "03-USER.md.bak-20261103-100000");
+    let day_seven = fs::read_to_string(rules.join("03-USER.md.bak-20261107-100000")).unwrap();
+    assert!(day_seven.contains("版本 6"), "a backup is the file before that overwrite");
 }
 
 #[cfg(unix)]
