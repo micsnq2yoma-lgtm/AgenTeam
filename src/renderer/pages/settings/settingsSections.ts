@@ -1,6 +1,7 @@
 export type SettingsSection =
   | 'general'
   | 'proxy'
+  | 'agent-network'
   | 'external-cli'
   | 'shortcuts'
   | 'providers'
@@ -16,6 +17,7 @@ export type SettingsSection =
 export const VALID_SECTIONS: SettingsSection[] = [
   'general',
   'proxy',
+  'agent-network',
   'external-cli',
   'shortcuts',
   'providers',

@@ -65,6 +65,35 @@ afterEach(() => {
 });
 
 describe('resolveWorkspaceConfig permissionMode (#295)', () => {
+  it.each([
+    ['builtin', 'fullAgency', 'auto'],
+    ['dsh', 'full-autonomous', 'approval-required'],
+  ])('uses full autonomy for new %s sessions and preserves the snapshot fallback', async (runtime, defaultMode, snapshotMode) => {
+    const workspacePath = join(scratch, 'workspace');
+    writeConfig({ agents: [{ id: 'agent-1', name: 'Agent', enabled: true, workspacePath, runtime }] });
+    writeProjects([]);
+
+    const { resolveWorkspaceConfig } = await import('../utils/admin-config');
+    const options = { includeMcp: false };
+    expect(resolveWorkspaceConfig(workspacePath, null, options).permissionMode).toBe(defaultMode);
+    const existingSession = { runtime, configSnapshotAt: '2026-10-04T00:00:00.000Z' } as SessionMetadata;
+    expect(resolveWorkspaceConfig(workspacePath, existingSession, options).permissionMode).toBe(snapshotMode);
+  });
+
+  it('applies the app session mode preference to a new DSH session while retaining workspace overrides', async () => {
+    const workspacePath = join(scratch, 'workspace');
+    const agent = { id: 'dsh-agent', name: 'DSH', enabled: true, workspacePath, runtime: 'dsh' };
+    writeConfig({ defaultPermissionMode: 'auto', agents: [agent] });
+    writeProjects([]);
+    const { resolveWorkspaceConfig } = await import('../utils/admin-config');
+    const resolvePermission = () => resolveWorkspaceConfig(workspacePath, null, { includeMcp: false }).permissionMode;
+    expect(resolvePermission()).toBe('approval-required');
+    writeConfig({ defaultPermissionMode: 'plan', agents: [agent] });
+    expect(resolvePermission()).toBe('approval-required');
+    writeConfig({ defaultPermissionMode: 'auto', agents: [{ ...agent, permissionMode: 'workspace-autonomous' }] });
+    expect(resolvePermission()).toBe('workspace-autonomous');
+  });
+
   it.each(['workspace-autonomous', 'full-autonomous'])(
     'preserves DSH Agent permission %s for legacy resolution without overriding an owned snapshot', async permissionMode => {
       const workspacePath = join(scratch, 'workspace');
@@ -340,6 +369,22 @@ describe('resolveWorkspaceConfig permissionMode (#295)', () => {
 });
 
 describe('resolveWorkspaceConfig runtime-aware model snapshots', () => {
+  it('inherits the app provider and model only for a new session without a workspace model', async () => {
+    const workspacePath = join(scratch, 'workspace');
+    writeCustomProvider(customApiProvider('app-provider', 'app-model', 'https://app.example.invalid/v1'));
+    writeCustomProvider(customApiProvider('project-provider', 'project-model', 'https://project.example.invalid/v1'));
+    writeConfig({
+      defaultModelSelection: { providerId: 'app-provider', model: 'app-model' },
+      providerApiKeys: { 'app-provider': 'test-only', 'project-provider': 'test-only' },
+    });
+    const { resolveWorkspaceConfig } = await import('../utils/admin-config');
+    const resolve = () => resolveWorkspaceConfig(workspacePath, null, { includeMcp: false });
+    writeProjects([{ id: 'project', path: workspacePath, providerId: 'project-provider' }]);
+    expect(resolve().providerRoute).toEqual({ kind: 'provider', providerId: 'app-provider', model: 'app-model' });
+    writeProjects([{ id: 'project', path: workspacePath, providerId: 'project-provider', model: 'project-model' }]);
+    expect(resolve().providerRoute).toEqual({ kind: 'provider', providerId: 'project-provider', model: 'project-model' });
+  });
+
   it('drops obviously foreign external-runtime session models', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const workspacePath = join(scratch, 'workspace');

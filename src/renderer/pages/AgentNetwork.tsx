@@ -33,11 +33,13 @@ import {
 import { NetworkHeader } from "@/features/agent-network/NetworkHeader";
 import { NetworkSelector } from "@/features/agent-network/NetworkSelector";
 
-export default function AgentNetwork({
-  isActive = true,
-}: {
-  isActive?: boolean;
-}) {
+type AgentNetworkProps = { isActive?: boolean } & (
+  | { mode: "overview"; onOpenSettings: () => void }
+  | { mode: "settings" }
+);
+
+export default function AgentNetwork(props: AgentNetworkProps) {
+  const { isActive = true, mode } = props;
   const registry = useAgentNetworkRegistry();
   const { selected } = registry;
   const connection =
@@ -45,35 +47,65 @@ export default function AgentNetwork({
     registry.connections[0];
   const snapshot = useAgentNetworkSnapshot(connection?.id);
   const { t } = useTranslation("app");
-  const selector = <NetworkSelector registry={registry} />;
-  if (!connection) {
-    return (
-      <NetworkPage selector={selector} gated>
-        <p className="px-6 py-8 text-center text-sm text-[var(--ink-muted)]">
-          {t(registry.selfhostEnabled ? "agentNetwork.noConnections" : "agentNetwork.selfhostDisabled")}
-        </p>
-      </NetworkPage>
-    );
-  }
+  const canManage = mode === "settings";
+  const emptyMessage = canManage
+    ? (registry.selfhostEnabled ? "agentNetwork.noConnections" : "agentNetwork.enableInSettings")
+    : (registry.selfhostEnabled ? "agentNetwork.noConnectionsOverview" : "agentNetwork.selfhostDisabled");
+  const selector = canManage ? (
+    <NetworkSelector registry={registry} />
+  ) : connection ? (
+    <h2 className="min-w-0 truncate text-lg font-semibold" title={connection.name}>
+      {connection.name}
+    </h2>
+  ) : null;
   // An account boundary creates a fresh UI scope immediately, including dialogs
   // and mutations; old completions only hold the discarded component instance.
-  return (
+  const directory = connection ? (
     <AgentNetworkContent
-      key={`${connection?.id}:${snapshot.authGeneration}`}
+      key={`${connection.id}:${snapshot.authGeneration}`}
       connectionId={connection.id}
       selector={selector}
       isActive={isActive}
+      canManage={canManage}
       snapshot={snapshot}
     />
+  ) : (
+    <>
+      {isActive && canManage && registry.selfhostEnabled && <NetworkHeader selector={selector} />}
+      <p className="px-6 py-8 text-center text-sm text-[var(--ink-muted)]">
+        {t(emptyMessage)}
+      </p>
+    </>
+  );
+  if (props.mode === "settings") return directory;
+
+  return (
+    <main className="h-full overflow-y-auto bg-[var(--paper)] text-[var(--ink)]">
+      <div className="mx-auto w-full max-w-5xl px-8 pb-12 pt-8">
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">{t("tabs.agentNetwork")}</h1>
+          <button
+            type="button"
+            className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--hover-bg)]"
+            onClick={props.onOpenSettings}
+          >
+            {t("agentNetwork.openSettings")}
+          </button>
+        </header>
+        {directory}
+      </div>
+    </main>
   );
 }
 function AgentNetworkContent({
   isActive,
+  canManage,
   snapshot,
   connectionId,
   selector,
 }: {
   isActive: boolean;
+  canManage: boolean;
   snapshot: NetworkSnapshot;
   connectionId: string;
   selector: ReactNode;
@@ -309,6 +341,7 @@ function AgentNetworkContent({
       device={device}
       catalog={catalogs[device.deviceId]}
       isLocal={device.deviceId === localId}
+      canManage={canManage}
       busy={busy[device.deviceId] ?? false}
       error={errors[device.deviceId] || null}
       onOpen={() => setSelected(device.deviceId)}
@@ -323,11 +356,14 @@ function AgentNetworkContent({
     />
   );
   return (
-    <NetworkPage
-      selector={selector}
-      deviceCount={directoryKnown ? joinedDevices.length : null}
-      agentCount={directoryKnown && catalogsKnown ? openAgents : null}
-    >
+    <>
+      {isActive && (
+        <NetworkHeader
+          selector={selector}
+          deviceCount={directoryKnown ? joinedDevices.length : null}
+          agentCount={directoryKnown && catalogsKnown ? openAgents : null}
+        />
+      )}
       <>
         {(loadError) && (
           <p role="alert" className="mb-4 text-sm text-[var(--error)]">
@@ -356,7 +392,7 @@ function AgentNetworkContent({
             )}
           </p>
         )}
-        {showSetup && <SetupGuide />}
+        {canManage && showSetup && <SetupGuide />}
         {loading && devices.length === 0 && snapshot.state === "ready" ? (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {[0, 1].map((index) => (
@@ -411,12 +447,13 @@ function AgentNetworkContent({
           </p>
         )}
       </>
-      {selectedDevice && (
+      {isActive && selectedDevice && (
         <DeviceDetails
           connectionId={connectionId}
           device={selectedDevice}
           catalog={catalogs[selectedDevice.deviceId]}
           isLocal={selectedDevice.deviceId === localId}
+          canManage={canManage}
           membershipBusy={busy[selectedDevice.deviceId] ?? false}
           membershipError={errors[selectedDevice.deviceId] || null}
           onJoin={() => {
@@ -434,7 +471,7 @@ function AgentNetworkContent({
           onChanged={() => setRefresh((value) => value + 1)}
         />
       )}
-      {renaming && (
+      {isActive && canManage && renaming && (
         <DeviceRenameDialog
           key={renaming.deviceId}
           currentName={renaming.name}
@@ -442,7 +479,7 @@ function AgentNetworkContent({
           onCancel={() => setRenaming(null)}
         />
       )}
-      {leaving && (
+      {isActive && canManage && leaving && (
         <ConfirmDialog
           title={t("agentNetwork.leaveTitle")}
           message={t("agentNetwork.leaveMessage")}
@@ -455,10 +492,9 @@ function AgentNetworkContent({
           }}
         />
       )}
-    </NetworkPage>
+    </>
   );
 }
-
 /** First-use path from the product story: join, open workspaces, then just talk. */
 function SetupGuide() {
   const { t } = useTranslation("app");
@@ -493,35 +529,5 @@ function SetupGuide() {
         );
       })}
     </ol>
-  );
-}
-
-/** Keep page chrome at one React/layout position across account and data gates. */
-function NetworkPage({
-  selector,
-  children,
-  gated = false,
-  deviceCount = null,
-  agentCount = null,
-}: {
-  selector: ReactNode;
-  children: ReactNode;
-  gated?: boolean;
-  deviceCount?: number | null;
-  agentCount?: number | null;
-}) {
-  return (
-    <main className="h-full overflow-y-auto bg-[var(--paper)] text-[var(--ink)]">
-      <div
-        className={`mx-auto flex w-full max-w-5xl flex-col px-8 pb-12 pt-8 ${gated ? "h-full" : "min-h-full"}`}
-      >
-        <NetworkHeader
-          selector={selector}
-          deviceCount={deviceCount}
-          agentCount={agentCount}
-        />
-        <div className={gated ? "min-h-0 flex-1" : undefined}>{children}</div>
-      </div>
-    </main>
   );
 }

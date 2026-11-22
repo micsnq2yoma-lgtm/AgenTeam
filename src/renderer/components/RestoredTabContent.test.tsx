@@ -118,7 +118,7 @@ function bindings(overrides: Partial<BuiltinTabBindings> = {}): BuiltinTabBindin
       onSearchIntentConsumed: vi.fn(),
       onRouteConsumed: vi.fn(),
     },
-    agentnetwork: null,
+    agentnetwork: { onOpenSettings: vi.fn() },
     teamai: { onSelectProject: vi.fn(), onCreate: vi.fn(), onOpenSession: vi.fn() },
     teamoffice: { onOpenEmployee: vi.fn(), onHireEmployee: vi.fn() },
     bots: null,

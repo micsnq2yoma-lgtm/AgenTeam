@@ -14,7 +14,7 @@
     "generating": "AI 正在输出",
     "unread": "有未读消息",
     "switchTo": "切换到 {{title}}",
-    "agentNetwork": "AgentNet 局域网络",
+    "agentNetwork": "设备组网",
     "teamAi": "Team AI",
     "teamOffice": "智能体团队",
     "bots": "聊天机器人"
@@ -47,7 +47,7 @@
     "newChatHere": "在此项目创建新任务",
     "emptyWorkspaceSessions": "还没有任务",
     "loadMore": "展开更多",
-    "agentNetwork": "多设备组网"
+    "agentNetwork": "设备组网"
   },
   "titlebar": {
     "helper": "助理",
@@ -619,8 +619,11 @@
   },
   "agentNetwork": {
     "noConnections": "尚未加入自建网络。请在网络菜单中添加网络。",
-    "selfhostDisabled": "请在设置的开发者选项中启用自建 AgentNet。",
-    "networkName": "AgentNet 局域网络",
+    "noConnectionsOverview": "尚未加入自建网络。",
+    "selfhostDisabled": "请在「设置 → 设备组网」中启用自建 AgentNet。",
+    "enableInSettings": "开启自建 AgentNet 后，即可加入网络并配置设备和 Agent 权限。",
+    "openSettings": "组网设置",
+    "networkName": "网络连接",
     "networkInfo": "网络说明",
     "infoIntro": "AgentNet 可通过你的自建网络在设备之间调用 Agent。",
     "infoTitle": "端到端加密的私有网络",
@@ -702,7 +705,7 @@
       "removalPending": "暂未确认服务端撤销。连接已停止，可稍后重试移除。",
       "privateKeyMissing": "本机私钥不可用。请管理员先撤销该设备，再用新 key 加入。",
       "protocolUnsupported": "此服务不支持当前 AgentNet 协议。",
-      "featureDisabled": "请先在开发者设置中启用自建 AgentNet。"
+      "featureDisabled": "请先在「设置 → 设备组网」中启用自建 AgentNet。"
     },
     "chooseNetwork": "选择网络",
     "joinSelfhost": "加入自部署网络",

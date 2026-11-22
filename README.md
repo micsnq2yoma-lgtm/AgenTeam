@@ -42,7 +42,7 @@
 | 🗂️ **项目管理** 项目 = 文件夹；新建、接管已有文件夹，或用默认位置；可选助理模式 | 👥 **智能体团队** 像素办公室看全部项目的员工状态，现代办公室 / 朝堂 / 星舰皮肤可换 |
 | 🤖 **多种 Runtime** Claude Agent SDK、DeepSeek Harness、托管 Codex，也可接系统里的 Claude Code / Codex CLI | 🔑 **订阅与 API** 订阅登录或任意模型 API，按 Agent 单独指定模型 |
 | ⏰ **自动化任务** 定时、间隔、Cron；先跑脚本，满足条件再唤醒 Agent | 🧰 **技能与工具** Skill 沉淀方法，MCP 接工具与数据源（STDIO / HTTP / SSE） |
-| 💬 **聊天机器人** 内置飞书、钉钉、Telegram，插件扩展更多平台 | 🛰️ **多设备组网** 自建 AgentNet，跨设备交接任务，端到端加密 |
+| 💬 **聊天机器人** 内置飞书、钉钉、Telegram，插件扩展更多平台 | 🛰️ **设备组网** 自建 AgentNet，跨设备交接任务，端到端加密 |
 | 🔍 **全文搜索** 侧栏搜索栏检索全部任务的标题和内容 | 🧑‍💻 **CLI** Agent 通过 `myagents` CLI 建任务、调其他 Agent；外部 Agent 授权后也能用 |
 
 ## 快速开始
@@ -94,7 +94,7 @@ macOS 用 `./setup.sh`，再 `./start_dev.sh`；Ubuntu 24.04 用 `./setup.sh` �
 
 - [开发指引](DEVELOPMENT.md)：环境、构建、检查与测试
 - [架构文档](specs/ARCHITECTURE.md) · [界面设计规范](specs/DESIGN.md)
-- [任务与自动化](bundled-skills/myagents-docs/references/automation.md) · [技能、工具与插件](bundled-skills/myagents-docs/references/tools-skills-plugins.md) · [Agent 与聊天机器人](bundled-skills/myagents-docs/references/agents-channels.md) · [多设备组网](bundled-skills/myagents-docs/references/agent-network.md)
+- [任务与自动化](bundled-skills/myagents-docs/references/automation.md) · [技能、工具与插件](bundled-skills/myagents-docs/references/tools-skills-plugins.md) · [Agent 与聊天机器人](bundled-skills/myagents-docs/references/agents-channels.md) · [设备组网](bundled-skills/myagents-docs/references/agent-network.md)
 - [更新日志](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md)
 
 ## Star History

@@ -53,17 +53,7 @@ export interface PersistedAgentWorkspaceRegistry {
   relinkedProjectIds: string[];
 }
 
-function projectBuildOptions(config: AdminAppConfig) {
-  return {
-    buildAgent: (project: ProjectSlim, requestedAgentId?: string) => buildAgentForProject(
-      asProjectBuildSource(project),
-      {
-        agentId: requestedAgentId,
-        defaultPermissionMode: config.defaultPermissionMode,
-      },
-    ) as AgentConfig as AgentConfigSlim,
-  };
-}
+const projectBuildOptions = { buildAgent: buildAgentForPersistedProject };
 
 function registryFromPersistedSnapshot(
   config: AdminAppConfig,
@@ -170,12 +160,10 @@ function validateWorkspaceForRegistration(rawPath: string): string {
 
 function buildAgentForPersistedProject(
   project: ProjectSlim,
-  config: AdminAppConfig,
   requestedAgentId?: string,
 ): AgentConfigSlim {
   return buildAgentForProject(asProjectBuildSource(project), {
     agentId: requestedAgentId,
-    defaultPermissionMode: config.defaultPermissionMode,
   }) as AgentConfig as AgentConfigSlim;
 }
 
@@ -321,14 +309,7 @@ export async function registerWorkspaceAgent(
       const reconciled = reconcileAgentWorkspaceIdentities(
         currentProjects,
         currentConfig.agents ?? [],
-        {
-          buildAgent: (project, requestedAgentId) =>
-            buildAgentForPersistedProject(
-              project,
-              currentConfig,
-              requestedAgentId,
-            ),
-        },
+        projectBuildOptions,
       );
       projectAfterCommit = reconciled.projects.find(
         (project) => project.id === projectId,
@@ -356,10 +337,7 @@ export async function registerWorkspaceAgent(
         configResult = reconcileAgentWorkspaceIdentities(
           projects,
           current.agents ?? [],
-          {
-            buildAgent: (project, requestedAgentId) =>
-              buildAgentForPersistedProject(project, current, requestedAgentId),
-          },
+          projectBuildOptions,
         );
         return configResult.changed
           ? { ...current, agents: configResult.agents }
@@ -419,15 +397,15 @@ export async function resolvePersistedAgentWorkspaceConflict(
     const projects = await atomicModifyProjects(async currentProjects => {
       const initial = loadConfig();
       // Validate before stopping anything; validate again against latest config after stop.
-      resolveAgentWorkspaceClaimConflict(currentProjects, initial.agents ?? [], choice, projectBuildOptions(initial));
+      resolveAgentWorkspaceClaimConflict(currentProjects, initial.agents ?? [], choice, projectBuildOptions);
       await stopRuntime();
       const latest = loadConfig();
-      return resolveAgentWorkspaceClaimConflict(currentProjects, latest.agents ?? [], choice, projectBuildOptions(latest)).projects;
+      return resolveAgentWorkspaceClaimConflict(currentProjects, latest.agents ?? [], choice, projectBuildOptions).projects;
     });
     try {
       const config = await atomicModifyConfig(current => {
         const result = reconcileAgentWorkspaceIdentities(projects, current.agents ?? [], {
-          ...projectBuildOptions(current), projectIds,
+          ...projectBuildOptions, projectIds,
         });
         return result.createdAgentIds.length ? { ...current, agents: result.agents } : current;
       });
@@ -465,7 +443,7 @@ export async function resolvePersistedAgentWorkspaceRegistry(): Promise<Persiste
       projectResult = reconcileAgentWorkspaceIdentities(
         currentProjects,
         currentConfig.agents ?? [],
-        projectBuildOptions(currentConfig),
+        projectBuildOptions,
       );
       return projectResult.projects;
       });
@@ -474,7 +452,7 @@ export async function resolvePersistedAgentWorkspaceRegistry(): Promise<Persiste
       const fallback = reconcileAgentWorkspaceIdentities(
         loadProjects(),
         fallbackConfig.agents ?? [],
-        projectBuildOptions(fallbackConfig),
+        projectBuildOptions,
       );
       if (fallback.createdAgentIds.length > 0) throw error;
       console.warn('[agent-identity] code=IDENTITY_REPAIR_DEFERRED operation=project-link');
@@ -511,7 +489,7 @@ export async function resolvePersistedAgentWorkspaceRegistry(): Promise<Persiste
         configResult = reconcileAgentWorkspaceIdentities(
           projects,
           current.agents ?? [],
-          projectBuildOptions(current),
+          projectBuildOptions,
         );
         return configResult.changed ? { ...current, agents: configResult.agents } : current;
       });

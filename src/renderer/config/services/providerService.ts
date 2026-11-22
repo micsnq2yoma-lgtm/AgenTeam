@@ -16,6 +16,7 @@ import {
     isRuntimeBackedProviderId,
 } from '../../../shared/providerExecution';
 import { buildAvailableProvidersJson } from '../../../shared/availableProvidersProjection';
+import { providerDeclaresModel } from '../../../shared/providerRoute';
 import {
     isImageUnderstandingModelSelectable,
     isImageUnderstandingToolConfigured,
@@ -401,6 +402,20 @@ export function resolveProvider(
 export interface ProviderModelPair {
     readonly provider: Provider;
     readonly model: string;
+}
+
+export function resolveAvailableDefaultModel(
+    selection: AppConfig['defaultModelSelection'],
+    providers: Provider[],
+    apiKeys: Record<string, string>,
+    verifyStatus: Record<string, ProviderVerifyStatus>,
+): ProviderModelPair | undefined {
+    if (!selection) return undefined;
+    const provider = providers.find(item => item.id === selection.providerId);
+    return provider && isProviderAvailable(provider, apiKeys, verifyStatus)
+        && providerDeclaresModel(provider, selection.model)
+        ? { provider, model: selection.model }
+        : undefined;
 }
 
 /**

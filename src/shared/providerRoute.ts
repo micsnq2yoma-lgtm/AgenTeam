@@ -53,6 +53,18 @@ export function providerDeclaresModel(
   return provider?.models?.some(entry => entry.model === modelId) ?? false;
 }
 
+export function getInheritedDefaultModel(
+  selection: { providerId: string; model: string } | undefined,
+  agentModel?: string | null,
+  projectModel?: string | null,
+): { providerId: string; model: string } | undefined {
+  if ((typeof agentModel === 'string' && agentModel.trim())
+    || (typeof projectModel === 'string' && projectModel.trim())) return undefined;
+  const providerId = typeof selection?.providerId === 'string' ? selection.providerId.trim() : '';
+  const model = typeof selection?.model === 'string' ? selection.model.trim() : '';
+  return providerId && model ? { providerId, model } : undefined;
+}
+
 export function hasProviderRouteCredential(
   provider: ProviderForRoute,
   credentials: ProviderRouteCredentialState,

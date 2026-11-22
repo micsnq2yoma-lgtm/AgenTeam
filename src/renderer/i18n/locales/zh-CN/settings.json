@@ -20,11 +20,16 @@
       "usageStats": "使用统计",
       "general": "通用设置",
       "proxy": "网络代理",
+      "agentNetwork": "设备组网",
       "externalCli": "外部调用",
       "shortcuts": "快捷按键",
       "about": "软件版本",
       "developer": "开发者"
     }
+  },
+  "agentNetwork": {
+    "enableTitle": "自建 AgentNet",
+    "enableDescription": "启用设备间调用。关闭后暂停自建连接，保留配置和设备凭据。"
   },
   "externalCli": {
     "title": "外部调用",
@@ -98,6 +103,14 @@
     "agentFeaturesTitle": "Agent 功能设置",
     "defaultRuntimeTitle": "默认 Agent 运行环境",
     "defaultRuntimeDescription": "修改后默认以此运行环境运行，可在 Agent 设置中单独修改",
+    "defaultSessionModeTitle": "默认会话模式",
+    "defaultSessionModeDescription": "用于未单独设置权限的新会话。",
+    "defaultSessionModeDshPlan": "规划模式适用于 Claude Agent SDK，DSH 会使用请求批准。",
+    "defaultModelTitle": "默认模型",
+    "defaultModelDescription": "新建任务时，Agent 和项目均未指定模型则使用这里的选择。",
+    "defaultModelAutomatic": "自动选择",
+    "defaultModelUnavailable": "已选模型不可用",
+    "defaultModelNoProviders": "请先在模型设置中配置与默认运行环境兼容的服务商。",
     "queueModeTitle": "队列响应模式",
     "queueTurnDescription": "手动发送的消息等待 AI 完成当前轮次；会话 Inbox 消息始终实时注入",
     "queueRealtimeDescription": "手动发送的消息在执行中尽快交给 AI；会话 Inbox 消息始终实时注入",
@@ -2304,8 +2317,6 @@
     "developer": {
       "devModeTitle": "开发者模式",
       "devModeDescription": "显示页面上的日志入口按钮（如 Logs、System Info 等）。",
-      "agentNetworkMultiNetworkTitle": "自建 AgentNet",
-      "agentNetworkMultiNetworkDescription": "启用设备间调用。关闭后暂停自建连接，保留配置和设备凭据。",
       "chatHistoryEntryTitle": "对话页历史入口",
       "chatHistoryEntryDescription": "在 AI 对话页顶部显示「历史」按钮。关闭不影响全局会话搜索和项目 Session 列表。",
       "codexProviderTitle": "Codex 订阅 Provider",

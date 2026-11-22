@@ -216,12 +216,14 @@ function Harness({
   source = "managed-provider",
   metadata = null,
   connected = true,
+  sessionId = "session-selection",
   ...props
 }: Partial<ComponentProps<typeof Chat>> & {
   runtime?: RuntimeType;
   source?: RuntimeSource | null;
   metadata?: SessionMetadata | null;
   connected?: boolean;
+  sessionId?: string;
 }) {
   const defaults = useContext(TabContext);
   const [sessionMeta, setSessionMeta] = useState(metadata);
@@ -235,7 +237,7 @@ function Harness({
           ...defaults,
           tabId: "tab-selection",
           agentDir: "/workspace",
-          sessionId: "session-selection",
+          sessionId,
           sessionRuntime: runtime,
           sessionRuntimeSource: source,
           sessionMeta,
@@ -505,17 +507,26 @@ describe("Chat execution selection (#685)", () => {
     },
   );
 
-  it.each(["builtin", "dsh"] as const)(
-    "keeps the existing %s model fallback when the launch has no explicit selection",
-    async (runtime) => {
+  it.each([
+    ["builtin", undefined, "fullAgency"],
+    ["dsh", undefined, "full-autonomous"],
+    ["builtin", "plan", "plan"],
+    ["dsh", "auto", "approval-required"],
+  ] as const)(
+    "uses the %s model fallback and app permission preference %s for a new session",
+    async (runtime, preference, permissionMode) => {
+      if (preference) mocks.config.config.defaultPermissionMode = preference;
       render(
         <Harness
           runtime={runtime}
           source={runtime === "dsh" ? "integrated" : null}
+          sessionId="pending-tab-selection"
           initialMessage={{ text: "feedback" }}
         />,
       );
       await waitFor(() => expect(mocks.send).toHaveBeenCalledOnce());
+      expect(screen.getByTestId("permission")).toHaveTextContent(permissionMode);
+      expect(mocks.send.mock.calls[0]?.[2]).toBe(permissionMode);
       expect(mocks.send.mock.calls[0]?.[3]).toBe("mimo-v2.5");
       expect(mocks.send.mock.calls[0]?.[7]).toMatchObject({
         providerId: "old-api",
@@ -523,6 +534,27 @@ describe("Chat execution selection (#685)", () => {
       });
     },
   );
+
+  it.each([
+    [undefined, undefined, 'default-api', 'explicit-api-model'],
+    [undefined, 'mimo-v2.5', 'old-api', 'mimo-v2.5'],
+    ['explicit-api-model', 'mimo-v2.5', 'old-api', 'explicit-api-model'],
+  ] as const)('uses the app model only without an Agent model (%s) or project model (%s)', async (agentModel, projectModel, providerId, expectedModel) => {
+    mocks.config.config.defaultModelSelection = { providerId: 'default-api', model: 'explicit-api-model' };
+    mocks.config.providers.push({ ...apiProvider, id: 'default-api', name: 'Default API' });
+    mocks.config.apiKeys['default-api'] = 'test-only';
+    mocks.config.projects[0].model = projectModel;
+    if (agentModel) {
+      mocks.config.projects[0].agentId = 'test-agent';
+      mocks.config.config.agents = [{
+        id: 'test-agent', name: 'Test Agent', enabled: false, channels: [],
+        providerId: 'old-api', model: agentModel,
+      }];
+    }
+    render(<Harness runtime="builtin" source={null} sessionId="pending-tab-selection" initialMessage={{ text: "feedback" }} />);
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledOnce());
+    expect(mocks.send.mock.calls[0]?.[7]).toMatchObject({ providerId, model: expectedModel });
+  });
 
   it.each(["builtin", "dsh", "codex"] as const)(
     "preserves %s launch selection and send routing",

@@ -80,6 +80,10 @@ DSH 原生会话使用官方 JSONL persistence，Runtime 自己的 coordination 
 - 尚未建立 snapshot 的兼容会话；
 - 独立的 Cloud registered Agent live-follow 场景。
 
+新建桌面 Session 在 Agent 或 Project 没有独立权限设置时继承「通用设置 → 默认会话模式」。出厂默认「完全自主」，Claude Agent SDK 使用 `fullAgency`，DSH 使用 `full-autonomous`。选择规划模式时，DSH 使用 `approval-required`。新建 Agent 保留继承关系，已有 Session 继续按原快照和兼容规则解析。
+
+「通用设置 → 默认模型」保存一对服务商和模型。新建桌面 Session 在 Agent 和 Project 都没有模型设置时采用该选择，发送时将实际选择固化到 Session。
+
 IM/Agent Channel 与桌面一样拥有完整 snapshot；消息、heartbeat、恢复均不回落到最新默认。新 IM Session 仅在出生时采用最高 unattended 权限。私聊 `/model` 经对应 Session Sidecar CAS 保存 snapshot，再经 SessionEngine 应用，并单独提交 Agent 默认（Team AI Agent 改为同步该 peer 的专属配置，见 `im_integration_architecture.md`「Team AI 管理投影」）；忙时下一轮生效。身份不兼容时主动创建并 handover，默认 reload 不再自动轮换。默认变化仅按既有私聊 binding 投递系统提示。
 
 `providerRoute` 是 builtin provider/model 的 canonical identity，只持久化 provider 类型、provider id 与 model。API key、base URL、auth mode 和 aliases 始终从当前 `config.json` materialize，不能写入 Session 历史。`providerEnvJson` 只作为旧 Session 的只读兼容输入；新的 snapshot 写入必须使用 `providerRoute` 并移除 legacy env。

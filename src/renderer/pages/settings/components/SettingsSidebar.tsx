@@ -17,6 +17,7 @@ const NAV_ITEMS: Array<{ section: SettingsSection; labelKey: string }> = [
   { section: 'desktop-pet', labelKey: 'sidebar.nav.floatingBall' },
   { section: 'usage-stats', labelKey: 'sidebar.nav.usageStats' },
   { section: 'proxy', labelKey: 'sidebar.nav.proxy' },
+  { section: 'agent-network', labelKey: 'sidebar.nav.agentNetwork' },
   { section: 'external-cli', labelKey: 'sidebar.nav.externalCli' },
   { section: 'shortcuts', labelKey: 'sidebar.nav.shortcuts' },
   { section: 'about', labelKey: 'sidebar.nav.about' },

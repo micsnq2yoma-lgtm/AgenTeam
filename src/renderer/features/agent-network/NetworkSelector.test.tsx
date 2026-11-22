@@ -41,9 +41,8 @@ beforeEach(() => {
   calls.select.mockResolvedValue({ ...registry, selected: "self-a" });
   calls.join.mockRejectedValue({ code: "ENROLLMENT_KEY_EXPIRED" });
 });
-it("defaults to the original official heading without network controls", () => {
+it("hides network controls when self-hosting is disabled", () => {
   render(<NetworkSelector registry={{ ...registry, selfhostEnabled: undefined }} />);
-  expect(screen.getByRole("heading", {name: "AgentNet 局域网络"})).toBeInTheDocument();
   expect(screen.queryByRole("button", {name: "选择网络"})).not.toBeInTheDocument();
 });
 it("disabling the gate unmounts an open join dialog and reopening starts clean", async () => {

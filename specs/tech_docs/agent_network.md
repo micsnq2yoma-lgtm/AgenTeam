@@ -24,7 +24,7 @@
 
 ## 多网络连接与自部署身份
 
-开发者设置中的「自建 AgentNet」由 `agentNetworkSelfhostDevGate` 控制。启用后可以加入和切换自建网络。关闭会停止连接并保留配置与设备凭据。
+「设置 → 设备组网」集中配置自建 AgentNet、网络连接、设备名称和入网状态，以及逐网络的 Agent 开放权限和简介。侧栏的「设备组网」展示所选网络的状态和设备详情，可直达组网设置。「自建 AgentNet」由 `agentNetworkSelfhostDevGate` 控制。启用后可以加入和切换自建网络。关闭会停止连接并保留配置与设备凭据。
 
 `registry.rs` 是 App 连接 owner：自部署连接和当前查看选择写入原 `config.json` 的 `agentNetworkConnections` / `agentNetworkSelectedConnection`，锁内重新读盘合并。所有已加入网络同时维持连接；标题下拉只选择展示。`account.rs` 使用入网时固定的自部署实例描述符和设备凭据。每个自部署实例是一共同信任域；同一本地 Agent 与 Session/history 跨网络保持原实体，只逐网络配置开放。
 

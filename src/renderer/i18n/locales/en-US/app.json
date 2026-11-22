@@ -14,7 +14,7 @@
     "generating": "AI is responding",
     "unread": "Unread messages",
     "switchTo": "Switch to {{title}}",
-    "agentNetwork": "AgentNet Local Network",
+    "agentNetwork": "Device Network",
     "teamAi": "Team AI",
     "teamOffice": "Agent Team",
     "bots": "Chat bots"
@@ -47,7 +47,7 @@
     "newChatHere": "New task in this project",
     "emptyWorkspaceSessions": "No tasks yet",
     "loadMore": "Show more",
-    "agentNetwork": "Multi-Device Network"
+    "agentNetwork": "Device Network"
   },
   "titlebar": {
     "helper": "AI Helper",
@@ -620,8 +620,11 @@
   },
   "agentNetwork": {
     "noConnections": "Add a self-hosted network from the network menu.",
-    "selfhostDisabled": "Enable self-hosted AgentNet in Developer Settings.",
-    "networkName": "AgentNet Local Network",
+    "noConnectionsOverview": "No self-hosted networks have been added.",
+    "selfhostDisabled": "Enable self-hosted AgentNet in Settings → Device Network.",
+    "enableInSettings": "Enable self-hosted AgentNet to join networks and manage device and Agent access.",
+    "openSettings": "Device Network Settings",
+    "networkName": "Network Connections",
     "networkInfo": "About this network",
     "infoIntro": "AgentNet connects agents on devices enrolled in your self-hosted network.",
     "infoTitle": "End-to-end encrypted private network",
@@ -704,7 +707,7 @@
       "removalPending": "Server revocation is unconfirmed. The connection is stopped; retry removal later.",
       "privateKeyMissing": "The device private key is unavailable. Ask the administrator to revoke this device, then join with a new key.",
       "protocolUnsupported": "This service does not support the current AgentNet protocol.",
-      "featureDisabled": "Enable self-hosted AgentNet in developer settings first."
+      "featureDisabled": "Enable self-hosted AgentNet in Settings → Device Network first."
     },
     "chooseNetwork": "Choose network",
     "joinSelfhost": "Join a self-hosted network",

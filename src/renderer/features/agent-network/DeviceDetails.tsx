@@ -27,6 +27,7 @@ export function DeviceDetails({
   device,
   catalog,
   isLocal,
+  canManage,
   onClose,
   onChanged,
   onRetry,
@@ -42,6 +43,7 @@ export function DeviceDetails({
   /** `undefined` while the page is still reading this device's catalog. */
   catalog: DeviceCatalog | undefined;
   isLocal: boolean;
+  canManage: boolean;
   onClose: () => void;
   onChanged: () => void;
   onRetry: () => void;
@@ -140,12 +142,14 @@ export function DeviceDetails({
                 {osName(device.platform)} · {deviceStatusText(t, device)}
               </p>
             </div>
-            <DeviceMenu
-              busy={membershipBusy}
-              onCopyId={onCopyId}
-              onRename={onRename}
-              onLeave={device.joined ? onLeave : undefined}
-            />
+            {canManage && (
+              <DeviceMenu
+                busy={membershipBusy}
+                onCopyId={onCopyId}
+                onRename={onRename}
+                onLeave={device.joined ? onLeave : undefined}
+              />
+            )}
             <button
               ref={close}
               type="button"
@@ -157,7 +161,7 @@ export function DeviceDetails({
             </button>
           </header>
           <div className="min-h-0 overflow-y-auto px-6 pb-5">
-            {!device.joined && (
+            {canManage && !device.joined && (
               <div className="mb-3 flex items-center gap-3 rounded-[10px] bg-[var(--accent)]/10 px-3.5 py-3 text-sm text-[var(--ink-secondary)]">
                 <InfoIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" />
                 <span className="min-w-0 flex-1">
@@ -226,6 +230,7 @@ export function DeviceDetails({
                     key={agent.mountId}
                     agent={agent}
                     device={device}
+                    readOnly={!canManage}
                     onChanged={onChanged}
                   />
                 ))}

@@ -483,7 +483,6 @@ export function resolveAgentWorkspaceClaimConflict<
 
 export interface BuildAgentForProjectOptions {
   agentId?: string;
-  defaultPermissionMode?: string;
   agentDefaults?: WorkspaceTemplateAgentDefaults;
   templates?: readonly WorkspaceTemplate[];
 }
@@ -518,7 +517,7 @@ export function buildAgentForProject(
     channels: [],
     providerId: project.providerId ?? undefined,
     model: project.model ?? undefined,
-    permissionMode: project.permissionMode || options.defaultPermissionMode || 'plan',
+    ...(project.permissionMode ? { permissionMode: project.permissionMode } : {}),
     mcpEnabledServers: project.mcpEnabledServers,
     enabledPluginIds: project.enabledPluginIds,
     enabledOfficialToolIds: project.enabledOfficialToolIds,

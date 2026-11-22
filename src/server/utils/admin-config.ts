@@ -74,12 +74,16 @@ import { coerceReasoningEffortSettingForRuntime, resolveProviderDefaultReasoning
 import { ensureDirSync } from './fs-utils';
 import { withFileLock, FileBusyError } from './file-lock';
 import {
+  getInheritedDefaultModel,
+  hasProviderRouteCredential,
   isConcreteProviderRoute,
   resolveExplicitProviderRoute,
   resolveLegacyModelOnlyProviderRoute,
   type ProviderRoute,
 } from '../../shared/providerRoute';
+import { isProviderModelCompatibleWithRuntime } from '../../shared/runtimeProviderProjection';
 import { resolveSessionConfig } from './resolve-session-config';
+import { getDefaultNewSessionPermissionMode } from '../../shared/runtimeBirthFields';
 import { normalizeThemeConfigRecord } from '../../shared/theme';
 import { buildAvailableProvidersJson } from '../../shared/availableProvidersProjection';
 import { resolveAgentWorkspaceProjections } from '../../shared/agentWorkspaceIdentity';
@@ -181,6 +185,7 @@ export interface AdminAppConfig {
   officialToolSettings?: OfficialToolSettings;
   // Provider
   defaultProviderId?: string;
+  defaultModelSelection?: AppConfig['defaultModelSelection'];
   /** Provider ID → reasoning effort used when neither Session nor Agent chose one. */
   providerDefaultReasoningEfforts?: Record<string, string>;
   providerApiKeys?: Record<string, string>;
@@ -1895,6 +1900,24 @@ export function resolveWorkspaceConfig(
   let providerId: string | undefined;
   const usesIntegratedProvider =
     resolvedRuntime === 'builtin' || resolvedRuntime === 'dsh';
+  const projectProviderId = sessionMeta ? undefined : project?.providerId;
+  const projectModel = sessionMeta ? undefined : project?.model;
+  const defaultModel = !sessionMeta && usesIntegratedProvider
+    ? getInheritedDefaultModel(config.defaultModelSelection, agent?.model, projectModel)
+    : undefined;
+  const defaultProvider = defaultModel
+    ? findEffectiveProvider(defaultModel.providerId, config) as Provider | null
+    : undefined;
+  const defaultRoute = defaultModel && defaultProvider
+    && !isRuntimeBackedProvider(defaultProvider)
+    && isProviderModelCompatibleWithRuntime(resolvedRuntime, defaultProvider, defaultModel.model)
+    && hasProviderRouteCredential(defaultProvider, {
+      apiKeys: config.providerApiKeys,
+      verifyStatus: config.providerVerifyStatus,
+    })
+    ? resolveExplicitProviderRoute({ ...defaultModel, providers: [defaultProvider] })
+    : undefined;
+  const inheritedModel = isConcreteProviderRoute(defaultRoute) ? defaultRoute : undefined;
   if (usesIntegratedProvider && snapshotOwnsConfig) {
     providerRoute = resolveOwnedBuiltinProviderRoute({ sessionMeta, config });
     providerId = isConcreteProviderRoute(providerRoute)
@@ -1908,12 +1931,14 @@ export function resolveWorkspaceConfig(
   } else if (usesIntegratedProvider) {
     providerId =
       sessionMeta?.providerId ||
+      inheritedModel?.providerId ||
       (agent?.providerId as string | undefined) ||
+      projectProviderId ||
       (config.defaultProviderId as string | undefined);
     if (providerId) {
       const route = resolveExplicitProviderRoute({
         providerId,
-        model: sessionMeta?.model ?? (agent?.model as string | undefined),
+        model: sessionMeta?.model ?? inheritedModel?.model ?? (agent?.model as string | undefined) ?? projectModel,
         providers: providersForRouteResolution(config),
       });
       providerRoute = isConcreteProviderRoute(route) ? route : undefined;
@@ -1955,7 +1980,9 @@ export function resolveWorkspaceConfig(
         ? providerRoute.model
         : sessionMeta?.model
       : (sessionMeta?.model ??
+        inheritedModel?.model ??
         (agent?.model as string | undefined) ??
+        projectModel ??
         undefined)
     : snapshotOwnsConfig
       ? sessionMeta?.model
@@ -2028,30 +2055,25 @@ export function resolveWorkspaceConfig(
   // values are not portable.
   let permissionMode: string;
   if (resolvedRuntime === 'builtin') {
-    // Deliberate divergence from the renderer's UI fallback (which defaults a
-    // missing defaultPermissionMode to 'plan'): headless pre-warm for IM/cron
-    // sessions must default to 'auto' (classify, non-blocking), NOT 'plan'
-    // (read-only) — defaulting headless sessions to plan would make them refuse
-    // every write before the first user message. Only reachable on a brand-new
-    // empty config; once the UI has run, config.defaultPermissionMode is set.
+    // Keep the compatibility fallback for existing metadata and invalid saved values.
+    const fallback = !sessionMeta && config.defaultPermissionMode === undefined
+      ? getDefaultNewSessionPermissionMode(resolvedRuntime)
+      : 'auto';
     permissionMode = snapshotOwnsConfig
       ? (asBuiltinPermissionMode(sessionMeta?.permissionMode) ?? 'auto')
       : (asBuiltinPermissionMode(sessionMeta?.permissionMode) ??
         asBuiltinPermissionMode(agent?.permissionMode) ??
         asBuiltinPermissionMode(project?.permissionMode) ??
         asBuiltinPermissionMode(config.defaultPermissionMode) ??
-        'auto');
+        fallback);
   } else if (resolvedRuntime === 'dsh') {
-    const rawPermissionMode = snapshotOwnsConfig
-      ? sessionMeta?.permissionMode
-      : (sessionMeta?.permissionMode ??
-        (typeof agent?.permissionMode === 'string' ? agent.permissionMode : undefined));
-    const coercedPermissionMode = projectPermissionModeForRuntime(
-      rawPermissionMode,
-      resolvedRuntime,
-    );
-    permissionMode =
-      coercedPermissionMode ?? getDefaultRuntimePermissionMode(resolvedRuntime);
+    permissionMode = projectPermissionModeForRuntime(sessionMeta?.permissionMode, resolvedRuntime)
+      ?? (snapshotOwnsConfig ? undefined
+        : (projectPermissionModeForRuntime(agent?.permissionMode, resolvedRuntime)
+          ?? projectPermissionModeForRuntime(project?.permissionMode, resolvedRuntime)))
+      ?? (sessionMeta
+        ? getDefaultRuntimePermissionMode(resolvedRuntime)
+        : getDefaultNewSessionPermissionMode(resolvedRuntime, config.defaultPermissionMode));
   } else {
     const rawPermissionMode = sessionMeta
       ? sessionMeta.permissionMode
@@ -2072,13 +2094,16 @@ export function resolveWorkspaceConfig(
     permissionMode =
       coercedPermissionMode ??
       (usesManagedCodexExecution
-        ? 'auto-edit'
+        ? ((sessionMeta ? undefined
+          : projectManagedCodexPermissionToRuntime(
+              getDefaultNewSessionPermissionMode('builtin', config.defaultPermissionMode),
+            )) ?? 'auto-edit')
         : getDefaultRuntimePermissionMode(resolvedRuntime)) ??
       'default';
   }
 
   // Gate on the signals that indicate a real workspace match — NOT permissionMode,
-  // which now always resolves to a non-empty string ('auto' fallback) and would
+  // which always resolves to a non-empty string and would
   // make this log fire on every call (incl. no-match). Stay silent when nothing
   // resolved, as before.
   if (

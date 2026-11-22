@@ -3,19 +3,22 @@ import type { AgentNetworkTab } from "./tabContract";
 import type { TabModuleDefinition } from "@/tab-workspace/contracts";
 import { PAGE_FALLBACK } from "@/tab-workspace/PageFallback";
 const AgentNetwork = lazy(() => import("@/pages/AgentNetwork"));
+type AgentNetworkBinding = { onOpenSettings: () => void };
+
 const Renderer = memo(function AgentNetworkTabRenderer({
   isActive,
   isDeferred,
+  binding,
 }: {
   tab: AgentNetworkTab;
   isActive: boolean;
   isDeferred: boolean;
-  binding: null;
+  binding: AgentNetworkBinding;
 }) {
   if (isDeferred) return PAGE_FALLBACK;
   return (
     <Suspense fallback={PAGE_FALLBACK}>
-      <AgentNetwork isActive={isActive} />
+      <AgentNetwork mode="overview" isActive={isActive} onOpenSettings={binding.onOpenSettings} />
     </Suspense>
   );
 });
@@ -36,4 +39,4 @@ export const agentNetworkTabModule = {
     }),
   },
   initialMount: () => "deferred-content",
-} satisfies TabModuleDefinition<AgentNetworkTab, { title: string }, null>;
+} satisfies TabModuleDefinition<AgentNetworkTab, { title: string }, AgentNetworkBinding>;

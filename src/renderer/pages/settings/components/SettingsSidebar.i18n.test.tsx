@@ -54,6 +54,7 @@ describe('SettingsSidebar i18n', () => {
       'Team look',
       'Usage',
       'Network Proxy',
+      'Device Network',
       'External Calls',
       'Shortcut keys',
       'Version',

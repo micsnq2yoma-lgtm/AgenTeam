@@ -1,6 +1,7 @@
 import { isProjectActiveForUser } from '@/config/types';
 import WorkspaceSelector, { resolveDefaultWorkspaceProject } from '@/components/launcher/WorkspaceSelector';
 import AgentFunctionSettings from './sections/AgentFunctionSettings';
+import { AgentNetworkSettingsSection } from './sections/AgentNetworkSettingsSection';
 import { DshCollaborationSettings } from './DshCollaborationSettings';
 import { isLinuxDesktop } from '@/utils/desktopPlatform';
 import { isImeComposingEvent } from '@/utils/imeKeyboard';
@@ -4661,7 +4662,7 @@ export default function Settings({
       )}
 
       {/* Right content area — h-full ensures height is explicit for WebKit scroll */}
-      <div className="h-full flex-1 overflow-y-auto overscroll-contain">
+      <div className="h-full min-w-0 flex-1 overflow-y-auto overscroll-contain">
         {mode === 'capabilities' && (
           <>
             <header
@@ -4752,6 +4753,10 @@ export default function Settings({
         )}
 
         {activeSection === 'external-cli' && <ExternalCliSettingsSection />}
+
+        {mode === 'settings' && activeSection === 'agent-network' && (
+          <AgentNetworkSettingsSection isActive={isActive} />
+        )}
 
         {/* Providers section uses wider layout */}
         {activeSection === 'providers' && (
@@ -4957,7 +4962,7 @@ export default function Settings({
 
         {/* Other sections use narrower layout */}
         <div
-          className={`mx-auto max-w-xl px-8 py-8 ${['skills', 'agents', 'plugins', 'providers', 'mcp', 'desktop-pet', 'external-cli'].includes(activeSection) ? 'hidden' : ''}`}
+          className={`mx-auto max-w-xl px-8 py-8 ${['skills', 'agents', 'plugins', 'providers', 'mcp', 'desktop-pet', 'external-cli', 'agent-network'].includes(activeSection) ? 'hidden' : ''}`}
         >
           {activeSection === 'shortcuts' && (
             <div className="space-y-6">
@@ -6164,26 +6169,6 @@ export default function Settings({
                         </button>
                       </div>
                     </div>)}
-
-                    <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5 flex items-center justify-between">
-                      <div className="flex-1 pr-4">
-                        <p className="text-sm font-medium text-[var(--ink)]">
-                          {tSettings('about.developer.agentNetworkMultiNetworkTitle')}
-                        </p>
-                        <p className="text-xs text-[var(--ink-muted)]">
-                          {tSettings('about.developer.agentNetworkMultiNetworkDescription')}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => updateConfig({agentNetworkSelfhostDevGate: config.agentNetworkSelfhostDevGate !== true})}
-                        aria-label={tSettings('about.developer.agentNetworkMultiNetworkTitle')}
-                        aria-pressed={config.agentNetworkSelfhostDevGate === true}
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${config.agentNetworkSelfhostDevGate === true ? 'bg-[var(--accent)]' : 'bg-[var(--line-strong)]'}`}
-                      >
-                        <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-[var(--toggle-thumb)] shadow transition-transform ${config.agentNetworkSelfhostDevGate === true ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
 
                     {/* Split View Toggle */}
                     <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">

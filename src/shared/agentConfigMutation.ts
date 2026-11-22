@@ -1,6 +1,7 @@
 import { resolveAgentRuntimePreference, runtimeTypeForAgentRuntimePreference } from './integrated-runtimes/identity';
 import type { AgentConfig } from './types/agent';
-import { buildRuntimeChangePatch, getDefaultRuntimePermissionMode, projectPermissionModeForRuntime, type RuntimeConfig } from './types/runtime';
+import { buildRuntimeChangePatch, projectPermissionModeForRuntime, type RuntimeConfig } from './types/runtime';
+import { getDefaultNewSessionPermissionMode } from './runtimeBirthFields';
 import { CODEX_SUBSCRIPTION_PROVIDER_ID } from './config-types';
 import { agentDefaultsForRuntimeBackedProvider, createRuntimeBackedProviderIdentity, type RuntimeBackedProviderIdentity } from './providerExecution';
 
@@ -30,9 +31,9 @@ export function resolveAgentConfigMutation(current: AgentConfig, mutation: Agent
   // Integrated runtimes store permission in the Product field, outside
   // runtimeConfig. A runtime switch must update both in the same config write.
   if ((patch.runtime === 'builtin' || patch.runtime === 'dsh')
-      && !Object.hasOwn(patch, 'permissionMode')) {
+      && !Object.hasOwn(patch, 'permissionMode') && current.permissionMode !== undefined) {
     const permissionMode = projectPermissionModeForRuntime(current.permissionMode, patch.runtime)
-      ?? getDefaultRuntimePermissionMode(patch.runtime);
+      ?? getDefaultNewSessionPermissionMode(patch.runtime);
     if (permissionMode !== current.permissionMode) patch.permissionMode = permissionMode;
   }
   return patch;
