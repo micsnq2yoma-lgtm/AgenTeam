@@ -32,6 +32,7 @@ import CronTaskSettingsModal, {
   type CronSettingsResult,
 } from '@/components/cron/CronTaskSettingsModal';
 import LauncherInputContextRow from './LauncherInputContextRow';
+import LauncherRuntimeToolbarControl from './LauncherRuntimeToolbarControl';
 import type { RuntimeDetections } from '../../../shared/types/runtime';
 import { useToast } from '@/components/Toast';
 import { track } from '@/analytics';
@@ -410,10 +411,6 @@ export default memo(function BrandSection({
       onSelectWorkspace={onSelectWorkspace}
       onAddFolder={onAddFolder}
       onSetDefaultWorkspace={onSetDefaultWorkspace}
-      showRuntime={!!runtimeSelectorAvailable}
-      runtime={activeRuntime}
-      runtimeDetections={runtimeDetections}
-      onRuntimeChange={onRuntimeChange}
     />
   ), [
     projects,
@@ -422,11 +419,18 @@ export default memo(function BrandSection({
     onSelectWorkspace,
     onAddFolder,
     onSetDefaultWorkspace,
-    runtimeSelectorAvailable,
-    activeRuntime,
-    runtimeDetections,
-    onRuntimeChange,
   ]);
+
+  // Runtime picker sits in the toolbar next to Tools; same memo rationale.
+  const runtimeToolbarControl = useMemo(() => (
+    runtimeSelectorAvailable && activeRuntime && runtimeDetections && onRuntimeChange ? (
+      <LauncherRuntimeToolbarControl
+        runtime={activeRuntime}
+        runtimeDetections={runtimeDetections}
+        onRuntimeChange={onRuntimeChange}
+      />
+    ) : null
+  ), [runtimeSelectorAvailable, activeRuntime, runtimeDetections, onRuntimeChange]);
 
   const handleSlashAction = useCallback((name: string) => {
     if (name !== 'goal' && name !== 'loop') return;
@@ -514,9 +518,10 @@ export default memo(function BrandSection({
                 usesExternalRuntimeControls={usesExternalRuntimeControls}
                 runtimeModels={runtimeModels}
                 runtimePermissionModes={runtimePermissionModes}
-                /* Project + runtime live in the composer's context header
-                 * (first row inside the frame), not in the toolbar. */
+                /* Project lives in the composer's context header (first row
+                 * inside the frame); runtime sits in the toolbar after Tools. */
                 contextHeader={contextHeader}
+                toolbarSuffix={runtimeToolbarControl}
               />
               <DropZoneOverlay isVisible={showInputDropOverlay} />
             </div>

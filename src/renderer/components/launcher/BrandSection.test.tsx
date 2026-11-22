@@ -60,9 +60,10 @@ vi.mock('@/components/SimpleChatInput', () => ({
       onSlashAction?: (name: string) => void;
       showBuiltinSdkSlashCommands?: boolean;
       contextHeader?: ReactNode;
+      toolbarSuffix?: ReactNode;
     }
   >(function SimpleChatInputMock(
-    { active, onSlashAction, showBuiltinSdkSlashCommands, contextHeader },
+    { active, onSlashAction, showBuiltinSdkSlashCommands, contextHeader, toolbarSuffix },
     _ref,
   ) {
     useImperativeHandle(_ref, () => simpleInputHandle, []);
@@ -74,6 +75,7 @@ vi.mock('@/components/SimpleChatInput', () => ({
       >
         {contextHeader}
         input
+        <div data-testid="launcher-toolbar-suffix">{toolbarSuffix}</div>
         <button type="button" onClick={() => onSlashAction?.('goal')}>
           open goal
         </button>
@@ -122,6 +124,12 @@ vi.mock('@/components/cron/CronTaskSettingsModal', () => ({
 
 vi.mock('./LauncherInputContextRow', () => ({
   default: () => <div data-testid="launcher-context-row">context row</div>,
+}));
+
+vi.mock('./LauncherRuntimeToolbarControl', () => ({
+  default: ({ runtime }: { runtime: string }) => (
+    <div data-testid="launcher-runtime-control">{runtime}</div>
+  ),
 }));
 
 vi.mock('@/components/Toast', () => ({
@@ -240,7 +248,33 @@ describe('BrandSection', () => {
     expect(screen.getByTestId('launcher-input')).toHaveAttribute('data-active', 'true');
   });
 
-  it('renders the project/runtime context inside the composer, not as a row below it', () => {
+  it('puts the runtime picker in the toolbar after Tools only when selection is available', () => {
+    const runtimeDetections = {
+      builtin: { installed: true },
+      dsh: { installed: false },
+      'claude-code': { installed: false },
+      codex: { installed: false },
+    };
+    const { unmount } = renderBrandSection({
+      runtimeSelectorAvailable: true,
+      activeRuntime: 'builtin',
+      runtimeDetections,
+      onRuntimeChange: vi.fn(),
+    });
+
+    expect(screen.getByTestId('launcher-toolbar-suffix')).toContainElement(
+      screen.getByTestId('launcher-runtime-control'),
+    );
+    expect(screen.getByTestId('launcher-context-row')).not.toContainElement(
+      screen.getByTestId('launcher-runtime-control'),
+    );
+    unmount();
+
+    renderBrandSection({ runtimeSelectorAvailable: false, activeRuntime: 'builtin', runtimeDetections });
+    expect(screen.queryByTestId('launcher-runtime-control')).not.toBeInTheDocument();
+  });
+
+  it('renders the project context inside the composer, not as a row below it', () => {
     const { container } = renderBrandSection();
 
     expect(screen.getByTestId('launcher-input')).toContainElement(
