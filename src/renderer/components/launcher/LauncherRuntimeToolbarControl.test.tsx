@@ -36,13 +36,12 @@ describe('LauncherRuntimeToolbarControl', () => {
     runtimeSelector.props = null;
   });
 
-  it('labels the runtime picker 环境 and keeps the existing inline selector', () => {
+  it('shows only the runtime icon and name, with 环境 as the accessible group name', () => {
     const onRuntimeChange = vi.fn();
     renderControl(onRuntimeChange);
 
     const group = screen.getByRole('group', { name: '环境' });
-    expect(group).toHaveTextContent('环境');
-    expect(group).not.toHaveTextContent('运行环境');
+    expect(group).toHaveTextContent(/^Claude Agent SDK$/);
     expect(group).toContainElement(screen.getByRole('button', { name: 'Claude Agent SDK' }));
     expect(runtimeSelector.props).toMatchObject({
       value: 'builtin',
@@ -52,14 +51,7 @@ describe('LauncherRuntimeToolbarControl', () => {
     });
   });
 
-  it('collapses its text label with the other toolbar labels when the composer is narrow', () => {
-    renderControl();
-
-    const label = screen.getByText('环境');
-    expect(label).toHaveClass('toolbar-label', 'text-sm', 'text-[var(--ink-muted)]');
-  });
-
-  it('is labelled in English too', async () => {
+  it('has an accessible name in English too', async () => {
     await i18n.changeLanguage('en-US');
     renderControl();
 
