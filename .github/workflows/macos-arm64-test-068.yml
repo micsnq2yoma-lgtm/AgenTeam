@@ -47,7 +47,8 @@ jobs:
           npm run typecheck
           node scripts/prepare-native-inference.mjs "$MAC_TARGET" --check-prerequisites
           bash scripts/ensure_claude_sdk_package.sh arm64
-          install -Dm755 node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude src-tauri/resources/claude-agent-sdk/claude
+          mkdir -p src-tauri/resources/claude-agent-sdk
+          install -m 755 node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude src-tauri/resources/claude-agent-sdk/claude
           node scripts/integrated-runtimes/prepare-dsh-runtime.mjs --source release --target darwin-arm64
           node scripts/prepare-cliproxy.mjs darwin-arm64
           npm run build:sharp-runtime -- darwin arm64
