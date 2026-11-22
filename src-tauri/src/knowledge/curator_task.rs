@@ -321,18 +321,19 @@ pub(crate) async fn recover(store: &Arc<KnowledgeStore>, tasks: &TaskStore) {
         }
     };
     for task in existing_curators(tasks).await {
-        if !task
+        if task
             .curator_knowledge_base_id
             .as_ref()
             .is_some_and(|id| libraries.iter().any(|kb| &kb.id == id))
         {
-            if TaskApplication::new(tasks, None)
-                .delete_internal(&task.id)
-                .await
-                .is_err()
-            {
-                crate::ulog_warn!("[knowledge] orphan curator removal failed");
-            }
+            continue;
+        }
+        if TaskApplication::new(tasks, None)
+            .delete_internal(&task.id)
+            .await
+            .is_err()
+        {
+            crate::ulog_warn!("[knowledge] orphan curator removal failed");
         }
     }
     for library in &libraries {

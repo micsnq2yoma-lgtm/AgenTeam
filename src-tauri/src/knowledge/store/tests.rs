@@ -741,18 +741,7 @@ fn library_template_writes_refuse_a_redirected_library_directory() {
         root: data.path().join("knowledge"),
     };
     let staged = "kb_00000000abcd";
-    #[cfg(unix)]
-    std::os::unix::fs::symlink(outside.path(), files.root.join(staged)).unwrap();
-    #[cfg(windows)]
-    {
-        let status = std::process::Command::new("cmd")
-            .args(["/C", "mklink", "/J"])
-            .arg(files.root.join(staged))
-            .arg(outside.path())
-            .status()
-            .unwrap();
-        assert!(status.success());
-    }
+    redirect_directory(outside.path(), &files.root.join(staged));
     assert!(files
         .write_text(&format!("{staged}/ORGANIZE_RULES.md"), "x")
         .is_err());
