@@ -1,14 +1,14 @@
 /** Version shared with Rust's SYSTEM_SKILLS_VERSION contract. */
-export const SYSTEM_SKILLS_VERSION = '64';
+export const SYSTEM_SKILLS_VERSION = '65';
 
 /**
  * Canonical Skill names that are part of MyAgents' always-available runtime
  * contract.
  *
  * The effective project/global winner for these names cannot be disabled as
- * an ordinary Skill. The task and memory skills back managed workflows, while
- * myagents-cli and myagents-docs are the product's baseline operation and
- * product-knowledge surfaces.
+ * an ordinary Skill. The task, memory and knowledge-curator skills back managed
+ * workflows, while myagents-cli, myagents-docs and myagents-knowledge are the
+ * product's baseline operation, product-knowledge and library-retrieval surfaces.
  */
 export const REQUIRED_SYSTEM_SKILLS = [
   'myagents-task-alignment',
@@ -20,6 +20,8 @@ export const REQUIRED_SYSTEM_SKILLS = [
   'myagents-speech-recognition',
   'myagents-task-automation',
   'myagents-docs',
+  'myagents-knowledge',
+  'myagents-knowledge-curator',
 ] as const;
 
 export type RequiredSystemSkill = typeof REQUIRED_SYSTEM_SKILLS[number];

@@ -1129,7 +1129,7 @@ fn sync_admin_agent_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<boo
 // matching exclusion list in src/server/index.ts::seedBundledSkills
 // MUST be kept in sync (comment there points back here).
 
-const SYSTEM_SKILLS_VERSION: &str = "64";
+const SYSTEM_SKILLS_VERSION: &str = "65";
 
 /// One process-wide transaction owner for the versioned system-skill
 /// snapshot. Startup automation and ConfigProvider may request convergence at
@@ -1192,6 +1192,11 @@ const SYSTEM_SKILLS: &[&str] = &[
     "myagents-memory-update",
     "myagents-memory-gardener",
     "myagents-memory-molt",
+    // v65: knowledge base retrieval for Sessions with bound libraries, and the
+    // curator workflow targeted by the managed knowledge curation Task. Both
+    // document the `myagents kb` surface and must track it in lockstep.
+    "myagents-knowledge",
+    "myagents-knowledge-curator",
     // v50: skill-creator promoted from utility → system skill. Its authoring
     // and evaluation workflow evolves with the bundled scripts, so existing
     // installs must receive updates instead of retaining the seed-once copy.
@@ -1679,13 +1684,20 @@ mod system_skills_tests {
 
     #[test]
     fn system_skill_version_keeps_cuse_and_product_skills_aligned() {
-        assert_eq!(SYSTEM_SKILLS_VERSION, "64");
+        assert_eq!(SYSTEM_SKILLS_VERSION, "65");
         assert!(SYSTEM_SKILLS.contains(&"cuse"));
         assert!(!REQUIRED_SYSTEM_SKILLS.contains(&"cuse"));
         assert!(SYSTEM_SKILLS.contains(&"myagents-task-alignment"));
         assert!(RETIRED_SYSTEM_SKILLS.contains(&"task-alignment"));
         assert!(RETIRED_SYSTEM_SKILLS.contains(&"task-implement"));
         assert!(SYSTEM_SKILLS.contains(&"skill-creator"));
+        for name in ["myagents-knowledge", "myagents-knowledge-curator"] {
+            assert!(SYSTEM_SKILLS.contains(&name));
+            assert!(REQUIRED_SYSTEM_SKILLS.contains(&name));
+        }
+        let knowledge = include_str!("../../bundled-skills/myagents-knowledge/SKILL.md");
+        assert!(knowledge.contains("myagents kb search"));
+        assert!(knowledge.contains("kb://"));
         let bundled = include_str!("../../bundled-skills/myagents-cli/SKILL.md");
         let anydoc = include_str!("../../bundled-skills/myagents-anydoc/SKILL.md");
         let speech = include_str!("../../bundled-skills/myagents-speech-recognition/SKILL.md");

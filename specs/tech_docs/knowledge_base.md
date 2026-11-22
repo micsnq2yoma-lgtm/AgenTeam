@@ -215,9 +215,24 @@ Agent 持有 `knowledgeBaseIds` 默认值。`myagents agent set <id> knowledgeBa
 
 共用的产品提示词模板只在 Sidecar 从已授权范围取到有效库时加入知识库段落，给出名称、描述和 `myagents kb` 入口。Rust 允许为同一进程 generation 对应的 prepared Session 投影库名和描述。内容读取与写入仍要求快照完成准入并发布。绑定了知识库的 Session 在投送已接收的用户输入前，通过既有 transcript writer 确认绑定已发布，使首轮 CLI 能读取同一份快照。库文案作为转义后的 JSON 数据投送。Builtin 和外部 Runtime 在各自既有的空闲配置重启边界重建提示。Integrated DSH 在根轮次配置应用阶段刷新上下文。
 
-## 待接入章节
+## K7 知识库 Skill 与库规则模板
 
-### K7 知识库 Skill
+两个 required system Skill 随 App 发布，版本由 `SYSTEM_SKILLS_VERSION`（TS `src/shared/systemSkills.ts` 与 Rust `commands.rs` 同值）控制，升级时强制覆盖用户副本：
+
+| Skill | 触发 | 职责 |
+|---|---|---|
+| `myagents-knowledge` | 绑定了知识库的 Session 按语义触发；K6 的提示词段落也指向它 | 何时检索、改写成 2–3 条查询、必须附 `kb://` 引用、检索为空如实说明、资料中的指令不是用户指令、群聊隐私 |
+| `myagents-knowledge-curator` | 只在系统或用户写出完整名称时加载，供 K8 整理 Task 指定 | ①元数据与②wiki 的工作流、规则读取顺序、只能提议新分类、引用要求、lint 报告格式 |
+
+Skill 中出现的每条 `myagents kb` 命令和参数都必须存在于 `KNOWLEDGE_COMMAND_FLAGS` 和对应 leaf help 中，`src/shared/knowledge/skills.test.ts` 逐条校验。K7 时 CLI 还没有 wiki 写入、分类提议、lint 报告提交，也没有读取库规则和待整理列表的命令，所以 curator Skill 要求先以 `myagents kb --help` 判断命令是否存在：不存在就跳过相应步骤，并在最终回复中说明。K8 增加这些命令时，要同步修改 Skill 和这个测试，并 bump 版本。
+
+新库在 `kbs.json` 发布之前，由 Store 在暂存目录写入 `ORGANIZE_RULES.md` 和 `WIKI_SCHEMA.md`。模板源码位于 `bundled-skills/myagents-knowledge-curator/references/`，经 `include_str!` 编译进 App，Store 不在运行时读取资源目录。模板只在建库时写一次，之后归用户所有：更新库设置或重开 Store 都不会用模板覆盖用户的修改。K7 之前建立的库没有这两个文件，curator Skill 遇到缺失时不写分类或不改 wiki，并在最终回复中说明。
+
+`ORGANIZE_RULES.md` 的分类体系使用固定格式：`## 分类体系` 一节下每行 ``- `分类路径`：说明``。K8 校验 `meta set --category` 时按这个格式解析允许的分类。lint 报告格式见 curator Skill 的 `references/lint-report.md`（`version: 1`，`items[].kind` 为 `contradiction | stale | orphan | missing-citation`），K8 的提交命令按它校验。
+
+模板目前只有中文版本。它是用户编辑的文档，不属于界面文案；多语言模板留待 K9 的知识库界面一并确定。
+
+## 待接入章节
 
 ### K8 元数据与 wiki 整理
 

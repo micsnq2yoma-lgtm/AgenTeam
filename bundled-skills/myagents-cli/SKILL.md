@@ -61,6 +61,10 @@ MyAgents 内置 AnyDoc 本地文档转 Markdown/OCR 能力。先运行 `myagents
 
 MyAgents 能把当前 Workspace 内的单个本地音频或视频附件提交给 App-owned 离线异步转写任务。先运行 `myagents speech --help`；需要完整 Session 隔离、输入格式与任务生命周期说明时加载 `/myagents-speech-recognition`。Session 与 Workspace 由产品自动绑定，不自行传参。
 
+### 知识库
+
+当前 Session 绑定了知识库时，用它检索和引用资料。先运行 `myagents kb --help`；检索、引用和不可信资料的处理规则见 `/myagents-knowledge`。
+
 ### MCP 工具（mcp）
 
 ```bash

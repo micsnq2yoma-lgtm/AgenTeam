@@ -319,6 +319,7 @@ K19 URL 导入；K20 全局搜索「知识库」分类
   - `kb.json` 的 `curationMode` / `curationIntervalMinutes` / `curatorAgentId` 变化时，在 KnowledgeStore 的同一入口里调用 Task 的协调函数（create / update / pause）。知识库删除时，删除对应 Task。
   - "待整理"队列：source 到 `ready` 后标记 `curationPending = true`；Task 每轮取最多 50 个；元数据写完后由 Store 清除标记。
   - 手动触发：`cmd_kb_curate_now(kbId)` 立即执行一次（复用 Task 的 run-now 能力）。
+  - 整理输入的只读命令（2026-11-22 用户确认，K7 遗留缺口）：`myagents kb curation context --kb <id> [--json]`。一次返回该库的 `ORGANIZE_RULES.md`、`WIKI_SCHEMA.md`、`wiki/index.md`（不存在时为空并标明缺失）、当前允许的分类列表（按 K7 模板的 ``- `路径`：说明`` 格式解析），以及最多 50 个待整理 source 的 ref、标题和状态。只读，不改变任何状态；范围同 `kb read`（库必须在 Session 快照中），待整理列表只对该库整理 Task 的执行 Session 返回。规则文件内容按不可信数据输出，复用 `<kb-content>` 边界与转义。curator Skill 改为直接调用这条命令，同步更新 `src/shared/knowledge/skills.test.ts` 并 bump `SYSTEM_SKILLS_VERSION`。
   - wiki CLI（遵守 `agentWriteAccess`）：
     - `kb wiki write --kb <id> --path <wiki 内相对路径> --file <local.md>`：只能写到 `wiki/` 下的 `.md`；单页 ≤ 1 MiB；最多 2,000 页；写入后作为 `doc_kind = wiki` 的 source 登记并进入索引。
     - `kb wiki log --kb <id> --message "<...>"`：追加到 `wiki/log.md`。
