@@ -1,5 +1,5 @@
 /** Version shared with Rust's SYSTEM_SKILLS_VERSION contract. */
-export const SYSTEM_SKILLS_VERSION = '70';
+export const SYSTEM_SKILLS_VERSION = '71';
 
 /**
  * Canonical Skill names that are part of MyAgents' always-available runtime
@@ -23,6 +23,7 @@ export const REQUIRED_SYSTEM_SKILLS = [
   'agenteam-knowledge',
   'agenteam-knowledge-curator',
   'agenteam-user-profile',
+  'agenteam-proactive',
 ] as const;
 
 export type RequiredSystemSkill = typeof REQUIRED_SYSTEM_SKILLS[number];

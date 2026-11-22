@@ -645,6 +645,7 @@ import {
   neutralizeSystemReminderStructuralTags,
 } from './utils/cron-event-relay';
 import { stripHeartbeatToken } from './utils/heartbeat-response';
+import { readProactiveHeartbeatNotice } from './utils/proactive-heartbeat';
 
 type PermissionMode = 'auto' | 'plan' | 'fullAgency' | 'custom';
 
@@ -1061,6 +1062,8 @@ const SYSTEM_SKILLS: readonly string[] = [
   'agenteam-knowledge-curator',
   // v66: user profile generation for assistant workspaces (managed Task only).
   'agenteam-user-profile',
+  // v71: opt-in proactive reminders run from the heartbeat turn.
+  'agenteam-proactive',
   // v50: skill-creator promoted from utility → system skill so its bundled
   // workflow and evaluation scripts update existing installations.
   'skill-creator',
@@ -10691,8 +10694,10 @@ description: >
           // Body-sourced cron events count too — Rust ships them when there's
           // pending work, so an empty HEARTBEAT.md plus zero events on both
           // sources means there is genuinely nothing to do.
+          const proactiveNotice = readProactiveHeartbeatNotice(currentAgentDir);
           if (
             !heartbeatMdContent &&
+            !proactiveNotice &&
             drainedEvents.length === 0 &&
             bodyCronEvents.length === 0
           ) {
@@ -10721,6 +10726,7 @@ description: >
           } else {
             // Standard heartbeat prompt (from Rust)
             enrichedPrompt = payload.prompt;
+            if (proactiveNotice) enrichedPrompt += `\n\n${proactiveNotice}`;
             if (otherEvents.length > 0) {
               const eventLines = otherEvents
                 .map(

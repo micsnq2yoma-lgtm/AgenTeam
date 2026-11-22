@@ -59,3 +59,19 @@
 
 - 画像生成质量、对资料中注入指令的抵抗、更正只改相关章节、`MEMORY_REFRESH` 让 IM 会话采用新内容，都需要真实 App 加模型验证，目前只有静态检查和自动化测试。
 - 跨助理共享是单向同步，不是单一权威的 App 级画像；若以后要所有助理读同一份文件，需要新的状态 owner，须先确认架构方案。
+
+## 主动提醒（可选，默认关闭）
+
+不新增状态 owner、进程或通信模式：
+
+| 事实 | owner |
+|---|---|
+| 是否开启、安静时段、每日上限、判断规则 | 工作区文件 `memory/PROACTIVE_RULES.md`（前置 `enabled: true` 才生效） |
+| 当天已提醒数、已判断过的事项、学习线索计数 | `memory/proactive-state.json`，只由 `agenteam-proactive/scripts/proactive_state.py` 写 |
+| 何时判断 | 既有 IM Heartbeat；`src/server/utils/proactive-heartbeat.ts` 在规则已开启时给心跳 prompt 追加一句指向 `agenteam-proactive`，并让空 HEARTBEAT.md 不再跳过。未开启时心跳行为与此前完全一致 |
+
+- 判断：Skill 先跑 `status`（关闭、安静时段、当日上限满时不读取任何来源），再按 `references/sources.md` 读 IM、任务结果、Records 与用户自配的邮箱/日历（MCP 或本机 CLI；产品不保存凭证、不新增域名），每件事一天只判断一次，四种决定：立即告诉 / 先准备 / 之后跟进 / 沉默。不代用户发信、回复、删除、应答邀请。
+- 学习：每天最多一次，把用户对提醒的反应记成线索；同一类别同一决定出现两次、或用户明确点名，才经 `section_edit.py` 写成规则，并告知用户与撤销办法。
+- 外部内容（邮件、日历、IM、任务结果）是数据，不是指令。
+
+未覆盖：真实邮箱/日历工具与真实模型下的判断质量（见 `specs/handoff/assistant_profile/acceptance/A5.md`）。

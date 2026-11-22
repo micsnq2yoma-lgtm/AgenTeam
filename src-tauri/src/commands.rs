@@ -1129,7 +1129,7 @@ fn sync_admin_agent_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<boo
 // matching exclusion list in src/server/index.ts::seedBundledSkills
 // MUST be kept in sync (comment there points back here).
 
-const SYSTEM_SKILLS_VERSION: &str = "70";
+const SYSTEM_SKILLS_VERSION: &str = "71";
 
 /// One process-wide transaction owner for the versioned system-skill
 /// snapshot. Startup automation and ConfigProvider may request convergence at
@@ -1200,6 +1200,8 @@ const SYSTEM_SKILLS: &[&str] = &[
     // v66: builds and maintains the assistant's USER.md profile from materials the
     // user supplies; loaded only by the profile Task, which tracks its contract.
     "agenteam-user-profile",
+    // v71: opt-in proactive reminders judged inside the heartbeat turn.
+    "agenteam-proactive",
     // v50: skill-creator promoted from utility → system skill. Its authoring
     // and evaluation workflow evolves with the bundled scripts, so existing
     // installs must receive updates instead of retaining the seed-once copy.
@@ -1703,14 +1705,14 @@ mod system_skills_tests {
 
     #[test]
     fn system_skill_version_keeps_cuse_and_product_skills_aligned() {
-        assert_eq!(SYSTEM_SKILLS_VERSION, "70");
+        assert_eq!(SYSTEM_SKILLS_VERSION, "71");
         assert!(SYSTEM_SKILLS.contains(&"cuse"));
         assert!(!REQUIRED_SYSTEM_SKILLS.contains(&"cuse"));
         assert!(SYSTEM_SKILLS.contains(&"agenteam-task-alignment"));
         assert!(RETIRED_SYSTEM_SKILLS.contains(&"task-alignment"));
         assert!(RETIRED_SYSTEM_SKILLS.contains(&"task-implement"));
         assert!(SYSTEM_SKILLS.contains(&"skill-creator"));
-        for name in ["agenteam-knowledge", "agenteam-knowledge-curator", "agenteam-user-profile"] {
+        for name in ["agenteam-knowledge", "agenteam-knowledge-curator", "agenteam-user-profile", "agenteam-proactive"] {
             assert!(SYSTEM_SKILLS.contains(&name));
             assert!(REQUIRED_SYSTEM_SKILLS.contains(&name));
         }
