@@ -1511,7 +1511,7 @@ describe('session-engine selector and adapters', () => {
       scenario: desktopScenario,
       permissionMode: 'fullAgency',
       timeoutMs: 1_000,
-      requiredSystemSkill: 'myagents-memory-update',
+      requiredSystemSkill: 'agenteam-memory-update',
     });
 
     expect(result).toMatchObject({
@@ -1520,7 +1520,7 @@ describe('session-engine selector and adapters', () => {
       status: 409,
       error: 'required Skill missing',
     });
-    expect(mocks.requireCurrentBuiltinSkill).toHaveBeenCalledWith('myagents-memory-update');
+    expect(mocks.requireCurrentBuiltinSkill).toHaveBeenCalledWith('agenteam-memory-update');
   });
 
   it('waits for an in-flight domain claim and durable abort before publishing dispatch-timeout rejection', async () => {

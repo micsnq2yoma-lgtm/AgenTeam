@@ -2,7 +2,7 @@
 
 使用场景：Provider/API Key/订阅登录/模型不可用、回复报错，或 MCP 工具不显示、启动/登录/握手失败。
 
-正确概念与生效时机先读 `/myagents-docs/references/models-providers-runtimes.md` 和 `tools-skills-plugins.md`。
+正确概念与生效时机先读 `/agenteam-docs/references/models-providers-runtimes.md` 和 `tools-skills-plugins.md`。
 
 ## Provider Ground truth
 

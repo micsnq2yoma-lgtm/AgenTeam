@@ -2,7 +2,7 @@
 
 使用场景：录音没有声音、实时文字迟迟不出现、停止后处理失败、重新转写或人物归属异常、模型安装失败，或工作区附件 speech job 不可用。
 
-先读 `/myagents-docs/references/automation.md`。Record 录制/会后整理与 Session 附件转写是不同路径，不能拿一种 job 的状态证明另一种已完成。
+先读 `/agenteam-docs/references/automation.md`。Record 录制/会后整理与 Session 附件转写是不同路径，不能拿一种 job 的状态证明另一种已完成。
 
 ## 被动取证
 

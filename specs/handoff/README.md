@@ -14,8 +14,8 @@
 
 | 顺序 | 任务 | 规格 | 说明 |
 |---|---|---|---|
-| 1 | **K8** 整理 Task（元数据 + wiki）、wiki CLI、`kb curation context` 只读命令 | `knowledge_base/tasks.md` K8 | 完成后补验 **M2 能整理**。K8 要同步修改 `myagents-knowledge-curator` Skill（K7 遗留，见 `acceptance/K7.md` "偏离"一节）并 bump 系统 Skill 版本 |
-| 2 | **A1** 画像模板与 `myagents-user-profile` Skill | `assistant_profile/tasks.md` A1 | |
+| 1 | **K8** 整理 Task（元数据 + wiki）、wiki CLI、`kb curation context` 只读命令 | `knowledge_base/tasks.md` K8 | 完成后补验 **M2 能整理**。K8 要同步修改 `agenteam-knowledge-curator` Skill（K7 遗留，见 `acceptance/K7.md` "偏离"一节）并 bump 系统 Skill 版本 |
+| 2 | **A1** 画像模板与 `agenteam-user-profile` Skill | `assistant_profile/tasks.md` A1 | |
 | 3 | **A2** BOOTSTRAP 收集资料 | `assistant_profile/tasks.md` A2 | 依赖 A1 |
 | 4 | **A3** 记忆 Skill 的章节归属 | `assistant_profile/tasks.md` A3 | 依赖 A1；USER 预算沿用 20 KB，待用户确认 |
 | 5 | **K9** 知识库 UI | `knowledge_base/tasks.md` K9 | |

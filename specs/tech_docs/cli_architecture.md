@@ -244,7 +244,7 @@ Cron 兼容面只提供 `list`，不发布 `cron get`；单条详情统一使用
 
 ### Task Automation Skill 与条件激活
 
-`myagents-task-automation` 是 Required system skill，也是所有“定时、未来唤醒、周期执行、等待条件后继续”的统一 Agent 入口。Skill 先建立 Task，再选择默认 `always` 或低成本 `command Detector`；Sensor 不再作为独立 Skill / 产品实体。Detector 详细协议放在 Skill 的按需 reference，普通 scheduled Task 不加载这部分上下文。
+`agenteam-task-automation` 是 Required system skill，也是所有“定时、未来唤醒、周期执行、等待条件后继续”的统一 Agent 入口。Skill 先建立 Task，再选择默认 `always` 或低成本 `command Detector`；Sensor 不再作为独立 Skill / 产品实体。Detector 详细协议放在 Skill 的按需 reference，普通 scheduled Task 不加载这部分上下文。
 
 ```bash
 myagents task trigger validate --spec-file trigger.json
@@ -285,7 +285,7 @@ myagents diagnose runtime codex [--workspace=<path>] [--json]    # 别名糖
 
 ## Bundle authority 与 launcher 收敛
 
-`npm run build:cli` 只生成 `src-tauri/resources/cli/myagents.cjs`。构建入口在每次 CLI build 前清理该目录的可变 inventory，避免旧 `myagents.cmd` 等 staging 残留被安装包继续携带。修改 `src/cli/myagents.ts` 后不再 bump 独立 CLI 复制版本；当前 app bundle 自然就是当前 CLI 版本。CLI surface 若改变，仍需同步 `bundled-skills/myagents-cli/SKILL.md`，并按 system skill 规则 bump `SYSTEM_SKILLS_VERSION`。
+`npm run build:cli` 只生成 `src-tauri/resources/cli/myagents.cjs`。构建入口在每次 CLI build 前清理该目录的可变 inventory，避免旧 `myagents.cmd` 等 staging 残留被安装包继续携带。修改 `src/cli/myagents.ts` 后不再 bump 独立 CLI 复制版本；当前 app bundle 自然就是当前 CLI 版本。CLI surface 若改变，仍需同步 `bundled-skills/agenteam-cli/SKILL.md`，并按 system skill 规则 bump `SYSTEM_SKILLS_VERSION`。
 
 Rust `ensure_launcher()` 由以下边界调用：
 
@@ -300,7 +300,7 @@ bundle / launcher 缺失或不可写时没有系统 Node、npm 包或旧 HOME pa
 `ADMIN_AGENT_VERSION` 与 `SYSTEM_SKILLS_VERSION` 仍各自管理小助理和版本化 system skills；它们与 CLI bundle authority 是不同生命周期：
 
 - 修改 `bundled-agents/myagents_helper/` 的 CLAUDE.md 或 Skills：bump `ADMIN_AGENT_VERSION`；
-- 修改 CLI 命令契约并影响 Agent 使用说明：同步 `bundled-skills/myagents-cli/SKILL.md`，必要时 bump `SYSTEM_SKILLS_VERSION`；
+- 修改 CLI 命令契约并影响 Agent 使用说明：同步 `bundled-skills/agenteam-cli/SKILL.md`，必要时 bump `SYSTEM_SKILLS_VERSION`；
 - 修改 `SYSTEM_SKILLS` 清单内内容、新增或退休 system skill：继续遵守现有 `SYSTEM_SKILLS_VERSION` 与精确清理规则。
 
 Skill frontmatter 以 Agent Skills 标准为 canonical：作者写在 `metadata.author`，不能新增顶层 `author`。`src/shared/slashCommands.ts` 是 UI / Sidecar 共用的归一化 owner：读取时标准 `metadata.author` 优先，并兼容旧顶层 `author` / `Author`；list/detail/CLI 投影继续提供扁平 `author` 方便消费，保存时只写回 `metadata.author`，同时保留其它标准 string metadata。这样旧 Skill 无需一次性迁移也能展示，而任何后续编辑都会自然收敛到标准格式。
@@ -513,7 +513,7 @@ Human output 以 Rust 查询时派生的 `output.artifactAvailable` 为产物真
 
 调用链为 app bundle CLI → 当前 Sidecar `/api/admin/anydoc/*` → Rust Management API `/api/document/*` → App-owned `DocumentProcessingManager`。Admin handler 必须保持薄转发，并用 `wrapMgmtResponse()` 保留 Rust 的 `code/suggestion/recoveryHint`。`wait` 复用 `anydoc/status` Admin route；Ctrl-C 只结束本地轮询并退出 130，不取消 App job。
 
-Agent 使用说明由 required system Skill `/myagents-anydoc` 渐进加载；`myagents-cli` 只在正文速查中登记 `myagents anydoc --help` 与专属 Skill，不复制协议，且其 frontmatter description 不得出现 AnyDoc。AnyDoc 不进入 `system-prompt-cli-tools.ts` 的 always-on 内容。当前参数、退出码和恢复指引以逐级 exact `--help` 为二进制权威，不提供 `readme` 命令。底层 owner、资源和安全契约见 [`document_processing.md`](./document_processing.md)。
+Agent 使用说明由 required system Skill `/agenteam-anydoc` 渐进加载；`agenteam-cli` 只在正文速查中登记 `myagents anydoc --help` 与专属 Skill，不复制协议，且其 frontmatter description 不得出现 AnyDoc。AnyDoc 不进入 `system-prompt-cli-tools.ts` 的 always-on 内容。当前参数、退出码和恢复指引以逐级 exact `--help` 为二进制权威，不提供 `readme` 命令。底层 owner、资源和安全契约见 [`document_processing.md`](./document_processing.md)。
 
 #### `myagents speech` Session-scoped 附件转录
 

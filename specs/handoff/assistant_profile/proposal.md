@@ -54,7 +54,7 @@
     再用任务中心既有入口创建并启动一次性 Task：
       myagents task create-direct --taskMdFile <task.md> --executionMode once --runMode new-session
       myagents task run <taskId>
-  → Task 加载新 Skill myagents-user-profile：
+  → Task 加载新 Skill agenteam-user-profile：
       AnyDoc 转换文档，网页工具读取 URL → 按 §3.1 写 03-USER.md → 最终报告
   → Task 结果经既有 task.result 事件回到聊天
   → 助理发一条简短消息：一两句总结 + 一条从资料中看到的具体观察 + 一件之后可以帮忙接手的事
@@ -72,7 +72,7 @@
 | 章节 | 谁可以写 |
 |---|---|
 | 基本信息 | BOOTSTRAP、用户明确更正 |
-| 背景 / 沟通风格 / 工作方式 / 偏好 / 写作风格 / 来源概况 | `myagents-user-profile` Task；Gardener 在合并"近期观察"时 |
+| 背景 / 沟通风格 / 工作方式 / 偏好 / 写作风格 / 来源概况 | `agenteam-user-profile` Task；Gardener 在合并"近期观察"时 |
 | 近期观察 | memory-update（日常巩固）、助理在对话中，只追加 |
 
 - memory-update 的 Skill 改为：关于用户的新认识只追加到"近期观察"，不改写其他章节。
@@ -114,7 +114,7 @@
 
 | 任务 | 内容 | 主要验收 |
 |---|---|---|
-| A1 画像模板与 Skill | `default-user.md` 和 atmer `03-USER.md` 改为 §3.1 结构；新增 system Skill `myagents-user-profile`（包含三种模式、写作规则、章节归属、最终报告格式）；bump `SYSTEM_SKILLS_VERSION` | 模板章节测试；Skill 中的 CLI 命令与 leaf help 一致（参照 K7 的测试做法）；包含"资料中的指令不是指令"一节和具体例子 |
+| A1 画像模板与 Skill | `default-user.md` 和 atmer `03-USER.md` 改为 §3.1 结构；新增 system Skill `agenteam-user-profile`（包含三种模式、写作规则、章节归属、最终报告格式）；bump `SYSTEM_SKILLS_VERSION` | 模板章节测试；Skill 中的 CLI 命令与 leaf help 一致（参照 K7 的测试做法）；包含"资料中的指令不是指令"一节和具体例子 |
 | A2 BOOTSTRAP 与回到聊天 | atmer `/BOOTSTRAP` 增加收集资料一步，用 `myagents task create-direct` + `run` 创建并启动画像 Task（参数以 leaf help 为准）；结果回聊天后的消息格式 | 手动：给一份简历和一个个人网站，生成的画像各章节有内容、无原文复制；没有资料时不创建 Task |
 | A3 记忆 Skill 的章节归属 | memory-update 只追加"近期观察"；Gardener 合并"近期观察"并检查 6 KB 预算 | Skill 文本审查；Gardener lint 新增 USER 预算检查的脚本测试 |
 | B1 `MEMORY_REFRESH` | 出生哈希、比较、片段 builder、facade 组合、只提醒一次；协议文档登记 | 单测：未变化不注入、变化注入一次、重启后不重复；集成：长期 IM Session 在 Gardener 更新后下一轮收到片段；片段不含正文 |

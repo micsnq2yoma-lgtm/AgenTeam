@@ -2,7 +2,7 @@
 
 使用场景：AI 不回复、卡住、Sidecar 重启、首消息慢、历史缺失、回溯/分叉异常或 Session 状态不一致。
 
-先读 `/myagents-docs/references/workspaces-sessions-files.md` 与 `models-providers-runtimes.md` 确认用户可见边界。
+先读 `/agenteam-docs/references/workspaces-sessions-files.md` 与 `models-providers-runtimes.md` 确认用户可见边界。
 
 ## Ground truth
 

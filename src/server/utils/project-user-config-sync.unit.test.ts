@@ -109,11 +109,11 @@ describe('project-user-config-sync', () => {
   it('keeps all required system skills exposed while honoring an optional system skill disable', () => {
     const { home, workspace } = makeEnv();
     const required = [
-      'myagents-memory-update',
-      'myagents-memory-gardener',
-      'myagents-memory-molt',
-      'myagents-cli',
-      'myagents-docs',
+      'agenteam-memory-update',
+      'agenteam-memory-gardener',
+      'agenteam-memory-molt',
+      'agenteam-cli',
+      'agenteam-docs',
     ];
     for (const name of [...required, 'prompt-writer']) writeUserSkill(home, name);
     writeFileSync(

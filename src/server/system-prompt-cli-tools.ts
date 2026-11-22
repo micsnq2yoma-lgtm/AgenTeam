@@ -39,7 +39,7 @@ import {
 const SECTION_TASK_AUTOMATION = `<myagents-cli-task-automation>
 MyAgents represents every future, scheduled, recurring, or conditionally
 activated automation as one Task. Use the required system skill
-\`myagents-task-automation\` whenever the user asks for anything like:
+\`agenteam-task-automation\` whenever the user asks for anything like:
 
   "稍后 / 到某个时间 / 每 N 分钟 / 每天 / 定时 / Cron / 循环检查 /
    持续监控 / 等 X 发生后继续 / 满足条件才提醒或处理"
@@ -132,7 +132,7 @@ For details:
 const SECTION_SPEECH = `<myagents-cli-speech>
 MyAgents can transcribe one audio or video attachment from the current
 Workspace with its local speech models. Use the required system skill
-\`myagents-speech-recognition\` when the user asks you to transcribe a local
+\`agenteam-speech-recognition\` when the user asks you to transcribe a local
 meeting, voice note, recording, or media attachment.
 
 Start with the exact command help:

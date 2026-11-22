@@ -51,17 +51,18 @@ pub fn read_disabled_list(myagents_root: &Path) -> Vec<String> {
 /// Product-owned runtime contracts that must remain enabled across every
 /// MyAgents surface. Keep in sync with `src/shared/systemSkills.ts`.
 pub const REQUIRED_SYSTEM_SKILLS: &[&str] = &[
-    "myagents-task-alignment",
-    "myagents-memory-update",
-    "myagents-memory-gardener",
-    "myagents-memory-molt",
-    "myagents-cli",
-    "myagents-anydoc",
-    "myagents-speech-recognition",
-    "myagents-task-automation",
-    "myagents-docs",
-    "myagents-knowledge",
-    "myagents-knowledge-curator",
+    "agenteam-task-alignment",
+    "agenteam-memory-update",
+    "agenteam-memory-gardener",
+    "agenteam-memory-molt",
+    "agenteam-cli",
+    "agenteam-anydoc",
+    "agenteam-speech-recognition",
+    "agenteam-task-automation",
+    "agenteam-docs",
+    "agenteam-knowledge",
+    "agenteam-knowledge-curator",
+    "agenteam-user-profile",
 ];
 
 pub fn is_required_system_skill(name: &str) -> bool {
@@ -93,7 +94,7 @@ mod tests {
         let root = tempfile::tempdir().expect("tempdir");
         fs::write(
             root.path().join("skills-config.json"),
-            r#"{"disabled":["myagents-task-alignment","myagents-memory-update","myagents-memory-gardener","myagents-memory-molt","myagents-cli","myagents-anydoc","myagents-speech-recognition","myagents-task-automation","myagents-docs","myagents-knowledge","myagents-knowledge-curator","ordinary-skill"]}"#,
+            r#"{"disabled":["agenteam-task-alignment","agenteam-memory-update","agenteam-memory-gardener","agenteam-memory-molt","agenteam-cli","agenteam-anydoc","agenteam-speech-recognition","agenteam-task-automation","agenteam-docs","agenteam-knowledge","agenteam-knowledge-curator","agenteam-user-profile","ordinary-skill"]}"#,
         )
         .expect("write skills config");
 

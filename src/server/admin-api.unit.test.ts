@@ -552,7 +552,7 @@ describe('admin-api help registry', () => {
     const cronText = (cron.data as { text?: string } | undefined)?.text ?? '';
 
     expect(task.success).toBe(true);
-    expect(taskText).toContain('myagents-task-automation');
+    expect(taskText).toContain('agenteam-task-automation');
     expect(taskText).toContain('always');
     expect(taskText).toContain('command Detector');
     expect(taskText).toContain('myagents task exit');

@@ -225,7 +225,7 @@ describe('Task turn orchestrator', () => {
     expect(result).toMatchObject({ success: true, turnDispatched: true });
     expect(prepareScheduledTurn).toHaveBeenCalledWith(expect.objectContaining({
       operation: expect.objectContaining({
-        requiredSystemSkill: 'myagents-memory-gardener',
+        requiredSystemSkill: 'agenteam-memory-gardener',
       }),
     }));
     const prompt = runInjectedTurn.mock.calls[0][0].prompt;

@@ -2,7 +2,7 @@
 
 使用场景：同一自建网络中的设备或 Agent 不可见，跨设备调用、会话读取、结果回传或观察管理失败，`@` Agent 不完整或来源错误。
 
-先读 `/myagents-docs/references/agent-network.md`。本机 Runtime 执行异常转 `runtime.md` / `session-sidecar.md`。
+先读 `/agenteam-docs/references/agent-network.md`。本机 Runtime 执行异常转 `runtime.md` / `session-sidecar.md`。
 
 ## 被动取证
 

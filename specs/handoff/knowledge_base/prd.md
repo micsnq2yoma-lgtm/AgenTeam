@@ -332,8 +332,8 @@ myagents kb status <job-id>
 
 ### 9.2 提示词与 Skill
 
-- required system Skill **`myagents-knowledge`**：何时检索、怎么改写查询、怎么引用、检索为空时如实说明。
-- Skill **`myagents-knowledge-curator`**（整理 Task 专用）：①②③ 的工作流、`ORGANIZE_RULES.md` / `WIKI_SCHEMA.md` 的读取顺序、`plan.json` 格式（每项必须写理由）、必须读取 `feedback.jsonl`。
+- required system Skill **`agenteam-knowledge`**：何时检索、怎么改写查询、怎么引用、检索为空时如实说明。
+- Skill **`agenteam-knowledge-curator`**（整理 Task 专用）：①②③ 的工作流、`ORGANIZE_RULES.md` / `WIKI_SCHEMA.md` 的读取顺序、`plan.json` 格式（每项必须写理由）、必须读取 `feedback.jsonl`。
 - Session 绑定了知识库时，system prompt 的产品 append 里只放一行：知识库名称 + 用途描述，**不放内容**。
 
 ### 9.3 引用

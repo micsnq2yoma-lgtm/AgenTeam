@@ -108,12 +108,12 @@ describe('DSH native collaboration boundaries', () => {
       expect(events).toEqual([]);
       const contextAtStartup = fixture.request.mock.calls.find(call => call[0] === 'session/create')?.[1].systemContext;
       expect(contextAtStartup).toEqual(systemContext);
-      expect(JSON.stringify(contextAtStartup)).not.toContain('myagents-knowledge');
+      expect(JSON.stringify(contextAtStartup)).not.toContain('agenteam-knowledge');
       knowledgeLibraries = [{ name: 'Orchard' }];
       await runtime.sendMessage(process, 'A', [], { clientUserMessageId: 'user-A', clientOperationId: 'root-A', allowRealtimeSteer: true });
       const contextAtTurn = fixture.request.mock.calls.filter(call => call[0] === 'config/apply').at(-1)?.[1].systemContext;
       expect(contextAtTurn).toEqual(buildDshSystemContext(scenario, { knowledgeLibraries }));
-      expect(JSON.stringify(contextAtTurn)).toContain('<myagents-knowledge>');
+      expect(JSON.stringify(contextAtTurn)).toContain('<agenteam-knowledge>');
       const beforeDispatch = vi.fn(async () => {});
       await expect(runtime.steerMessage(process, 'C', [], { clientUserMessageId: 'user-C', clientOperationId: 'root-A', beforeDispatch }))
         .rejects.toBeInstanceOf(RuntimeSteerUnavailableError);

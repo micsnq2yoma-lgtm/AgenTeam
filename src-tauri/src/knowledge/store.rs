@@ -44,13 +44,13 @@ pub(crate) const LIBRARY_TEMPLATES: [(&str, &str); 2] = [
     (
         "ORGANIZE_RULES.md",
         include_str!(
-            "../../../bundled-skills/myagents-knowledge-curator/references/ORGANIZE_RULES.md"
+            "../../../bundled-skills/agenteam-knowledge-curator/references/ORGANIZE_RULES.md"
         ),
     ),
     (
         "WIKI_SCHEMA.md",
         include_str!(
-            "../../../bundled-skills/myagents-knowledge-curator/references/WIKI_SCHEMA.md"
+            "../../../bundled-skills/agenteam-knowledge-curator/references/WIKI_SCHEMA.md"
         ),
     ),
 ];

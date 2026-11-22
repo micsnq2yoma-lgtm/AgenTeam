@@ -1,5 +1,5 @@
 /** Version shared with Rust's SYSTEM_SKILLS_VERSION contract. */
-export const SYSTEM_SKILLS_VERSION = '65';
+export const SYSTEM_SKILLS_VERSION = '68';
 
 /**
  * Canonical Skill names that are part of MyAgents' always-available runtime
@@ -7,21 +7,22 @@ export const SYSTEM_SKILLS_VERSION = '65';
  *
  * The effective project/global winner for these names cannot be disabled as
  * an ordinary Skill. The task, memory and knowledge-curator skills back managed
- * workflows, while myagents-cli, myagents-docs and myagents-knowledge are the
+ * workflows, while agenteam-cli, agenteam-docs and agenteam-knowledge are the
  * product's baseline operation, product-knowledge and library-retrieval surfaces.
  */
 export const REQUIRED_SYSTEM_SKILLS = [
-  'myagents-task-alignment',
-  'myagents-memory-update',
-  'myagents-memory-gardener',
-  'myagents-memory-molt',
-  'myagents-cli',
-  'myagents-anydoc',
-  'myagents-speech-recognition',
-  'myagents-task-automation',
-  'myagents-docs',
-  'myagents-knowledge',
-  'myagents-knowledge-curator',
+  'agenteam-task-alignment',
+  'agenteam-memory-update',
+  'agenteam-memory-gardener',
+  'agenteam-memory-molt',
+  'agenteam-cli',
+  'agenteam-anydoc',
+  'agenteam-speech-recognition',
+  'agenteam-task-automation',
+  'agenteam-docs',
+  'agenteam-knowledge',
+  'agenteam-knowledge-curator',
+  'agenteam-user-profile',
 ] as const;
 
 export type RequiredSystemSkill = typeof REQUIRED_SYSTEM_SKILLS[number];
@@ -33,17 +34,17 @@ export type RequiredSystemSkill = typeof REQUIRED_SYSTEM_SKILLS[number];
  * still current before dispatch.
  */
 export interface ProductSystemSkillRequirement {
-  name: 'myagents-task-alignment';
-  sourceLocalId: 'myagents-task-alignment';
+  name: 'agenteam-task-alignment';
+  sourceLocalId: 'agenteam-task-alignment';
   systemSkillsVersion: typeof SYSTEM_SKILLS_VERSION;
   contentSha256: string;
 }
 
 export const TASK_ALIGNMENT_SKILL_REQUIREMENT: ProductSystemSkillRequirement = {
-  name: 'myagents-task-alignment',
-  sourceLocalId: 'myagents-task-alignment',
+  name: 'agenteam-task-alignment',
+  sourceLocalId: 'agenteam-task-alignment',
   systemSkillsVersion: SYSTEM_SKILLS_VERSION,
-  contentSha256: '9620698adb62b54b5f8f2e700a33d8e417a29b447e6134316bbf9ff3cc35fd58',
+  contentSha256: '69935661970a18fa09dd76cb025772286a52f538bdac474afb1a1a2092a30a5f',
 };
 
 export type SystemSkillAdmissionRequirement =

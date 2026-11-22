@@ -282,7 +282,7 @@ payload，而 UI 只展示 envelope 后的 visible tail 或 badge。它适合 Tu
 Plugin 或工具的数据仍需结构化标记、转义并声明为 untrusted context，不能因为被隐藏就
 当成系统指令。
 
-Task 智能讨论采用“薄动态 reminder + product-owned Skill”分工：`TASK_DISCUSSION` 只携带 discussion/workspace/可选 Record identity 和原始 visible tail，`InitialMessage.requiredSystemSkill` 要求 app-owned `myagents-task-alignment` exact source/hash/inventory revision。澄清方法、完整 `task.md` 写作和确认协议留在 Skill；Task 参数事实由 `myagents-task-automation` 与 CLI leaf help 按需披露。不得在 App handler 再复制问卷、参数矩阵或四文档模板，也不得仅靠 slash 文本猜 Skill 已加载。
+Task 智能讨论采用“薄动态 reminder + product-owned Skill”分工：`TASK_DISCUSSION` 只携带 discussion/workspace/可选 Record identity 和原始 visible tail，`InitialMessage.requiredSystemSkill` 要求 app-owned `agenteam-task-alignment` exact source/hash/inventory revision。澄清方法、完整 `task.md` 写作和确认协议留在 Skill；Task 参数事实由 `agenteam-task-automation` 与 CLI leaf help 按需披露。不得在 App handler 再复制问卷、参数矩阵或四文档模板，也不得仅靠 slash 文本猜 Skill 已加载。
 
 ## 其它独立 Prompt
 

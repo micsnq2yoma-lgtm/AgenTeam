@@ -2,7 +2,7 @@
 
 使用场景：白屏、整页渲染错误、某面板打开就崩，或桌面宠物/悬浮窗打不开、卡在“正在连接 Mino”、无法对话。
 
-小助理与悬浮入口的正常定位先读 `/myagents-docs/references/agents-channels.md`。
+小助理与悬浮入口的正常定位先读 `/agenteam-docs/references/agents-channels.md`。
 
 ## 主窗口 Render
 

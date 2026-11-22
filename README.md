@@ -66,7 +66,7 @@ macOS 用 `./setup.sh`，再 `./start_dev.sh`；Ubuntu 24.04 用 `./setup.sh` �
 
 装好以后：
 
-1. **接入模型**：设置 → 模型供应商，登录订阅或填写 API，再选 Runtime 与模型。详见[模型与 Runtime 指南](bundled-skills/myagents-docs/references/models-providers-runtimes.md)。
+1. **接入模型**：设置 → 模型供应商，登录订阅或填写 API，再选 Runtime 与模型。详见[模型与 Runtime 指南](bundled-skills/agenteam-docs/references/models-providers-runtimes.md)。
 2. **新建项目**：侧栏「项目管理」旁点 **+**，选文件夹位置，决定是否打开助理模式。
 3. **创建新任务**：在项目里新建任务，带上资料说明目标；需要持续处理的事，让 Agent 帮你建自动化任务。
 
@@ -94,7 +94,7 @@ macOS 用 `./setup.sh`，再 `./start_dev.sh`；Ubuntu 24.04 用 `./setup.sh` �
 
 - [开发指引](DEVELOPMENT.md)：环境、构建、检查与测试
 - [架构文档](specs/ARCHITECTURE.md) · [界面设计规范](specs/DESIGN.md)
-- [任务与自动化](bundled-skills/myagents-docs/references/automation.md) · [技能、工具与插件](bundled-skills/myagents-docs/references/tools-skills-plugins.md) · [Agent 与聊天机器人](bundled-skills/myagents-docs/references/agents-channels.md) · [设备组网](bundled-skills/myagents-docs/references/agent-network.md)
+- [任务与自动化](bundled-skills/agenteam-docs/references/automation.md) · [技能、工具与插件](bundled-skills/agenteam-docs/references/tools-skills-plugins.md) · [Agent 与聊天机器人](bundled-skills/agenteam-docs/references/agents-channels.md) · [设备组网](bundled-skills/agenteam-docs/references/agent-network.md)
 - [更新日志](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md)
 
 ## Star History
