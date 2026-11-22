@@ -70,9 +70,12 @@ describe('Agent function settings', () => {
     expect(trigger).toHaveTextContent('规划模式');
   });
 
-  it('saves and clears the default provider and model as one selection', async () => {
+  it('shows full default model names and saves or clears the provider and model together', async () => {
+    const providerName = '词元跳动 Token Dance';
+    const modelName = 'DeepSeek-LongContext-Experimental-Model-With-A-Long-Identifier';
+    const fullLabel = `${providerName} · ${modelName}`;
     vi.mocked(useAvailableProviders).mockReturnValue([{
-      id: 'api', name: 'Test API', models: [{ model: 'agent-model', modelName: 'Agent Model' }],
+      id: 'api', name: providerName, models: [{ model: 'agent-model', modelName }],
     } as Provider]);
     const user = userEvent.setup();
     const updateConfig = vi.fn();
@@ -87,9 +90,13 @@ describe('Agent function settings', () => {
     const trigger = screen.getByRole('button', { name: '默认模型' });
     expect(trigger).toHaveTextContent('自动选择');
     await user.click(trigger);
-    await user.click(await screen.findByRole('button', { name: 'Test API · Agent Model' }));
+    const option = await screen.findByRole('button', { name: fullLabel });
+    expect(option).toHaveAttribute('title', fullLabel);
+    expect(screen.getByText(fullLabel)).toHaveClass('whitespace-normal', 'wrap-anywhere');
+    await user.click(option);
     expect(updateConfig).toHaveBeenLastCalledWith({ defaultModelSelection: { providerId: 'api', model: 'agent-model' } });
-    expect(trigger).toHaveTextContent('Test API · Agent Model');
+    expect(trigger).toHaveTextContent(fullLabel);
+    expect(trigger).toHaveAttribute('title', fullLabel);
     await user.click(trigger);
     await user.click(await screen.findByRole('button', { name: '自动选择' }));
     expect(updateConfig).toHaveBeenLastCalledWith({ defaultModelSelection: undefined });

@@ -32,6 +32,8 @@ interface CustomSelectProps {
   className?: string;
   /** Keep a portaled menu usable when a compact trigger is narrower than its options. */
   popoverMinWidth?: number;
+  /** Wrap plain-text menu labels and expose the full label on hover. */
+  showFullLabels?: boolean;
   /**
    * Trigger size — controls the closed-state padding + font size:
    *   'compact' (default when `compact={true}`): 12px / px-2 py-1
@@ -65,6 +67,7 @@ export default function CustomSelect({
   triggerIcon,
   className,
   popoverMinWidth,
+  showFullLabels = false,
   size = 'sm',
   compact,
   disabled = false,
@@ -102,6 +105,7 @@ export default function CustomSelect({
         ref={triggerRef}
         type="button"
         aria-label={ariaLabel}
+        title={showFullLabels && !isOpen ? selectedOption?.label : undefined}
         disabled={disabled}
         onClick={(event) => {
           // Native accessibility activation may click without moving focus.
@@ -182,6 +186,7 @@ export default function CustomSelect({
               <button
                 key={option.value}
                 type="button"
+                title={showFullLabels ? option.label : undefined}
                 onClick={() => handleSelect(option.value)}
                 // Item font size mirrors the trigger's: `size='md'`
                 // → `text-sm` (14px) so options read at parity with
@@ -198,7 +203,9 @@ export default function CustomSelect({
                 {option.icon && <span className="shrink-0">{option.icon}</span>}
                 <span className="min-w-0">
                   {option.content ?? (
-                    <span className="block truncate">{option.label}</span>
+                    <span className={showFullLabels ? 'block whitespace-normal wrap-anywhere' : 'block truncate'}>
+                      {option.label}
+                    </span>
                   )}
                 </span>
                 {option.value === value && (
