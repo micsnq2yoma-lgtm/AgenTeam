@@ -10,7 +10,13 @@ use super::*;
 
 /// Background completion polling interval (2 seconds)
 const BG_POLL_INTERVAL_SECS: u64 = 2;
-/// Background completion safety timeout (60 minutes)
+/// Background completion safety budget (60 minutes of *active* work).
+///
+/// Time spent blocked on a human response (permission prompt,
+/// AskUserQuestion, plan approval) does not count: releasing the owner then
+/// stops the Sidecar and silently discards the pending request, so a user who
+/// steps away would come back to a task that can no longer be approved. The
+/// budget still bounds a runaway turn that keeps working without end.
 const BG_MAX_DURATION_SECS: u64 = 3600;
 
 /// Result from start_background_completion
@@ -40,11 +46,25 @@ struct SidecarSessionSnapshot {
     is_busy: bool,
     #[serde(default)]
     completion_terminal: Option<crate::notification::SessionCompletionTerminal>,
+    /// The root turn is blocked on a human response. Older Sidecars omit it.
+    #[serde(default)]
+    waiting_for_user: bool,
 }
 
 impl SidecarSessionSnapshot {
     fn is_busy(&self) -> bool {
-        self.is_busy || matches!(self.session_state.as_str(), "running" | "starting")
+        self.is_busy
+            || self.waiting_for_user
+            || matches!(self.session_state.as_str(), "running" | "starting")
+    }
+}
+
+/// Only active work consumes the safety budget; a human wait pauses it.
+fn advance_active_budget(spent: Duration, step: Duration, waiting_for_user: bool) -> Duration {
+    if waiting_for_user {
+        spent
+    } else {
+        spent.saturating_add(step)
     }
 }
 
@@ -263,21 +283,25 @@ fn poll_background_completion<R: Runtime>(
         session_id,
         initial_generation
     );
-    let start_time = std::time::Instant::now();
     let max_duration = Duration::from_secs(BG_MAX_DURATION_SECS);
     let poll_interval = Duration::from_secs(BG_POLL_INTERVAL_SECS);
     let bg_owner = SidecarOwner::BackgroundCompletion(session_id.to_string());
     let mut consecutive_http_failures: u32 = 0;
     let mut expected_generation = initial_generation;
+    // Active time spent, and whether the latest current-generation snapshot
+    // reported a human wait (the interval just slept is attributed to it).
+    let mut active_spent = Duration::ZERO;
+    let mut waiting_for_user = false;
     const MAX_HTTP_FAILURES: u32 = 3;
 
     loop {
         thread::sleep(poll_interval);
+        active_spent = advance_active_budget(active_spent, poll_interval, waiting_for_user);
 
-        // Safety timeout
-        if start_time.elapsed() > max_duration {
+        // Safety budget (active work only)
+        if active_spent > max_duration {
             ulog_warn!(
-                "[bg-completion] Session {} hit safety timeout ({} min), stopping",
+                "[bg-completion] Session {} hit safety timeout ({} min of active work), stopping",
                 session_id,
                 BG_MAX_DURATION_SECS / 60
             );
@@ -354,6 +378,7 @@ fn poll_background_completion<R: Runtime>(
         match snapshot {
             Some(ref snapshot) if snapshot.is_busy() => {
                 consecutive_http_failures = 0;
+                waiting_for_user = snapshot.waiting_for_user;
                 ulog_debug!(
                     "[bg-completion] Session {} still active (state: {}), continuing poll",
                     session_id,
@@ -497,13 +522,15 @@ fn finish_background_completion<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::{
-        background_response_is_current, cancel_background_completion, SidecarSessionSnapshot,
+        advance_active_budget, background_response_is_current, cancel_background_completion,
+        SidecarSessionSnapshot, BG_MAX_DURATION_SECS, BG_POLL_INTERVAL_SECS,
     };
     use crate::sidecar::manager::{
         BackgroundOwnerAttach, BackgroundOwnerRelease, BackgroundPollTarget,
     };
     use crate::sidecar::{SidecarManager, SidecarOwner};
     use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     #[test]
     fn busy_snapshot_includes_accepted_queue_work_and_legacy_active_states() {
@@ -525,6 +552,51 @@ mod tests {
         }))
         .unwrap();
         assert!(!idle.is_busy());
+    }
+
+    #[test]
+    fn human_wait_keeps_background_completion_alive() {
+        let waiting: SidecarSessionSnapshot = serde_json::from_value(serde_json::json!({
+            "sessionState": "idle",
+            "isBusy": false,
+            "waitingForUser": true
+        }))
+        .unwrap();
+        assert!(waiting.is_busy());
+
+        // Sidecars that predate the field keep the previous behaviour.
+        let legacy: SidecarSessionSnapshot = serde_json::from_value(serde_json::json!({
+            "sessionState": "running"
+        }))
+        .unwrap();
+        assert!(!legacy.waiting_for_user);
+    }
+
+    #[test]
+    fn human_wait_does_not_consume_the_safety_budget() {
+        let step = Duration::from_secs(BG_POLL_INTERVAL_SECS);
+        let max = Duration::from_secs(BG_MAX_DURATION_SECS);
+
+        // Two hours blocked on an approval spends nothing.
+        let mut spent = Duration::ZERO;
+        for _ in 0..(2 * BG_MAX_DURATION_SECS / BG_POLL_INTERVAL_SECS) {
+            spent = advance_active_budget(spent, step, true);
+        }
+        assert_eq!(spent, Duration::ZERO);
+
+        // Active work still hits the cap, so a runaway turn is bounded.
+        for _ in 0..=(BG_MAX_DURATION_SECS / BG_POLL_INTERVAL_SECS) {
+            spent = advance_active_budget(spent, step, false);
+        }
+        assert!(spent > max);
+
+        // Mixed: waiting intervals are excluded from the total.
+        let mixed = [false, true, true, false]
+            .into_iter()
+            .fold(Duration::ZERO, |acc, waiting| {
+                advance_active_budget(acc, step, waiting)
+            });
+        assert_eq!(mixed, step * 2);
     }
 
     #[test]

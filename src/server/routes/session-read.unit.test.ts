@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   engine: {
     getExecutionTurnId: vi.fn(() => 'turn-1'),
     getRuntimeIdentity: vi.fn(() => ({ kind: 'builtin', runtime: 'builtin', sessionId: 'sid' })),
-    getLiveSessionState: vi.fn(() => ({ sessionState: 'idle', isBusy: false })),
+    getLiveSessionState: vi.fn<() => { sessionState: string; isBusy: boolean; waitingForUser?: boolean }>(() => ({ sessionState: 'idle', isBusy: false })),
     getSessionCompletionTerminal: vi.fn<() => Record<string, unknown> | null>(() => null),
     getLatestAssistantResult: vi.fn(() => ({ sessionId: 'sid', latestResult: 'latest answer' })),
     getLiveSessionOverlay: vi.fn<() => Record<string, unknown>>(() => ({ isActive: false })),
@@ -78,6 +78,7 @@ describe('handleSessionReadRoute', () => {
       sessionId: 'sid',
       sessionState: 'idle',
       isBusy: true,
+      waitingForUser: false,
       completionTerminal: {
         sessionId: 'sid',
         workspacePath: '/tmp/workspace',
@@ -311,5 +312,15 @@ describe('handleSessionReadRoute', () => {
       new Request('http://local/sessions/sid/since/m1'),
       new URL('http://local/sessions/sid/since/m1'),
     )).resolves.toBeNull();
+  });
+
+  it('reports a human wait so background completion pauses its safety budget', async () => {
+    mocks.engine.getLiveSessionState.mockReturnValue({ sessionState: 'running', isBusy: true, waitingForUser: true });
+    const response = await handleSessionReadRoute(
+      '/api/session-state',
+      new Request('http://local/api/session-state'),
+      new URL('http://local/api/session-state'),
+    );
+    expect(await readJson(response as Response)).toMatchObject({ isBusy: true, waitingForUser: true });
   });
 });

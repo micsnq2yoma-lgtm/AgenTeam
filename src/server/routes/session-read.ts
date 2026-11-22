@@ -213,6 +213,8 @@ export async function handleSessionReadRoute(
       sessionId: engine.getRuntimeIdentity().sessionId,
       sessionState: liveState.sessionState,
       isBusy: liveState.isBusy,
+      // Rust BackgroundCompletion pauses its safety budget during a human wait.
+      waitingForUser: liveState.waitingForUser === true,
       completionTerminal: engine.getSessionCompletionTerminal(),
     });
   }
