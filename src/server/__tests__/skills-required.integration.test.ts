@@ -334,12 +334,12 @@ describe('required system skill API contract', () => {
       });
       expect(readFileSync(join(userSkills, 'agenteam-task-alignment', 'SKILL.md'), 'utf8')).toBe(systemSkillBefore);
 
-      const caseVariantSystemSaveResponse = await fetch(`${baseUrl}/api/skill/MYAGENTS-TASK-ALIGNMENT`, {
+      const caseVariantSystemSaveResponse = await fetch(`${baseUrl}/api/skill/AGENTEAM-TASK-ALIGNMENT`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scope: 'user',
-          frontmatter: { name: 'MYAGENTS-TASK-ALIGNMENT', description: 'changed' },
+          frontmatter: { name: 'AGENTEAM-TASK-ALIGNMENT', description: 'changed' },
           body: 'changed',
         }),
       });
@@ -348,7 +348,7 @@ describe('required system skill API contract', () => {
         success: false,
         code: 'SYSTEM_SKILL_READ_ONLY',
       });
-      const caseVariantSystemDeleteResponse = await fetch(`${baseUrl}/api/skill/MYAGENTS-TASK-ALIGNMENT?scope=user`, {
+      const caseVariantSystemDeleteResponse = await fetch(`${baseUrl}/api/skill/AGENTEAM-TASK-ALIGNMENT?scope=user`, {
         method: 'DELETE',
       });
       expect(caseVariantSystemDeleteResponse.status).toBe(409);
