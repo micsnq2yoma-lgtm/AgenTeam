@@ -11,6 +11,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 180
     env:
+      NODE_OPTIONS: --max-old-space-size=4096
       CARGO_INCREMENTAL: '0'
       CARGO_BUILD_JOBS: '2'
       CMAKE_BUILD_PARALLEL_LEVEL: '2'
