@@ -142,6 +142,10 @@ export interface SimpleChatInputProps {
   sdkSlashCommands?: SlashCommand[];
   mode?: 'chat' | 'launcher';
   toolbarPrefix?: React.ReactNode;
+  /** First row inside the composer frame, above attachments and the textarea
+   *  (Launcher: current project + runtime). Draft status bars stay above the
+   *  frame, so they never compete with this slot. */
+  contextHeader?: React.ReactNode;
   contextIndicator?: React.ReactNode;
   runtime?: RuntimeType;
   /** True only for user-managed CLI controls; Integrated DSH keeps Product provider/tool controls. */

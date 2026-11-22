@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { forwardRef, useImperativeHandle } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -59,9 +59,10 @@ vi.mock('@/components/SimpleChatInput', () => ({
       active?: boolean;
       onSlashAction?: (name: string) => void;
       showBuiltinSdkSlashCommands?: boolean;
+      contextHeader?: ReactNode;
     }
   >(function SimpleChatInputMock(
-    { active, onSlashAction, showBuiltinSdkSlashCommands },
+    { active, onSlashAction, showBuiltinSdkSlashCommands, contextHeader },
     _ref,
   ) {
     useImperativeHandle(_ref, () => simpleInputHandle, []);
@@ -71,6 +72,7 @@ vi.mock('@/components/SimpleChatInput', () => ({
         data-active={String(active)}
         data-show-builtin-sdk-commands={String(showBuiltinSdkSlashCommands)}
       >
+        {contextHeader}
         input
         <button type="button" onClick={() => onSlashAction?.('goal')}>
           open goal
@@ -238,16 +240,13 @@ describe('BrandSection', () => {
     expect(screen.getByTestId('launcher-input')).toHaveAttribute('data-active', 'true');
   });
 
-  it('keeps the launcher context row in the below-input stack without a provider CTA', () => {
+  it('renders the project/runtime context inside the composer, not as a row below it', () => {
     const { container } = renderBrandSection();
 
-    const stack = container.querySelector('.launcher-below-input-stack');
-
-    expect(stack).not.toBeNull();
-    expect(stack).toHaveClass('mt-2');
-    expect(stack as HTMLElement).toContainElement(
+    expect(screen.getByTestId('launcher-input')).toContainElement(
       screen.getByTestId('launcher-context-row'),
     );
+    expect(container.querySelector('.launcher-below-input-stack')).toBeNull();
     expect(screen.queryByRole('button', { name: /配置模型供应商/ })).not.toBeInTheDocument();
   });
 

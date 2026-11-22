@@ -229,6 +229,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
   sdkSlashCommands = [],
   mode = 'chat',
   toolbarPrefix,
+  contextHeader,
   contextIndicator,
   // Whether this input belongs to the currently active tab. Used to gate document-level
   // listeners (Shift+Tab permission-mode cycle below) so background tabs don't also fire.
@@ -1407,6 +1408,11 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
             ? 'rounded-b-2xl rounded-t-none border-t-0'  // StatusBar visible: no top rounded, no top border
             : 'rounded-2xl'  // Normal: fully rounded
         }`}>
+          {/* Context header (Launcher: project + runtime). Outside the
+              click-to-focus area so clicking its labels never steals focus
+              from the picker that opens. */}
+          {contextHeader}
+
           {/* Clickable area for focus - covers input area but not toolbar */}
           <div
             className="cursor-text"

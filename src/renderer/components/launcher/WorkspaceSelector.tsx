@@ -103,7 +103,7 @@ export default function WorkspaceSelector({
             <button
                 onClick={onAddFolder}
                 disabled={!onAddFolder}
-                className="inline-flex items-center gap-1.5 rounded-[10px] px-2 py-1.5 text-sm font-medium text-[var(--ink-muted)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--accent)]"
+                className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-sm font-medium text-[var(--ink-muted)] transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--accent)]"
             >
                 <PlusIcon className="h-3.5 w-3.5" />
                 <span>{t('workspaceSelector.selectWorkspace')}</span>
@@ -116,16 +116,22 @@ export default function WorkspaceSelector({
             <button
                 ref={triggerRef}
                 onClick={() => setIsOpen(!isOpen)}
+                aria-expanded={isOpen}
+                title={selectedProject?.path}
                 className={`${variant === 'panel'
                     ? 'flex w-full min-w-0 items-center gap-3 rounded-lg border border-[var(--line)] px-3 py-2 text-sm text-[var(--ink)]'
-                    : 'inline-flex items-center gap-1.5 rounded-[10px] px-2 py-1.5 text-sm font-medium text-[var(--ink-muted)]'
-                } text-left transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--ink)]`}
+                    // Launcher context header: inline text control inside the
+                    // composer. No chevron — the name itself opens the list.
+                    : 'inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-sm font-medium text-[var(--ink)]'
+                } text-left transition-colors hover:bg-[var(--hover-bg)] hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`}
             >
                 <WorkspaceIcon icon={selectedProject?.icon} size={16} />
-                <span className={variant === 'panel' ? 'min-w-0 flex-1 truncate' : 'max-w-[120px] truncate'}>
+                <span className={variant === 'panel' ? 'min-w-0 flex-1 truncate' : 'max-w-[200px] truncate'}>
                     {selectedProject ? (selectedProject.displayName || getFolderName(selectedProject.path)) : t('workspaceSelector.selectWorkspace')}
                 </span>
-                <ChevronUpIcon className={`h-3 w-3 shrink-0 transition-transform ${isOpen ? '' : 'rotate-180'}`} />
+                {variant === 'panel' && (
+                    <ChevronUpIcon className={`h-3 w-3 shrink-0 transition-transform ${isOpen ? '' : 'rotate-180'}`} />
+                )}
             </button>
             <Popover
                 open={isOpen}

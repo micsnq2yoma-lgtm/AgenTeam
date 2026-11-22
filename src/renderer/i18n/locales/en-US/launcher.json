@@ -188,6 +188,7 @@
     }
   },
   "workspaceSelector": {
+    "label": "Project",
     "selectWorkspace": "Select project",
     "title": "Projects",
     "defaultBadge": "Default",

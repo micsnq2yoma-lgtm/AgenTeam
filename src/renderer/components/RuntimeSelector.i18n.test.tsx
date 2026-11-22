@@ -13,6 +13,30 @@ const detections: RuntimeDetections = {
   codex: { installed: true, version: '1.0.0' },
 };
 
+describe('RuntimeSelector launcher trigger', () => {
+  it('shows the compact runtime name without a dropdown chevron', () => {
+    const { container } = render(
+      <RuntimeSelector value="dsh" detections={detections} onChange={vi.fn()} variant="launcher" />,
+    );
+
+    const trigger = screen.getByTitle('Runtime: AgenTeam (DeepSeek Harness)');
+    expect(trigger).toHaveTextContent('DeepSeek Harness');
+    expect(trigger).not.toHaveTextContent('AgenTeam (DeepSeek Harness)');
+    expect(container.querySelectorAll('svg')).toHaveLength(0);
+  });
+
+  it('opens the runtime list when the name itself is clicked', async () => {
+    const user = userEvent.setup();
+    render(<RuntimeSelector value="dsh" detections={detections} onChange={vi.fn()} variant="launcher" />);
+
+    const trigger = screen.getByTitle('Runtime: AgenTeam (DeepSeek Harness)');
+    await user.click(trigger);
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /AgenTeam \(Claude Agent SDK\)/ })).toBeInTheDocument();
+  });
+});
+
 describe('RuntimeSelector i18n', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en-US');
@@ -104,8 +128,11 @@ describe('RuntimeSelector i18n', () => {
       />,
     );
 
-    await user.click(screen.getByTitle('Runtime: AgenTeam (DeepSeek Harness)'));
-    expect(screen.getAllByRole('button', { name: /AgenTeam \(DeepSeek Harness\)/ })).toHaveLength(2);
+    const trigger = screen.getByTitle('Runtime: AgenTeam (DeepSeek Harness)');
+    await user.click(trigger);
+    // The launcher trigger shows the compact name; the full name appears once, in the menu.
+    expect(trigger).toHaveTextContent('DeepSeek Harness');
+    expect(screen.getAllByRole('button', { name: /AgenTeam \(DeepSeek Harness\)/ })).toHaveLength(1);
     expect(screen.getByText('Built-in Agent runtimes')).toBeInTheDocument();
     expect(screen.queryByText('AgenTeam (Claude Agent SDK)')).not.toBeInTheDocument();
     expect(screen.queryByText('Codex CLI')).not.toBeInTheDocument();
