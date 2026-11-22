@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use axum::{extract::Path as RoutePath, http::HeaderMap, Json};
@@ -11,7 +11,9 @@ use super::{get_sidecar_state, no_store_json, request_sidecar_generation};
 use crate::knowledge::{
     ingest::KnowledgeIngestManager,
     read::{self, ReadRequest},
-    store::{KnowledgeStore, MetadataKey, MetadataPatch, StoreResult},
+    store::{
+        AgentWriteAccess, KnowledgeBase, KnowledgeStore, MetadataKey, MetadataPatch, StoreResult,
+    },
     types::{
         format_knowledge_ref, is_knowledge_base_id, parse_knowledge_ref, KnowledgeErrorCode,
         KnowledgeRef,
@@ -131,16 +133,74 @@ fn resolve_caller(sidecar_id: &str, generation: u64) -> StoreResult<SessionProce
     caller.ok_or(KbAccessDenied)
 }
 
-async fn curator_is_running(kb: &str, session: &str) -> bool {
-    let Some(store) = crate::task::get_task_store() else {
-        return false;
-    };
-    let Some(task) = store.knowledge_curator_task(kb).await else {
-        return false;
-    };
-    crate::task_scheduler::get_task_scheduler()
-        .owns_running_session(&task, session)
-        .await
+struct WriteAuthority {
+    sidecar_id: String,
+    generation: u64,
+    caller: SessionProcessSource,
+    data_dir: PathBuf,
+    curator: Option<(String, String)>,
+}
+
+impl WriteAuthority {
+    async fn new(
+        sidecar_id: String,
+        generation: u64,
+        caller: SessionProcessSource,
+        data_dir: PathBuf,
+        kb: &str,
+    ) -> Self {
+        let curator = match crate::task::get_task_store() {
+            Some(store) => match store.knowledge_curator_task(kb).await {
+                Some(task_id) => crate::task_scheduler::get_task_scheduler()
+                    .running_session_queue(&task_id, &caller.product_session_id)
+                    .await
+                    .map(|queue_id| (task_id, queue_id)),
+                None => None,
+            },
+            None => None,
+        };
+        Self {
+            sidecar_id,
+            generation,
+            caller,
+            data_dir,
+            curator,
+        }
+    }
+
+    /// Pin the exact process and curator execution until the Store finishes
+    /// publication. Try-locks avoid reversing a lifecycle lock order.
+    fn pin(&self, kb: &KnowledgeBase) -> StoreResult<impl Sized> {
+        let scope = Scope(crate::session_metadata::knowledge_base_ids_for_session(
+            &self.data_dir,
+            &self.caller.product_session_id,
+        )?);
+        scope.require(&kb.id)?;
+        let sidecars = get_sidecar_state()
+            .ok_or(KbStoreUnavailable)?
+            .try_lock()
+            .map_err(|_| KbStoreUnavailable)?;
+        let current = sidecars
+            .resolve_session_process_source(&self.sidecar_id, self.generation)
+            .filter(|current| {
+                current.product_session_id == self.caller.product_session_id
+                    && current.workspace_path == self.caller.workspace_path
+            })
+            .ok_or(KbAccessDenied)?;
+        let (task, run) = if kb.agent_write_access == AgentWriteAccess::CuratorOnly {
+            let (task_id, queue_id) = self.curator.as_ref().ok_or(KbAccessDenied)?;
+            let task = crate::task::get_task_store()
+                .and_then(|store| store.pin_knowledge_curator(&kb.id, task_id))
+                .ok_or(KbAccessDenied)?;
+            let run = crate::task_scheduler::get_task_scheduler()
+                .pin_running_session(task_id, queue_id, &current.product_session_id)
+                .ok_or(KbAccessDenied)?;
+            (Some(task), Some(run))
+        } else {
+            (None, None)
+        };
+        Ok((sidecars, task, run))
+    }
 }
 
 async fn blocking(
@@ -179,8 +239,9 @@ async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreRes
     let store = Arc::clone(store.inner());
     let data_dir = crate::app_dirs::myagents_data_dir().ok_or(KbStoreUnavailable)?;
     let session = caller.product_session_id.clone();
+    let session_dir = data_dir.clone();
     let scope = spawn_blocking(move || {
-        crate::session_metadata::knowledge_base_ids_for_session(&data_dir, &session).map(Scope)
+        crate::session_metadata::knowledge_base_ids_for_session(&session_dir, &session).map(Scope)
     })
     .await
     .map_err(|_| KbStoreUnavailable)??;
@@ -235,7 +296,8 @@ async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreRes
         "add" => {
             let input: Add = decode(request)?;
             let kb = scope.import_target(input.kb_id)?;
-            let curator = curator_is_running(&kb, &caller.product_session_id).await;
+            let authority =
+                WriteAuthority::new(sidecar_id, generation, caller, data_dir, &kb).await;
             let ingest = app
                 .try_state::<Arc<KnowledgeIngestManager>>()
                 .ok_or(KbStoreUnavailable)?;
@@ -243,9 +305,9 @@ async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreRes
             blocking(move || {
                 let receipt = ingest.import_workspace_file(
                     &kb,
-                    &caller.workspace_path,
+                    &authority.caller.workspace_path,
                     Path::new(&input.file),
-                    curator,
+                    |kb| authority.pin(kb),
                 )?;
                 Ok(json!({"ok": true, "receipt": receipt}))
             })
@@ -257,16 +319,23 @@ async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreRes
             if reference.chunk_id.is_some() {
                 return Err(KbInvalidInput);
             }
-            let curator = curator_is_running(&reference.kb_id, &caller.product_session_id).await;
+            let authority =
+                WriteAuthority::new(sidecar_id, generation, caller, data_dir, &reference.kb_id)
+                    .await;
             blocking(move || {
-                store.check_agent_write(&reference.kb_id, curator)?;
-                let fields =
-                    metadata_patch(&store, input, &scope, &reference, &caller.workspace_path)?;
+                store.check_agent_write(&reference.kb_id, |kb| authority.pin(kb))?;
+                let fields = metadata_patch(
+                    &store,
+                    input,
+                    &scope,
+                    &reference,
+                    &authority.caller.workspace_path,
+                )?;
                 let outcomes = store.set_agent_metadata(
                     &reference.kb_id,
                     &reference.source_id,
                     fields,
-                    curator,
+                    |kb| authority.pin(kb),
                 )?;
                 Ok(json!({"ok": true, "outcomes": outcomes}))
             })
@@ -563,7 +632,7 @@ mod tests {
             Path::new("inside-link/legitimate.txt"),
         ] {
             assert!(ingest
-                .import_workspace_file(&kb.id, &workspace, escaped, false)
+                .import_workspace_file(&kb.id, &workspace, escaped, |_| Ok(()))
                 .is_err());
         }
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "unchanged");
@@ -572,6 +641,24 @@ mod tests {
             read_workspace_file_strict(&workspace, inside_file.to_str().unwrap(), 64).unwrap(),
             b"legitimate"
         );
+        let checks = std::cell::Cell::new(0);
+        assert!(matches!(
+            ingest.import_workspace_file(&kb.id, &workspace, &inside_file, |_| {
+                if checks.replace(checks.get() + 1) == 0 {
+                    Ok(())
+                } else {
+                    Err(KbAccessDenied)
+                }
+            }),
+            Err(KbAccessDenied)
+        ));
+        assert_eq!(checks.get(), 2);
+        assert!(store.list_sources(&kb.id).unwrap().is_empty());
+        let receipt = ingest
+            .import_workspace_file(&kb.id, &workspace, &inside_file, |_| Ok(()))
+            .unwrap();
+        assert!(store.get_source(&kb.id, &receipt.source_id).is_ok());
+        assert_eq!(std::fs::read(&inside_file).unwrap(), b"legitimate");
         ingest.shutdown().unwrap();
         #[cfg(windows)]
         {

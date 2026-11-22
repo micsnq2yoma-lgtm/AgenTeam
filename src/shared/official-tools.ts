@@ -70,6 +70,10 @@ export const OFFICIAL_TOOLS: readonly OfficialToolDefinition[] = [
   },
 ] as const;
 
+export const TOGGLEABLE_OFFICIAL_TOOLS = OFFICIAL_TOOLS.filter(
+  tool => tool.id !== KNOWLEDGE_TOOL_ID,
+);
+
 const OFFICIAL_TOOL_ID_SET = new Set<string>(OFFICIAL_TOOLS.map(tool => tool.id));
 
 export function isOfficialToolId(value: unknown): value is OfficialToolId {

@@ -3121,13 +3121,13 @@ impl TaskStore {
 
     pub(crate) async fn knowledge_curator_task(&self, kb_id: &str) -> Option<String> {
         let tasks = self.inner.read().await;
-        let mut matches = tasks.values().filter(|task| {
-            !task.deleted
-                && task.managed_kind.as_deref() == Some(MANAGED_KIND_KNOWLEDGE_CURATOR)
-                && task.curator_knowledge_base_id.as_deref() == Some(kb_id)
-        });
-        let task = matches.next()?;
-        matches.next().is_none().then(|| task.id.clone())
+        unique_knowledge_curator(&tasks, kb_id).map(|task| task.id.clone())
+    }
+
+    pub(crate) fn pin_knowledge_curator(&self, kb_id: &str, task_id: &str) -> Option<impl Sized> {
+        let guard = Arc::clone(&self.inner).try_read_owned().ok()?;
+        let task = unique_knowledge_curator(&guard, kb_id)?;
+        (task.id == task_id).then_some(guard)
     }
 
     pub async fn get_ordinary(&self, id: &str) -> Result<Task, String> {
@@ -4977,6 +4977,19 @@ static TASK_STORE: std::sync::OnceLock<Arc<TaskStore>> = std::sync::OnceLock::ne
 
 pub fn set_task_store(store: Arc<TaskStore>) {
     let _ = TASK_STORE.set(store);
+}
+
+fn unique_knowledge_curator<'a>(
+    tasks: &'a HashMap<String, Task>,
+    kb_id: &str,
+) -> Option<&'a Task> {
+    let mut tasks = tasks.values().filter(|task| {
+        !task.deleted
+            && task.managed_kind.as_deref() == Some(MANAGED_KIND_KNOWLEDGE_CURATOR)
+            && task.curator_knowledge_base_id.as_deref() == Some(kb_id)
+    });
+    let task = tasks.next()?;
+    tasks.next().is_none().then_some(task)
 }
 
 pub fn get_task_store() -> Option<&'static Arc<TaskStore>> {

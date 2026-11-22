@@ -11,7 +11,7 @@ use std::time::Duration;
 use serde::Serialize;
 
 use super::store::ingest::{ImportReceipt, IngestJob};
-use super::store::{KnowledgeStore, SourceStatus, StoreResult};
+use super::store::{KnowledgeBase, KnowledgeStore, SourceStatus, StoreResult};
 use super::types::{
     is_knowledge_base_id, is_knowledge_job_id, is_knowledge_source_id, KnowledgeErrorCode,
 };
@@ -104,37 +104,37 @@ impl KnowledgeIngestManager {
     pub fn import_files(self: &Arc<Self>, kb_id: &str, paths: Vec<PathBuf>) -> Vec<ImportOutcome> {
         paths
             .into_iter()
-            .map(|path| match self.admit(kb_id, &path, None) {
-                Ok(receipt) => ImportOutcome::Accepted { receipt },
-                Err(code) => ImportOutcome::Rejected { error: code.into() },
-            })
+            .map(
+                |path| match self.admit(kb_id, |store| store.enqueue_file(kb_id, &path)) {
+                    Ok(receipt) => ImportOutcome::Accepted { receipt },
+                    Err(code) => ImportOutcome::Rejected { error: code.into() },
+                },
+            )
             .collect()
     }
 
-    pub(crate) fn import_workspace_file(
+    pub(crate) fn import_workspace_file<G>(
         self: &Arc<Self>,
         kb_id: &str,
         workspace: &Path,
         file: &Path,
-        curator: bool,
+        authorize: impl Fn(&KnowledgeBase) -> StoreResult<G>,
     ) -> StoreResult<ImportReceipt> {
-        self.admit(kb_id, file, Some((workspace, curator)))
+        self.admit(kb_id, |store| {
+            store.enqueue_input(kb_id, file, Some(workspace), authorize)
+        })
     }
 
     fn admit(
         self: &Arc<Self>,
         kb_id: &str,
-        path: &Path,
-        agent: Option<(&Path, bool)>,
+        enqueue: impl FnOnce(&KnowledgeStore) -> StoreResult<ImportReceipt>,
     ) -> StoreResult<ImportReceipt> {
         if !is_knowledge_base_id(kb_id) {
             return Err(KnowledgeErrorCode::KbInvalidInput);
         }
         let mut queue = self.open_queue()?;
-        let receipt = match agent {
-            Some(scope) => self.store.enqueue_input(kb_id, path, Some(scope)),
-            None => self.store.enqueue_file(kb_id, path),
-        }?;
+        let receipt = enqueue(&self.store)?;
         if let Some(job) = &receipt.job {
             if !receipt.duplicate {
                 queue.pending.push_back(job.id.clone());

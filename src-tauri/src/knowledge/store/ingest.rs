@@ -540,27 +540,27 @@ impl KnowledgeStore {
     }
 
     pub fn enqueue_file(&self, kb: &str, path: &Path) -> StoreResult<ImportReceipt> {
-        self.enqueue_input(kb, path, None)
+        self.enqueue_input(kb, path, None, |_| Ok(()))
     }
 
-    pub(crate) fn enqueue_input(
+    pub(crate) fn enqueue_input<G>(
         &self,
         kb: &str,
         path: &Path,
-        agent: Option<(&Path, bool)>,
+        workspace: Option<&Path>,
+        authorize: impl Fn(&KnowledgeBase) -> StoreResult<G>,
     ) -> StoreResult<ImportReceipt> {
         if !is_knowledge_base_id(kb) {
             return Err(KbInvalidInput);
         }
-        if let Some((_, curator)) = agent {
-            self.check_agent_write(kb, curator)?;
+        if workspace.is_some() {
+            self.check_agent_write(kb, &authorize)?;
         }
         let limit = source_limit(path).map_err(|error| match error {
             ConversionError::Failed(code, _) => code,
             _ => KbStoreUnavailable,
         })?;
-        let (mut file, metadata) =
-            checked_input(path, limit, agent.map(|(workspace, _)| workspace))?;
+        let (mut file, metadata) = checked_input(path, limit, workspace)?;
         let modified = metadata.modified().map_err(|_| KbInvalidInput)?;
         let fingerprint = SourceFingerprint {
             size: metadata.len(),
@@ -587,11 +587,7 @@ impl KnowledgeStore {
         }
         drop(file);
         self.locked_kb(kb, None, |files, registry| {
-            if let Some((_, curator)) = agent {
-                files.require_agent_write(kb, curator)?;
-            } else {
-                files.read_kb(kb)?;
-            }
+            let _permit = authorize(&files.read_kb(kb)?)?;
             let parent = files.source_parent(kb)?.ok_or(KbStoreUnavailable)?;
             files.recover_source_publications(&parent)?;
             let hash_path = format!("{kb}/original-hashes/{hash}.json");

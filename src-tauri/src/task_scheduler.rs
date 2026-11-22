@@ -51,6 +51,14 @@ struct ActiveTaskExecution {
     detector: Option<DetectorExecutionLifecycle>,
 }
 
+impl ActiveTaskExecution {
+    fn is_running_session(&self, session_id: &str) -> bool {
+        !self.canceled
+            && self.state == TaskExecutionState::Running
+            && self.session_id.as_deref() == Some(session_id)
+    }
+}
+
 #[derive(Debug, Clone)]
 struct DetectorExecutionLifecycle {
     cancellation: DetectorCancellation,
@@ -1177,12 +1185,26 @@ impl TaskSchedulerController {
             })
     }
 
-    pub(crate) async fn owns_running_session(&self, task_id: &str, session_id: &str) -> bool {
-        self.executions.read().await.get(task_id).is_some_and(|run| {
-            !run.canceled
-                && run.state == TaskExecutionState::Running
-                && run.session_id.as_deref() == Some(session_id)
-        })
+    pub(crate) async fn running_session_queue(
+        &self,
+        task_id: &str,
+        session_id: &str,
+    ) -> Option<String> {
+        let runs = self.executions.read().await;
+        let run = runs.get(task_id)?;
+        run.is_running_session(session_id)
+            .then(|| run.queue_id.clone())
+    }
+
+    pub(crate) fn pin_running_session(
+        &self,
+        task_id: &str,
+        queue_id: &str,
+        session_id: &str,
+    ) -> Option<impl Sized> {
+        let guard = Arc::clone(&self.executions).try_read_owned().ok()?;
+        let run = guard.get(task_id)?;
+        (run.queue_id == queue_id && run.is_running_session(session_id)).then_some(guard)
     }
 
     pub async fn execution_projections_snapshot(&self) -> HashMap<String, TaskExecutionProjection> {
@@ -3493,8 +3515,8 @@ mod tests {
     async fn knowledge_writes_require_the_exact_running_curator_unless_bound_sessions_are_enabled() {
         use crate::knowledge::{
             store::{
-                AgentWriteAccess, KnowledgeBasePatch, KnowledgeStore, MetadataKey, MetadataPatch,
-                SourceFacts, SourceKind, SourceStatus,
+                AgentWriteAccess, KnowledgeBase, KnowledgeBasePatch, KnowledgeStore, MetadataKey,
+                MetadataPatch, SourceFacts, SourceKind, SourceStatus,
             },
             types::KnowledgeErrorCode::KbAccessDenied,
         };
@@ -3522,10 +3544,26 @@ mod tests {
         ).await.unwrap();
         assert!(scheduler.bind_execution_session(&task_id, &queue, "curation-session").await);
         scheduler.executions.write().await.get_mut(&task_id).unwrap().state = TaskExecutionState::Running;
-        let curator = scheduler.owns_running_session(&task_id, "curation-session").await;
-        let ordinary = scheduler.owns_running_session(&task_id, "ordinary-session").await;
-        assert!(curator);
-        assert!(!ordinary);
+        assert_eq!(
+            scheduler.running_session_queue(&task_id, "curation-session").await.as_deref(),
+            Some(queue.as_str())
+        );
+        assert!(scheduler.running_session_queue(&task_id, "ordinary-session").await.is_none());
+        assert!(scheduler.pin_running_session(&task_id, "replaced-queue", "curation-session").is_none());
+        let curator = |_: &KnowledgeBase| {
+            let binding = tasks.pin_knowledge_curator(&kb.id, &task_id).ok_or(KbAccessDenied)?;
+            let execution = scheduler
+                .pin_running_session(&task_id, &queue, "curation-session")
+                .ok_or(KbAccessDenied)?;
+            Ok((binding, execution))
+        };
+        let ordinary = |settings: &KnowledgeBase| {
+            if settings.agent_write_access == AgentWriteAccess::BoundSessions {
+                Ok(())
+            } else {
+                Err(KbAccessDenied)
+            }
+        };
         let patch = || MetadataPatch::from([(MetadataKey::Summary, serde_json::json!("orchard"))]);
         assert_eq!(
             knowledge.set_agent_metadata(&kb.id, &source.id, patch(), ordinary),
@@ -3533,7 +3571,10 @@ mod tests {
         );
         assert!(knowledge.set_agent_metadata(&kb.id, &source.id, patch(), curator).is_ok());
         scheduler.cancel_execution(&task_id).await;
-        assert!(!scheduler.owns_running_session(&task_id, "curation-session").await);
+        assert_eq!(
+            knowledge.set_agent_metadata(&kb.id, &source.id, patch(), curator),
+            Err(KbAccessDenied),
+        );
 
         knowledge.update(&kb.id, KnowledgeBasePatch {
             agent_write_access: Some(AgentWriteAccess::BoundSessions),

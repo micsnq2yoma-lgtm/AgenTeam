@@ -498,43 +498,45 @@ impl KnowledgeStore {
         actor: KnowledgeMetadataOrigin,
         fields: MetadataPatch,
     ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
-        self.write_metadata(kb_id, source_id, actor, fields, None)
+        self.write_metadata(kb_id, source_id, actor, fields, |_| Ok(()))
     }
 
-    pub(crate) fn set_agent_metadata(
+    pub(crate) fn set_agent_metadata<G>(
         &self,
         kb_id: &str,
         source_id: &str,
         fields: MetadataPatch,
-        curator: bool,
+        authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<G>,
     ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
         self.write_metadata(
             kb_id,
             source_id,
             KnowledgeMetadataOrigin::Agent,
             fields,
-            Some(curator),
+            authorize,
         )
     }
 
-    pub(crate) fn check_agent_write(&self, kb_id: &str, curator: bool) -> StoreResult<()> {
+    pub(crate) fn check_agent_write<G>(
+        &self,
+        kb_id: &str,
+        authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<G>,
+    ) -> StoreResult<()> {
         self.locked_kb(kb_id, None, |files, _| {
-            files.require_agent_write(kb_id, curator)
+            authorize(&files.read_kb(kb_id)?).map(drop)
         })
     }
 
-    fn write_metadata(
+    fn write_metadata<G>(
         &self,
         kb_id: &str,
         source_id: &str,
         actor: KnowledgeMetadataOrigin,
         fields: MetadataPatch,
-        curator: Option<bool>,
+        authorize: impl FnOnce(&KnowledgeBase) -> StoreResult<G>,
     ) -> StoreResult<BTreeMap<MetadataKey, MetadataOutcome>> {
         self.locked_kb(kb_id, Some(source_id), |files, _| {
-            if let Some(curator) = curator {
-                files.require_agent_write(kb_id, curator)?;
-            }
+            let _permit = authorize(&files.read_kb(kb_id)?)?;
             let mut record = files.require_record(kb_id, source_id)?;
             let source = &mut record.source;
             let updated_at = Utc::now().to_rfc3339();
@@ -696,15 +698,6 @@ impl StoreFiles {
             }
         }
         Ok(registry)
-    }
-
-    fn require_agent_write(&self, kb: &str, curator: bool) -> StoreResult<()> {
-        let kb = self.read_kb(kb)?;
-        if kb.agent_write_access == AgentWriteAccess::BoundSessions || curator {
-            Ok(())
-        } else {
-            Err(KbAccessDenied)
-        }
     }
 
     fn read_kb(&self, id: &str) -> StoreResult<KnowledgeBase> {

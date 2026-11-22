@@ -131,7 +131,7 @@ import type { SubscriptionVerifyResult } from '@/types/subscription';
 import { DEFAULT_SUMMON_ACCELERATOR } from '../../../shared/config-types';
 import {
   IMAGE_UNDERSTANDING_TOOL_ID,
-  OFFICIAL_TOOLS,
+  TOGGLEABLE_OFFICIAL_TOOLS,
   SPEECH_RECOGNITION_TOOL_ID,
   normalizeOfficialToolIds,
   type ImageUnderstandingModelOption,
@@ -2136,7 +2136,7 @@ export default function Settings({
 
   useEffect(() => {
     if (!initialOfficialToolId) return;
-    const tool = OFFICIAL_TOOLS.find(
+    const tool = TOGGLEABLE_OFFICIAL_TOOLS.find(
       (item) => item.id === initialOfficialToolId,
     );
     if (tool) openOfficialToolSettings(tool);
@@ -4926,7 +4926,7 @@ export default function Settings({
             mcpEnabledIds={mcpEnabledIds}
             mcpEnabling={mcpEnabling}
             mcpNeedsConfig={mcpNeedsConfig}
-            officialTools={OFFICIAL_TOOLS}
+            officialTools={TOGGLEABLE_OFFICIAL_TOOLS}
             officialEnabledIds={officialEnabledIds}
             officialToolEnabling={officialToolEnabling}
             officialToolNeedsConfig={{

@@ -137,7 +137,7 @@ fn page_slice<'a>(
     if !text.is_char_boundary(start) || start < range.start || start > range.end {
         return Err(KbInvalidInput);
     }
-    let end = text.floor_char_boundary(range.end.min(start + PAGE_BYTES));
+    let end = crate::search::util::floor_char_boundary(text, range.end.min(start + PAGE_BYTES));
     let next = (end < range.end).then(|| encode_cursor(binding, end));
     Ok((&text[start..end], next))
 }

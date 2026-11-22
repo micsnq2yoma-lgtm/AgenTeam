@@ -199,7 +199,9 @@ Windows 复验发现并发写入者可能遇到仍在删除的临时文件名。
 
 `myagents kb` 经当前 Session 的 Admin API 调用本地 Rust Management API。外部 CLI token 的公开路由清单不包含知识库。Admin 转发从 SessionEngine 和受管进程环境取得身份，业务参数不能指定 Session 或工作区。Rust 将管理请求的 generation 和进程身份交给 SidecarManager，解析当前 Session 和工作区，随后读取持久化 Session 的知识库快照。字段缺失的旧 Session 权限为空，被删除或重复的记录不会扩展权限。
 
-读取范围始终是 Session 已绑定的库。显式传入未绑定库返回 `KB_ACCESS_DENIED`，省略 `--kb` 时搜索整个绑定范围。Rust 在把候选交给 K4 索引前校验范围。TaskStore 持有内部整理任务的库 ID，TaskScheduler 核对唯一匹配任务的当前执行会话。普通会话在 `curator-only` 下不能写，`bound-sessions` 下可在绑定库写。知识库 Store 在提交锁内核对当前写策略，并保留用户锁定字段。K8 接入托管任务创建和调度。
+读取范围始终是 Session 已绑定的库。显式传入未绑定库返回 `KB_ACCESS_DENIED`，省略 `--kb` 时搜索整个绑定范围。Rust 在把候选交给 K4 索引前校验范围。官方工具注册表登记 `kb` 命令，知识库开通由 Session 的库绑定控制。
+
+TaskStore 持有内部整理任务的库 ID，TaskScheduler 核对唯一匹配任务的当前执行会话。普通会话在 `curator-only` 下不能写，`bound-sessions` 下可在绑定库写。知识库 Store 在提交锁内核对当前写策略、Session 绑定和进程 generation。整理任务写入会短暂锁定该任务与当前队列执行，直到提交完成。导入复制在锁外执行，发布前重新校验并锁定权限。Store 保留用户锁定字段。K8 接入托管任务创建和调度。
 
 `kb add`、摘要和实体文件从 Session 工作区打开。先核对绝对路径边界，再由既有目录句柄逐段打开，拒绝指向工作区内外的链接和 junction。摄取直接复制已打开的句柄，不二次按路径打开原件。摘要与实体文件各限 64 KiB。
 
