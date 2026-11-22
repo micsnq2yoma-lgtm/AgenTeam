@@ -2418,6 +2418,7 @@ mod session_birth_runtime_ipc_tests {
             };
             let app = builder.build(mock_context(noop_assets())).unwrap();
             let window = tauri::WebviewWindowBuilder::new(&app, "birth-fields", Default::default())
+                .scroll_bar_style(crate::webview_policy::scroll_bar_style())
                 .build()
                 .unwrap();
             (app, window)
