@@ -567,16 +567,21 @@ fn resource_backed_ingestion_indexes_five_formats_end_to_end() {
         let source_id = ingest(&manager, &kb, &path);
         until(|| engine.status(&kb, &source_id).unwrap() == KnowledgeSearchStatus::Indexed);
         let hits = lookup(&engine, &store, &kb, &format!("\"{expected}\""));
+        let expected_page = name.ends_with(".pdf").then_some(1);
         assert!(
             hits.iter().any(|hit| {
-                hit.source_id == source_id
+                if hit.source_id != source_id || hit.page != expected_page {
+                    return false;
+                }
+                let resolved = store.resolve_ref(&hit.reference).unwrap();
+                resolved.reference.page == expected_page
                     && matches!(
-                        store.resolve_ref(&hit.reference).unwrap().fragment,
+                        resolved.fragment,
                         Some(crate::knowledge::store::ResolvedFragment::Available { chunk })
-                            if chunk.text.contains(expected)
+                            if chunk.text.contains(expected) && chunk.page == expected_page
                     )
             }),
-            "no live reference with the converted body for {name}"
+            "no live reference with the converted text and expected page for {name}"
         );
         if name.ends_with(".pdf") {
             let source = data

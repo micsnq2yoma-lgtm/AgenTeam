@@ -325,7 +325,65 @@
     }
   ],
   "empty": [],
-  "headings-only": [],
+  "headings-only": [
+    {
+      "chunkId": "26a8d57eb3021abc",
+      "ordinal": 0,
+      "headingPath": [
+        "A"
+      ],
+      "page": null,
+      "text": "# A",
+      "prefix": "Field notes › A",
+      "byteRange": [
+        0,
+        3
+      ],
+      "utf16Range": [
+        0,
+        3
+      ]
+    },
+    {
+      "chunkId": "9492bc384e73dbcf",
+      "ordinal": 1,
+      "headingPath": [
+        "A",
+        "B"
+      ],
+      "page": null,
+      "text": "## B",
+      "prefix": "Field notes › A › B",
+      "byteRange": [
+        5,
+        9
+      ],
+      "utf16Range": [
+        5,
+        9
+      ]
+    },
+    {
+      "chunkId": "cfbcdfc384f3b703",
+      "ordinal": 2,
+      "headingPath": [
+        "A",
+        "B",
+        "C"
+      ],
+      "page": null,
+      "text": "### C",
+      "prefix": "Field notes › A › B › C",
+      "byteRange": [
+        11,
+        16
+      ],
+      "utf16Range": [
+        11,
+        16
+      ]
+    }
+  ],
   "unicode": [
     {
       "chunkId": "984a4cdcd93e3cbe",

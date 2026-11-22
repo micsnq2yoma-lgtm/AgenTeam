@@ -304,7 +304,23 @@ fn chunk_with_excerpt(
         byte: 0,
         utf16: 0,
     };
-    let mut events = Parser::new_ext(markdown, Options::ENABLE_TABLES).into_offset_iter();
+    let has_heading = collect_blocks(&mut builder, false)?;
+    if builder.chunks.is_empty() && has_heading {
+        // A text-only PDF can convert entirely to headings. Replay only
+        // sources without body chunks so existing references stay stable.
+        builder.headings.clear();
+        builder.page = None;
+        collect_blocks(&mut builder, true)?;
+    }
+    Ok(builder.chunks)
+}
+
+fn collect_blocks(
+    builder: &mut ChunkBuilder<'_>,
+    headings_as_content: bool,
+) -> Result<bool, ChunkError> {
+    let mut has_heading = false;
+    let mut events = Parser::new_ext(builder.markdown, Options::ENABLE_TABLES).into_offset_iter();
     while let Some((event, span)) = events.next() {
         let Event::Start(tag) = event else {
             if matches!(event, Event::Rule | Event::Html(_)) {
@@ -339,17 +355,22 @@ fn chunk_with_excerpt(
                 } else {
                     None
                 };
+                builder.previous = None;
                 if let Some(n) = page {
                     builder.page = Some(n);
                 } else {
+                    let has_text = !name.trim().is_empty();
+                    has_heading |= has_text;
                     builder.headings.retain(|(depth, _)| *depth < level);
                     builder.headings.push((level, name));
+                    if headings_as_content && has_text {
+                        builder.block(span);
+                    }
                 }
-                builder.previous = None;
             }
             Tag::Table(_) => builder.table(span)?,
             _ => builder.block(span),
         }
     }
-    Ok(builder.chunks)
+    Ok(has_heading)
 }

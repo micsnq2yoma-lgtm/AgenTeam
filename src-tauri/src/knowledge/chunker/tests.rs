@@ -54,6 +54,47 @@ fn ids(markdown: &str) -> Vec<String> {
 }
 
 #[test]
+fn heading_only_pages_resolve_to_actual_markdown_at_stable_offsets() {
+    let source = "## Page 1\r\n\r\n# 港口 🧭\r\n\r\n## Page 2\r\n\r\n## 进港记录\r\n";
+    let chunks = chunk_markdown(SOURCE, TITLE, source);
+    assert_eq!(chunks.len(), 2);
+    for (chunk, (page, heading)) in chunks.iter().zip([(1, "# 港口 🧭"), (2, "## 进港记录")])
+    {
+        assert_eq!(chunk.page, Some(page));
+        assert_eq!(chunk.text, heading);
+        let [start, end] = chunk.byte_range;
+        assert_eq!(&source[start..end], heading);
+        assert_eq!(
+            chunk.utf16_range,
+            [
+                source[..start].encode_utf16().count(),
+                source[..end].encode_utf16().count()
+            ]
+        );
+    }
+    let repaginated = source
+        .replace("\r\n", "\n")
+        .replace("Page 1", "Page 9")
+        .replace("Page 2", "Page 10");
+    assert_eq!(ids(source), ids(&repaginated));
+    assert!(ids("## Page 1\n\n## Page 2\n").is_empty());
+}
+
+#[test]
+fn oversized_heading_only_content_keeps_the_existing_token_limit() {
+    let source = format!("# {}", "梨".repeat(1200));
+    let chunks = chunk_markdown(SOURCE, TITLE, &source);
+    assert!(chunks.len() > 1);
+    let mut restored = String::new();
+    for chunk in chunks {
+        assert!(super::units(&chunk.text).map(|(_, n)| n).sum::<usize>() <= super::LIMIT);
+        let [start, end] = chunk.byte_range;
+        restored.push_str(&source[start..end]);
+    }
+    assert_eq!(restored, source);
+}
+
+#[test]
 fn expanding_the_first_paragraph_preserves_every_later_reference() {
     let original = "# Garden\n\nShort.\n\nGate closed.\n\nRows numbered.\n";
     let expanded = original.replace("Short.", &"果".repeat(2300));
