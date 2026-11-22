@@ -1,0 +1,95 @@
+name: AgenTeam 0.6.8 Apple Silicon test DMG
+on:
+  push:
+    branches: [codex/macos-arm64-test-068]
+    paths: [.github/workflows/macos-arm64-test-068.yml]
+permissions:
+  contents: read
+jobs:
+  build:
+    if: github.repository == 'micsnq2yoma-lgtm/AgenTeam'
+    runs-on: macos-26
+    timeout-minutes: 180
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      CMAKE_BUILD_PARALLEL_LEVEL: '2'
+      MAC_TARGET: aarch64-apple-darwin
+      SOURCE: 91836a075f48002f9c43c694d24230d35535a6b7
+      PACKAGE: AgenTeam_0.6.8_macOS_arm64-test.dmg
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE }}
+          persist-credentials: false
+      - name: Verify source and native build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE"
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+          df -h .
+          bash scripts/ensure_rust_toolchain.sh "$MAC_TARGET"
+      - name: Install locked build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/download_nodejs.sh --target arm64
+          printf '%s\n' "$PWD/src-tauri/resources/nodejs/bin" >> "$GITHUB_PATH"
+      - name: Prepare and verify bundled resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./package.json').version")" = 0.6.8
+          npm ci --no-audit --no-fund
+          node scripts/verify-claude-sdk-wrapper.mjs
+          npm run typecheck
+          node scripts/prepare-native-inference.mjs "$MAC_TARGET" --check-prerequisites
+          bash scripts/ensure_claude_sdk_package.sh arm64
+          install -Dm755 node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude src-tauri/resources/claude-agent-sdk/claude
+          node scripts/integrated-runtimes/prepare-dsh-runtime.mjs --source release --target darwin-arm64
+          node scripts/prepare-cliproxy.mjs darwin-arm64
+          npm run build:sharp-runtime -- darwin arm64
+          npm run build:tsx-runtime -- darwin arm64
+          node scripts/prepare-native-inference.mjs "$MAC_TARGET"
+          node scripts/prepare-cuse-bundle.mjs "$MAC_TARGET"
+          npm run build:assets
+      - name: Build the ad-hoc signed Apple Silicon app
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run tauri:build:prepared -- --target "$MAC_TARGET" --bundles app --config '{"build":{"beforeBuildCommand":null},"bundle":{"createUpdaterArtifacts":false}}'
+      - name: Assemble and validate the test disk image
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="src-tauri/target/$MAC_TARGET/release/bundle/macos/AgenTeam.app"
+          codesign --verify --deep --strict "$app"
+          stage="$(mktemp -d)"
+          mount="$(mktemp -d)"
+          mkdir -p artifact
+          ditto "$app" "$stage/AgenTeam.app"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -ov -format UDZO -volname "AgenTeam 0.6.8 Test" -srcfolder "$stage" "artifact/$PACKAGE"
+          hdiutil verify "artifact/$PACKAGE"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount" "artifact/$PACKAGE"
+          trap 'hdiutil detach "$mount"' EXIT
+          mounted="$mount/AgenTeam.app"
+          plist="$mounted/Contents/Info.plist"
+          exe=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$plist")
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$plist")" = 0.6.8
+          test "$(lipo -archs "$mounted/Contents/MacOS/$exe")" = arm64
+          codesign --verify --deep --strict "$mounted"
+          test "$(readlink "$mount/Applications")" = /Applications
+          "$mounted/Contents/MacOS/$exe" --help >/dev/null
+          (cd artifact && shasum -a 256 "$PACKAGE" > SHA256SUMS && cat SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AgenTeam-0.6.8-macOS-arm64-test
+          path: artifact/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
