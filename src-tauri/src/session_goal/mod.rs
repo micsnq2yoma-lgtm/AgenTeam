@@ -13,6 +13,7 @@ mod store;
 mod types;
 
 pub use init::initialize_session_goal_manager;
+pub(crate) use manager::GoalTerminalSidecarAuthority;
 pub use manager::{get_session_goal_manager, SessionGoalManager};
 pub use types::{
     GoalContinuationRequest, GoalDeliveryOutboxItem, GoalEndConditions, GoalMutationError,

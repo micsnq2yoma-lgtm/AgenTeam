@@ -52,6 +52,13 @@ pub struct SessionGoalManager {
     release_goal_owner_hook: Arc<RwLock<Option<ReleaseGoalOwnerHook>>>,
 }
 
+pub(crate) struct GoalTerminalSidecarAuthority<'a> {
+    pub queue_id: &'a str,
+    pub session_id: &'a str,
+    pub generation: u64,
+    pub sidecars: &'a ManagedSidecarManager,
+}
+
 impl SessionGoalManager {
     pub fn new() -> Self {
         let storage_path = crate::app_dirs::myagents_data_dir()
@@ -1080,22 +1087,19 @@ impl SessionGoalManager {
             .await
     }
 
-    pub async fn transition_terminal_authorized_from_sidecar(
+    pub(crate) async fn transition_terminal_authorized_from_sidecar(
         &self,
         goal_id: &str,
         status: GoalStatus,
         reason: Option<String>,
-        queue_id: &str,
-        session_id: &str,
-        sidecar_generation: u64,
-        sidecars: &ManagedSidecarManager,
+        authority: GoalTerminalSidecarAuthority<'_>,
     ) -> Result<GoalTerminalOutcome, GoalMutationError> {
         self.transition_terminal_inner(
             goal_id,
             status,
             reason,
             GoalTerminalActor::Model,
-            Some((queue_id, session_id, sidecar_generation, sidecars)),
+            Some(authority),
         )
         .await
     }
@@ -1106,7 +1110,7 @@ impl SessionGoalManager {
         status: GoalStatus,
         reason: Option<String>,
         actor: GoalTerminalActor,
-        authority: Option<(&str, &str, u64, &ManagedSidecarManager)>,
+        authority: Option<GoalTerminalSidecarAuthority<'_>>,
     ) -> Result<GoalTerminalOutcome, GoalMutationError> {
         if !status.is_terminal() {
             return Err(GoalMutationError::goal("Goal terminal status is invalid"));
@@ -1132,7 +1136,13 @@ impl SessionGoalManager {
                     return Ok(true);
                 }
                 if actor == GoalTerminalActor::Model {
-                    let Some((queue_id, session_id, generation, sidecars)) = authority else {
+                    let Some(GoalTerminalSidecarAuthority {
+                        queue_id,
+                        session_id,
+                        generation,
+                        sidecars,
+                    }) = authority
+                    else {
                         return Err(GoalMutationError::stale_turn(
                             "Goal turn authority is missing",
                         ));

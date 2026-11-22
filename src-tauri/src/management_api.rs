@@ -2847,10 +2847,12 @@ async fn goal_update_handler(
             &goal.id,
             status,
             req.reason,
-            queue_id,
-            session_id,
-            sidecar_generation,
-            sidecars,
+            session_goal::GoalTerminalSidecarAuthority {
+                queue_id,
+                session_id,
+                generation: sidecar_generation,
+                sidecars,
+            },
         )
         .await
     {
@@ -3437,7 +3439,7 @@ async fn agent_runtime_status_handler() -> Json<serde_json::Value> {
         let mut ch_snapshots = Vec::new();
         for (ch_id, ch) in &agent.channels {
             let platform_str = serde_json::to_value(&ch.bot_instance.platform)
-                .and_then(|v| serde_json::from_value::<String>(v))
+                .and_then(serde_json::from_value::<String>)
                 .unwrap_or_else(|_| "unknown".to_string());
             ch_snapshots.push(ChannelRuntimeSnapshot {
                 channel_id: ch_id.clone(),
@@ -3462,7 +3464,7 @@ async fn agent_runtime_status_handler() -> Json<serde_json::Value> {
         for ch in &snap.channels {
             let health_state = ch.health.get_state().await;
             let status_str = serde_json::to_value(&health_state.status)
-                .and_then(|v| serde_json::from_value::<String>(v))
+                .and_then(serde_json::from_value::<String>)
                 .unwrap_or_else(|_| "unknown".to_string());
             channels.push(serde_json::json!({
                 "channelId": ch.channel_id,
@@ -3573,7 +3575,7 @@ async fn agent_stop_channel_handler(
     };
 
     match im::stop_agent_channel_runtime(
-        &app_handle,
+        app_handle,
         agents,
         sidecar_manager,
         &req.agent_id,
@@ -5104,7 +5106,7 @@ async fn mirror_to_channel_handler(Json(req): Json<MirrorRequest>) -> Json<serde
     // `MIRROR_IMAGE_MAX_BASE64_CHARS` in agent-session.ts:toMirrorImages
     // — otherwise the boundary 5 MiB image is accepted on one side and
     // rejected on the other (review-by-codex F4).
-    const MIRROR_IMAGE_MAX_BASE64_LEN: usize = ((MIRROR_IMAGE_MAX_BYTES + 2) / 3) * 4 + 64;
+    const MIRROR_IMAGE_MAX_BASE64_LEN: usize = MIRROR_IMAGE_MAX_BYTES.div_ceil(3) * 4 + 64;
 
     let mut sent_images = 0usize;
     let mut skipped_images = 0usize;

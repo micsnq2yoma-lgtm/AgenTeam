@@ -519,10 +519,7 @@ impl SidecarManager {
             (sidecar.management_id == management_id
                 && self.sidecar_generations.get(session_id).copied() == Some(generation))
             .then(|| session_id.clone())
-        });
-        let Some(current) = current else {
-            return None;
-        };
+        })?;
         if current == product_session_id {
             return Some(current);
         }
@@ -1545,10 +1542,10 @@ impl SidecarManager {
         session_ids.extend(
             self.recovering_sidecars
                 .iter()
-                .filter_map(|(session_id, recovery)| {
-                    (!recovery.owners.is_empty() && recovery.next_retry_at <= now)
-                        .then(|| session_id.clone())
-                }),
+                .filter(|(_, recovery)| {
+                    !recovery.owners.is_empty() && recovery.next_retry_at <= now
+                })
+                .map(|(session_id, _)| session_id.clone()),
         );
         session_ids.sort();
         session_ids.dedup();
@@ -1920,6 +1917,7 @@ impl SidecarManager {
     /// multiple entries. Snapshotting ids and releasing later would race a
     /// rekey; collecting every release under this manager lock gives feature
     /// teardown one authoritative linearization point.
+    #[cfg(any(test, target_os = "macos", target_os = "windows"))]
     pub(crate) fn remove_owner_from_all_sessions(
         &mut self,
         owner: &SidecarOwner,
@@ -2224,7 +2222,7 @@ impl SidecarManager {
             || self.recovering_sidecars.contains_key(new_session_id);
         !old_exists
             && new_exists
-            && self.active_session_has_exact_owners(new_session_id, &[owner.clone()])
+            && self.active_session_has_exact_owners(new_session_id, std::slice::from_ref(owner))
     }
 
     /// Move the current Tab and, when attached, its Channel execution lease.
@@ -2797,7 +2795,9 @@ mod completion_claim_tests {
                 "tab-a",
                 key
             ));
-            assert!(manager.active_session_has_exact_owners("session-b", &[tab.clone()]));
+            assert!(
+                manager.active_session_has_exact_owners("session-b", std::slice::from_ref(&tab))
+            );
             assert!(manager.upgrade_session_id_for_surface_migration(
                 "session-b",
                 "session-a",
