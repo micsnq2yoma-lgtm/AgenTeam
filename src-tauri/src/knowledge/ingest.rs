@@ -104,12 +104,10 @@ impl KnowledgeIngestManager {
     pub fn import_files(self: &Arc<Self>, kb_id: &str, paths: Vec<PathBuf>) -> Vec<ImportOutcome> {
         paths
             .into_iter()
-            .map(
-                |path| match self.admit(kb_id, |store| store.enqueue_file(kb_id, &path)) {
-                    Ok(receipt) => ImportOutcome::Accepted { receipt },
-                    Err(code) => ImportOutcome::Rejected { error: code.into() },
-                },
-            )
+            .map(|path| match self.admit(kb_id, &path) {
+                Ok(receipt) => ImportOutcome::Accepted { receipt },
+                Err(code) => ImportOutcome::Rejected { error: code.into() },
+            })
             .collect()
     }
 
@@ -120,12 +118,16 @@ impl KnowledgeIngestManager {
         file: &Path,
         authorize: impl Fn(&KnowledgeBase) -> StoreResult<G>,
     ) -> StoreResult<ImportReceipt> {
-        self.admit(kb_id, |store| {
+        self.admit_with(kb_id, |store| {
             store.enqueue_input(kb_id, file, Some(workspace), authorize)
         })
     }
 
-    fn admit(
+    fn admit(self: &Arc<Self>, kb_id: &str, path: &Path) -> StoreResult<ImportReceipt> {
+        self.admit_with(kb_id, |store| store.enqueue_file(kb_id, path))
+    }
+
+    fn admit_with(
         self: &Arc<Self>,
         kb_id: &str,
         enqueue: impl FnOnce(&KnowledgeStore) -> StoreResult<ImportReceipt>,
