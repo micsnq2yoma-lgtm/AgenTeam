@@ -1055,6 +1055,10 @@ const SYSTEM_SKILLS: readonly string[] = [
   'myagents-memory-update',
   'myagents-memory-gardener',
   'myagents-memory-molt',
+  // v65: knowledge retrieval for bound Sessions and the managed curator flow.
+  // Both document the `myagents kb` surface, so they update in lockstep.
+  'myagents-knowledge',
+  'myagents-knowledge-curator',
   // v50: skill-creator promoted from utility → system skill so its bundled
   // workflow and evaluation scripts update existing installations.
   'skill-creator',
