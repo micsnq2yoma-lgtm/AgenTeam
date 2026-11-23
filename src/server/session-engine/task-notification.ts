@@ -4,6 +4,24 @@ import { managementApi } from "../utils/management-api-client";
 
 /** Task owns delivery into the target Session, not the model's response or IM
  * transport. Observe native dispatch acceptance without holding the Inbox lease. */
+/** Turns that a Task result started in a desktop chat. A Task created during
+ * one of them is not allowed to push back into the chat again, otherwise one
+ * request becomes an endless chain of replies. Bounded: a turn id is only
+ * interesting while that turn runs. */
+const pushedTurns = new Set<string>();
+const MAX_PUSHED_TURNS = 256;
+function rememberPushedTurn(queueId: string): void {
+  pushedTurns.add(queueId);
+  while (pushedTurns.size > MAX_PUSHED_TURNS) pushedTurns.delete(pushedTurns.values().next().value as string);
+}
+function isDesktopSession(engine: SessionEngine): boolean {
+  const sessionId = engine.getCurrentSessionContext().sessionId;
+  return !!sessionId && engine.getSessionOrigin(sessionId)?.kind === "desktop";
+}
+export function isPushedTurn(queueId: string | null): boolean {
+  return queueId !== null && pushedTurns.has(queueId);
+}
+
 export async function admitTaskNotification(
   engine: SessionEngine,
   event: TaskResultEvent,
@@ -37,6 +55,7 @@ export async function admitTaskNotification(
     return { queued: false };
   }
   let result: InboxAdmissionResult;
+  if (event.target?.kind === "session") rememberPushedTurn(event.attemptId);
   try {
     result = await engine.enqueueInboxMessage({
       text: prompt,
@@ -84,11 +103,18 @@ export function taskNotificationContext(
   const queueId = engine.getExecutionTurnId();
   if (!queueId) return result;
   const turn = engine.getCurrentTurnIdentity();
+  const conversation = engine.getNotificationConversation();
+  // A desktop chat is a user-visible Session with no IM conversation, started
+  // from the desktop. Never inside a Task's own run, and never in a turn that a
+  // Task result started (see pushedTurns).
+  const desktopSession = !conversation && turn?.owner.kind !== "task" && !isPushedTurn(queueId)
+    && isDesktopSession(engine);
   result.notificationContext = {
     sidecarId,
     queueId,
-    conversation: engine.getNotificationConversation(),
+    conversation,
     ...(turn?.owner.kind === "task" ? { taskId: turn.owner.id } : {}),
+    ...(desktopSession ? { desktopSession: true } : {}),
   };
   return result;
 }

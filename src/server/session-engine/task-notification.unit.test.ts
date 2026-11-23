@@ -144,3 +144,45 @@ describe("Task notification source admission", () => {
     ).toEqual({ name: "child" });
   });
 });
+
+describe("desktop chat as a Task result destination", () => {
+  function desktopEngine(overrides: Record<string, unknown> = {}) {
+    return {
+      getExecutionTurnId: vi.fn(() => "q-desktop"),
+      getCurrentTurnIdentity: vi.fn(() => null),
+      getNotificationConversation: vi.fn(() => null),
+      getCurrentSessionContext: vi.fn(() => ({ sessionId: "chat-1" })),
+      getSessionOrigin: vi.fn(() => ({ kind: "desktop", surface: "launcher_input" })),
+      ...overrides,
+    } as unknown as SessionEngine;
+  }
+  const context = (source: SessionEngine, caller = { kind: "internal" }) =>
+    (taskNotificationContext(source, {}, caller) as { notificationContext?: Record<string, unknown> }).notificationContext;
+
+  beforeEach(() => vi.stubEnv("MYAGENTS_SIDECAR_ID", "A2"));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("marks a turn in a user-visible desktop chat, without ever sending a Session id", () => {
+    const ctx = context(desktopEngine());
+    expect(ctx).toMatchObject({ sidecarId: "A2", queueId: "q-desktop", desktopSession: true });
+    expect(JSON.stringify(ctx)).not.toContain("chat-1");
+  });
+
+  it("does not mark IM chats, other origins, Task runs or external callers", () => {
+    expect(context(desktopEngine({ getNotificationConversation: vi.fn(() => ({ channelId: "feishu", sessionKey: "p" })) }))).not.toHaveProperty("desktopSession");
+    expect(context(desktopEngine({ getSessionOrigin: vi.fn(() => ({ kind: "automation", surface: "task_run" })) }))).not.toHaveProperty("desktopSession");
+    expect(context(desktopEngine({ getSessionOrigin: vi.fn(() => ({ kind: "agent-channel", surface: "channel_message" })) }))).not.toHaveProperty("desktopSession");
+    expect(context(desktopEngine({ getCurrentTurnIdentity: vi.fn(() => ({ owner: { kind: "task", id: "t" } })) }))).not.toHaveProperty("desktopSession");
+    expect(taskNotificationContext(desktopEngine(), {}, { kind: "external-cli" })).toEqual({});
+  });
+
+  it("does not mark the turn that a pushed Task result started (no chain of replies)", async () => {
+    const pushed: TaskResultEvent = { ...event, conversation: undefined, target: { kind: "session", sessionId: "A2" }, attemptId: "attempt-push", eventId: "attempt-push" };
+    const target = engine(async () => ({ queued: true, dispatchAcceptance: Promise.resolve({ accepted: true }) }));
+    await admitTaskNotification(target, pushed, "reminder", "/workspace");
+    expect(context(desktopEngine({ getExecutionTurnId: vi.fn(() => "attempt-push") }))).not.toHaveProperty("desktopSession");
+    // An unrelated desktop turn is still marked.
+    expect(context(desktopEngine({ getExecutionTurnId: vi.fn(() => "another-turn") }))).toMatchObject({ desktopSession: true });
+  });
+});
+
