@@ -1,4 +1,5 @@
 import { notifySessionActivityTransition } from '../session-engine/activity-reporter';
+import { projectMessagePage, type MessagePageRequest } from '../session-transcript/message-page';
 import { CHANNEL_MANAGED_CODEX_LIMITS } from '../../shared/channelPrompt';
 import { readChannelPromptOptions } from '../tools/channel-messaging';
 import { captureChannelTurn, effectiveChannelDelivery, channelContextForInput, decorateChannelQuery, channelInputSource } from '../session-core/channel-context';
@@ -3707,8 +3708,9 @@ function persistExternalPartialAssistantProjection(
 
 export function getExternalLiveSessionSnapshot(
   targetSessionId: string,
-  options?: { includeHistory?: boolean },
+  options?: { includeHistory?: boolean; page?: MessagePageRequest },
 ): {
+  page?: { totalCount: number; hasMoreBefore: boolean };
   snapshotRevision: number;
   inMemoryMessages: SessionMessage[];
   liveStreamingMessage: SessionMessage | null;
@@ -3719,7 +3721,10 @@ export function getExternalLiveSessionSnapshot(
   if (targetSessionId !== getCurrentExternalBoundSessionId()) return null;
   flushPendingLiveEvents();
   const liveStreamingMessage = getExternalLiveAssistantMessage();
-  let inMemoryMessages =
+  const product = options?.page && getExternalTranscriptSessionId() === targetSessionId ? getExternalProductContent() : undefined;
+  const pendingRows = options?.includeHistory === false ? [] : getExternalPendingUserMessageProjections(targetSessionId);
+  const page = options?.page && product ? projectMessagePage(product.writer.projection, options.page, liveStreamingMessage?.id, pendingRows) : null;
+  let inMemoryMessages = page ? page.messages :
     options?.includeHistory !== false && getExternalTranscriptSessionId() === targetSessionId
       ? getExternalSessionMessagesSnapshot()
       : [];
@@ -3728,14 +3733,13 @@ export function getExternalLiveSessionSnapshot(
       (message) => message.id !== liveStreamingMessage.id,
     );
   }
-  for (const pending of options?.includeHistory === false ? [] : getExternalPendingUserMessageProjections(
-    targetSessionId,
-  )) {
+  for (const pending of page ? [] : pendingRows) {
     if (!inMemoryMessages.some((message) => message.id === pending.id)) {
       inMemoryMessages.push(pending);
     }
   }
   return structuredClone({
+    ...(page && { page: { totalCount: page.totalCount, hasMoreBefore: page.hasMoreBefore } }),
     snapshotRevision: getExternalLiveRevision(),
     inMemoryMessages,
     liveStreamingMessage,

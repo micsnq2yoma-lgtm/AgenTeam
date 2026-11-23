@@ -1,3 +1,4 @@
+import { perfMark } from '@/utils/perfMark';
 import { useChatWorkspaceLayout } from '@/hooks/useChatWorkspaceLayout';
 import { resolveDefaultMcpSelection } from '../../shared/mcpSelection';
 import { useChatDraftScope } from "@/hooks/useChatDraftScope";
@@ -662,7 +663,9 @@ export default function Chat({
     historyMessages,
     streamingMessage,
     firstItemIndex,
-    hasMoreBefore: _hasMoreBefore,
+    hasMoreBefore,
+    olderPageFailed,
+    historyTrace,
     loadOlderMessages,
     isLoading,
     getQueryElapsedSeconds,
@@ -4147,6 +4150,7 @@ export default function Chat({
     return ids;
   }, [historyMessages]);
   const chatScrollController = useChatScrollController({
+    messageIndices: chatScrollModel.messageIndices,
     messages: chatScrollModel.data,
     isActive,
     windowPresentation,
@@ -4186,7 +4190,7 @@ export default function Chat({
     messages: chatScrollModel.data,
     scrollToMessage,
     pauseAutoScroll,
-    active: chatSearchOpen,
+    active: chatSearchOpen && isActive,
   });
 
   const handleLoadOlderMessages = useCallback(() => {
@@ -4199,6 +4203,8 @@ export default function Chat({
       },
     });
   }, [captureAnchor, loadOlderMessages, restoreAnchorAfterNextCommit]);
+  const prefetchOlder = useCallback(() => { void loadOlderMessages({ action: 'prefetch' }); }, [loadOlderMessages]);
+  const cancelOlder = useCallback(() => { void loadOlderMessages({ action: 'cancel' }); }, [loadOlderMessages]);
   const chatSearchSetQueryRef = useRef(chatSearch.setQuery);
   chatSearchSetQueryRef.current = chatSearch.setQuery;
   const closeChatSearch = useCallback(() => {
@@ -4944,7 +4950,7 @@ export default function Chat({
   handleSendMessageRef.current = handleSendMessage;
 
   const questionActions = useMemo<AsyncQuestionActions>(() => ({
-    answered: acceptedAsyncQuestionReplies([...historyMessages, ...messages]),
+    answered: acceptedAsyncQuestionReplies(historyMessages),
     queued: queuedMessages.flatMap(message => message.asyncQuestionReply ? [message.asyncQuestionReply] : []),
     disabled: isSessionLoading || !isConnected || sessionState === 'stopping',
     onReply: async (reply, text) => (await handleSendMessageRef.current(text, undefined, undefined, undefined, undefined, reply)) === true,
@@ -4952,7 +4958,7 @@ export default function Chat({
       setQuestionDraft({ sessionId, reply, title });
       inputRef.current?.focus();
     },
-  }), [historyMessages, messages, queuedMessages, isSessionLoading, isConnected, sessionState, sessionId, setQuestionDraft]);
+  }), [historyMessages, queuedMessages, isSessionLoading, isConnected, sessionState, sessionId, setQuestionDraft]);
 
   // Triggered from the SystemPromptsPanel empty state ("智能生成" card). Closes the
   // workspace settings overlay and dispatches `/init` to the current Tab so the user
@@ -4969,13 +4975,9 @@ export default function Chat({
       // Snapshot the queued message info before it's removed (for image restore)
       const queuedMsg = queuedMessages.find((q) => q.queueId === queueId);
       const cancelledSessionId = sessionId;
-      const sourceContents = [
-        ...historyMessages,
-        ...messages,
-        ...(streamingMessage ? [streamingMessage] : []),
-      ]
-        .filter((message) => message.role === 'assistant')
-        .map((message) => message.content);
+      const sourceContents = queuedMsg?.asyncQuestionReply
+        ? messagesRef.current.filter(message => message.role === 'assistant').map(message => message.content)
+        : [];
       const cancelledText = await cancelQueuedMessage(queueId);
       if (cancelledText && sessionIdRef.current === cancelledSessionId) {
         const restored = queuedMsg?.asyncQuestionReply
@@ -5022,9 +5024,6 @@ export default function Chat({
       queuedMessages,
       setQuestionDraft,
       sessionId,
-      historyMessages,
-      messages,
-      streamingMessage,
     ],
   );
 
@@ -5754,10 +5753,22 @@ export default function Chat({
     [config.plugins, config.enabledPlugins],
   );
 
+  const historyTargetId = chatScrollModel.data.at(-1)?.id;
+  const reportedHistoryTrace = useRef<string | null>(null);
   const handleStartupItemsRendered = useCallback((rows: readonly MessageType[]) => {
     onItemsRendered();
     onStartupItemsRendered(rows);
-  }, [onItemsRendered, onStartupItemsRendered]);
+    const scroller = scrollerRef.current;
+    if (!historyTrace || !isActive || isViewportRecoveryFenced || reportedHistoryTrace.current === historyTrace || !scroller) return;
+    const viewport = scroller.getBoundingClientRect();
+    if (viewport.height <= 0) return;
+    if (!historyTargetId || !rows.some(row => row.id === historyTargetId)) return;
+    const rect = scroller.querySelector(`[data-chat-search-scope][data-message-id="${CSS.escape(historyTargetId)}"]`)?.getBoundingClientRect();
+    if (rect && rect.height > 0 && rect.top < viewport.bottom && rect.bottom > viewport.top) {
+      reportedHistoryTrace.current = historyTrace;
+      perfMark('history_rows_visible', { tabId, requestId: historyTrace, mountedRows: rows.length });
+    }
+  }, [onItemsRendered, onStartupItemsRendered, historyTargetId, historyTrace, isActive, isViewportRecoveryFenced, scrollerRef, tabId]);
 
   // Stable callbacks for MessageList (extracted from inline arrows to enable memo)
   const handlePermissionDecision = useCallback(
@@ -6677,7 +6688,7 @@ export default function Chat({
 
             {/* Query Navigator — floating right-side panel for quick session navigation */}
             <QueryNavigator
-              messages={chatScrollModel.data}
+              messages={chatScrollModel.visibleHistory}
               scrollContainerRef={
                 scrollerRef as React.RefObject<HTMLDivElement | null>
               }
@@ -6690,9 +6701,13 @@ export default function Chat({
                   messages={chatScrollModel.data}
                   streamingMessage={streamingMessage}
                   firstItemIndex={chatScrollModel.firstItemIndex}
+                  visibleHistory={chatScrollModel.visibleHistory}
                   heightEstimateSeed={chatScrollModel.heightEstimateSeed}
                   layoutByMessageId={chatScrollModel.layoutByMessageId}
-                  onLoadOlder={handleLoadOlderMessages}
+                  onLoadOlder={hasMoreBefore ? handleLoadOlderMessages : undefined}
+                  olderPageFailed={olderPageFailed}
+                  onPrefetchOlder={hasMoreBefore && !olderPageFailed ? prefetchOlder : undefined}
+                  onCancelOlder={cancelOlder}
                   isLoading={isLoading}
                   getQueryElapsedSeconds={getQueryElapsedSeconds}
                   sessionId={sessionId}
