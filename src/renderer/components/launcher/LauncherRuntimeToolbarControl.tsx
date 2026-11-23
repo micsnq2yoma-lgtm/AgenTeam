@@ -19,7 +19,6 @@ interface LauncherRuntimeToolbarControlProps {
   runtime: RuntimeType;
   runtimeDetections: RuntimeDetections;
   runtimeDetecting?: boolean;
-  runtimeExecutionNote?: string;
   runtimeLabel?: string;
   runtimeDetectionFailed?: boolean;
   onRuntimeDetectAgain?: () => void;
@@ -30,7 +29,6 @@ export default memo(function LauncherRuntimeToolbarControl({
   runtime,
   runtimeDetections,
   runtimeDetecting,
-  runtimeExecutionNote,
   runtimeLabel,
   runtimeDetectionFailed,
   onRuntimeDetectAgain,
@@ -56,11 +54,6 @@ export default memo(function LauncherRuntimeToolbarControl({
         onChange={onRuntimeChange}
         variant="launcher"
       />
-      {runtimeExecutionNote && (
-        <span data-testid="launcher-runtime-execution-note" className="ml-1 max-w-[160px] truncate text-xs text-[var(--ink-muted)]" title={runtimeExecutionNote}>
-          {runtimeExecutionNote}
-        </span>
-      )}
     </div>
   );
 });

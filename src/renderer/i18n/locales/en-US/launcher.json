@@ -251,6 +251,5 @@
         "hireIn": "Enlist crew for {{project}}"
       }
     }
-  },
-  "runtimeExecutedBy": "Run by {{runtime}}"
+  }
 }

@@ -4666,7 +4666,6 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
             onOpenTeamAi={() => tabWorkspaceController.open('teamai', { title: t('tabs.teamAi') })}
             onOpenTeamOffice={() => tabWorkspaceController.open('teamoffice', { title: t('tabs.teamOffice') })}
             onOpenBots={handleOpenBots}
-            onOpenAgentNetwork={() => tabWorkspaceController.open('agentnetwork', { title: t('tabs.agentNetwork') })}
             onOpenAppRoute={handleOpenAppRoute}
             onOpenCapabilities={handleOpenCapabilities}
             onOpenSettings={handleOpenSettings}

@@ -117,13 +117,13 @@ describe('Launcher runtime display', () => {
     fireEvent.click(group);
   }
 
-  it('L1/L2: a Codex model shows the real executor with a toast, keeps the saved preference, and returns on a DSH model', async () => {
+  it('L1/L2: a Codex model shows the real executor with a single toast, keeps the saved preference, and returns on a DSH model', async () => {
     renderLauncher();
     await screen.findByTitle(/Runtime: .*DeepSeek Harness/);
     await pickCodexModel();
     expect(await screen.findByTitle(/Runtime: .*Codex/)).toBeInTheDocument();
     expect(await screen.findByText(/only runs on .*Codex/)).toBeInTheDocument();
-    expect(screen.getByTestId('launcher-runtime-execution-note')).toBeInTheDocument();
+    expect(screen.queryByTestId('launcher-runtime-execution-note')).not.toBeInTheDocument(); // no persistent label: the selector itself shows the executor
     expect(mocks.patchAgentConfig).not.toHaveBeenCalled();
     expect(mocks.patchAgentProjectConfig).not.toHaveBeenCalled();
 
@@ -154,11 +154,11 @@ describe('Launcher runtime display', () => {
     expect(screen.queryByTestId('launcher-runtime-execution-note')).not.toBeInTheDocument();
   });
 
-  it('L6: an inherited default Codex model shows the executor note without any toast', async () => {
+  it('L6: an inherited default Codex model shows the executor in the selector without any toast or label', async () => {
     setup({ providerId: 'codex-sub', model: 'gpt-codex-1' });
     renderLauncher();
     expect(await screen.findByTitle(/Runtime: .*Codex/)).toBeInTheDocument();
-    expect(screen.getByTestId('launcher-runtime-execution-note')).toBeInTheDocument();
+    expect(screen.queryByTestId('launcher-runtime-execution-note')).not.toBeInTheDocument();
     expect(screen.queryByText(/only runs on/)).not.toBeInTheDocument();
   });
 

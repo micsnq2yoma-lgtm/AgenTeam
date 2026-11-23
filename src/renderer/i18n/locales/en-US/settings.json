@@ -2297,7 +2297,6 @@
     "checkFailed": "Failed to check for updates. Please try again later.",
     "checking": "Checking...",
     "checkUpdates": "Check for Updates",
-    "releaseNotes": "Release Notes",
     "downloadingVersion": "New version v{{version}} found, downloading{{progress}}",
     "updateReady": "New version v{{version}} found",
     "installing": "Installing...",

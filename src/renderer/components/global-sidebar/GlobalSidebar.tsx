@@ -3,7 +3,6 @@ import { isImeComposingEvent } from '@/utils/imeKeyboard';
 import {
   AlertIcon,
   AtIcon,
-  RadioIcon,
   CheckIcon,
   ChevronDownIcon,
   EyeIcon,
@@ -180,7 +179,6 @@ interface GlobalSidebarProps {
   /** 智能体团队: the pixel office of every project. */
   onOpenTeamOffice?: () => void;
   onCreateTask: () => void;
-  onOpenAgentNetwork?: () => void;
   onOpenTeamAi?: () => void;
   newAgentPurpose?: Project['purpose'];
   onTeamAiCreated?: (project: Project) => void;
@@ -419,7 +417,6 @@ export default memo(function GlobalSidebar({
   onOpenTeamOffice,
   onOpenBots,
   onCreateTask,
-  onOpenAgentNetwork,
   onOpenTeamAi,
   newAgentPurpose,
   onTeamAiCreated,
@@ -1247,14 +1244,6 @@ export default memo(function GlobalSidebar({
             icon={<CapabilitiesIcon className="h-4 w-4" />}
             label={t('globalSidebar.capabilities')}
             onClick={() => onOpenCapabilities()}
-          />
-          <SidebarNavButton
-            expanded={expanded}
-            active={activeView === 'agentnetwork'}
-            disabled={!onOpenAgentNetwork}
-            icon={<RadioIcon className="h-4 w-4" />}
-            label={t('globalSidebar.agentNetwork')}
-            onClick={() => onOpenAgentNetwork?.()}
           />
           <SidebarNavButton
             expanded={expanded}
