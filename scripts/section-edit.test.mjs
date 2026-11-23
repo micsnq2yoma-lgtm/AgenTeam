@@ -6,6 +6,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 
+// Child Python processes print Chinese diagnostics; force UTF-8 so a Windows code page (cp936...) cannot garble them.
+process.env.PYTHONUTF8 = '1';
+process.env.PYTHONIOENCODING = 'utf-8';
 const root = resolve(import.meta.dirname, '..');
 const SCRIPT = join(root, 'bundled-skills/agenteam-memory-gardener/scripts/section_edit.py');
 const python = process.platform === 'win32' ? 'python' : 'python3';
@@ -246,13 +249,19 @@ function holdLock(file) {
 test('a writer that cannot get the lock fails with LOCK_BUSY and leaves the file alone', async t => {
   const w = workspace(t, DOC);
   const holder = await holdLock(w.file);
-  t.after(() => holder.kill());
   const edits = join(w.dir, 'edits.json');
   writeFileSync(edits, JSON.stringify([{ op: 'append', heading: '偏好', content: '- x' }]));
-  const result = spawnSync(python, ['-B', SCRIPT, '--file', w.file, '--edits', edits], {
-    encoding: 'utf8',
-    env: { ...process.env, SECTION_EDIT_LOCK_WAIT: '0.4' },
-  });
+  let result;
+  try {
+    result = spawnSync(python, ['-B', SCRIPT, '--file', w.file, '--edits', edits], {
+      encoding: 'utf8',
+      env: { ...process.env, SECTION_EDIT_LOCK_WAIT: '0.4' },
+    });
+  } finally {
+    // Windows cannot remove a directory whose lock file is still held: release it first.
+    holder.kill();
+    await new Promise(done => holder.once('close', done));
+  }
   assert.equal(result.status, 2);
   assert.equal(JSON.parse(result.stdout).code, 'LOCK_BUSY');
   assert.equal(readFileSync(w.file, 'utf8'), DOC);
@@ -350,12 +359,13 @@ test('a directory we may not write to fails at once instead of retrying (the Win
   const patch = [
     'real_open = os.open',
     'calls = []',
-    'def deny(path, flags, *a, **k):',
-    '    if str(path).endswith(".tmp"):',
-    '        calls.append(path)',
-    '        raise PermissionError(13, "denied")',
-    '    return real_open(path, flags, *a, **k)',
-    'os.open = deny',
+    'class Deny:',  // a callable object: a plain function assigned over os.open is bound as a method by Python 3.7's pathlib accessor
+    '    def __call__(self, path, flags, *a, **k):',
+    '        if str(path).endswith(".tmp"):',
+    '            calls.append(path)',
+    '            raise PermissionError(13, "denied")',
+    '        return real_open(path, flags, *a, **k)',
+    'os.open = Deny()',
   ].join('\n');
   const result = runPatched(w, patch, [{ op: 'append', heading: '偏好', content: '- x' }]);
   assert.equal(result.status, 5);

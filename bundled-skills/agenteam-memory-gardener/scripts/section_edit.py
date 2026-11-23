@@ -33,6 +33,7 @@ import argparse
 import hashlib
 import json
 import os
+import random
 import re
 import secrets
 import sys
@@ -154,7 +155,7 @@ def apply(text: str, edits: list[dict], allow: set[str] | None) -> tuple[str, li
     return render(preamble, sections), changed
 
 
-REPLACE_ATTEMPTS = 60
+REPLACE_WAIT_SECONDS = float(os.environ.get("SECTION_EDIT_REPLACE_WAIT", "20"))
 
 
 def create_temp(path: Path) -> tuple[int, str]:
@@ -171,16 +172,19 @@ def create_temp(path: Path) -> tuple[int, str]:
 
 
 def replace_file(source: str, target: Path) -> None:
-    """os.replace, retried briefly on Windows when another process (an indexer, a virus scanner,
-    a reader) holds the target open for a moment. Other errors are not retried."""
-    for attempt in range(REPLACE_ATTEMPTS):
+    """os.replace, retried on Windows while another process (an indexer, a virus scanner, a reader)
+    holds the target open: Python's own open() does not share DELETE access, so a replace can only
+    land in a gap between two opens. Poll in short, jittered steps (a fixed 50 ms step can keep
+    missing a gap that repeats every ~16 ms) until REPLACE_WAIT_SECONDS. Other errors are not retried."""
+    deadline = time.monotonic() + REPLACE_WAIT_SECONDS
+    while True:
         try:
             os.replace(source, target)
             return
         except PermissionError:
-            if os.name != "nt" or attempt == REPLACE_ATTEMPTS - 1:
+            if os.name != "nt" or time.monotonic() >= deadline:
                 raise
-            time.sleep(0.05)
+            time.sleep(random.uniform(0.001, 0.012))
 
 
 def write_atomic(path: Path, text: str) -> None:
