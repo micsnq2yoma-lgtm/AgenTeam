@@ -16,6 +16,7 @@ import type { LargeValueRef } from '../utils/large-value-store';
 import type { ManagedCodexExtensionSnapshot } from './managed-codex/extensions/contracts';
 import type { DshProductExtensionSource } from '../integrated-runtimes/dsh/extension-compiler';
 import type { PermissionOperationDisplay, PermissionReview } from '../../shared/types/runtime';
+import type { ToolPermissionOption } from '../../shared/types/toolPermission';
 
 export interface InlineImagePayload {
   kind?: 'inline_base64';
@@ -136,6 +137,8 @@ export interface SessionStartOptions {
 export interface RuntimeProcess {
   readonly pid: number;
   readonly sessionMcpFingerprint?: string;
+  /** Adapter-observed work that continues between foreground turns. */
+  hasPendingBackgroundWork?(): boolean;
   /** True when the next permission selection requires different subprocess launch flags. */
   requiresPermissionModeRestart?(mode: string | undefined): boolean;
   /** Optional adapter-owned identity for generation-scoped projections/callbacks. */
@@ -268,6 +271,7 @@ export type UnifiedEvent = (
   | { kind: 'tool_input_delta'; toolUseId: string; delta: string; subAgent?: SubAgentScope }
   | { kind: 'tool_use_stop'; toolUseId: string; input?: Record<string, unknown>; subAgent?: SubAgentScope }
   | { kind: 'tool_result_delta'; toolUseId: string; delta: string; subAgent?: SubAgentScope }
+  | { kind: 'tool_result_update'; toolUseId: string; content: string; status?: 'pending' | 'in_progress'; subAgent?: SubAgentScope }
   | {
     kind: 'provider_tool_use_start';
     providerRouteId: string;
@@ -355,6 +359,7 @@ export type UnifiedEvent = (
 
   // === Turn lifecycle ===
   | { kind: 'turn_started' }
+  | { kind: 'background_work_settled' }
   | { kind: 'root_turn_admitted'; runtimeTurnId: string; clientUserMessageId: string; origin?: 'user' }
   | { kind: 'root_turn_admitted'; runtimeTurnId: string; clientOperationId: string; origin: 'collaboration'; clientUserMessageId?: never }
 
@@ -365,6 +370,8 @@ export type UnifiedEvent = (
     toolName: string;
     toolUseId: string;
     input: Record<string, unknown>;
+    inputRef?: LargeValueRef;
+    permissionOptions?: readonly ToolPermissionOption[];
     display?: PermissionOperationDisplay;
     review?: PermissionReview;
     reviewRef?: LargeValueRef;
@@ -385,7 +392,7 @@ export type UnifiedEvent = (
   }
 
   // === Session lifecycle ===
-  | { kind: 'session_init'; sessionId: string; model: string; tools: string[] }
+  | { kind: 'session_init'; sessionId: string; model: string; tools: string[]; supportsImageInput?: boolean }
   | { kind: 'status_change'; state: 'idle' | 'running' | 'waiting_permission' | 'error' }
   | {
     kind: 'turn_complete';
@@ -665,6 +672,8 @@ export interface AgentRuntime {
     interrupt?: boolean,
   ): Promise<void>;
 
+  /** Select an exact option offered for this request, including scoped native variants. */
+  respondPermissionOption?(process: RuntimeProcess, requestId: string, optionId: string): Promise<void>;
   /** Tear down the process, preserving whether its owner is stopping or cleaning up a failure. */
   stopSession(process: RuntimeProcess, reason?: 'stop' | 'failure'): Promise<void>;
 

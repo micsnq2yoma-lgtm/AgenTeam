@@ -110,6 +110,7 @@ interface MessageListProps {
   onPermissionDecision?: (
     requestId: string,
     decision: 'deny' | 'allow_once' | 'always_allow',
+    optionId?: string,
   ) => void | Promise<void>;
   pendingAskUserQuestion?: AskUserQuestionRequest | null;
   onAskUserQuestionSubmit?: (
@@ -311,6 +312,7 @@ type FooterProps = {
   onPermissionDecision?: (
     requestId: string,
     decision: 'deny' | 'allow_once' | 'always_allow',
+    optionId?: string,
   ) => void | Promise<void>;
   pendingAskUserQuestion?: AskUserQuestionRequest | null;
   onAskUserQuestionSubmit?: (

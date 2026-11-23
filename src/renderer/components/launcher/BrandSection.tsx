@@ -120,12 +120,17 @@ interface BrandSectionProps {
   usesExternalRuntimeControls?: boolean;
   runtimeModels?: RuntimeModelInfo[];
   runtimeModelsLoading?: boolean;
+  runtimeModelsError?: boolean;
+  onRuntimeModelsRetry?: () => void;
   runtimePermissionModes?: RuntimePermissionMode[];
   // PRD 0.2.7 Phase F: runtime selector lives in the row below the input
   // when permitted by the build distribution. Caller provides the
   // detection map + onChange just like in chat-tab.
   runtimeSelectorAvailable?: boolean;
   runtimeDetections?: RuntimeDetections;
+  runtimeDetecting?: boolean;
+  runtimeDetectionFailed?: boolean;
+  onRuntimeDetectAgain?: () => void;
   onRuntimeChange?: (runtime: RuntimeType) => void;
   /** All runtimes (builtin + external) so the row's chip shows the full picture.
    *  Distinct from `runtime` which is the *external* runtime when in external mode. */
@@ -192,9 +197,14 @@ export default memo(function BrandSection({
   usesExternalRuntimeControls,
   runtimeModels,
   runtimeModelsLoading,
+  runtimeModelsError,
+  onRuntimeModelsRetry,
   runtimePermissionModes,
   runtimeSelectorAvailable,
   runtimeDetections,
+  runtimeDetecting,
+  runtimeDetectionFailed,
+  onRuntimeDetectAgain,
   onRuntimeChange,
   activeRuntime,
   isActive,
@@ -429,10 +439,13 @@ export default memo(function BrandSection({
       <LauncherRuntimeToolbarControl
         runtime={activeRuntime}
         runtimeDetections={runtimeDetections}
+        runtimeDetecting={runtimeDetecting}
+        runtimeDetectionFailed={runtimeDetectionFailed}
+        onRuntimeDetectAgain={onRuntimeDetectAgain}
         onRuntimeChange={onRuntimeChange}
       />
     ) : null
-  ), [runtimeSelectorAvailable, activeRuntime, runtimeDetections, onRuntimeChange]);
+  ), [runtimeSelectorAvailable, activeRuntime, runtimeDetections, runtimeDetecting, runtimeDetectionFailed, onRuntimeDetectAgain, onRuntimeChange]);
 
   const handleSlashAction = useCallback((name: string) => {
     if (name !== 'goal' && name !== 'loop') return;
@@ -520,6 +533,8 @@ export default memo(function BrandSection({
                 usesExternalRuntimeControls={usesExternalRuntimeControls}
                 runtimeModels={runtimeModels}
                 runtimeModelsLoading={runtimeModelsLoading}
+                runtimeModelsError={runtimeModelsError}
+                onRuntimeModelsRetry={onRuntimeModelsRetry}
                 runtimePermissionModes={runtimePermissionModes}
                 /* Project lives in the composer's context header (first row
                  * inside the frame); runtime sits in the toolbar after Tools. */

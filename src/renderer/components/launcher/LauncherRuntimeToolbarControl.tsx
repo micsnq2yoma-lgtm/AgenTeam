@@ -18,12 +18,18 @@ import type { RuntimeDetections, RuntimeType } from '../../../shared/types/runti
 interface LauncherRuntimeToolbarControlProps {
   runtime: RuntimeType;
   runtimeDetections: RuntimeDetections;
+  runtimeDetecting?: boolean;
+  runtimeDetectionFailed?: boolean;
+  onRuntimeDetectAgain?: () => void;
   onRuntimeChange: (runtime: RuntimeType) => void;
 }
 
 export default memo(function LauncherRuntimeToolbarControl({
   runtime,
   runtimeDetections,
+  runtimeDetecting,
+  runtimeDetectionFailed,
+  onRuntimeDetectAgain,
   onRuntimeChange,
 }: LauncherRuntimeToolbarControlProps) {
   const { t } = useTranslation('launcher');
@@ -39,6 +45,9 @@ export default memo(function LauncherRuntimeToolbarControl({
       <RuntimeSelector
         value={runtime}
         detections={runtimeDetections}
+        detecting={runtimeDetecting}
+        detectionFailed={runtimeDetectionFailed}
+        onDetectAgain={onRuntimeDetectAgain}
         onChange={onRuntimeChange}
         variant="launcher"
       />

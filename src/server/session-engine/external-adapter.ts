@@ -331,6 +331,7 @@ export function createExternalSessionEngine(): SessionEngine {
           : null,
         systemInitPayload: systemInitPayload ?? undefined,
         mcpEffectiveSnapshot: getExternalMcpEffectiveSnapshot(),
+        agentPlan: liveSnapshot?.agentPlan,
         pendingInteractiveRequests: liveSnapshot?.pendingInteractiveRequests
           ?? getExternalPendingInteractiveRequests(),
       };
@@ -989,8 +990,8 @@ export function createExternalSessionEngine(): SessionEngine {
       });
     },
 
-    async respondPermission(requestId, decision, reason) {
-      return respondExternalPermission(requestId, decision, reason);
+    async respondPermission(requestId, decision, reason, optionId) {
+      return respondExternalPermission(requestId, decision, reason, optionId);
     },
 
     respondAskUserQuestion(requestId, answers) {

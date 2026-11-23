@@ -1936,11 +1936,16 @@ export default function Chat({
   const [codexModels, setCodexModels] = useState<typeof CC_MODELS>([]);
   const agyCatalogSession = currentRuntime === 'antigravity' ? sessionRuntimeSessionId : null;
   const agyCatalogModel = currentRuntime === 'antigravity' ? runtimeModel : null;
+  const agyCatalogInit = currentRuntime === 'antigravity' ? systemInitInfo : null;
   const [runtimeModelsLoading, setRuntimeModelsLoading] = useState(false);
+  const [runtimeModelsError, setRuntimeModelsError] = useState(false);
+  const [runtimeModelsRequest, setRuntimeModelsRequest] = useState(0);
+  const retryRuntimeModels = useCallback(() => setRuntimeModelsRequest(request => request + 1), []);
   const [antigravityModels, setAntigravityModels] = useState<typeof CC_MODELS>([]);
   useEffect(() => {
     if ((currentRuntime !== 'codex' && currentRuntime !== 'antigravity') || !isConnected) return;
     setRuntimeModelsLoading(true);
+    setRuntimeModelsError(false);
     const setModels = currentRuntime === 'antigravity' ? setAntigravityModels : setCodexModels;
     // AbortController so a tab-close (effect cleanup) silences the
     // proxyFetch "Sidecar gone" warning that would otherwise fire when
@@ -1960,7 +1965,9 @@ export default function Chat({
         const data = res as { models?: typeof CC_MODELS } | undefined;
         if (!controller.signal.aborted) setModels(data?.models ?? []);
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!controller.signal.aborted) setRuntimeModelsError(true);
+      })
       .finally(() => {
         if (!controller.signal.aborted) setRuntimeModelsLoading(false);
       });
@@ -1974,6 +1981,8 @@ export default function Chat({
     workspaceRefreshTrigger,
     agyCatalogSession,
     agyCatalogModel,
+    agyCatalogInit,
+    runtimeModelsRequest,
   ]);
   // ─── External runtime pre-warm (v0.1.68) ───
   //
@@ -4538,11 +4547,16 @@ export default function Chat({
     async (model: string) => {
       if (guardCronConfigMutation()) return;
       if (runtimeModel === model) return;
-      const persisted = await persistTabConfigChange({ runtimeModel: model });
+      const resetsEffort = currentRuntime === 'antigravity';
+      const persisted = await persistTabConfigChange({
+        runtimeModel: model,
+        ...(resetsEffort ? { reasoningEffort: 'default' } : {}),
+      });
       if (!persisted) return;
       setRuntimeModel(model);
+      if (resetsEffort) setReasoningEffort('default');
     },
-    [runtimeModel, persistTabConfigChange, guardCronConfigMutation],
+    [currentRuntime, runtimeModel, persistTabConfigChange, guardCronConfigMutation],
   );
 
   // #324 — reasoning effort change. Same dual-write policy as handleModelChange
@@ -5688,6 +5702,7 @@ export default function Chat({
   const supportsAgentStatusPanel =
     currentRuntime === 'builtin' ||
     currentRuntime === 'codex' ||
+    currentRuntime === 'antigravity' ||
     currentRuntime === 'dsh';
   const agentStatusSlot = useMemo(
     () =>
@@ -5751,8 +5766,8 @@ export default function Chat({
 
   // Stable callbacks for MessageList (extracted from inline arrows to enable memo)
   const handlePermissionDecision = useCallback(
-    (requestId: string, decision: 'deny' | 'allow_once' | 'always_allow') => {
-      return respondPermission(decision, requestId);
+    (requestId: string, decision: 'deny' | 'allow_once' | 'always_allow', optionId?: string) => {
+      return respondPermission(decision, requestId, optionId);
     },
     [respondPermission],
   );
@@ -6584,7 +6599,9 @@ export default function Chat({
                     }
                   }
                 }
-                const canRetry = currentRuntime !== 'antigravity' && !!lastUserMsg && !isLoading;
+                const canRetry = !!lastUserMsg && !isLoading && (
+                  lastUserMsg.deliveryStatus === 'failed' || currentRuntime !== 'antigravity'
+                );
                 return (
                   <div className="relative z-10 flex-shrink-0 border-b border-[var(--line)] bg-[var(--paper-inset)] px-4 py-2 text-xs text-[var(--ink)]">
                     <div className="mx-auto flex max-w-3xl items-start gap-2">
@@ -6869,7 +6886,7 @@ export default function Chat({
               mcpEffectiveSnapshot={mcpEffectiveSnapshot}
               onWorkspaceMcpToggle={handleWorkspaceMcpToggle}
                     onMcpRetry={
-                      !isExternalRuntime || managedProviderRuntimeActive
+                      !isExternalRuntime || managedProviderRuntimeActive || currentRuntime === 'antigravity'
                         ? handleMcpRetry
                         : undefined
                     }
@@ -6933,6 +6950,9 @@ export default function Chat({
                         : undefined
               }
               runtimeModelsLoading={isConnected && runtimeModelsLoading && (currentRuntime === 'codex' || currentRuntime === 'antigravity')}
+              runtimeModelsError={isConnected && runtimeModelsError && (currentRuntime === 'codex' || currentRuntime === 'antigravity')}
+              onRuntimeModelsRetry={retryRuntimeModels}
+              runtimeSupportsImageInput={currentRuntime === 'antigravity' ? systemInitInfo?.supportsImageInput : undefined}
               runtimePermissionModes={
                 currentRuntime === 'dsh' || inputUsesExternalRuntimeControls
                   ? runtimePermissionModes

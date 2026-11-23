@@ -25,11 +25,12 @@ import WorkspaceIcon from '../launcher/WorkspaceIcon';
 import RuntimeSelector from '../RuntimeSelector';
 import { PermissionModeIcon, PermissionModeMenuContent, type PermissionModeMenuItem } from '../PermissionModeMenu';
 import { Popover } from '../ui/Popover';
-import type { RuntimeType, RuntimeDetections, RuntimeConfig } from '../../../shared/types/runtime';
-import { getRuntimePermissionModes, isAgentRuntimeSelectorAvailable, projectPermissionModeForRuntime, resolveEffectiveRuntime } from '../../../shared/types/runtime';
+import type { RuntimeType, RuntimeConfig } from '../../../shared/types/runtime';
+import { ANTIGRAVITY_FULL_ACCESS, getDefaultRuntimePermissionMode, getRuntimePermissionModes, isAgentRuntimeSelectorAvailable, projectPermissionModeForRuntime, resolveEffectiveRuntime } from '../../../shared/types/runtime';
 import { getDefaultNewSessionPermissionMode } from '../../../shared/runtimeBirthFields';
 import { agentUsesManagedCodexProvider, toProviderExecutionIntent } from '../../../shared/providerExecution';
-import { invoke } from '@tauri-apps/api/core';
+import { useRuntimeModelCatalog } from '@/hooks/useRuntimeModelCatalog';
+import { useRuntimeDetections } from '@/hooks/useRuntimeDetections';
 import { useToast } from '@/components/Toast';
 import { useBrowserResourceReady } from '@/hooks/useBrowserResourceReady';
 import { MANAGED_BROWSER_MCP_ID } from '@/../shared/browserTools';
@@ -80,14 +81,7 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
   const effortButtonRef = useRef<HTMLButtonElement>(null);
   const toolsButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Runtime detection (v0.1.59)
-  const [runtimeDetections, setRuntimeDetections] = useState<RuntimeDetections>({
-    'builtin': { installed: true },
-    'dsh': { installed: false },
-    antigravity: { installed: false },
-    'claude-code': { installed: false },
-    'codex': { installed: false },
-  });
+  const runtimeDetection = useRuntimeDetections();
   // Unset Agents follow the root default; explicit choices remain authoritative.
   const agentRuntimeConfig = agent?.runtimeConfig as RuntimeConfig | undefined;
   const currentRuntime: RuntimeType = resolveEffectiveRuntime(
@@ -103,6 +97,8 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
     && agentUsesManagedCodexProvider(agent);
   const usesExternalCliConfiguration = currentRuntime !== 'builtin' && currentRuntime !== 'dsh';
   const usesProductConfiguration = !usesExternalCliConfiguration;
+  const isAntigravity = currentRuntime === 'antigravity';
+  const antigravityCatalog = useRuntimeModelCatalog(isAntigravity ? 'antigravity' : undefined, openPopup === 'model');
   const availableProviders = useMemo(
     () => projectProvidersForRuntime(credentialedProviders, currentRuntime),
     [credentialedProviders, currentRuntime],
@@ -116,20 +112,6 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
-  }, []);
-
-  // Detect installed runtimes (v0.1.59)
-  useEffect(() => {
-    void (async () => {
-      try {
-        const detections = await invoke<Record<string, { installed: boolean; version?: string; path?: string }>>('cmd_detect_runtimes');
-        if (isMountedRef.current) {
-          setRuntimeDetections(detections as RuntimeDetections);
-        }
-      } catch (err) {
-        console.warn('[runtime] Failed to detect runtimes:', err);
-      }
-    })();
   }, []);
 
   const handleRuntimeChange = useCallback(async (runtime: RuntimeType) => {
@@ -229,9 +211,19 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
   }, [agent?.runtimeConfig, availableProviders, providers, saveAgentConfig, toast, tChat]);
 
   const handlePermissionSelect = useCallback((mode: string) => {
-    void saveAgentConfig({ permissionMode: mode as AgentConfig['permissionMode'] });
+    if (mode === ANTIGRAVITY_FULL_ACCESS) toast.warning(tChat('input.antigravityAutonomyWarning'), 5000);
+    const patch = isAntigravity
+      ? { runtimeConfigPatch: { permissionMode: mode } }
+      : { permissionMode: mode as AgentConfig['permissionMode'] };
+    void saveAgentConfig(patch).catch(() => toast.warning(tChat('shell.toasts.configPartiallySaved')));
     setOpenPopup(null);
-  }, [saveAgentConfig]);
+  }, [isAntigravity, saveAgentConfig, toast, tChat]);
+
+  const handleAntigravityModelSelect = useCallback((model?: string) => {
+    void saveAgentConfig({ runtimeConfigPatch: { model, reasoningEffort: 'default' } })
+      .catch(() => toast.warning(tChat('shell.toasts.configPartiallySaved')));
+    setOpenPopup(null);
+  }, [saveAgentConfig, toast, tChat]);
 
   // #324 — Product-configured runtimes persist effort on AgentConfig.
   const handleEffortSelect = useCallback((effort: string) => {
@@ -316,14 +308,17 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
     setOpenPopup(null);
   }, []);
 
-  const effectivePermissionMode = projectPermissionModeForRuntime(agent?.permissionMode, currentRuntime)
-    ?? projectPermissionModeForRuntime(project?.permissionMode, currentRuntime)
-    ?? getDefaultNewSessionPermissionMode(currentRuntime, config.defaultPermissionMode);
-  const permissionModeChoices = currentRuntime === 'dsh'
-    ? getRuntimePermissionModes('dsh').map(mode => ({
+  const effectivePermissionMode = isAntigravity
+    ? agentRuntimeConfig?.permissionMode ?? getDefaultRuntimePermissionMode(currentRuntime)
+    : projectPermissionModeForRuntime(agent?.permissionMode, currentRuntime)
+      ?? projectPermissionModeForRuntime(project?.permissionMode, currentRuntime)
+      ?? getDefaultNewSessionPermissionMode(currentRuntime, config.defaultPermissionMode);
+  const permissionTextKey = isAntigravity ? 'antigravityPermissionModes' : 'permissionModes';
+  const permissionModeChoices = currentRuntime === 'dsh' || isAntigravity
+    ? getRuntimePermissionModes(currentRuntime).map(mode => ({
         ...mode,
-        label: tChat(`input.permissionModes.${mode.value}.label`, { defaultValue: mode.label }),
-        description: tChat(`input.permissionModes.${mode.value}.description`, { defaultValue: mode.description }),
+        label: tChat(`input.${permissionTextKey}.${mode.value}.label`, { defaultValue: mode.label }),
+        description: tChat(`input.${permissionTextKey}.${mode.value}.description`, { defaultValue: mode.description }),
       }))
     : PERMISSION_MODES.map(mode => permissionText(mode.value, t));
   const permissionMode = permissionModeChoices.find(mode => mode.value === effectivePermissionMode)
@@ -414,7 +409,10 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
             <div className="min-w-0 flex-1">
               <RuntimeSelector
                 value={currentRuntime}
-                detections={runtimeDetections}
+                detections={runtimeDetection.detections}
+                detecting={runtimeDetection.detecting}
+                detectionFailed={runtimeDetection.detectionFailed}
+                onDetectAgain={runtimeDetection.retry}
                 onChange={handleRuntimeChange}
                 variant="panel"
               />
@@ -548,8 +546,45 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
       </div>
       )}
 
-      {/* Product permission configuration is shared by Builtin and DSH. */}
-      {usesProductConfiguration && (
+      {isAntigravity && agent && (
+      <div className="relative flex items-center gap-3">
+        <label className="w-16 shrink-0 text-sm text-[var(--ink-muted)]">{t('agentSettings.basics.model')}</label>
+        <button
+          type="button"
+          ref={modelButtonRef}
+          aria-expanded={openPopup === 'model'}
+          className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-[var(--line)] px-3 py-1.5 text-left text-sm text-[var(--ink)] hover:border-[var(--line-strong)]"
+          onClick={() => setOpenPopup(openPopup === 'model' ? null : 'model')}
+        >
+          <span className="truncate">
+            {antigravityCatalog.models.find(model => model.value === agentRuntimeConfig?.model)?.displayName
+              ?? agentRuntimeConfig?.model ?? t('agentSettings.basics.defaultModel')}
+          </span>
+          <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ink-subtle)]" />
+        </button>
+        <Popover open={openPopup === 'model'} onClose={() => setOpenPopup(null)} anchorRef={modelButtonRef} placement="bottom-start" className="w-[320px] max-w-[calc(100vw-16px)] space-y-0.5 overflow-y-auto rounded-xl p-1">
+          {antigravityCatalog.loading && (
+            <div role="status" className="px-2 py-2 text-sm text-[var(--ink-muted)]">{tChat('input.modelCatalogLoading')}</div>
+          )}
+          {antigravityCatalog.error && (
+            <div className="flex items-start justify-between gap-2 px-2 py-2 text-sm text-[var(--ink-muted)]">
+              <span role="status">{tChat('input.runtimeModelCatalogFailed')}</span>
+              <button type="button" className="shrink-0 text-[var(--accent)] hover:underline" onClick={antigravityCatalog.retry}>{tChat('input.refreshModelCatalog')}</button>
+            </div>
+          )}
+          <button type="button" aria-pressed={!agentRuntimeConfig?.model} onClick={() => handleAntigravityModelSelect()} className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-[var(--hover-bg)] aria-pressed:bg-[var(--accent)]/10">
+            {t('agentSettings.basics.defaultModel')}
+          </button>
+          {antigravityCatalog.models.map(model => (
+            <button key={model.value} type="button" aria-pressed={model.value === agentRuntimeConfig?.model} onClick={() => handleAntigravityModelSelect(model.value)} className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-[var(--hover-bg)] aria-pressed:bg-[var(--accent)]/10">
+              {model.displayName}
+            </button>
+          ))}
+        </Popover>
+      </div>
+      )}
+
+      {(usesProductConfiguration || isAntigravity) && (
       <div className="relative flex items-center gap-3">
         <label className="w-16 shrink-0 text-sm text-[var(--ink-muted)]">{t('agentSettings.basics.permission')}</label>
         <button
@@ -576,7 +611,7 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
           className="composer-toolbar-menu-enter w-72 py-1"
         >
           <PermissionModeMenuContent
-            items={permissionModeChoices}
+            items={permissionModeChoices.filter(mode => !('hidden' in mode && mode.hidden))}
             selectedValue={permissionMode.value}
             header={tChat('input.permissionModeHeader')}
             onSelect={handlePermissionSelect}
