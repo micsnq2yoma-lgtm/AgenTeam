@@ -293,10 +293,22 @@ pub fn normalize_create(
                 (None, None) => return Err("No current Channel conversation is available".into()),
             },
             Some(NotificationTarget::Session { session_id }) => {
-                if context.session.as_deref() != Some(session_id.as_str()) {
-                    return Err(
-                        "A Session target must be the Session that creates the Task".into(),
-                    );
+                // Two different causes that used to share one message: the caller is not a
+                // verified desktop chat at all (an external terminal, a Task run, IM, or the
+                // switch is off), or it is one but names another Session.
+                match context.session.as_deref() {
+                    None => {
+                        return Err(
+                            "A Session target needs the desktop chat that creates the Task: run the command from that chat's own turn (not an external terminal, a Task run or an IM conversation), with task result push-back turned on"
+                                .into(),
+                        )
+                    }
+                    Some(creator) if creator != session_id.as_str() => {
+                        return Err(
+                            "A Session target must be the Session that creates the Task".into(),
+                        )
+                    }
+                    Some(_) => {}
                 }
                 (NotificationTarget::Session { session_id }, "explicit")
             }
@@ -898,6 +910,24 @@ mod tests {
         let im_parent = policy(json!({"version":1,"im":{"type":"conversation","channelId":"feishu-1","sessionKey":"group:one"}}));
         let inherited = normalize_create(None, &CreationContext { parent_policy: Some(im_parent), ..Default::default() }).unwrap();
         assert!(matches!(inherited.im, Some(NotificationTarget::Conversation { .. })));
+    }
+
+    #[test]
+    fn an_explicit_session_target_needs_the_verified_creating_chat() {
+        let config = |id: &str| {
+            policy(json!({"version":1,"im":{"type":"session","sessionId":id},"events":["done"]}))
+        };
+        // The creating desktop chat naming itself is accepted and recorded as explicit.
+        let ok = normalize_create(Some(config("desktop-session")), &session_context(true)).unwrap();
+        assert_eq!(ok.source.as_deref(), Some("explicit"));
+        // Another Session id is refused with the "creates the Task" message.
+        let other = normalize_create(Some(config("someone-else")), &session_context(true)).unwrap_err();
+        assert!(other.contains("must be the Session that creates the Task"), "{other}");
+        // No verified chat (external terminal, Task run, IM, switch off) says so, instead of
+        // blaming the id the caller typed.
+        let none = normalize_create(Some(config("desktop-session")), &CreationContext::default()).unwrap_err();
+        assert!(none.contains("needs the desktop chat that creates the Task"), "{none}");
+        assert!(!none.contains("must be the Session that creates the Task"));
     }
 
     #[test]
