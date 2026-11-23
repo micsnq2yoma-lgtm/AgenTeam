@@ -69,3 +69,12 @@ describe('runtime Provider projection', () => {
     expect(isProviderModelCompatibleWithRuntime('dsh', managedCodex, 'gpt-5.4-codex')).toBe(true);
   });
 });
+
+describe('hidden provider ids', () => {
+  it('hides the reverse-proxied Antigravity subscription on every platform, and Codex too on Linux', async () => {
+    const { platformHiddenProviderIds } = await import('../../shared/runtimeProviderProjection');
+    expect(platformHiddenProviderIds('darwin-arm64')).toEqual(['antigravity-sub']);
+    expect(platformHiddenProviderIds('windows-x64')).toEqual(['antigravity-sub']);
+    expect(platformHiddenProviderIds('linux-x64')).toEqual(['codex-sub', 'antigravity-sub']);
+  });
+});

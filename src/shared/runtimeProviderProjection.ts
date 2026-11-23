@@ -9,9 +9,16 @@ import type { RuntimeType, RuntimeSource } from './types/runtime';
 import { resolveAgentRuntimePreference } from './integrated-runtimes/identity';
 import { AGENT_RUNTIME_DISTRIBUTION_POLICY, resolveDefaultIntegratedRuntime } from './integrated-runtimes/distribution-policy';
 
+/**
+ * The Antigravity subscription provider reverse-proxies a Google account, which
+ * carries account risk. It is hidden everywhere (saved settings are kept by
+ * `preserveHiddenProviderSettings`, so nothing is deleted); the Antigravity CLI
+ * runtime is the supported way to use a Google Gemini subscription.
+ */
+const ALWAYS_HIDDEN_PROVIDER_IDS = [ANTIGRAVITY_SUBSCRIPTION_PROVIDER_ID];
 const LINUX_HIDDEN_PROVIDER_IDS = [CODEX_SUBSCRIPTION_PROVIDER_ID, ANTIGRAVITY_SUBSCRIPTION_PROVIDER_ID];
 export function platformHiddenProviderIds(platform: string): readonly string[] {
-  return platform === 'linux' || platform.startsWith('linux-') ? LINUX_HIDDEN_PROVIDER_IDS : [];
+  return platform === 'linux' || platform.startsWith('linux-') ? LINUX_HIDDEN_PROVIDER_IDS : ALWAYS_HIDDEN_PROVIDER_IDS;
 }
 
 /** Project Product Provider choices through the selected Runtime's execution owners. */
