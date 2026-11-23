@@ -119,6 +119,7 @@ interface BrandSectionProps {
   runtime?: RuntimeType;
   usesExternalRuntimeControls?: boolean;
   runtimeModels?: RuntimeModelInfo[];
+  runtimeModelsLoading?: boolean;
   runtimePermissionModes?: RuntimePermissionMode[];
   // PRD 0.2.7 Phase F: runtime selector lives in the row below the input
   // when permitted by the build distribution. Caller provides the
@@ -190,6 +191,7 @@ export default memo(function BrandSection({
   runtime,
   usesExternalRuntimeControls,
   runtimeModels,
+  runtimeModelsLoading,
   runtimePermissionModes,
   runtimeSelectorAvailable,
   runtimeDetections,
@@ -517,6 +519,7 @@ export default memo(function BrandSection({
                 runtime={runtime}
                 usesExternalRuntimeControls={usesExternalRuntimeControls}
                 runtimeModels={runtimeModels}
+                runtimeModelsLoading={runtimeModelsLoading}
                 runtimePermissionModes={runtimePermissionModes}
                 /* Project lives in the composer's context header (first row
                  * inside the frame); runtime sits in the toolbar after Tools. */

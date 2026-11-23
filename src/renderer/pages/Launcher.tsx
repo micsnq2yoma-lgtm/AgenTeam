@@ -349,19 +349,25 @@ export default function Launcher({
 
   // Codex models are dynamic (fetched from the CLI); CC models are static
   const [catalog, setCatalog] = useState<{ runtime: RuntimeType; models: RuntimeModelInfo[] }>();
+  const [catalogLoading, setCatalogLoading] = useState(false);
   useEffect(() => {
     if (launcherRuntime !== 'codex' && launcherRuntime !== 'antigravity') {
       setCatalog(undefined);
+      setCatalogLoading(false);
       return;
     }
     let cancelled = false;
+    setCatalogLoading(true);
     apiGetJson<{ models?: RuntimeModelInfo[] }>(
       runtimeModelCatalogPath(launcherRuntime, 'system-cli'),
     )
       .then((res) => {
         if (!cancelled) setCatalog({ runtime: launcherRuntime, models: res?.models ?? [] });
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setCatalogLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -1232,6 +1238,7 @@ export default function Launcher({
           runtimeModels={
             isExternalRuntime ? launcherRuntimeModels : undefined
           }
+          runtimeModelsLoading={catalogLoading}
           runtimePermissionModes={
             launcherRuntime !== 'builtin'
               ? launcherRuntimePermissionModes
