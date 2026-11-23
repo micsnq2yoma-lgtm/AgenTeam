@@ -63,6 +63,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     builtin: { installed: true },
     dsh: { installed: true, readiness: "ready" },
     codex: { installed: true },
+    antigravity: { installed: true },
     "claude-code": { installed: true },
   })),
 }));

@@ -330,6 +330,7 @@ describe('proxy-state provider scope', () => {
     const { augmentedProcessEnv } = await import('./runtimes/env-utils');
     expect(augmentedProcessEnv('codex').HTTPS_PROXY).toBe('http://127.0.0.1:41234');
     expect(augmentedProcessEnv('claude-code').HTTPS_PROXY).toBe('http://parent.proxy:8080');
+    expect(augmentedProcessEnv('antigravity').HTTPS_PROXY).toBe('http://parent.proxy:8080');
     expect(process.env.HTTPS_PROXY).toBe('http://parent.proxy:8080');
     expect(state.getProviderRequestProxyPolicy('codex-sub').httpsProxy).toBe('http://parent.proxy:8080');
     expect(augmentedProcessEnv('codex', { proxy: 'terminal' }).HTTPS_PROXY).toBeUndefined();

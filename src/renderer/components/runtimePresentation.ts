@@ -1,5 +1,6 @@
 import type { RuntimeSource, RuntimeType } from '../../shared/types/runtime';
 
+import antigravityIcon from '@/assets/runtime-icons/antigravity.png';
 import brandMark from '@/assets/brand/agenteam-mark.svg';
 import claudeCodeIcon from '@/assets/runtime-icons/claude-code.png';
 import codexIcon from '@/assets/runtime-icons/codex.png';
@@ -18,6 +19,7 @@ export const RUNTIME_PRESENTATION: Record<RuntimeType, RuntimePresentation> = {
   builtin: { name: 'AgenTeam (Claude Agent SDK)', shortName: 'Claude Agent SDK', icon: brandMark, engineIcon: claudeCodeIcon },
   dsh: { name: 'AgenTeam (DeepSeek Harness)', shortName: 'DeepSeek Harness', icon: brandMark, engineIcon: dshIcon },
   'claude-code': { name: 'Claude Code CLI', icon: claudeCodeIcon },
+  antigravity: { name: 'Antigravity CLI', icon: antigravityIcon },
   codex: { name: 'Codex CLI', icon: codexIcon },
 };
 

@@ -251,7 +251,7 @@ describe('BrandSection', () => {
   it('puts the runtime picker in the toolbar after Tools only when selection is available', () => {
     const runtimeDetections = {
       builtin: { installed: true },
-      dsh: { installed: false },
+      dsh: { installed: false }, antigravity: { installed: false },
       'claude-code': { installed: false },
       codex: { installed: false },
     };

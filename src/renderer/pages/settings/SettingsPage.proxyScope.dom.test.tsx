@@ -183,6 +183,7 @@ describe('proxy scope remains user configuration', () => {
       if (command === 'cmd_cliproxy_status') return healthyStatus;
       if (command === 'cmd_detect_runtimes') return {
         builtin: { installed: true }, dsh: { installed: true },
+        antigravity: { installed: false },
         'claude-code': { installed: false }, codex: { installed: false },
       };
       return undefined;
@@ -244,7 +245,7 @@ describe('proxy scope remains user configuration', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /antigravity-sub/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(settingsMocks.patchProxySettings).toHaveBeenCalledWith({ scope: {
-      mode: 'custom', generalRequests: true, providerIds: ['vision-provider', 'codex-sub'], runtimeIds: ['claude-code', 'codex'],
+      mode: 'custom', generalRequests: true, providerIds: ['vision-provider', 'codex-sub'], runtimeIds: ['claude-code', 'codex', 'antigravity'],
     } }, ['vision-provider', 'codex-sub', 'antigravity-sub']);
   });
 

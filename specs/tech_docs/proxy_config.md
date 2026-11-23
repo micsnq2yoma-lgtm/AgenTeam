@@ -53,7 +53,7 @@ config.json proxySettings
        |     generic MyAgents HTTP, Plugin Bridge
        |
        +-- system CLI owner(runtimeId)
-       |     Claude Code CLI, Codex CLI discovery and sessions
+       |     Claude Code CLI, Codex CLI, Antigravity CLI discovery and sessions
        |
        +-- provider owner(providerId)
              Builtin SDK, OpenAI Bridge upstream, provider probe,
@@ -132,7 +132,7 @@ CLIProxy 的 Google 请求由 Rust `apply_to_subprocess_for_provider(..., "antig
 
 ## External Runtime envPolicy
 
-Claude Code CLI 和 Codex CLI 还可在 Agent 配置选择：
+Claude Code CLI、Codex CLI 和 Antigravity CLI 还可在 Agent 配置选择：
 
 | 值 | 语义 |
 | --- | --- |

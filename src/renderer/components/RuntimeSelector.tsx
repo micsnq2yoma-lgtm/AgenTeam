@@ -24,7 +24,7 @@ import {
 } from '../../shared/integrated-runtimes/distribution-policy';
 
 // Runtime types that have backend implementations (not just type definitions)
-const IMPLEMENTED_RUNTIMES = new Set<RuntimeType>(['builtin', 'dsh', 'claude-code', 'codex']);
+const IMPLEMENTED_RUNTIMES = new Set<RuntimeType>(['builtin', 'dsh', 'claude-code', 'codex', 'antigravity']);
 
 // ─── Runtime display metadata ───
 
@@ -38,6 +38,7 @@ const RUNTIME_OPTIONS: {
     ['builtin', 'integrated'],
     ['dsh', 'integrated'],
     ['claude-code', 'external'],
+    ['antigravity', 'external'],
     ['codex', 'external'],
   ] as const
 ).map(([type, group]) => ({
@@ -185,7 +186,7 @@ export default memo(function RuntimeSelector({
         <RestrictedModelHint />
         {availableOptions.map((opt, index) => {
           const detection = detections[opt.type];
-          const installed = opt.type === 'builtin' || (detection?.installed && IMPLEMENTED_RUNTIMES.has(opt.type));
+          const installed = opt.type === 'builtin' || (detection?.installed && detection.reason !== 'protocol-mismatch' && IMPLEMENTED_RUNTIMES.has(opt.type));
           const selected = opt.type === value;
           const groupStart = index === 0 || availableOptions[index - 1].group !== opt.group;
           return (
@@ -223,7 +224,7 @@ export default memo(function RuntimeSelector({
                   <CheckIcon className={`h-3.5 w-3.5 shrink-0 text-[var(--accent)] ${selected ? '' : 'invisible'}`} aria-hidden="true" />
                 ) : (
                   <span className="shrink-0 text-xs text-[var(--ink-subtle)]">
-                    {detection?.installed && !IMPLEMENTED_RUNTIMES.has(opt.type)
+                    {opt.type === 'antigravity' ? t(detection?.installed ? 'runtime.upgradeAgy' : 'runtime.installAgy') : detection?.installed && !IMPLEMENTED_RUNTIMES.has(opt.type)
                       ? t('runtime.comingSoon')
                       : t('runtime.notInstalled')}
                   </span>

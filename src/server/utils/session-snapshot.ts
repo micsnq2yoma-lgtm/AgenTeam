@@ -213,7 +213,7 @@ export function snapshotForImRuntimeSwitch(
     knowledgeBaseIds: source.knowledgeBaseIds,
   };
   return snapshotForImSession(agent, { runtimeOverride: runtime,
-    runtimeSourceOverride: runtime === 'codex' || runtime === 'claude-code' ? 'system-cli' : undefined });
+    runtimeSourceOverride: runtime === 'codex' || runtime === 'claude-code' || runtime === 'antigravity' ? 'system-cli' : undefined });
 }
 
 /**

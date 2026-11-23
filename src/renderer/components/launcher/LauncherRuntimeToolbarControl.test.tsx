@@ -15,7 +15,7 @@ vi.mock('@/components/RuntimeSelector', () => ({
 
 const detections = {
   builtin: { installed: true },
-  dsh: { installed: false },
+  dsh: { installed: false }, antigravity: { installed: false },
   'claude-code': { installed: false },
   codex: { installed: false },
 };

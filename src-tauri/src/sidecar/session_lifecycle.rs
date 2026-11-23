@@ -1989,7 +1989,7 @@ pub async fn cmd_ensure_session_sidecar(
             || !is_canonical_session_id(&sessionId)
             || !matches!(
                 birthRuntime.as_deref(),
-                Some("builtin" | "claude-code" | "codex")
+                Some("builtin" | "claude-code" | "codex" | "antigravity")
             )
             || !matches!(
                 birthRuntimeSource.as_deref(),

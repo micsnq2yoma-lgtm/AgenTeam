@@ -624,6 +624,7 @@ const MessageList = memo(function MessageList({
 
   // ── Stable callbacks read the latest props through refs synced after commit ──
   // (Row render inputs go through Virtuoso context instead; see MessageRowContext.)
+  const retryAvailable = !!onRetry;
   const onRetryRef = useRef(onRetry);
   useLayoutEffect(() => { onRetryRef.current = onRetry; }, [onRetry]);
   // Virtual history rows and Message are memoized. Pass a stable forwarding
@@ -827,7 +828,7 @@ const MessageList = memo(function MessageList({
                 citationSources={actionContext.citationSources.get(citationScope(message))}
                 isLoading={isStreamingMsg && row.isLoading}
                 onRewind={canRewind ? actionContext.onRewind : undefined}
-                onRetry={handleRetry}
+                onRetry={retryAvailable ? handleRetry : undefined}
                 onFork={canFork ? actionContext.onFork : undefined}
                 exitPlanModeSlot={
                   message.id === row.exitPlanModeAnchorId
@@ -843,7 +844,7 @@ const MessageList = memo(function MessageList({
           </div>
         );
       },
-    [handleRowLayoutChanged, handleRetry],
+    [handleRowLayoutChanged, handleRetry, retryAvailable],
   );
 
   // ── Stable computeItemKey ──

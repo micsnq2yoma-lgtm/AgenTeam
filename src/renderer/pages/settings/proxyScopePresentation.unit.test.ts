@@ -24,7 +24,7 @@ describe('describeProxyScopeSummary', () => {
       });
     expect(summary(false, [], [])).toEqual([{ key: 'proxy.scopeCustomEmptySummary' }]);
     expect(summary(false, [], ['codex'])).toEqual([{ key: 'proxy.scopeRuntimeCount', values: { count: 1 } }]);
-    expect(summary(true, ['A'], ['codex', 'claude-code'])).toEqual([
+    expect(summary(true, ['A'], ['codex', 'antigravity'])).toEqual([
       { key: 'proxy.scopeDialogGeneralRequests' },
       { key: 'proxy.scopeProviderNames', values: { names: 'A' } },
       { key: 'proxy.scopeRuntimeCount', values: { count: 2 } },
