@@ -836,10 +836,45 @@ fn truncate_command_output(bytes: &[u8]) -> String {
     truncated
 }
 
+/// PowerShell writes errors as CLIXML (`#< CLIXML <Objs ...><S S="Error">text_x000D__x000A_</S>...`) when the
+/// command is run with `-EncodedCommand`. Showing that raw XML in the UI is unreadable; keep only the
+/// error text. Anything that is not CLIXML is returned unchanged.
+#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
+fn plain_powershell_error(text: &str) -> String {
+    if !text.trim_start().starts_with("#< CLIXML") {
+        return text.to_string();
+    }
+    let mut lines: Vec<String> = Vec::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("<S S=\"Error\">") {
+        let after = &rest[start + "<S S=\"Error\">".len()..];
+        let Some(end) = after.find("</S>") else { break };
+        let piece = after[..end]
+            .replace("_x000D__x000A_", " ")
+            .replace("_x000D_", "")
+            .replace("_x000A_", " ")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&apos;", "'");
+        let piece = piece.trim();
+        if !piece.is_empty() {
+            lines.push(piece.to_string());
+        }
+        rest = &after[end + "</S>".len()..];
+    }
+    if lines.is_empty() {
+        "PowerShell reported an error (details unavailable)".to_string()
+    } else {
+        lines.join(" ")
+    }
+}
+
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 fn command_failure(label: &str, output: &Output) -> String {
-    let stdout = truncate_command_output(&output.stdout);
-    let stderr = truncate_command_output(&output.stderr);
+    let stdout = plain_powershell_error(&truncate_command_output(&output.stdout));
+    let stderr = plain_powershell_error(&truncate_command_output(&output.stderr));
     let detail = if !stderr.is_empty() {
         stderr
     } else if !stdout.is_empty() {
@@ -1033,6 +1068,11 @@ fn verify_windows_platform_signature(
     let script = format!(
         r#"
 $ErrorActionPreference = 'Stop'
+# A launcher that is itself PowerShell 7 (or has user module folders) leaves a PSModulePath that Windows
+# PowerShell 5.1 cannot autoload Microsoft.PowerShell.Security from (CouldNotAutoloadMatchingModule).
+# Pin it to the modules that ship with this shell, then load the module explicitly.
+$env:PSModulePath = (Join-Path $PSHOME 'Modules') + ';' + (Join-Path $env:windir 'System32\WindowsPowerShell\v1.0\Modules')
+Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $OutputEncoding = $utf8NoBom
 [Console]::OutputEncoding = $utf8NoBom
@@ -2934,6 +2974,19 @@ pub async fn cmd_managed_codex_logout() -> Result<ManagedCodexStatus, String> {
 mod tests {
     use std::io::Write;
     use super::*;
+
+    #[test]
+    fn powershell_clixml_errors_are_shown_as_plain_text() {
+        let clixml = "#< CLIXML\r\n<Objs Version=\"1.1.0.1\" xmlns=\"http://schemas.microsoft.com/powershell/2004/04\"><S S=\"Error\">Get-AuthenticodeSignature : Could not load module _x000D__x000A_</S><S S=\"Error\">at &lt;ScriptBlock&gt;_x000D__x000A_</S></Objs>";
+        let plain = plain_powershell_error(clixml);
+        assert_eq!(plain, "Get-AuthenticodeSignature : Could not load module at <ScriptBlock>");
+        assert!(!plain.contains("CLIXML") && !plain.contains("<S "));
+        assert_eq!(plain_powershell_error("ordinary stderr"), "ordinary stderr");
+        assert_eq!(
+            plain_powershell_error("#< CLIXML\n<Objs><S S=\"progress\">x</S></Objs>"),
+            "PowerShell reported an error (details unavailable)"
+        );
+    }
 
     fn valid_artifact(platform: &str) -> ManagedCodexArtifact {
         ManagedCodexArtifact {
