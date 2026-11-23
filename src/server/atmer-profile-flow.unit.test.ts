@@ -93,4 +93,17 @@ describe('assistant profile flow rules', () => {
     expect(skill).toMatch(/定向更正只列被指出的那一两个章节/);
     expect(CLAUDE).toMatch(/name the one or two chapters that may change/);
   });
+
+  it('installs Skills through the product installer, verifies them and states the timing', () => {
+    const section = CLAUDE.split('## Installing Skills')[1].split('\n## ')[0];
+    expect(section).toMatch(/Never copy folders into `\.claude\/skills\/` yourself/);
+    expect(section).toContain('myagents skill add <source> --dry-run');
+    expect(section).toContain('myagents skill list --verbose');
+    expect(section).toMatch(/Verify, don't assume/);
+    expect(section).toMatch(/next new conversation/);
+    // Every command written in the section exists in the CLI help with its flags.
+    const commands = fencedCommands(`\`\`\`bash\n${section.split('```bash')[1].split('```')[0]}\`\`\`\n`);
+    expect(commands.length).toBe(3);
+  });
 });
+
