@@ -34,8 +34,8 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import sys
-import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -154,12 +154,41 @@ def apply(text: str, edits: list[dict], allow: set[str] | None) -> tuple[str, li
     return render(preamble, sections), changed
 
 
+REPLACE_ATTEMPTS = 60
+
+
+def create_temp(path: Path) -> tuple[int, str]:
+    """A fresh temp file beside `path`. Not tempfile.mkstemp: on Windows it treats PermissionError
+    (a directory we may not write to) as a name collision and retries thousands of times, so a
+    read-only directory hangs instead of failing. Here only a real name collision retries."""
+    for _ in range(8):
+        name = str(path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp"))
+        try:
+            return os.open(name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), name
+        except FileExistsError:
+            continue
+    raise FileExistsError("could not create a unique temp file")
+
+
+def replace_file(source: str, target: Path) -> None:
+    """os.replace, retried briefly on Windows when another process (an indexer, a virus scanner,
+    a reader) holds the target open for a moment. Other errors are not retried."""
+    for attempt in range(REPLACE_ATTEMPTS):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if os.name != "nt" or attempt == REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(0.05)
+
+
 def write_atomic(path: Path, text: str) -> None:
-    handle, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    handle, name = create_temp(path)
     try:
         with os.fdopen(handle, "w", encoding="utf-8", newline="") as out:
             out.write(text)
-        os.replace(name, path)
+        replace_file(name, path)
     except BaseException:
         if os.path.exists(name):
             os.unlink(name)
@@ -173,7 +202,8 @@ def lock_path(path: Path) -> Path:
     """The lock sits beside the file it protects. It must not depend on anything that can differ
     between callers (a per-process temp directory, the working directory): every writer of one file
     has to reach the same lock. Only `.md` files are loaded as rules, so this dotfile is inert."""
-    return path.resolve().with_name(f".{path.name}.lock")
+    real = path.resolve()  # the name must come from the resolved path too, or a symlink gets its own lock
+    return real.with_name(f".{real.name}.lock")
 
 
 def try_lock(handle) -> bool:
@@ -238,7 +268,9 @@ def main() -> int:
     parser.add_argument("--show", action="store_true", help="print the file's sha256 and section titles")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
-    path = Path(args.file)
+    # Work on the real file everywhere (read, lock, atomic replace): replacing a symlink would
+    # turn it into a regular file and leave the file it pointed at unchanged.
+    path = Path(args.file).resolve()
     if args.show or args.dry_run:
         return run(args, path)
     try:
