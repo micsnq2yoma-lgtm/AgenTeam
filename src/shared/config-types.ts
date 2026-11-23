@@ -1018,6 +1018,11 @@ export interface AppConfig {
    *  字段时**特化分支**，不走默认 atomicModifyConfig（避免 disk/锁中间态打架，
    *  PRD §3.3 / D2）。 */
   forceWakeLock?: boolean;
+  /** A Task an assistant creates in a desktop chat reports back into that chat when it
+   *  finishes. Missing means on; `false` leaves only the desktop system notification.
+   *  Rust reads it (`task::notification::push_back_enabled`) and never writes it, so this
+   *  is an ordinary preference written through the normal config merge. */
+  taskResultPushBack?: boolean;
   /** Desired sources for the next recording. Missing means first-use
    * confirmation is still required; actual sources remain Rust preflight truth. */
   recordingSourceSelection?: {
@@ -2974,6 +2979,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   uiLanguage: 'system',
   minimizeToTray: true, // 默认开启最小化到托盘
   forceWakeLock: false, // 默认关闭常开阻睡（智能模式仍在跑，覆盖 AI 工作期间）
+  taskResultPushBack: true, // 默认开启：桌面聊天里创建的任务完成后回到该聊天汇报
   chatQueueResponseMode: 'realtime',
   showDevTools: false,
   showChatHistoryEntry: false,

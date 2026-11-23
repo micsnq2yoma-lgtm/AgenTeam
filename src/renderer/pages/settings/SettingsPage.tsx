@@ -5319,6 +5319,47 @@ export default function Settings({
                   </button>
                 </div>
 
+                {/* Task result push-back: an ordinary preference. Rust only reads
+                    config.json::taskResultPushBack (missing = on), so the normal
+                    updateConfig merge is the right writer. */}
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex-1 pr-4">
+                    <p className="text-sm font-medium text-[var(--ink)]">
+                      {tSettings('general.taskResultPushBackTitle')}
+                    </p>
+                    <p className="text-xs text-[var(--ink-muted)]">
+                      {tSettings('general.taskResultPushBackDescription')}
+                    </p>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={config.taskResultPushBack !== false}
+                    aria-label={tSettings('general.taskResultPushBackTitle')}
+                    onClick={() => {
+                      const next = config.taskResultPushBack === false;
+                      updateConfig({ taskResultPushBack: next });
+                      toast.success(
+                        next
+                          ? tSettings('general.taskResultPushBackEnabled')
+                          : tSettings('general.taskResultPushBackDisabled'),
+                      );
+                    }}
+                    className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors ${
+                      config.taskResultPushBack !== false
+                        ? 'bg-[var(--accent)]'
+                        : 'bg-[var(--line-strong)]'
+                    }`}
+                  >
+                    <span
+                      className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-[var(--toggle-thumb)] shadow transition-transform ${
+                        config.taskResultPushBack !== false
+                          ? 'translate-x-5'
+                          : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
                 {/* 始终阻止电脑睡眠 (PRD 0.2.35).
                                     副标题文案锁定 (D5):必须诚实告诉用户合盖照睡 + 更耗电,
                                     用户原话「在外面 AI 始终响应」直觉对应"合盖塞包"但 mac

@@ -272,4 +272,13 @@ describe('Ubuntu settings availability', () => {
     await waitFor(() => expect(toggle).toBeEnabled());
   });
 
+  it.each([undefined, true, false])('writes the Task result push-back switch from General (stored: %s; missing means on)', async (stored) => {
+    settingsMocks.config.taskResultPushBack = stored;
+    render(<ToastProvider><Settings mode="settings" initialSection="general" isActive /></ToastProvider>);
+    const toggle = await screen.findByRole('switch', { name: 'Report finished tasks in the chat' });
+    expect(toggle).toHaveAttribute('aria-checked', String(stored !== false));
+    fireEvent.click(toggle);
+    expect(settingsMocks.updateConfig).toHaveBeenCalledWith({ taskResultPushBack: stored === false });
+  });
+
 });
