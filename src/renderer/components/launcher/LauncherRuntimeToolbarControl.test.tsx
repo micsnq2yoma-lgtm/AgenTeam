@@ -57,4 +57,16 @@ describe('LauncherRuntimeToolbarControl', () => {
 
     expect(screen.getByRole('group', { name: 'Environment' })).toBeInTheDocument();
   });
+
+  it('says which runtime really executes while a model overrides the saved choice, and says nothing otherwise', () => {
+    const view = render(
+      <LauncherRuntimeToolbarControl runtime="codex" runtimeDetections={detections} onRuntimeChange={vi.fn()}
+        runtimeExecutionNote="由 Codex CLI 执行" />,
+    );
+    expect(screen.getByTestId('launcher-runtime-execution-note')).toHaveTextContent('由 Codex CLI 执行');
+    view.rerender(
+      <LauncherRuntimeToolbarControl runtime="dsh" runtimeDetections={detections} onRuntimeChange={vi.fn()} />,
+    );
+    expect(screen.queryByTestId('launcher-runtime-execution-note')).not.toBeInTheDocument();
+  });
 });

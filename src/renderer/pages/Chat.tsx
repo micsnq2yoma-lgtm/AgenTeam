@@ -3329,10 +3329,6 @@ export default function Chat({
         agentId: currentProject.agentId ?? null,
         isExternalRuntime,
         usesProductConfiguration: currentRuntime === 'dsh',
-        currentRuntimeConfig: currentAgent?.runtimeConfig,
-        currentRuntimePreference: currentAgent?.runtimePreference,
-        currentProviderId:
-          currentAgent?.providerId ?? currentProject.providerId,
         fields: {
           builtinSelection: patch.builtinSelection,
           builtinProviderEnvPolicy: patch.builtinProviderEnvPolicy,
@@ -3829,10 +3825,6 @@ export default function Chat({
         workspaceId: currentProject.id,
         agentId: currentProject.agentId ?? null,
         isExternalRuntime: false,
-        currentRuntimeConfig: currentAgent?.runtimeConfig,
-        currentRuntimePreference: currentAgent?.runtimePreference,
-        currentProviderId:
-          currentAgent?.providerId ?? currentProject.providerId,
         fields: { builtinModel: fallback },
         snapshotWriteMode: 'disabled',
         // Team AI defaults change only from Agent settings.
@@ -5256,12 +5248,6 @@ export default function Chat({
           workspaceId: currentProject.id,
           agentId: currentProject.agentId,
           isExternalRuntime: false,
-          currentRuntimeConfig: currentAgent?.runtimeConfig as
-            | RuntimeConfig
-            | undefined,
-          currentRuntimePreference: currentAgent?.runtimePreference,
-          currentProviderId:
-            currentAgent?.providerId ?? currentProject.providerId,
           fields: {
             ...(targetIntent.kind === 'runtime-backed-provider'
               ? {

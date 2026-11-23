@@ -25,6 +25,11 @@ function provider(id: string, primaryModel: string, models: string[]): Provider 
 }
 
 describe('runtime Provider projection', () => {
+  it('keeps a saved official Claude provider selectable on a DSH base', () => {
+    const official = provider('anthropic-sub', 'claude-example', ['claude-example']);
+    expect(projectProvidersForRuntime([official], 'dsh', official.id)).toEqual([official]);
+    expect(projectProvidersForRuntime([official], 'dsh', 'deepseek')).toEqual([]);
+  });
   it('shows API transports in DSH while keeping both official Claude choices on the SDK', () => {
     const ids = ['anthropic-sub', 'anthropic-api', 'xai-sub', 'antigravity-sub', 'deepseek'];
     const presets = PRESET_PROVIDERS.filter(candidate => ids.includes(candidate.id));
@@ -76,5 +81,21 @@ describe('hidden provider ids', () => {
     expect(platformHiddenProviderIds('darwin-arm64')).toEqual(['antigravity-sub']);
     expect(platformHiddenProviderIds('windows-x64')).toEqual(['antigravity-sub']);
     expect(platformHiddenProviderIds('linux-x64')).toEqual(['codex-sub', 'antigravity-sub']);
+  });
+});
+
+describe('describeExecutionRuntime', () => {
+  const provider = (id: string) => ({ id, name: id, models: [] }) as never;
+  it('tells a Codex subscription model apart from the DSH preference, and DSH returns with a portable model', async () => {
+    const { describeExecutionRuntime } = await import('../../shared/runtimeProviderProjection');
+    expect(describeExecutionRuntime('dsh', provider('codex-sub'))).toEqual({ runtime: 'codex', source: 'managed-provider' });
+    expect(describeExecutionRuntime('builtin', provider('codex-sub'))).toEqual({ runtime: 'codex', source: 'managed-provider' });
+    expect(describeExecutionRuntime('dsh', provider('deepseek'))).toEqual({ runtime: 'dsh' });
+    expect(describeExecutionRuntime('dsh', undefined)).toEqual({ runtime: 'dsh' });
+  });
+  it('shows a fixed-owner provider as the Claude Agent SDK under DSH, and ignores provider models under an External CLI', async () => {
+    const { describeExecutionRuntime } = await import('../../shared/runtimeProviderProjection');
+    expect(describeExecutionRuntime('dsh', provider('anthropic-sub'))).toEqual({ runtime: 'builtin' });
+    expect(describeExecutionRuntime('claude-code', provider('codex-sub'))).toEqual({ runtime: 'claude-code' });
   });
 });

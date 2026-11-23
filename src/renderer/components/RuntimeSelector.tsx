@@ -79,6 +79,8 @@ interface RuntimeSelectorProps {
   detectionFailed?: boolean;
   onDetectAgain?: () => void;
   onChange: (runtime: RuntimeType) => void;
+  /** Overrides the shown name when the same runtime type has another owner (Managed Codex under the Codex type). */
+  valueLabel?: string;
   variant?: 'launcher' | 'panel';
   onOpenSettings?: () => void;
   disabled?: boolean;
@@ -95,6 +97,7 @@ export default memo(function RuntimeSelector({
   detectionFailed = false,
   onDetectAgain,
   onChange,
+  valueLabel,
   variant = 'launcher',
   onOpenSettings,
   disabled = false,
@@ -160,11 +163,11 @@ export default memo(function RuntimeSelector({
           ? 'cursor-not-allowed opacity-50'
           : 'hover:bg-[var(--hover-bg)] hover:text-[var(--ink)] hover:[--runtime-icon-surface:var(--hover-bg)]'
         }`}
-        title={disabled ? disabledReason : `Runtime: ${currentOption.name}`}
+        title={disabled ? disabledReason : `Runtime: ${valueLabel ?? currentOption.name}`}
       >
         <span className={`flex min-w-0 items-center ${variant === 'panel' ? 'gap-3' : 'gap-1.5'}`}>
           <RuntimeIcon type={value} size={16} />
-          <span className="truncate">{variant === 'panel' ? currentOption.name : currentOption.shortName}</span>
+          <span className="truncate">{valueLabel ?? (variant === 'panel' ? currentOption.name : currentOption.shortName)}</span>
         </span>
         {variant === 'panel' && (
           <ChevronUpIcon className={`h-3 w-3 shrink-0 text-[var(--ink-muted)] transition-transform ${menuOpen ? '' : 'rotate-180'}`} />

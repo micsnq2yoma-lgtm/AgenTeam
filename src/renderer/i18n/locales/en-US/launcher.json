@@ -16,7 +16,10 @@
     "archiveFailed": "Archive failed. Please try again.",
     "unarchiveFailed": "Unarchive failed. Please try again.",
     "openFolderFailed": "Failed to open containing folder.",
-    "noProvider": "No available provider. Configure one in Settings first."
+    "noProvider": "No available provider. Configure one in Settings first.",
+    "runtimeSwitchedByModel": "This model only runs on {{runtime}}, so {{runtime}} will run this message. Your saved choice is still {{preferred}}.",
+    "runtimeBackToPreferred": "Back to {{runtime}}, your saved Runtime.",
+    "runtimePinnedByModel": "Your saved Runtime is already {{preferred}}, but the selected model only runs on {{runtime}}. Pick another model to use {{preferred}}."
   },
   "dialogs": {
     "pickProjectFolder": "Choose project folder",
@@ -248,5 +251,6 @@
         "hireIn": "Enlist crew for {{project}}"
       }
     }
-  }
+  },
+  "runtimeExecutedBy": "Run by {{runtime}}"
 }
