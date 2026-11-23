@@ -723,12 +723,14 @@ function invalidateExternalMcpProjection(): void {
 
 function applyPendingExternalProcessConfigInvalidation(
   preservePromotion?: ExternalTurnPromotionToken | null,
+  restartForPermissionMode = false,
 ): Promise<void> {
   if (externalProcessConfigInvalidationInFlight) {
     return externalProcessConfigInvalidationInFlight;
   }
 
   const reasons = pendingExternalProcessConfigRestartReasons();
+  if (restartForPermissionMode) reasons.push('permission-mode');
   if (reasons.length === 0) return Promise.resolve();
   const proxyOriginalKey = pendingExternalProxyRestartOriginalKey;
 
@@ -3376,6 +3378,14 @@ async function applyExternalRuntimeConfigAtBoundary(
   source: ExternalConfigSource,
 ): Promise<ExternalConfigApplyResult> {
   applyDesiredExternalRuntimeConfigPatch(patch);
+  if (patch.permissionMode !== undefined && getExternalActiveProcess()?.requiresPermissionModeRestart?.(patch.permissionMode)) {
+    try {
+      await applyPendingExternalProcessConfigInvalidation(undefined, true);
+      return { warnings: [] };
+    } catch (error) {
+      return { warnings: [], error: error instanceof Error ? error.message : String(error) };
+    }
+  }
   return applyExternalRuntimeConfigToActiveProcess(patch, source);
 }
 
@@ -6007,12 +6017,15 @@ async function dispatchExternalMessageOperation(
   // A previous config change may have reached a terminal boundary while the
   // old process could not be stopped. Never let a later send silently reuse
   // that invalid prompt/env owner: retry invalidation before selecting Case 3.
+  const turnPermissionMode = _permissionMode ?? context?.permissionMode ?? getExternalRuntimeDesiredPermissionMode();
+  const restartForPermissionMode = getExternalActiveProcess()?.requiresPermissionModeRestart?.(turnPermissionMode);
   if (
+    restartForPermissionMode ||
     externalProcessConfigInvalidationInFlight ||
     pendingExternalProcessConfigRestartReasons().length > 0
   ) {
     try {
-      await applyPendingExternalProcessConfigInvalidation(dispatchPromotion);
+      await applyPendingExternalProcessConfigInvalidation(dispatchPromotion, restartForPermissionMode);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (dispatchPromotion) finishExternalTurnPromotion(dispatchPromotion);
@@ -6132,8 +6145,7 @@ async function dispatchExternalMessageOperation(
         initialRuntimeMessage: runtimeText,
         initialImages: hasImages ? resolvedImages : undefined,
         model: context.model ?? getExternalRuntimeDesiredModel(),
-        permissionMode:
-          context.permissionMode ?? getExternalRuntimeDesiredPermissionMode(),
+        permissionMode: turnPermissionMode,
         reasoningEffort: resolveTurnReasoningEffort(context),
         scenario: context.scenario,
         analyticsSource: turnAnalyticsSource,
@@ -6195,8 +6207,6 @@ async function dispatchExternalMessageOperation(
         : getExternalRuntimeSessionId();
     const nextScenario = context?.scenario ?? getExternalLifecycleScenario();
     const nextModel = context?.model ?? getExternalRuntimeDesiredModel();
-    const nextPermissionMode =
-      context?.permissionMode ?? getExternalRuntimeDesiredPermissionMode();
     console.log(
       `[external-session] Previous process exited, resuming ${runtimeType} session ${JSON.stringify(summarizeSensitiveValueForLog(resumeId))}`,
     );
@@ -6219,7 +6229,7 @@ async function dispatchExternalMessageOperation(
         initialRuntimeMessage: runtimeText,
         initialImages: hasImages ? resolvedImages : undefined,
         model: nextModel,
-        permissionMode: nextPermissionMode,
+        permissionMode: turnPermissionMode,
         reasoningEffort: resolveTurnReasoningEffort(context), // #324
         scenario: nextScenario,
         analyticsSource: turnAnalyticsSource,
@@ -6291,10 +6301,7 @@ async function dispatchExternalMessageOperation(
       normalizeExternalRuntimeConfigPatch(
         {
           model: _model ?? context?.model ?? getExternalRuntimeDesiredModel(),
-          permissionMode:
-            _permissionMode ??
-            context?.permissionMode ??
-            getExternalRuntimeDesiredPermissionMode(),
+          permissionMode: turnPermissionMode,
           reasoningEffort: resolveTurnReasoningEffort(context),
         },
         'message-snapshot',
