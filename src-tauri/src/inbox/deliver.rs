@@ -607,6 +607,16 @@ pub(crate) async fn prepare_existing_delivery(app:&AppHandle,manager:&ManagedSid
     prepare_delivery(app,manager,message,Some(path),SessionBirthPolicy::ExistingOnly,|session|
         crate::sidecar::runtime_identity::resolve_session_runtime_identity_full(session).is_some()).await
 }
+/// Deliver only into a Session whose Sidecar is already running. Unlike
+/// `prepare_existing_delivery` it has no workspace path to resume from, so a
+/// Session without a live process is `SessionNotFound` and is never woken. Used
+/// by Task results that push back into a desktop chat: the chat being closed
+/// is an answer, not a reason to start a process.
+pub(crate) async fn prepare_live_only_delivery(app:&AppHandle,manager:&ManagedSidecarManager,message:PendingInboxMessage)
+    ->Result<PreparedDelivery,DeliverOutcome> {
+    prepare_delivery(app,manager,message,None,SessionBirthPolicy::ExistingOnly,|session|
+        crate::sidecar::runtime_identity::resolve_session_runtime_identity_full(session).is_some()).await
+}
 async fn prepare_delivery<F:FnOnce(&str)->bool>(app:&AppHandle,manager:&ManagedSidecarManager,message:PendingInboxMessage,
     path:Option<std::path::PathBuf>,birth_policy:SessionBirthPolicy,metadata_exists:F)->Result<PreparedDelivery,DeliverOutcome> {
     let to_sid=message.to_session_id.clone();

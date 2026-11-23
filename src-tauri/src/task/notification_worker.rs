@@ -148,6 +148,85 @@ async fn finish(
         .map(|_| ())
 }
 
+/// Push a Task result into the desktop chat that created the Task. The chat is
+/// never woken: no live Sidecar means the delivery is suppressed (the desktop
+/// system notification still fired when the Task finished).
+async fn process_session(
+    app: &tauri::AppHandle,
+    store: &TaskStore,
+    task: &Task,
+    d: NotificationDelivery,
+    session_id: &str,
+) -> Result<(), String> {
+    let manager = app.state::<crate::sidecar::ManagedSidecarManager>();
+    let exists =
+        crate::sidecar::runtime_identity::resolve_session_runtime_identity_full(session_id)
+            .is_some();
+    let live = manager
+        .lock()
+        .is_ok_and(|state| state.session_has_owners(session_id));
+    match session_verdict(exists, live) {
+        SessionVerdict::Gone => {
+            return finish(store, task, &d, DeliveryState::Suppressed, Some("session-gone".into())).await
+        }
+        SessionVerdict::Inactive => {
+            return finish(store, task, &d, DeliveryState::Suppressed, Some("session-inactive".into())).await
+        }
+        SessionVerdict::Deliver => {}
+    }
+    let attempt = d.attempt_id.clone().ok_or("Missing notification attempt")?;
+    let same_session = d.execution_session_id.as_deref() == Some(session_id);
+    let status_only = !d.events.iter().any(|e| e == "execution");
+    store
+        .mutate_notification(&task.id, &d.id, Some(&attempt), |current| {
+            if current.state != DeliveryState::Waiting {
+                return Err("Notification is no longer waiting".into());
+            }
+            current.state = DeliveryState::Preparing;
+            current.target_session_id = Some(session_id.to_string());
+            Ok(())
+        })
+        .await?;
+    let mut message = crate::inbox::PendingInboxMessage::new_request(
+        d.execution_session_id
+            .clone()
+            .unwrap_or_else(|| session_id.to_string()),
+        "Task result".into(),
+        session_id.to_string(),
+        d.result.clone(),
+        false,
+    );
+    message.kind = crate::inbox::InboxMessageKind::Event;
+    message.message_id = attempt.clone();
+    message.session_event = Some(serde_json::json!({
+        "version": 1, "type": "task.result", "eventId": attempt,
+        "createdAt": chrono::Utc::now().to_rfc3339(),
+        "sourceSessionId": d.execution_session_id, "targetSessionId": session_id,
+        "taskId": task.id, "deliveryId": d.id, "attemptId": attempt,
+        "target": {"kind": "session", "sessionId": session_id},
+        "title": d.title, "payload": d.result,
+        "statusOnly": status_only, "sameSession": same_session
+    }));
+    let outcome = match crate::inbox::deliver::prepare_live_only_delivery(app, manager.inner(), message).await {
+        Ok(prepared) => prepared.admit(app, None, || Ok(())).await,
+        Err(outcome) => outcome,
+    };
+    match outcome {
+        crate::inbox::deliver::DeliverOutcome::Delivered { .. } => Ok(()),
+        crate::inbox::deliver::DeliverOutcome::Unconfirmed { reason } => {
+            finish(store, task, &d, DeliveryState::Unknown, Some(reason)).await
+        }
+        // The process went away between the check and the handoff: same answer
+        // as the check, and still not a reason to start one.
+        crate::inbox::deliver::DeliverOutcome::SessionNotFound => {
+            finish(store, task, &d, DeliveryState::Suppressed, Some("session-inactive".into())).await
+        }
+        other => {
+            finish(store, task, &d, DeliveryState::Failed, Some(format!("Notification admission failed: {other:?}"))).await
+        }
+    }
+}
+
 async fn process(
     app: &tauri::AppHandle,
     store: &TaskStore,
@@ -167,6 +246,9 @@ async fn process(
             Ok(())
         })
         .await?;
+    if let Some(NotificationTarget::Session { session_id }) = d.policy.im.clone() {
+        return process_session(app, store, task, d, &session_id).await;
+    }
     let agents = app.try_state::<ManagedAgents>();
     let bots = app.try_state::<ManagedImBots>();
     if d.target.is_none() {

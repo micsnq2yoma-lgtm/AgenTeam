@@ -9,6 +9,11 @@ pub(super) struct SourceContext {
     queue_id: String,
     task_id: Option<String>,
     conversation: Option<ConversationRef>,
+    /// The Node host says this turn belongs to a user-visible desktop chat. The
+    /// Session id is never taken from the payload: Rust uses the authenticated
+    /// caller's own Session.
+    #[serde(default)]
+    desktop_session: bool,
 }
 
 pub(super) async fn creation_context(
@@ -49,11 +54,13 @@ pub(super) async fn creation_context(
         ),
         None => None,
     };
+    let session = (context.desktop_session && context.conversation.is_none())
+        .then(|| source.product_session_id.clone());
     Ok(CreationContext {
         conversation: context.conversation,
         parent_policy,
         allowed_channels: Some(allowed_channels),
-        session: None,
+        session,
         run_once: false,
     })
 }
@@ -100,6 +107,17 @@ async fn checked_record(
 pub(super) async fn authorize(headers: HeaderMap, Json(request): Json<Receipt>) -> Json<Value> {
     let result = async {
         let d = checked_record(&headers, &request).await?;
+        if let Some(task::notification::NotificationTarget::Session { session_id }) = d.policy.im.as_ref() {
+            // A Session target is re-checked at the last moment: the chat may
+            // have been closed or deleted since the delivery was prepared.
+            let exists = crate::sidecar::runtime_identity::resolve_session_runtime_identity_full(session_id).is_some();
+            let live = get_sidecar_state().is_some_and(|manager| manager.lock().is_ok_and(|state| state.session_has_owners(session_id)));
+            return Ok(match task::notification::session_verdict(exists, live) {
+                task::notification::SessionVerdict::Deliver => json!({"ok":true,"accepted":true}),
+                task::notification::SessionVerdict::Gone => json!({"ok":true,"accepted":false,"code":"suppressed","error":"session-gone"}),
+                task::notification::SessionVerdict::Inactive => json!({"ok":true,"accepted":false,"code":"suppressed","error":"session-inactive"}),
+            });
+        }
         let address = d.target.ok_or("Notification target missing")?;
         let channel = im::task_notification::channel(&address.channel_id)?;
         if channel.agent_id != d.agent_id { return Err("Notification Channel ownership changed".into()); }

@@ -119,6 +119,26 @@ impl TryFrom<serde_json::Value> for NotificationTarget {
     }
 }
 
+/// What to do with a Session-targeted delivery. Pure so the decision table is
+/// testable without a running app; the caller supplies the two facts it
+/// verified (durable existence, and a live Sidecar owned by someone).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionVerdict {
+    Deliver,
+    /// The chat was deleted. Final: nothing to push into.
+    Gone,
+    /// The chat exists but no process is running (closed). Not woken.
+    Inactive,
+}
+
+pub fn session_verdict(exists: bool, live: bool) -> SessionVerdict {
+    match (exists, live) {
+        (false, _) => SessionVerdict::Gone,
+        (true, false) => SessionVerdict::Inactive,
+        (true, true) => SessionVerdict::Deliver,
+    }
+}
+
 /// Events a Session-targeted Task reports by default: the end of the work, not
 /// every round of it, so a push costs one reply per Task.
 pub const SESSION_DEFAULT_EVENTS: &[&str] = &["done", "blocked"];
@@ -262,11 +282,14 @@ pub fn normalize_create(
             }
             Some(target) => (target, "explicit"),
             None if context.parent_policy.is_some() => (
-                context
-                    .parent_policy
-                    .as_ref()
-                    .and_then(|p| p.im.clone())
-                    .unwrap_or_default(),
+                // A Session target is the chat that started the work, not an
+                // authority a Task hands on: a follow-up Task created by a Task
+                // (or by the turn a push started) must not push into that chat
+                // again, or one request becomes an endless chain of replies.
+                match context.parent_policy.as_ref().and_then(|p| p.im.clone()) {
+                    Some(NotificationTarget::Session { .. }) | None => NotificationTarget::Off,
+                    Some(target) => target,
+                },
                 "parent-task",
             ),
             None if context.conversation.is_some() => (
@@ -815,6 +838,33 @@ mod tests {
             run_once,
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn the_session_verdict_never_asks_to_wake_a_chat() {
+        assert_eq!(session_verdict(true, true), SessionVerdict::Deliver);
+        assert_eq!(session_verdict(true, false), SessionVerdict::Inactive);
+        assert_eq!(session_verdict(false, true), SessionVerdict::Gone);
+        assert_eq!(session_verdict(false, false), SessionVerdict::Gone);
+    }
+
+    #[test]
+    fn a_task_created_by_a_pushed_task_does_not_push_again() {
+        let parent = policy(json!({"version":1,"im":{"type":"session","sessionId":"desktop-session"},"events":["done"]}));
+        let context = CreationContext {
+            parent_policy: Some(parent),
+            // Even a fresh desktop source must not turn a Task-created Task into a chat push.
+            session: None,
+            run_once: true,
+            ..Default::default()
+        };
+        let child = normalize_create(None, &context).unwrap();
+        assert_eq!(child.im, Some(NotificationTarget::Off));
+        assert_eq!(child.source.as_deref(), Some("parent-task"));
+        // An IM parent target is still inherited, as before.
+        let im_parent = policy(json!({"version":1,"im":{"type":"conversation","channelId":"feishu-1","sessionKey":"group:one"}}));
+        let inherited = normalize_create(None, &CreationContext { parent_policy: Some(im_parent), ..Default::default() }).unwrap();
+        assert!(matches!(inherited.im, Some(NotificationTarget::Conversation { .. })));
     }
 
     #[test]
