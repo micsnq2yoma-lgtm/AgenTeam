@@ -1850,6 +1850,7 @@ export function resolveWorkspaceConfig(
 
   const agentProviderId = agent?.providerId as string | undefined;
   const agentUsesRuntimeBackedProvider = agentUsesManagedCodexProvider({
+    runtimePreference: agent?.runtimePreference,
     providerId: agentProviderId,
     runtime: typeof agent?.runtime === 'string' ? agent.runtime : undefined,
     runtimeConfig: agent?.runtimeConfig as { source?: string } | undefined,

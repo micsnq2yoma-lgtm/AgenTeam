@@ -3,9 +3,10 @@ import {
   getProviderExecutionConstraint,
   isDshModelSelectable,
   isDshProviderEligible,
+  providerRequiresClaudeSdk,
 } from './integrated-runtimes/provider-constraints';
 import { isRuntimeBackedProvider, isRuntimeBackedProviderId } from './providerExecution';
-import type { RuntimeType, RuntimeSource } from './types/runtime';
+import { resolveEffectiveRuntime, type RuntimeType, type RuntimeSource } from './types/runtime';
 import { resolveAgentRuntimePreference } from './integrated-runtimes/identity';
 import { AGENT_RUNTIME_DISTRIBUTION_POLICY, resolveDefaultIntegratedRuntime } from './integrated-runtimes/distribution-policy';
 
@@ -25,17 +26,35 @@ export function platformHiddenProviderIds(platform: string): readonly string[] {
 export function projectProvidersForRuntime(
   providers: readonly Provider[],
   runtime: RuntimeType,
+  selectedProviderId?: string | null,
 ): Provider[] {
   if (runtime !== 'dsh') return [...providers];
-  return providers.flatMap((provider) => {
-    // Managed Provider Runtimes remain first-class choices in the Product
-    // picker. Selecting one crosses a Session boundary and never asks DSH to
-    // execute the provider/model pair itself.
-    if (isRuntimeBackedProvider(provider)) {
-      return [provider];
-    }
-    return isDshProviderEligible(provider) ? [provider] : [];
+  return providers.filter((provider) => {
+    // Keep a selected fixed-owner model across a base change. It runs with its own executor.
+    return isRuntimeBackedProvider(provider)
+      || (provider.id === selectedProviderId && providerRequiresClaudeSdk(provider.id))
+      || isDshProviderEligible(provider);
   });
+}
+
+/**
+ * The runtime a person should be told executes a message. The carrier runtime
+ * (`resolveEffectiveRuntime`) keeps Managed Codex under `builtin` for historical
+ * renderer configuration, which would read as "Claude" for a Codex subscription
+ * model. For display, a runtime-backed provider under an Integrated preference
+ * executes on Codex, owned by the managed provider; an External CLI preference
+ * ignores provider models and stays as chosen.
+ */
+export function describeExecutionRuntime(
+  preferredRuntime: RuntimeType,
+  provider: Provider | undefined,
+): { runtime: RuntimeType; source?: RuntimeSource } {
+  const external = preferredRuntime !== 'builtin' && preferredRuntime !== 'dsh';
+  if (!external && provider && isRuntimeBackedProvider(provider)) {
+    return { runtime: 'codex', source: 'managed-provider' };
+  }
+  // Fixed-owner providers (Anthropic, Grok) still execute on the Claude Agent SDK under DSH.
+  return { runtime: resolveEffectiveRuntime(preferredRuntime, undefined, undefined, provider?.id) };
 }
 
 export function isProviderModelCompatibleWithRuntime(

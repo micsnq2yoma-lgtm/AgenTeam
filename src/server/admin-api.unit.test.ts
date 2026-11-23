@@ -2225,6 +2225,25 @@ describe('admin-api agent set configuration intent', () => {
     );
   });
 
+  it.each([
+    { runtime: 'builtin', runtimePreference: { family: 'integrated', id: 'dsh' }, base: 'dsh' },
+    { runtime: 'codex', runtimePreference: undefined, base: 'builtin' },
+  ])('restores the integrated base when the CLI leaves managed Codex ($runtime)', async ({ runtime, runtimePreference, base }) => {
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
+      providerApiKeys: { deepseek: 'fixture-key' },
+      agents: [{
+        id: 'managed', name: 'Managed', providerId: 'codex-sub', runtime, runtimePreference,
+        runtimeConfig: { ...(runtime === 'codex' ? { source: 'managed-provider' } : {}), reasoningEffort: 'high' },
+      }],
+    });
+    const { handleAgentSet } = await import('./admin-api');
+    const result = await handleAgentSet({ id: 'managed', key: 'providerId', value: 'deepseek' });
+    expect(result.success, result.error).toBe(true);
+    const saved = (readConfig().agents as Record<string, unknown>[])[0];
+    expect(saved).toMatchObject({ providerId: 'deepseek', runtime: base });
+    expect(saved).not.toHaveProperty('runtimeConfig');
+  });
+
   it('writes DSH runtimePreference atomically with the legacy Runtime projection', async () => {
     writeJson(join(scratch, '.agenteam', 'config.json'), {
       agents: [{
@@ -2257,6 +2276,8 @@ describe('admin-api agent set configuration intent', () => {
         agentId: 'agent-runtime-dsh',
         patch: {
           runtime: 'dsh',
+          // AgenTeam keeps following the global default permission when the Agent has no explicit one,
+          // so a runtime change does not pin a permissionMode (upstream does).
           runtimeConfig: null,
           runtimePreference: { family: 'integrated', id: 'dsh' },
         },
@@ -2753,6 +2774,22 @@ describe('admin-api agent set configuration intent', () => {
     expect(readConfig()).toEqual(config);
     expect(readJson(join(scratch, '.agenteam', 'projects.json'))).toEqual(projects);
     expect(managementApiMocks.managementApi).not.toHaveBeenCalled();
+  });
+
+  it('shows the inherited DSH default after the CLI switches away from a managed model', async () => {
+    const workspacePath = '/tmp/myagents-inherit-dsh';
+    writeJson(join(scratch, '.agenteam', 'config.json'), {
+      defaultIntegratedRuntime: 'dsh', providerApiKeys: { deepseek: 'fixture-key' },
+      agents: [{ id: 'inherit', name: 'Inherited', workspacePath, providerId: 'codex-sub' }],
+    });
+    writeJson(join(scratch, '.agenteam', 'projects.json'), [
+      { id: 'ws', name: 'Inherited', path: workspacePath, agentId: 'inherit' },
+    ]);
+    const { handleAgentSet, handleAgentShow } = await import('./admin-api');
+    expect(await handleAgentSet({ id: 'inherit', key: 'providerId', value: 'deepseek' })).toMatchObject({ success: true });
+    expect(await handleAgentShow({ id: 'inherit' })).toMatchObject({
+      success: true, data: { effectiveDefaults: { runtime: 'dsh', providerId: 'deepseek' } },
+    });
   });
 
   it('shows managed Codex as its effective runtime instead of the stored builtin carrier', async () => {

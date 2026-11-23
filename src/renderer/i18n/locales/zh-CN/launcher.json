@@ -16,7 +16,10 @@
     "archiveFailed": "归档失败，请重试",
     "unarchiveFailed": "取消归档失败，请重试",
     "openFolderFailed": "打开所在文件夹失败",
-    "noProvider": "没有可用的 Provider，请先在设置中配置"
+    "noProvider": "没有可用的 Provider，请先在设置中配置",
+    "runtimeSwitchedByModel": "这个模型只能由 {{runtime}} 运行，本次将用 {{runtime}} 执行；你保存的运行环境仍是 {{preferred}}。",
+    "runtimeBackToPreferred": "已回到你保存的运行环境：{{runtime}}。",
+    "runtimePinnedByModel": "你保存的运行环境已经是 {{preferred}}，但当前选的模型只能由 {{runtime}} 运行。换一个模型即可使用 {{preferred}}。"
   },
   "dialogs": {
     "pickProjectFolder": "选择项目文件夹",
@@ -248,5 +251,6 @@
         "hireIn": "为「{{project}}」招募舰员"
       }
     }
-  }
+  },
+  "runtimeExecutedBy": "由 {{runtime}} 执行"
 }

@@ -1,1 +1,1 @@
-export { projectProvidersForRuntime, isProviderModelCompatibleWithRuntime } from '../../shared/runtimeProviderProjection';
+export { projectProvidersForRuntime, isProviderModelCompatibleWithRuntime, describeExecutionRuntime } from '../../shared/runtimeProviderProjection';

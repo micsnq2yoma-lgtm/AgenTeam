@@ -135,6 +135,10 @@ interface BrandSectionProps {
   /** All runtimes (builtin + external) so the row's chip shows the full picture.
    *  Distinct from `runtime` which is the *external* runtime when in external mode. */
   activeRuntime?: RuntimeType;
+  /** Shown beside the runtime picker while a model makes another runtime execute. */
+  runtimeExecutionNote?: string;
+  /** Name shown on the runtime picker when it differs from the type's own (Managed Codex). */
+  activeRuntimeLabel?: string;
   /** Only the visible Launcher tab may respond to window-wide Tauri drag events. */
   isActive: boolean;
 }
@@ -207,6 +211,8 @@ export default memo(function BrandSection({
   onRuntimeDetectAgain,
   onRuntimeChange,
   activeRuntime,
+  runtimeExecutionNote,
+  activeRuntimeLabel,
   isActive,
 }: BrandSectionProps) {
   const { t, i18n } = useTranslation('launcher');
@@ -442,10 +448,12 @@ export default memo(function BrandSection({
         runtimeDetecting={runtimeDetecting}
         runtimeDetectionFailed={runtimeDetectionFailed}
         onRuntimeDetectAgain={onRuntimeDetectAgain}
+        runtimeExecutionNote={runtimeExecutionNote}
+        runtimeLabel={activeRuntimeLabel}
         onRuntimeChange={onRuntimeChange}
       />
     ) : null
-  ), [runtimeSelectorAvailable, activeRuntime, runtimeDetections, runtimeDetecting, runtimeDetectionFailed, onRuntimeDetectAgain, onRuntimeChange]);
+  ), [runtimeSelectorAvailable, activeRuntime, runtimeExecutionNote, activeRuntimeLabel, runtimeDetections, runtimeDetecting, runtimeDetectionFailed, onRuntimeDetectAgain, onRuntimeChange]);
 
   const handleSlashAction = useCallback((name: string) => {
     if (name !== 'goal' && name !== 'loop') return;

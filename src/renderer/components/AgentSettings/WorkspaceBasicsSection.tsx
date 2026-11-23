@@ -26,7 +26,7 @@ import RuntimeSelector from '../RuntimeSelector';
 import { PermissionModeIcon, PermissionModeMenuContent, type PermissionModeMenuItem } from '../PermissionModeMenu';
 import { Popover } from '../ui/Popover';
 import type { RuntimeType, RuntimeConfig } from '../../../shared/types/runtime';
-import { ANTIGRAVITY_FULL_ACCESS, getDefaultRuntimePermissionMode, getRuntimePermissionModes, isAgentRuntimeSelectorAvailable, projectPermissionModeForRuntime, resolveEffectiveRuntime } from '../../../shared/types/runtime';
+import { ANTIGRAVITY_FULL_ACCESS, getDefaultRuntimePermissionMode, getRuntimePermissionModes, isAgentRuntimeSelectorAvailable, projectPermissionModeForRuntime, resolveAgentRuntimeSelection, resolveEffectiveRuntime } from '../../../shared/types/runtime';
 import { getDefaultNewSessionPermissionMode } from '../../../shared/runtimeBirthFields';
 import { agentUsesManagedCodexProvider, toProviderExecutionIntent } from '../../../shared/providerExecution';
 import { useRuntimeModelCatalog } from '@/hooks/useRuntimeModelCatalog';
@@ -84,24 +84,19 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
   const runtimeDetection = useRuntimeDetections();
   // Unset Agents follow the root default; explicit choices remain authoritative.
   const agentRuntimeConfig = agent?.runtimeConfig as RuntimeConfig | undefined;
-  const currentRuntime: RuntimeType = resolveEffectiveRuntime(
-    agent?.runtime,
-    agent?.runtimePreference,
-    agent?.runtimeConfig?.source,
-    agent?.providerId,
-    undefined,
-    config.defaultIntegratedRuntime,
-  );
+  // The Agent's saved preference. A model that needs another executor changes currentRuntime, never this.
+  const selectedRuntime = resolveAgentRuntimeSelection(agent, config.defaultIntegratedRuntime);
+  const usesManagedCodexProvider = agentUsesManagedCodexProvider(agent);
+  const effectiveProviderId = agent?.providerId ?? project?.providerId;
+  const currentRuntime = resolveEffectiveRuntime(selectedRuntime, undefined, undefined, effectiveProviderId);
   const runtimeSelectorAvailable = isAgentRuntimeSelectorAvailable();
-  const usesManagedCodexProvider = currentRuntime === 'builtin'
-    && agentUsesManagedCodexProvider(agent);
-  const usesExternalCliConfiguration = currentRuntime !== 'builtin' && currentRuntime !== 'dsh';
+  const usesExternalCliConfiguration = selectedRuntime !== 'builtin' && selectedRuntime !== 'dsh';
   const usesProductConfiguration = !usesExternalCliConfiguration;
   const isAntigravity = currentRuntime === 'antigravity';
   const antigravityCatalog = useRuntimeModelCatalog(isAntigravity ? 'antigravity' : undefined, openPopup === 'model');
   const availableProviders = useMemo(
-    () => projectProvidersForRuntime(credentialedProviders, currentRuntime),
-    [credentialedProviders, currentRuntime],
+    () => projectProvidersForRuntime(credentialedProviders, selectedRuntime, effectiveProviderId),
+    [credentialedProviders, selectedRuntime, effectiveProviderId],
   );
 
   // Sync name when canonical name changes externally
@@ -285,7 +280,6 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
   // "⚠ 暂不可用" hint when the saved provider fails `isProviderAvailable`.
   // This is cheaper than an automatic rewrite and keeps persistence as
   // the single source of truth for what was actually saved.
-  const effectiveProviderId = agent?.providerId ?? project?.providerId;
   const effectiveModel = agent?.model ?? project?.model;
   const selectedProvider = providers.find(p => p.id === effectiveProviderId);
   const isSelectedProviderAvailable = selectedProvider
@@ -408,7 +402,7 @@ export default function WorkspaceBasicsSection({ project, agent, agentDir }: Wor
             <label className="w-16 shrink-0 text-sm text-[var(--ink-muted)]">{t('agentSettings.basics.runtime')}</label>
             <div className="min-w-0 flex-1">
               <RuntimeSelector
-                value={currentRuntime}
+                value={selectedRuntime}
                 detections={runtimeDetection.detections}
                 detecting={runtimeDetection.detecting}
                 detectionFailed={runtimeDetection.detectionFailed}
