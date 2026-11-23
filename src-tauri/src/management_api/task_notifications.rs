@@ -53,6 +53,8 @@ pub(super) async fn creation_context(
         conversation: context.conversation,
         parent_policy,
         allowed_channels: Some(allowed_channels),
+        session: None,
+        run_once: false,
     })
 }
 
