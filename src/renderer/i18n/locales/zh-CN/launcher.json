@@ -251,6 +251,5 @@
         "hireIn": "为「{{project}}」招募舰员"
       }
     }
-  },
-  "runtimeExecutedBy": "由 {{runtime}} 执行"
+  }
 }

@@ -158,7 +158,6 @@ import {
   runFloatingBallToggleTransaction,
 } from '@/floating-ball/nativeFloatingBall';
 import {
-  MYAGENTS_RELEASES_URL,
   PLAYWRIGHT_DEVICE_PRESETS,
 } from './settingsSections';
 import {
@@ -5886,12 +5885,6 @@ export default function Settings({
                         )}
                       </button>
                     )}
-                    <ExternalLink
-                      href={MYAGENTS_RELEASES_URL}
-                      className="rounded-lg bg-[var(--paper-inset)] px-2 py-0.5 text-xs text-[var(--ink-secondary)] transition-colors hover:bg-[var(--paper-elevated)]"
-                    >
-                      {tSettings('about.releaseNotes')}
-                    </ExternalLink>
                   </div>
                   <p className="mt-3 text-base text-[var(--ink-secondary)]">
                     {brandSlogans[resolveSupportedLocale(i18n.resolvedLanguage)]}
