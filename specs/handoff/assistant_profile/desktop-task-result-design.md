@@ -74,6 +74,8 @@ Task 结果通知已经有完整链路，但目标只有 IM：
 4. **防链条**：由 `task.result` 触发的那一轮里新建的 Task，默认**不**推回（`off`），除非明确要求。否则"助理收到结果 → 创建新 Task → 又推送"会无限延伸。
 5. **闲置缓存**：聊天闲置很久后缓存过期，这一轮要重读上下文。接受这个代价，不为它另做机制；全局开关可关闭。
 
+**实测用量（2026-11-23 独立验收，DeepSeek `deepseek-flash[1m]`，见 `acceptance/independent/DESKTOP-PUSH.md`）：** 一次推送回合的非缓存输入 572–2,929 token，输出 461–1,073 token，缓存命中输入约 16.2–16.8 万 token（按缓存折扣计费）。上文"几百到两千 / 一两百"的早期估计偏乐观；一次推送更接近"一次带完整上下文的短对话"，输出比估计高数倍。冷缓存（聊天闲置后缓存过期）的单次数值**没有取得**，缓存全部未命中时这一轮要按整段上下文计费，是真实但未量化的成本；全局开关 `taskResultPushBack` 是控制手段。
+
 ### 3.5 开关
 
 - 创建时单个 Task 可关闭（见 §3.2 显式参数）。
@@ -158,3 +160,12 @@ Task 结果通知已经有完整链路，但目标只有 IM：
 5. 独立验收 P1–P7。
 
 每步完成并 CI 全绿后再进下一步；跨 Rust / Node 的步骤按 `session_architecture.md` 的 Inbox 章节和 `task_center.md` 的通知章节同步更新文档。
+
+## 验收结论与已知偏差（2026-11-23，AgenTeam 0.6.9，有条件通过）
+
+真实桌面、真实模型（DeepSeek 与 Codex 各一次 P1）下整条链路成立：隐藏的 `task.result`（`target_kind=session`）自动回到聊天并按画像流程汇报；聊天关闭为 `session-inactive`、删除为 `session-gone`，均不重试、不唤醒 Sidecar；设置页开关与 `config.json` 一致，字符串 `"no"` 仍视为开；Task 输出作为数据处理；默认范围按设计。未验证：P9 的 IM 回归（无测试通道）、推送回合内真实模型创建 Task 的子场景（防链条只有单元测试和假依赖链路测试）、冷缓存的单次用量。
+
+已知的两处低风险不一致，不阻断发布：
+
+1. 开关关闭时，默认路径新建的 Task 通知目标为 `off`；但显式传 `--notificationTargetFile` 指定 `session` 时目标仍记为 `session`，投递阶段再以 `push-disabled` 抑制。用户可见行为一致（不推、只有桌面通知）。
+2. 用与当前 Session 相同的 `sessionId` 给 `task create-direct --notificationTargetFile` 传显式 `session` 目标，会被 `notification.rs` 拒绝（"A Session target must be the Session that creates the Task"）；先默认创建、再 `task update --notificationTargetFile` 则成功。原因尚未定位（显式目标要求通知上下文里带有创建 Session，疑似创建阶段上下文与更新阶段不同）。默认路径不受影响。
