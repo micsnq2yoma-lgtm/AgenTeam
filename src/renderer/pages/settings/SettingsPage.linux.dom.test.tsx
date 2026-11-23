@@ -13,6 +13,7 @@ import { i18n } from "@/i18n";
 import { ToastProvider } from "@/components/Toast";
 import { DEFAULT_CONFIG, PROXY_DEFAULTS, type AppConfig, type Provider, type Project } from "@/config/types";
 import Settings from "./SettingsPage";
+import { MYAGENTS_RELEASES_URL } from "./settingsSections";
 
 const settingsMocks = vi.hoisted(() => ({
   linux: true,
@@ -191,6 +192,8 @@ describe('Ubuntu settings availability', () => {
     expect(container.querySelector('[data-team-appearance-pet]')).not.toBeInTheDocument();
     fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: String(i18n.t('sidebar.nav.about', { ns: 'settings' })) }));
     await waitFor(() => expect(screen.getByText(String(i18n.t('about.manualLinuxUpdate', { ns: 'settings' })))).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'Download Update' })).toHaveAttribute('href', MYAGENTS_RELEASES_URL);
+    expect(screen.queryByRole('link', { name: 'Release Notes' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: String(i18n.t('about.checkUpdates', { ns: 'settings' })) })).not.toBeInTheDocument();
     expect(screen.queryByText(String(i18n.t('about.desktopPetTitle', { ns: 'settings' })))).not.toBeInTheDocument();
     expect(screen.queryByText(String(i18n.t('about.developer.codexProviderTitle', { ns: 'settings' })))).not.toBeInTheDocument();
@@ -203,8 +206,13 @@ describe('Ubuntu settings availability', () => {
 
   it('keeps the normal update and desktop-pet controls on supported platforms', async () => {
     settingsMocks.linux = false;
-    render(<ToastProvider><Settings mode="settings" initialSection="about" isActive /></ToastProvider>);
-    await waitFor(() => expect(screen.getByRole('button', { name: String(i18n.t('about.checkUpdates', { ns: 'settings' })) })).toBeInTheDocument());
+    const onCheckForUpdate = vi.fn(async () => 'up-to-date' as const);
+    render(<ToastProvider><Settings mode="settings" initialSection="about" isActive
+      onCheckForUpdate={onCheckForUpdate} /></ToastProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: String(i18n.t('about.checkUpdates', { ns: 'settings' })) }));
+    expect(onCheckForUpdate).toHaveBeenCalledOnce();
+    expect(await screen.findByText(String(i18n.t('about.upToDate', { ns: 'settings' })))).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Release Notes|Download Update/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: String(i18n.t('sidebar.nav.floatingBall', { ns: 'settings' })) })).toBeInTheDocument();
     expect(screen.queryByText(String(i18n.t('about.manualLinuxUpdate', { ns: 'settings' })))).not.toBeInTheDocument();
   });
