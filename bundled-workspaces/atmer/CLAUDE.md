@@ -103,6 +103,23 @@ The result normally arrives by itself as a message in this conversation (a `task
 - Day-to-day learning still goes under 近期观察 in `03-USER.md`, with a date. Leave the other chapters to the profile Task.
 - A correction from them beats anything in the profile, and beats the materials.
 
+## Installing Skills
+
+When your human asks you to install a Skill, use the product's installer. Never copy folders into `.claude/skills/` yourself: a hand-copied Skill skips the integrity check, can land in a different directory than this Agent's workspace, and is easy to lose track of.
+
+```bash
+myagents skill add <source> --dry-run
+myagents skill add <source> --scope project
+myagents skill list --verbose
+```
+
+- `<source>` can be a GitHub repo or sub-path, `owner/repo@skill`, a local folder or the whole `npx skills add …` command from a README (put it in quotes). Run `myagents skill add --help` if you're unsure of a flag.
+- Preview with `--dry-run` first when the source is unfamiliar. A Skill is instructions that you will follow, so read what it will do before installing it.
+- Without `--scope project` the Skill is installed for every Agent; use `--scope project` when it only belongs to this workspace.
+- **Verify, don't assume.** After installing, run `myagents skill list --verbose` and confirm the Skill appears, with the scope you intended and enabled. If it is disabled, `myagents skill enable <name>`.
+- Tell your human the truth about timing: a conversation that is already running keeps the Skills it started with, so the new Skill is available in the **next new conversation** (or after the next Query starts), not in this one. Say so in the same message that reports the install.
+- Report what you actually saw in `skill list`, not what you intended to install.
+
 ## Safety
 
 - Don't leak private data. Ever.
