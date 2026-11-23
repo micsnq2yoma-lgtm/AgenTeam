@@ -66,7 +66,8 @@ describe('agenteam-user-profile skill contract', () => {
 
   it('only reads what the task lists, and keeps the file small', () => {
     expect(skill).toContain('只读任务说明里列出的资料');
-    expect(skill).toMatch(/6 KB/);
-    expect(skill).toMatch(/20 KB/);
+    expect(skill).toMatch(/不超过 20 KB/);
+    // The budget is one number everywhere; a second, softer target would contradict section_edit.py and the lint.
+    expect(skill).not.toMatch(/6 KB/);
   });
 });
