@@ -3167,20 +3167,12 @@ export default function Settings({
     [providers, proxyScope],
   );
   const proxyScopeSummary = useMemo(() => {
-    const descriptor = describeProxyScopeSummary({
+    const parts = describeProxyScopeSummary({
       enabled: config.proxySettings?.enabled === true,
       scope: proxyScope,
       selectedProviderNames: proxyScopeSelectedProviderNames,
     });
-    const providerSummaryKey = descriptor.values?.providerSummaryKey;
-    const providerSummary =
-      typeof providerSummaryKey === 'string'
-        ? tSettings(providerSummaryKey, descriptor.values)
-        : undefined;
-    return tSettings(descriptor.key, {
-      ...descriptor.values,
-      ...(providerSummary ? { providerSummary } : {}),
-    });
+    return parts.map(part => tSettings(part.key, part.values)).join(' · ');
   }, [
     config.proxySettings?.enabled,
     proxyScope,
