@@ -20,33 +20,38 @@ CLAUDE.md 的 owner 规则要求 desired state、execution identity 和前端派
 
 AgenTeam：启动页还有一层上游没有的"默认模型继承"：`availableDefault`（由 `config.defaultModelSelection`、Agent 与工作区的默认模型推出）、`resolvedLauncherRuntime`（用 `availableDefault` 的 provider id 参与运行环境推导）、`defaultModel` / `defaultModelProviderId`、`effectiveLauncherModel`。Chat 页已按同样思路收敛成单一的 `currentRuntime`（`fbcb0af` 的移植里做了），启动页还没有。
 
-## 3. 目标设计
+## 3. 目标设计（用户 2026-11-23 已拍板）
 
-两个值，单向依赖：
+用户的决定：**运行环境选 DSH、模型选 Codex 模型时，自动切换并显示真正执行的运行环境，同时弹出通知提醒。**
+
+两个值仍然分开，但界面显示的是**执行值**，并在切换时告知：
 
 ```text
-selectedRuntime  = resolveAgentRuntimeSelection(selectedAgent, config.defaultIntegratedRuntime)   // 只读 Agent 偏好，不看 provider
-executionRuntime = resolveEffectiveRuntime(selectedRuntime, …, executionProviderId)               // 看本次选中的 provider
+preferredRuntime = resolveAgentRuntimeSelection(selectedAgent, config.defaultIntegratedRuntime)   // 用户保存的偏好，只读 Agent 配置
+executionRuntime = resolveEffectiveRuntime(preferredRuntime, …, executionProviderId)               // 本次选的模型/provider 决定的真实执行者
 ```
 
-- **运行环境选择器、"工作区运行环境"显示、保存**一律用 `selectedRuntime`。
-- **输入框的模型列表、权限列表、推理强度、Session 出生字段**一律用 `executionRuntime`。
-- **默认模型继承只影响 `executionProviderId`**，不参与 `selectedRuntime`。规则：默认模型对应的 provider 在 `selectedRuntime` 下可用（`isProviderModelCompatibleWithRuntime`）才采用；否则忽略，不静默改运行环境。
-- **与已有 Session 的关系**：已有 Session 的绑定仍然权威，不被重新推导。
+- **运行环境选择器显示 `executionRuntime`**（真实执行者）。用户选 Codex 模型后，选择器自动变成 Codex，不再显示一个与实际不符的 DSH。
+- **偏好 `preferredRuntime` 不被模型选择改写**：选 Codex 模型不会把 Agent 的偏好改成 Codex。把模型换回 DSH 能用的模型后，运行环境自动回到偏好（DSH）。只有用户**在运行环境选择器里主动选择**才改偏好。这也是上游 8955cfe 要保证的"先 Codex 模型再选 DSH，保存 DSH"。
+- **通知**：用户**主动**选了一个需要别的执行者的模型时，弹出 toast（沿用 `useToast`），内容如"该模型只能由 Codex 运行，已切换到 Codex。换回其他模型后会回到 DSH。"。换回时同样提示一次。
+- **默认模型继承**：同一规则。继承来的默认模型需要别的执行者时，选择器显示真实执行者，**不弹 toast**（不是用户刚做的操作，每次打开启动页都弹会变成打扰）；改为在选择器上保留一个常驻的小标注"由 Codex 执行"。
+- 输入框的模型列表、权限列表、推理强度、Session 出生字段一律用 `executionRuntime`。
+- 已有 Session 的绑定仍然权威，不被重新推导。
 
 ### 3.1 要改的文件
 
-- `src/renderer/pages/Launcher.tsx`：用上面两个值替换 `resolvedLauncherRuntime` / `launcherRuntime` 的混合推导；`launcherProviders`、`launcherProvider`、`effectiveLauncherModel` 改为依赖 `selectedRuntime` 与 provider。
-- `src/renderer/components/AgentSettings/WorkspaceBasicsSection.tsx`：显示用 `selectedRuntime`，Antigravity 判断仍用执行身份。
-- `src/shared/agentConfigMutation.ts`：provider 切换时按"锁内的 Agent 记录"一次解析（上游做法），保留默认值、托管设置和旧标识；固定 Claude 权限的 provider 用 builtin 的权限映射。我们已有 `getDefaultNewSessionPermissionMode`，保留它，不换回上游的 `getDefaultRuntimePermissionMode`。
 - `src/shared/types/runtime.ts`：新增 `resolveAgentRuntimeSelection`，`resolveEffectiveRuntime` 复用同一个投影函数（上游已有实现，可直接移植）。
-- `src/server/admin-api.ts`：`agent set runtime / providerId` 走同一个锁内的 Agent 变更（上游把两条分支合成 `resolveAgentConfigMutation`）。
+- `src/renderer/pages/Launcher.tsx`：用 `preferredRuntime` / `executionRuntime` 替换混合推导；选择器的 `value` 用 `executionRuntime`；记录"上一次的 `executionRuntime`"，变化且由用户模型选择触发时弹 toast；默认模型继承只影响 `executionProviderId`。
+- `src/renderer/components/launcher/LauncherRuntimeToolbarControl.tsx` 与 `RuntimeSelector.tsx`：支持"由 X 执行"的标注状态；i18n 增加 toast 与标注文案（zh-CN、en-US）。
+- `src/renderer/components/AgentSettings/WorkspaceBasicsSection.tsx`：设置页显示的是偏好（`preferredRuntime`），不随模型变化。
+- `src/shared/agentConfigMutation.ts`：provider 切换按"锁内的 Agent 记录"一次解析（上游做法），固定 Claude 权限的 provider 用 builtin 的权限映射；保留我们的 `getDefaultNewSessionPermissionMode`。
+- `src/server/admin-api.ts`：`agent set runtime / providerId` 走同一个锁内的 Agent 变更。
 
 ### 3.2 不改什么
 
 - Session 出生后的运行环境、已存在 Session 的绑定。
-- 我们的默认模型继承本身（来源与优先级不变）。
-- 运行环境选择器的外观和位置（仍在工具栏）。
+- 默认模型继承的来源与优先级。
+- 运行环境选择器的位置（仍在工具栏）。
 
 ## 4. 验收
 
@@ -54,7 +59,9 @@ executionRuntime = resolveEffectiveRuntime(selectedRuntime, …, executionProvid
 - 两种选择顺序：先选 Codex 模型再选 DSH，和先选 DSH 再选 Codex 模型：保存值与显示值都是 DSH / 都不变，执行身份是托管 Codex。
 - 回到可移植模型：执行身份回到基础选择。
 - 固定 Claude 的 provider（`anthropic-sub`、`xai-sub`）：权限列表与默认值按 builtin；基础选择不被改写。
-- **AgenTeam 特有**：默认模型继承指向一个在当前基础运行环境下不兼容的 provider 时，被忽略且不改变运行环境。
+- 选 Codex 模型时：选择器显示 Codex、弹一次 toast；偏好仍是 DSH；换回可移植模型后回到 DSH 并提示一次。
+- 用户主动在运行环境选择器选 DSH：偏好改为 DSH，且之后不再被模型选择改写。
+- **AgenTeam 特有**：默认模型继承需要别的执行者时，选择器显示真实执行者与"由 Codex 执行"标注，**不弹 toast**；打开启动页多次不重复提示。
 - `admin-api` 的 `agent set runtime / providerId` 与桌面选择器写出同样的 Agent 记录。
 
 需要真实应用（独立验收，不是自检）：
@@ -67,7 +74,10 @@ executionRuntime = resolveEffectiveRuntime(selectedRuntime, …, executionProvid
 - **顺序**：先在 `Launcher.tsx` 之外落地共享函数和 `agentConfigMutation` 的变更（可单测），再改启动页，最后改设置页显示。每步单独 CI 全绿。
 - 本机无法验证界面，必须有独立验收。
 
-## 6. 需要用户确认
+## 6. 已确认与剩余
 
-1. 默认模型继承与运行环境冲突时"忽略默认模型、不改运行环境"，是否接受？（替代方案：默认模型优先，自动切换运行环境——这是现在 AgenTeam 的隐含行为，也是上游要消除的那类不一致。）
-2. 是否要把 `executionRuntime` 在界面上显示出来（例如模型选择器旁标注"由 Codex 执行"），还是保持现在不显示？
+已确认（2026-11-23）：模型需要别的执行者时自动切换并显示真实执行者，同时弹出通知。
+
+按此决定我做了两处解释，开发前如不对请告知：
+1. **偏好是否被改写**：我解释为**不改写**，选择器显示执行者，偏好留在配置里，换回模型后自动回到偏好。若你希望选 Codex 模型就把偏好永久改成 Codex，需要告诉我。
+2. **默认模型继承时是否弹通知**：我解释为**不弹**，只显示标注，避免每次打开启动页都打扰。若你希望也弹，告诉我。
