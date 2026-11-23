@@ -37,8 +37,6 @@ interface LauncherInputContextRowProps {
   onSetDefaultWorkspace?: (project: Project) => void;
 }
 
-const LABEL_CLASS = 'shrink-0 text-xs text-[var(--ink-muted)]';
-
 export default memo(function LauncherInputContextRow({
   projects,
   selectedProject,
@@ -56,7 +54,6 @@ export default memo(function LauncherInputContextRow({
       className="flex min-w-0 items-center border-b border-[var(--line-subtle)] px-4 py-1.5"
     >
       <div role="group" aria-label={projectLabel} className="flex min-w-0 items-center gap-1">
-        <span className={LABEL_CLASS}>{projectLabel}</span>
         <WorkspaceSelector
           projects={projects}
           selectedProject={selectedProject}

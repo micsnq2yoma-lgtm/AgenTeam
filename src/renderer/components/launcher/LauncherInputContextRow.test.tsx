@@ -39,8 +39,9 @@ describe('LauncherInputContextRow', () => {
     // No floating-chip chrome from the previous below-input design.
     expect(header.innerHTML).not.toContain('shadow-xs');
 
+    // The field is still labelled for assistive tech, but shows no visible "项目" caption.
     const projectGroup = screen.getByRole('group', { name: '项目' });
-    expect(projectGroup).toHaveTextContent('项目');
+    expect(projectGroup).not.toHaveTextContent('项目');
     expect(projectGroup).toContainElement(screen.getByRole('button', { name: 'Workspace' }));
   });
 
