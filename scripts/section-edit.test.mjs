@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -291,5 +291,98 @@ test('five writers from one version: exactly one succeeds, however they interlea
     assert.equal(codes.filter(code => code === 0).length, 1, `round ${round}: ${codes}`);
     const text = readFileSync(w.file, 'utf8');
     assert.equal([0, 1, 2, 3, 4].filter(n => text.includes(`writer${n}`)).length, 1);
+  }
+});
+
+// Runs the script with `os.replace` / `os.open` patched, to reach failure modes a test host cannot create.
+function runPatched(w, patch, edits, env = {}) {
+  const editsFile = join(w.dir, 'patched-edits.json');
+  writeFileSync(editsFile, JSON.stringify(edits));
+  const code = ['import sys, os, runpy', patch, 'sys.argv = sys.argv[1:]', 'runpy.run_path(sys.argv[0], run_name="__main__")'].join('\n');
+  return spawnSync(python, ['-B', '-c', code, SCRIPT, '--file', w.file, '--edits', editsFile], { encoding: 'utf8', env: { ...process.env, ...env }, timeout: 8000 });
+}
+
+test('a symlink is edited through: the target changes, the link stays a link, and both names share one lock', async t => {
+  if (process.platform === 'win32') return t.skip('creating symlinks needs a privilege on Windows');
+  const w = workspace(t, DOC);
+  const link = join(w.dir, 'LINK.md');
+  symlinkSync(w.file, link);
+  const edits = join(w.dir, 'e.json');
+  writeFileSync(edits, JSON.stringify([{ op: 'append', heading: '偏好', content: '- via link' }]));
+  assert.equal(spawnSync(python, ['-B', SCRIPT, '--file', link, '--edits', edits], { encoding: 'utf8' }).status, 0);
+  assert.ok(lstatSync(link).isSymbolicLink(), 'the link is still a link');
+  assert.match(readFileSync(w.file, 'utf8'), /via link/);
+
+  // Two writers, one through each name, same base: exactly one may succeed, and the link survives.
+  const base = sha(readFileSync(w.file, 'utf8'));
+  const run = (file, marker) => new Promise(done => {
+    const e = join(w.dir, `e-${marker}.json`);
+    writeFileSync(e, JSON.stringify([{ op: 'append', heading: '近期观察', content: `- ${marker}` }]));
+    const child = spawn(python, ['-B', '-c', SLOW_READ_HARNESS, SCRIPT, '--file', file, '--edits', e, '--base-sha', base], { stdio: 'ignore' });
+    child.on('close', done);
+  });
+  const codes = await Promise.all([run(w.file, 'real'), run(link, 'link')]);
+  assert.deepEqual([...codes].sort(), [0, 2], `exit codes: ${codes}`);
+  assert.ok(lstatSync(link).isSymbolicLink(), 'the link is still a link');
+  const text = readFileSync(w.file, 'utf8');
+  assert.equal(['- real', '- link'].filter(mark => text.includes(mark)).length, 1);
+});
+
+test('a lock held through the real path blocks a writer that uses the link', async t => {
+  if (process.platform === 'win32') return t.skip('creating symlinks needs a privilege on Windows');
+  const w = workspace(t, DOC);
+  const link = join(w.dir, 'LINK.md');
+  symlinkSync(w.file, link);
+  const holder = await holdLock(w.file);
+  t.after(() => holder.kill());
+  const edits = join(w.dir, 'e.json');
+  writeFileSync(edits, JSON.stringify([{ op: 'append', heading: '偏好', content: '- x' }]));
+  const result = spawnSync(python, ['-B', SCRIPT, '--file', link, '--edits', edits], {
+    encoding: 'utf8', env: { ...process.env, SECTION_EDIT_LOCK_WAIT: '0.4' },
+  });
+  assert.equal(result.status, 2);
+  assert.equal(JSON.parse(result.stdout).code, 'LOCK_BUSY');
+  assert.equal(readFileSync(w.file, 'utf8'), DOC);
+});
+
+test('a directory we may not write to fails at once instead of retrying (the Windows mkstemp trap)', t => {
+  const w = workspace(t, DOC);
+  const patch = [
+    'real_open = os.open',
+    'calls = []',
+    'def deny(path, flags, *a, **k):',
+    '    if str(path).endswith(".tmp"):',
+    '        calls.append(path)',
+    '        raise PermissionError(13, "denied")',
+    '    return real_open(path, flags, *a, **k)',
+    'os.open = deny',
+  ].join('\n');
+  const result = runPatched(w, patch, [{ op: 'append', heading: '偏好', content: '- x' }]);
+  assert.equal(result.status, 5);
+  assert.equal(JSON.parse(result.stdout).ok, false);
+  assert.equal(readFileSync(w.file, 'utf8'), DOC);
+});
+
+test('a brief PermissionError on replace (Windows file in use) is retried and the edit lands', t => {
+  const w = workspace(t, DOC);
+  const patch = [
+    'import time',
+    'real_replace = os.replace',
+    'state = {"n": 0}',
+    'def flaky(a, b):',
+    '    state["n"] += 1',
+    '    if state["n"] <= 2: raise PermissionError(13, "in use")',
+    '    return real_replace(a, b)',
+    'os.replace = flaky',
+    'os.name_real = os.name',
+  ].join('\n');
+  // The retry is a Windows behaviour; on POSIX a PermissionError must still surface, not be swallowed.
+  const result = runPatched(w, patch, [{ op: 'append', heading: '偏好', content: '- x' }]);
+  if (process.platform === 'win32') {
+    assert.equal(result.status, 0);
+    assert.match(readFileSync(w.file, 'utf8'), /- x/);
+  } else {
+    assert.equal(result.status, 5);
+    assert.equal(readFileSync(w.file, 'utf8'), DOC);
   }
 });
