@@ -342,9 +342,13 @@ describe('SimpleChatInput send paths', () => {
     expect(within(choices).getByText('high')).toBeVisible();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('group', { name: '推理强度' })).not.toBeInTheDocument();
-    await user.click(screen.getByTitle('切换模型'));
     const nextRow = screen.getByRole('button', { name: /推理强度.*默认/ });
-    nextRow.focus();
+    expect(nextRow).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.getByTitle('切换模型')).toHaveFocus();
+    expect(nextRow).not.toBeInTheDocument();
+    await user.click(screen.getByTitle('切换模型'));
+    screen.getByRole('button', { name: /推理强度.*默认/ }).focus();
     await user.keyboard('{Enter}');
     expect(screen.getByRole('group', { name: '推理强度' })).toBeVisible();
     await user.click(document.body);
@@ -1138,6 +1142,7 @@ describe('SimpleChatInput send paths', () => {
     });
 
     await user.click(screen.getByTitle('切换模型'));
+    await user.click(await screen.findByRole('button', { name: 'Provider B' }));
     await user.click(await screen.findByText('B Pro'));
 
     expect(onBuiltinModelSelect).toHaveBeenCalledWith({
@@ -1145,48 +1150,6 @@ describe('SimpleChatInput send paths', () => {
       model: 'deepseek-v4-pro',
     });
     expect(onModelChange).not.toHaveBeenCalled();
-  });
-
-  it('hints at providers below the fold until the model list is scrolled to the end', async () => {
-    const user = userEvent.setup();
-    const claude = {
-      id: 'provider-a', name: 'Provider A', vendor: 'A', cloudProvider: '模型官方', type: 'api',
-      primaryModel: 'model-0', isBuiltin: false, config: { baseUrl: 'https://a.example.com' },
-      models: Array.from({ length: 12 }, (_, index) => ({ model: `model-${index}`, modelName: `Model ${index}` })),
-    } as Provider;
-    const deepseek = {
-      id: 'provider-b', name: 'Provider B', vendor: 'B', cloudProvider: '模型官方', type: 'api',
-      primaryModel: 'b-1', isBuiltin: false, config: { baseUrl: 'https://b.example.com' },
-      models: [{ model: 'b-1', modelName: 'B One' }],
-    } as Provider;
-    const clientHeight = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (this: HTMLElement) {
-      return this.hasAttribute('data-model-list') ? 100 : 0;
-    });
-    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
-      return this.hasAttribute('data-model-list') ? 500 : 0;
-    });
-    try {
-      renderInput({
-        runtime: 'builtin',
-        provider: claude,
-        providers: [claude, deepseek],
-        selectedModel: 'model-0',
-        apiKeys: { 'provider-a': 'key-a', 'provider-b': 'key-b' },
-      });
-      await user.click(screen.getByTitle('切换模型'));
-      // The second provider is rendered, just below the fold.
-      expect(await screen.findByText('Provider B')).toBeInTheDocument();
-      const list = document.querySelector<HTMLElement>('[data-model-list]')!;
-      list.scrollTop = 0;
-      fireEvent.scroll(list);
-      expect(list.querySelector('[data-model-list-more]')).not.toBeNull();
-      list.scrollTop = 400;
-      fireEvent.scroll(list);
-      expect(list.querySelector('[data-model-list-more]')).toBeNull();
-    } finally {
-      clientHeight.mockRestore();
-      scrollHeight.mockRestore();
-    }
   });
 
   it('centers the selected model inside the menu scroll container when opened', async () => {
