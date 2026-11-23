@@ -168,4 +168,4 @@ Task 结果通知已经有完整链路，但目标只有 IM：
 已知的两处低风险不一致，不阻断发布：
 
 1. 开关关闭时，默认路径新建的 Task 通知目标为 `off`；但显式传 `--notificationTargetFile` 指定 `session` 时目标仍记为 `session`，投递阶段再以 `push-disabled` 抑制。用户可见行为一致（不推、只有桌面通知）。
-2. 用与当前 Session 相同的 `sessionId` 给 `task create-direct --notificationTargetFile` 传显式 `session` 目标，会被 `notification.rs` 拒绝（"A Session target must be the Session that creates the Task"）；先默认创建、再 `task update --notificationTargetFile` 则成功。原因尚未定位（显式目标要求通知上下文里带有创建 Session，疑似创建阶段上下文与更新阶段不同）。默认路径不受影响。
+2. 显式 `session` 目标只在**创建时**且**由宿主验证过的桌面聊天回合**里被接受：外部终端、Task 运行、IM 或开关关闭时没有"创建它的聊天"，会被拒绝（此前报错文字误导成"id 不对"，现已分开：缺少已验证的聊天 / 指定了别的 Session）。`task update` 不能新增或更换 `session` 目标（既有行为，有测试），验收里"创建后 update 成功"是同值的无变化更新。这是设计内行为，不是缺陷；默认路径（助理在聊天里创建一次性 Task）不受影响。
