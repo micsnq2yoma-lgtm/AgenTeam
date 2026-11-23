@@ -125,18 +125,38 @@ impl TryFrom<serde_json::Value> for NotificationTarget {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionVerdict {
     Deliver,
+    /// The user turned push-back off in `config.json`. Final for this delivery.
+    Disabled,
     /// The chat was deleted. Final: nothing to push into.
     Gone,
     /// The chat exists but no process is running (closed). Not woken.
     Inactive,
 }
 
-pub fn session_verdict(exists: bool, live: bool) -> SessionVerdict {
-    match (exists, live) {
-        (false, _) => SessionVerdict::Gone,
-        (true, false) => SessionVerdict::Inactive,
-        (true, true) => SessionVerdict::Deliver,
+pub fn session_verdict(enabled: bool, exists: bool, live: bool) -> SessionVerdict {
+    match (enabled, exists, live) {
+        (false, _, _) => SessionVerdict::Disabled,
+        (true, false, _) => SessionVerdict::Gone,
+        (true, true, false) => SessionVerdict::Inactive,
+        (true, true, true) => SessionVerdict::Deliver,
     }
+}
+
+/// `taskResultPushBack` in config.json; on unless the user turned it off. Read
+/// only: nothing in the Task system writes the file, so the config-writer rules
+/// (re-read under lock, merge) do not apply here.
+pub fn push_back_enabled_in(config: &serde_json::Value) -> bool {
+    config
+        .get("taskResultPushBack")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(true)
+}
+
+pub fn push_back_enabled() -> bool {
+    dirs::home_dir()
+        .map(|home| home.join(".agenteam").join("config.json"))
+        .and_then(|path| crate::config_io::read_config_json(&path).ok())
+        .is_none_or(|config| push_back_enabled_in(&config))
 }
 
 /// Events a Session-targeted Task reports by default: the end of the work, not
@@ -842,10 +862,23 @@ mod tests {
 
     #[test]
     fn the_session_verdict_never_asks_to_wake_a_chat() {
-        assert_eq!(session_verdict(true, true), SessionVerdict::Deliver);
-        assert_eq!(session_verdict(true, false), SessionVerdict::Inactive);
-        assert_eq!(session_verdict(false, true), SessionVerdict::Gone);
-        assert_eq!(session_verdict(false, false), SessionVerdict::Gone);
+        assert_eq!(session_verdict(true, true, true), SessionVerdict::Deliver);
+        assert_eq!(session_verdict(true, true, false), SessionVerdict::Inactive);
+        assert_eq!(session_verdict(true, false, true), SessionVerdict::Gone);
+        assert_eq!(session_verdict(true, false, false), SessionVerdict::Gone);
+        // The switch wins over everything else.
+        for (exists, live) in [(true, true), (true, false), (false, false)] {
+            assert_eq!(session_verdict(false, exists, live), SessionVerdict::Disabled);
+        }
+    }
+
+    #[test]
+    fn push_back_is_on_unless_the_config_turns_it_off() {
+        assert!(push_back_enabled_in(&json!({})));
+        assert!(push_back_enabled_in(&json!({"taskResultPushBack": true})));
+        assert!(!push_back_enabled_in(&json!({"taskResultPushBack": false})));
+        // A wrong type never disables it silently.
+        assert!(push_back_enabled_in(&json!({"taskResultPushBack": "no"})));
     }
 
     #[test]

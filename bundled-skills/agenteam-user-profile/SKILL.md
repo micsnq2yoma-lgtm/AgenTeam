@@ -105,4 +105,4 @@ myagents anydoc convert --file <input> --wait --json
 
 任务说明里要求了别的回复格式时，以任务说明为准，但仍然不包含原文。
 
-同一份报告也写入 `workspace/profile-report.md`（覆盖旧报告）：桌面端不会把 Task 结果推回聊天，助理靠读这个文件向用户汇报。这是本 Skill 唯一允许写入 USER 文件以外的位置。
+同一份报告也写入 `workspace/profile-report.md`（覆盖旧报告）：结果通常会自动推回发起聊天，但聊天已关闭或用户关闭了回推时不会，助理在那种情况下靠读这个文件向用户汇报。这是本 Skill 唯一允许写入 USER 文件以外的位置。

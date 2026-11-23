@@ -165,7 +165,10 @@ async fn process_session(
     let live = manager
         .lock()
         .is_ok_and(|state| state.session_has_owners(session_id));
-    match session_verdict(exists, live) {
+    match session_verdict(push_back_enabled(), exists, live) {
+        SessionVerdict::Disabled => {
+            return finish(store, task, &d, DeliveryState::Suppressed, Some("push-disabled".into())).await
+        }
         SessionVerdict::Gone => {
             return finish(store, task, &d, DeliveryState::Suppressed, Some("session-gone".into())).await
         }

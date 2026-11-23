@@ -54,8 +54,10 @@ pub(super) async fn creation_context(
         ),
         None => None,
     };
-    let session = (context.desktop_session && context.conversation.is_none())
-        .then(|| source.product_session_id.clone());
+    let session = (context.desktop_session
+        && context.conversation.is_none()
+        && task::notification::push_back_enabled())
+    .then(|| source.product_session_id.clone());
     Ok(CreationContext {
         conversation: context.conversation,
         parent_policy,
@@ -112,8 +114,9 @@ pub(super) async fn authorize(headers: HeaderMap, Json(request): Json<Receipt>) 
             // have been closed or deleted since the delivery was prepared.
             let exists = crate::sidecar::runtime_identity::resolve_session_runtime_identity_full(session_id).is_some();
             let live = get_sidecar_state().is_some_and(|manager| manager.lock().is_ok_and(|state| state.session_has_owners(session_id)));
-            return Ok(match task::notification::session_verdict(exists, live) {
+            return Ok(match task::notification::session_verdict(task::notification::push_back_enabled(), exists, live) {
                 task::notification::SessionVerdict::Deliver => json!({"ok":true,"accepted":true}),
+                task::notification::SessionVerdict::Disabled => json!({"ok":true,"accepted":false,"code":"suppressed","error":"push-disabled"}),
                 task::notification::SessionVerdict::Gone => json!({"ok":true,"accepted":false,"code":"suppressed","error":"session-gone"}),
                 task::notification::SessionVerdict::Inactive => json!({"ok":true,"accepted":false,"code":"suppressed","error":"session-inactive"}),
             });

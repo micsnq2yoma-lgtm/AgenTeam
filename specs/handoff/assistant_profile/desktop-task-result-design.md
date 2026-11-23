@@ -1,6 +1,6 @@
 # 设计：桌面聊天的 Task 结果回推（保守版）
 
-> 日期：2026-11-23。状态：**用户已按建议确认 §7 五点；§8 已核实；开发中**。按 `CLAUDE.md`，这是新的通知目标和来源，属于需要先讨论架构的改动。
+> 日期：2026-11-23。状态：**用户已按建议确认 §7 五点；§8 已核实；第 1–4 步已实现（CI 与真实应用验收待做），第 5 步合并窗口未做**。按 `CLAUDE.md`，这是新的通知目标和来源，属于需要先讨论架构的改动。
 > 起因：独立复验 N2——助理在桌面聊天里创建画像 Task 后，收不到完成信号，只能靠"记得去查"，三轮实测里普通消息触发查询只有 1/3。指令层面已到头。
 > 本文只依据读过的文档和代码（`task_center.md`、`cli_architecture.md`、`session_architecture.md`、`src/server/session-engine/task-notification.ts`、`src/server/inbox/session-event.ts`、`src-tauri/src/task/notification.rs`）。"需确认的代码事实"一节列出尚未核实的假设。
 

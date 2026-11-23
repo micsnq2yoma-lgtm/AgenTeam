@@ -268,6 +268,8 @@ TaskStore 在同一结算事务的 `lastExecution.notification` 保存本轮通�
 
 现有 `notificationDestination` 只读投影增加有效 `events` 与 `executionResultsSubscribed`，`configured` 仍只描述目标地址。Node 的 `data.receipt.notification` 在 create/get/run/rerun 中直接转述该投影和最近执行决策；CLI human 输出区分当前订阅、历史决策和实际投递进度，不自行推算通知策略。
 
+**桌面聊天目标。** `notification.im` 这个唯一的聊天目标槽还可以是 `session { sessionId }`（JSON `{"type":"session","sessionId":"…"}`），指向创建 Task 的桌面聊天。它只能在创建时选定，且必须等于宿主验证的来源 Session（Rust 取已认证调用者自己的 Session，不信 payload），后续更新不能新增；默认只给"桌面聊天里创建的一次性 Task"，事件默认 `done,blocked`，来源记为 `session`。定时、周期、手动创建、托管 Task 默认关闭。投递只进入**已有活动 Sidecar** 的 Session（`prepare_live_only_delivery`，无工作区路径，绝不拉起进程）；聊天已删除（`session-gone`）、已关闭（`session-inactive`）、全局开关 `config.json` 的 `taskResultPushBack` 为 `false`（`push-disabled`）都记为 `suppressed`，不重试，桌面系统通知仍照常发出。由 `session` 目标的 Task 创建的后续 Task 不继承该目标，由推送触发的那一轮里创建的 Task 也不会得到它，避免一个请求变成无限的回复链。合并多个 Task 的结果、聊天已关闭后的补发不在当前实现内。设计与验收项见 `specs/handoff/assistant_profile/desktop-task-result-design.md`。
+
 版本 1 的 `notification.im` 使用以下互斥目标，`current` 仅为输入简写，保存前必须解析：
 
 | 目标 | 含义 |
