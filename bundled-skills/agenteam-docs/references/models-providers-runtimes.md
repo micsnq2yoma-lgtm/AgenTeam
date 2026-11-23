@@ -34,9 +34,9 @@
 
 这是 runtime-backed Provider。MyAgents 管理 Codex Runtime 资源和订阅登录；新 Session 的执行身份是 `runtime=codex`、`runtimeSource=managed-provider`。由自己的安装、版本、登录和 Provider readiness 决定，不要求安装系统 Codex。
 
-### Antigravity 订阅（`antigravity-sub`）
+### Antigravity 订阅（`antigravity-sub`）已从模型设置中移除
 
-通过客户端连接 Google Antigravity 账户，应用自动准备与维护所需 CLIProxy 组件，并读取组件提供的模型目录；可由 Claude Agent SDK 或支持该 Provider 的 DeepSeek Harness 执行。登录完成不要求再添加 API Key，实际可用性以账户、组件与模型状态为准。它不等于 Grok OAuth 或用户安装的 Codex。
+这个 Provider 通过 CLIProxy 反向代理 Google 账户，存在账户风险，所以不再出现在模型供应商设置和模型选择器里；已保存的设置不会被删除。使用 Google Gemini 订阅请改用 Runtime 里的 **Antigravity CLI**（见下文），它使用本机已登录的 `agy`，AgenTeam 不保存凭证。
 
 订阅卡片的信息按钮说明接入方式：Claude 使用官方 Agent SDK、Codex 使用内置 Codex CLI，Grok/Antigravity 提示非官方 API 接入风险。说明用于帮助用户判断接入路径，不能把它扩展成账号安全或供应商政策的永久保证。
 
@@ -55,6 +55,11 @@ MyAgents 自带的一种集成执行引擎，无需用户另装外部 CLI，并�
 ### Claude Code CLI / Codex CLI
 
 这些属于 `runtimeSource=system-cli`：使用用户本机安装和登录的外部 CLI。Agent 运行环境选择已直接开放，不需要旧「更多 Agent Runtime」实验开关；仍需安装、登录并满足该 Runtime readiness。它们的模型、权限模式、MCP、登录和恢复能力各不相同，不能套用 builtin 的固定值。Gemini CLI 已不在当前支持的 Runtime 列表中。
+
+
+### Antigravity CLI（`antigravity`）
+
+使用本机已安装并登录的 `agy`（Google Antigravity CLI）对话，适合有 Google Gemini 订阅的用户。AgenTeam 通过 Agent Client Protocol 驱动它，不保存任何凭证、不新增网络域名；模型、推理强度、权限（请求批准 / 帮我批准 / 完全访问权限）和会话 MCP 可在 AgenTeam 里选择。网络代理可在「网络代理」里为它单独设置。没有安装 `agy` 时，运行环境选择器会提示安装或升级。
 
 ## `runtimeSource` 为什么重要
 
