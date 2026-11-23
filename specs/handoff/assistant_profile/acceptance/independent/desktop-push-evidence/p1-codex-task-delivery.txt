@@ -1,0 +1,16 @@
+==== task d31e8bbf-de7b-433c-87a2-e1706528472e
+  name: "User profile"
+  status: "done"
+  executionMode: "once"
+  dispatchOrigin: "direct"
+  workspaceId: "134a53c3-f616-4fe7-ba37-ede09bd1796d"
+  workspacePath: "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-codex"
+  sessionIds: ["54bfb207-53d7-4a03-8622-c25cdef014ac"]
+  createdAt: 1795449540092
+  updatedAt: 1795449708001
+  lastExecutedAt: 1795449708001
+  notification: {"desktop": true, "events": ["done", "blocked"], "im": {"sessionId": "98116b48-c4c5-43c9-b02f-6ca6bffdc34c", "type": "session"}, "source": "session", "version": 1}
+  lastExecution.notification: {"deliveryId": "0a17d1fc-39f8-4402-903a-145ce7df5a42", "events": ["execution", "done", "endCondition"], "reason": "delivery-recorded", "subscribedEvents": ["done", "blocked"]}
+  deliveries(1):
+    {"id": "0a17d1fc-39f8-4402-903a-145ce7df5a42", "state": "handed-off", "events": ["execution", "done", "endCondition"], "createdAt": 1795449708001, "updatedAt": 1795449710761, "title": "任务「User profile」执行结束", "executionSessionId": "54bfb207-53d7-4a03-8622-c25cdef014ac", "targetSessionId": "98116b48-c4c5-43c9-b02f-6ca6bffdc34c", "attemptId": null, "error": null, "retryAt": null, "acceptedParts": 0, "messageIds": [], "policy": {"desktop": true, "events": ["done", "blocked"], "im": {"sessionId": "98116b48-c4c5-43c9-b02f-6ca6bffdc34c", "type": "session"}, "source": "session", "channelOwner": null}}
+

@@ -1,0 +1,36 @@
+{
+ "acceptedParts": 0,
+ "agentId": null,
+ "attemptId": null,
+ "createdAt": 1795450918943,
+ "error": "session-gone",
+ "events": [
+  "execution",
+  "done",
+  "endCondition"
+ ],
+ "executionSessionId": "451991d6-2437-4115-b5dc-a2d92aeaff67",
+ "id": "bf9113a4-32f7-4b22-bb78-8b373d1d457d",
+ "messageIds": [],
+ "policy": {
+  "desktop": true,
+  "events": [
+   "done",
+   "blocked"
+  ],
+  "im": {
+   "sessionId": "2ae49cbd-0311-466a-9606-35cbe5d96ad3",
+   "type": "session"
+  },
+  "source": "explicit",
+  "version": 1
+ },
+ "preparedText": null,
+ "result": "P3g 完成",
+ "retryAt": null,
+ "state": "suppressed",
+ "target": null,
+ "targetSessionId": null,
+ "title": "任务「P3g 标记」执行结束",
+ "updatedAt": 1795450920217
+}

@@ -1,0 +1,4 @@
+59340:2026-11-23 08:07:36.160 [NODE ] [INFO ] [sid=bfc19a2e-38d6-4084-b883-147d49c3125d req=a1cb4f5b tab=tab-1795450022206-hnq2ka] [assistant-output] runtime=builtin status=complete text="P4b 已建好，调度已挂上。 - **任务**：P4b 定时写入标记
+60385:2026-11-23 08:10:29.337 [RUST ] [INFO ] [sidecar] Background turn 9031473a-bfd4-4b18-8c58-d6d751c34960 response: status=200 OK, body={"success":true,"turnDispatched":true,"aiRequestedExit":false,"outputText":"P4b 完成","sessionId":"74029c56-0edf-4cc3-8
+60389:2026-11-23 08:10:29.346 [RUST ] [INFO ] [Notification] Showing toast title='任务「P4b 定时写入标记」执行结束' navigation=Some("tab_id=None session_id=Some(\"74029c56-0edf-4cc3-835d-f99a52a182b2\") workspace_path=Some(\"C:\\\\Users\\\\<user>\
+60399:2026-11-23 08:10:29.331 [NODE ] [INFO ] [req=3350c58a] [assistant-output] runtime=builtin status=complete text="P4b 完成" chars=6

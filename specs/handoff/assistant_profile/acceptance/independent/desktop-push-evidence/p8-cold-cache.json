@@ -1,0 +1,20 @@
+{
+ "approach": "Appended a comment to workspace CLAUDE.md at 16:23:38Z after the A8 task was created and before its push, to invalidate the system-prompt prefix.",
+ "a8_push_turn": {
+  "turn": "42",
+  "startedAt": "2026-11-23T16:25:35.295Z",
+  "inputTokens": 907,
+  "cacheReadTokens": 356608,
+  "outputTokens": 2063,
+  "note": "turn did a multi-step investigation, aggregates several model calls; context was already long"
+ },
+ "fresh_task_session_after_change": {
+  "session": "6f4370a5-0562-40eb-9503-6f3626e72e31",
+  "turn": "0",
+  "inputTokens": 41482,
+  "cacheReadTokens": 41344,
+  "outputTokens": 177,
+  "note": "first turn in a brand-new session after the prefix change; still a partial cache hit on the shared base prompt"
+ },
+ "conclusion": "A clean zero-cache push turn could not be produced: the push always follows a creating turn, DeepSeek automatic cache did not expire in the available idle window, and the prefix change did not eliminate the aggregated cache read. No number is fabricated."
+}

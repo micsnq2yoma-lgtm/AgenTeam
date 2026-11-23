@@ -1,0 +1,204 @@
+==== P7c manual UI task (plain project) b057617b
+{
+ "name": "P7c 手动任务",
+ "status": "done",
+ "executionMode": "once",
+ "managedKind": null,
+ "dispatchOrigin": "direct",
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\plain-acceptance",
+ "notification": {
+  "desktop": true,
+  "events": [
+   "done",
+   "blocked",
+   "endCondition"
+  ],
+  "im": {
+   "type": "off"
+  },
+  "source": "default",
+  "version": 1
+ },
+ "lastExecution": {
+  "at": 1795450530631,
+  "durationMs": 8933,
+  "notification": {
+   "events": [
+    "execution",
+    "done",
+    "endCondition"
+   ],
+   "reason": "desktop-only",
+   "subscribedEvents": [
+    "done",
+    "blocked",
+    "endCondition"
+   ]
+  },
+  "sessionId": "597eec9e-7a64-44b3-b31b-3a48da138811",
+  "success": true,
+  "trigger": "scheduled"
+ },
+ "notificationDeliveries": null
+}
+==== P7b2 assistant recurring interval 541f47f8
+{
+ "name": "P7b2 周期任务",
+ "status": "stopped",
+ "executionMode": "recurring",
+ "managedKind": null,
+ "dispatchOrigin": "direct",
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-2311",
+ "notification": {
+  "desktop": true,
+  "im": {
+   "type": "off"
+  },
+  "source": "default",
+  "version": 1
+ },
+ "lastExecution": {
+  "at": 1795450631003,
+  "durationMs": 10851,
+  "notification": {
+   "events": [
+    "execution"
+   ],
+   "reason": "desktop-only",
+   "subscribedEvents": [
+    "execution",
+    "done",
+    "blocked",
+    "endCondition"
+   ]
+  },
+  "sessionId": "81d4739e-ab41-4cd5-9735-88dddf80a888",
+  "success": true,
+  "trigger": "scheduled"
+ },
+ "notificationDeliveries": null
+}
+==== P7b assistant recurring cron 8d066f5b
+{
+ "name": "P7b 周期任务",
+ "status": "stopped",
+ "executionMode": "recurring",
+ "managedKind": null,
+ "dispatchOrigin": "direct",
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-2311",
+ "notification": {
+  "desktop": true,
+  "im": {
+   "type": "off"
+  },
+  "source": "default",
+  "version": 1
+ },
+ "lastExecution": null,
+ "notificationDeliveries": null
+}
+==== Codex Memory Gardener 4c49d1a3
+{
+ "name": "Memory Gardener",
+ "status": "running",
+ "executionMode": "recurring",
+ "managedKind": "memory_gardener",
+ "dispatchOrigin": "direct",
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-codex",
+ "notification": {
+  "desktop": false,
+  "im": {
+   "type": "off"
+  },
+  "source": "explicit",
+  "version": 1
+ },
+ "lastExecution": null,
+ "notificationDeliveries": null
+}
+==== Codex Memory Molt f5ad3de5
+{
+ "name": "Memory Molt",
+ "status": "todo",
+ "executionMode": "recurring",
+ "managedKind": "memory_molt",
+ "dispatchOrigin": "direct",
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-codex",
+ "notification": {
+  "desktop": false,
+  "im": {
+   "type": "off"
+  },
+  "source": "explicit",
+  "version": 1
+ },
+ "lastExecution": null,
+ "notificationDeliveries": null
+}
+==== Memory Gardener b8c229d2
+{
+ "name": "Memory Gardener",
+ "status": "running",
+ "executionMode": "recurring",
+ "managedKind": "memory_gardener",
+ "dispatchOrigin": "direct",
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-2311",
+ "notification": {
+  "desktop": false,
+  "im": {
+   "type": "off"
+  },
+  "source": "explicit",
+  "version": 1
+ },
+ "lastExecution": null,
+ "notificationDeliveries": null
+}
+==== Memory Molt d20aa7a6
+{
+ "name": "Memory Molt",
+ "status": "running",
+ "executionMode": "recurring",
+ "managedKind": "memory_molt",
+ "dispatchOrigin": "direct",
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-2311",
+ "notification": {
+  "desktop": false,
+  "im": {
+   "type": "off"
+  },
+  "source": "explicit",
+  "version": 1
+ },
+ "lastExecution": null,
+ "notificationDeliveries": null
+}
+==== Memory Auto-Update 0b327f8f
+{
+ "name": "Memory Auto-Update",
+ "status": "running",
+ "executionMode": "recurring",
+ "managedKind": "memory_auto_update_batch",
+ "dispatchOrigin": "direct",
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-2311",
+ "notification": {
+  "desktop": false,
+  "events": []
+ },
+ "lastExecution": {
+  "at": 1795450351223,
+  "durationMs": 86,
+  "notification": {
+   "events": [
+    "execution"
+   ],
+   "reason": "disabled",
+   "subscribedEvents": [
+    "execution"
+   ]
+  },
+  "success": true,
+  "trigger": "scheduled"
+ },
+ "notificationDeliveries": null
+}

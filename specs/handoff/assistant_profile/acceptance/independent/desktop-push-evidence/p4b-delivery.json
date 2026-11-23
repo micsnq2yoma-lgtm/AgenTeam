@@ -1,0 +1,36 @@
+{
+ "acceptedParts": 0,
+ "agentId": null,
+ "attemptId": null,
+ "createdAt": 1795450229339,
+ "error": "push-disabled",
+ "events": [
+  "execution",
+  "done",
+  "endCondition"
+ ],
+ "executionSessionId": "74029c56-0edf-4cc3-835d-f99a52a182b2",
+ "id": "1520617c-8928-4bed-94a8-6ac854c2dee4",
+ "messageIds": [],
+ "policy": {
+  "desktop": true,
+  "events": [
+   "done",
+   "blocked"
+  ],
+  "im": {
+   "sessionId": "bfc19a2e-38d6-4084-b883-147d49c3125d",
+   "type": "session"
+  },
+  "source": "explicit",
+  "version": 1
+ },
+ "preparedText": null,
+ "result": "P4b 完成",
+ "retryAt": null,
+ "state": "suppressed",
+ "target": null,
+ "targetSessionId": null,
+ "title": "任务「P4b 定时写入标记」执行结束",
+ "updatedAt": 1795450230214
+}

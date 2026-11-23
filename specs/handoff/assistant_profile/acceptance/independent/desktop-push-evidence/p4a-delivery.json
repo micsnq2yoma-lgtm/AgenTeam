@@ -1,0 +1,32 @@
+{
+ "acceptedParts": 0,
+ "agentId": null,
+ "attemptId": null,
+ "createdAt": 1795449995355,
+ "error": "push-disabled",
+ "events": [
+  "execution",
+  "done",
+  "endCondition"
+ ],
+ "executionSessionId": "6312b64c-ad4f-4433-887c-68bef45a776b",
+ "id": "3aa01a66-fb37-4bb5-97f0-cc0ebc31113f",
+ "messageIds": [],
+ "policy": {
+  "desktop": true,
+  "im": {
+   "sessionId": "bfc19a2e-38d6-4084-b883-147d49c3125d",
+   "type": "session"
+  },
+  "source": "explicit",
+  "version": 1
+ },
+ "preparedText": null,
+ "result": "P4a 完成",
+ "retryAt": null,
+ "state": "suppressed",
+ "target": null,
+ "targetSessionId": null,
+ "title": "任务「P4a 写入完成标记」执行结束",
+ "updatedAt": 1795450000222
+}

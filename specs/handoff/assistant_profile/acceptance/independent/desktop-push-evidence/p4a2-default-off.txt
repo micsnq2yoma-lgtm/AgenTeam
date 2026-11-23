@@ -1,0 +1,15 @@
+==== task 58076d85-5775-4093-b59c-9691cba7961a
+  name: "A4a"
+  status: "done"
+  executionMode: "once"
+  dispatchOrigin: "direct"
+  workspaceId: "b26ec0b2-014f-4260-b970-6f6498031c71"
+  workspacePath: "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-2311"
+  sessionIds: ["77ace60b-0496-439d-a627-55caa3e6d643"]
+  createdAt: 1795450966443
+  updatedAt: 1795450980130
+  lastExecutedAt: 1795450980130
+  notification: {"desktop": true, "im": {"type": "off"}, "source": "default", "version": 1}
+  lastExecution.notification: {"events": ["execution", "done", "endCondition"], "reason": "desktop-only", "subscribedEvents": ["execution", "done", "blocked", "endCondition"]}
+  deliveries(0):
+

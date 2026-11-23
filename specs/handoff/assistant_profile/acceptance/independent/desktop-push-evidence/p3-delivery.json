@@ -1,0 +1,36 @@
+{
+ "acceptedParts": 0,
+ "agentId": null,
+ "attemptId": null,
+ "createdAt": 1795449365383,
+ "error": "session-inactive",
+ "events": [
+  "execution",
+  "done",
+  "endCondition"
+ ],
+ "executionSessionId": "9d44be49-38b4-469b-ad13-6aba247855d8",
+ "id": "33ee2f22-a4fb-4948-a5ef-0a8317f219da",
+ "messageIds": [],
+ "policy": {
+  "desktop": true,
+  "events": [
+   "done",
+   "blocked"
+  ],
+  "im": {
+   "sessionId": "bfc19a2e-38d6-4084-b883-147d49c3125d",
+   "type": "session"
+  },
+  "source": "explicit",
+  "version": 1
+ },
+ "preparedText": null,
+ "result": "P3 任务完成",
+ "retryAt": null,
+ "state": "suppressed",
+ "target": null,
+ "targetSessionId": null,
+ "title": "任务「P3 等待120秒记录时间」执行结束",
+ "updatedAt": 1795449370210
+}

@@ -1,0 +1,3 @@
+58561:2026-11-23 08:06:27.718 [NODE ] [INFO ] [sid=bfc19a2e-38d6-4084-b883-147d49c3125d req=def98eee tab=tab-1795449953256-zlz5pn] [assistant-output] runtime=builtin status=complete text="P4a 已建好并立即启动。 - **任务**：P4a 写入完成标记（
+58663:2026-11-23 08:06:35.355 [RUST ] [INFO ] [sidecar] Background turn 06cb02d2-fb12-47a5-863b-d69731899ff4 response: status=200 OK, body={"success":true,"turnDispatched":true,"aiRequestedExit":false,"outputText":"P4a 完成","sessionId":"6312b64c-ad4f-4433-8
+58667:2026-11-23 08:06:35.362 [RUST ] [INFO ] [Notification] Showing toast title='任务「P4a 写入完成标记」执行结束' navigation=Some("tab_id=None session_id=Some(\"6312b64c-ad4f-4433-887c-68bef45a776b\") workspace_path=Some(\"C:\\\\Users\\\\<user>\

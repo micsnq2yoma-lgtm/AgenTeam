@@ -1,0 +1,17 @@
+==== task 64d4c68c-2806-43f2-9257-46fe86209d2c
+  name: "P2 记录完成时间"
+  status: "done"
+  executionMode: "scheduled"
+  runMode: "new-session"
+  dispatchOrigin: "direct"
+  workspaceId: "b26ec0b2-014f-4260-b970-6f6498031c71"
+  workspacePath: "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-2311"
+  sessionIds: ["2e7b0982-6c2a-48d7-b742-41f0a0be86b8"]
+  createdAt: 1795449045850
+  updatedAt: 1795449136130
+  lastExecutedAt: 1795449136130
+  notification: {"desktop": true, "im": {"sessionId": "bfc19a2e-38d6-4084-b883-147d49c3125d", "type": "session"}, "source": "explicit", "version": 1}
+  lastExecution.notification: {"deliveryId": "820e185c-b0cd-4ec8-bd72-35258bca1812", "events": ["execution", "done", "endCondition"], "reason": "delivery-recorded", "subscribedEvents": ["execution", "done", "blocked", "endCondition"]}
+  deliveries(1):
+    {"id": "820e185c-b0cd-4ec8-bd72-35258bca1812", "state": "handed-off", "events": ["execution", "done", "endCondition"], "createdAt": 1795449136130, "updatedAt": 1795449140349, "title": "任务「P2 记录完成时间」执行结束", "executionSessionId": "2e7b0982-6c2a-48d7-b742-41f0a0be86b8", "targetSessionId": "bfc19a2e-38d6-4084-b883-147d49c3125d", "attemptId": null, "error": null, "retryAt": null, "acceptedParts": 0, "messageIds": [], "policy": {"desktop": true, "events": null, "im": {"sessionId": "bfc19a2e-38d6-4084-b883-147d49c3125d", "type": "session"}, "source": "explicit", "channelOwner": null}}
+

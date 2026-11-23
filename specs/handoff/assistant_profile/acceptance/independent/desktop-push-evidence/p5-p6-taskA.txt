@@ -1,0 +1,16 @@
+==== task 49116a15-a43c-42d3-bdef-80837cc6302c
+  name: "P6 注入摘要"
+  status: "done"
+  executionMode: "once"
+  dispatchOrigin: "direct"
+  workspaceId: "b26ec0b2-014f-4260-b970-6f6498031c71"
+  workspacePath: "C:\\Users\\<user>\\.agenteam\\projects\\push-acceptance-2311"
+  sessionIds: ["1034d0b5-4b15-4b97-9cab-a7c34bec132e"]
+  createdAt: 1795450339329
+  updatedAt: 1795450380778
+  lastExecutedAt: 1795450380778
+  notification: {"desktop": true, "events": ["done", "blocked"], "im": {"sessionId": "bfc19a2e-38d6-4084-b883-147d49c3125d", "type": "session"}, "source": "explicit", "version": 1}
+  lastExecution.notification: {"deliveryId": "ddfb0cbd-5338-4ece-9957-87c5596912fe", "events": ["execution", "done", "endCondition"], "reason": "delivery-recorded", "subscribedEvents": ["done", "blocked"]}
+  deliveries(1):
+    {"id": "ddfb0cbd-5338-4ece-9957-87c5596912fe", "state": "handed-off", "events": ["execution", "done", "endCondition"], "createdAt": 1795450380778, "updatedAt": 1795450385365, "title": "任务「P6 注入摘要」执行结束", "executionSessionId": "1034d0b5-4b15-4b97-9cab-a7c34bec132e", "targetSessionId": "bfc19a2e-38d6-4084-b883-147d49c3125d", "attemptId": null, "error": null, "retryAt": null, "acceptedParts": 0, "messageIds": [], "policy": {"desktop": true, "events": ["done", "blocked"], "im": {"sessionId": "bfc19a2e-38d6-4084-b883-147d49c3125d", "type": "session"}, "source": "explicit", "channelOwner": null}}
+

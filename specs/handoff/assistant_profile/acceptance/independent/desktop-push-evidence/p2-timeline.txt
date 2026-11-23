@@ -1,0 +1,13 @@
+MESSAGE TIMELINE (P2 window)
+6 user 2026-11-23T15:50:27.432Z visible len 81
+7 assistant 2026-11-23T15:50:28.569Z visible len 27395
+8 user 2026-11-23T15:51:22.466Z visible len 78
+9 assistant 2026-11-23T15:51:23.631Z visible len 44807
+10 user 2026-11-23T15:52:20.283Z hidden len 869
+11 assistant 2026-11-23T15:52:21.330Z visible len 1573
+12 user 2026-11-23T15:52:45.590Z visible len 132
+13 assistant 2026-11-23T15:52:46.847Z visible len 11182
+14 user 2026-11-23T15:53:30.292Z hidden len 925
+15 assistant 2026-11-23T15:53:31.265Z visible len 17968
+
+DRAFT observed while the P2 task was waiting: DRAFT-P2-未发送-998877DRAFT-P2-UNSENT-998877 (UIA ValuePattern readback, screenshot p2-draft-during-task-done.png)

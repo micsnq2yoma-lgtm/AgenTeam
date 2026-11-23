@@ -1,0 +1,82 @@
+[
+ {
+  "turn": "0",
+  "startedAt": "2026-11-23T15:45:30.968Z",
+  "durationMs": 99740,
+  "inputTokens": 43114,
+  "cacheReadTokens": 217216,
+  "outputTokens": 2686,
+  "model": "deepseek-flash[1m]",
+  "providerId": "deepseek"
+ },
+ {
+  "turn": "2",
+  "startedAt": "2026-11-23T15:47:47.924Z",
+  "durationMs": 81465,
+  "inputTokens": 6185,
+  "cacheReadTokens": 1178880,
+  "outputTokens": 6547,
+  "model": "deepseek-flash[1m]",
+  "providerId": "deepseek"
+ },
+ {
+  "turn": "4",
+  "startedAt": "2026-11-23T15:49:55.316Z",
+  "durationMs": 9247,
+  "inputTokens": 2929,
+  "cacheReadTokens": 167680,
+  "outputTokens": 1073,
+  "model": "deepseek-flash[1m]",
+  "providerId": "deepseek"
+ },
+ {
+  "turn": "6",
+  "startedAt": "2026-11-23T15:50:27.432Z",
+  "durationMs": 46730,
+  "inputTokens": 7081,
+  "cacheReadTokens": 643072,
+  "outputTokens": 5316,
+  "model": "deepseek-flash[1m]",
+  "providerId": "deepseek"
+ },
+ {
+  "turn": "8",
+  "startedAt": "2026-11-23T15:51:22.466Z",
+  "durationMs": 54248,
+  "inputTokens": 5862,
+  "cacheReadTokens": 589696,
+  "outputTokens": 8363,
+  "model": "deepseek-flash[1m]",
+  "providerId": "deepseek"
+ },
+ {
+  "turn": "10",
+  "startedAt": "2026-11-23T15:52:20.283Z",
+  "durationMs": 6145,
+  "inputTokens": 572,
+  "cacheReadTokens": 161920,
+  "outputTokens": 461,
+  "model": "deepseek-flash[1m]",
+  "providerId": "deepseek"
+ },
+ {
+  "turn": "12",
+  "startedAt": "2026-11-23T15:52:45.590Z",
+  "durationMs": 17624,
+  "inputTokens": 857,
+  "cacheReadTokens": 331648,
+  "outputTokens": 2290,
+  "model": "deepseek-flash[1m]",
+  "providerId": "deepseek"
+ },
+ {
+  "turn": "14",
+  "startedAt": "2026-11-23T15:53:30.292Z",
+  "durationMs": 22761,
+  "inputTokens": 1332,
+  "cacheReadTokens": 430336,
+  "outputTokens": 2865,
+  "model": "deepseek-flash[1m]",
+  "providerId": "deepseek"
+ }
+]
