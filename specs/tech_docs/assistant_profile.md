@@ -22,7 +22,7 @@
 - **生成**：`/BOOTSTRAP` 询问用户是否提供资料（简历、网页、文档、文件夹），用户给了才由助理写自包含的 `workspace/profile-task.md`，用 `myagents task create-direct … --executionMode once` 加 `task run` 创建一次性 Task，加载 `agenteam-user-profile`。规则放在助理的 `CLAUDE.md`，因为 BOOTSTRAP 会删除自己，而 Task 结果稍后才回到聊天。只读用户明确给出的资料，画像里只保留理解，不保留原文、联系方式或标识符。
 - **更新与更正**：用户说"更新我的画像"或指出写错时走同一套 Task 流程，分别是增量更新和定向更正；用户更正优先于画像和资料。
 - **日常学习**：`agenteam-memory-update` 把新认识以带日期的一行追加到"近期观察"。
-- **整理**：`agenteam-memory-gardener` 把被明确表达或反复验证的条目并入主体章节并删除原条目，归属不明的留着；"近期观察"超过 20 条时 `memory_lint.py` 给 WARN。USER 文件预算沿用 20 KB（lint 阈值），画像 Skill 把约 6 KB 作为篇幅建议。
+- **整理**：`agenteam-memory-gardener` 把被明确表达或反复验证的条目并入主体章节并删除原条目，归属不明的留着；"近期观察"超过 20 条时 `memory_lint.py` 给 WARN。USER 文件预算定为 20 KB（2026-11-23 用户确认，不再有 6 KB 的软目标）。
 
 ## `section_edit.py`
 

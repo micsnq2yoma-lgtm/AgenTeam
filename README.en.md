@@ -107,7 +107,7 @@ Once it is running:
 2. **Create a project**: click **+** next to "Projects" in the sidebar, choose the folder location and whether to turn on assistant mode.
 3. **Create a task**: create a task in the project, share the material and the goal; for ongoing work, ask the Agent to set up an automation.
 
-App data lives in `~/.myagents` (the upstream MyAgents directory name, kept on purpose; do not rename it).
+App data lives in `~/.agenteam`.
 
 ## What you can change in Settings
 
