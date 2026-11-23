@@ -8955,6 +8955,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_session_target_records_a_delivery_for_done_and_ignores_other_events() {
+        use notification::NotificationTarget;
+        ensure_test_docs_root();
+        let dir = tempdir().unwrap();
+        let ws = dir.path().join("workspace");
+        std::fs::create_dir_all(&ws).unwrap();
+        let store = TaskStore::new(dir.path().join("data"));
+        let mut input = sample_direct_input(&ws);
+        input.notification = Some(NotificationConfig {
+            desktop: false,
+            im: Some(NotificationTarget::Session { session_id: "desktop-session".into() }),
+            events: Some(vec!["done".into(), "blocked".into()]),
+            ..Default::default()
+        });
+        let task = store.create_direct(input).await.unwrap();
+        store.update_status(status_input(&task.id, TaskStatus::Running, TransitionActor::User, Some(TransitionSource::Ui))).await.unwrap();
+        let completed = store.settle_execution_if_status(
+            &task.id, None, TaskExecutionTrigger::Scheduled, TaskStatus::Running,
+            successful_settlement(), Some(TaskExecutionTerminalTransition {
+                status: TaskStatus::Done, message: "Task execution completed".into(),
+                source: TransitionSource::EndCondition,
+            }),
+        ).await.unwrap().unwrap();
+        assert_eq!(completed.notification_deliveries.len(), 1);
+        let delivery = &completed.notification_deliveries[0];
+        assert_eq!(delivery.state, notification::DeliveryState::Waiting);
+        assert!(matches!(delivery.policy.im, Some(NotificationTarget::Session { .. })));
+        let decision = completed.last_execution.as_ref().unwrap().notification.as_ref().unwrap();
+        assert_eq!(decision.reason, notification::DecisionReason::DeliveryRecorded);
+    }
+
+    #[tokio::test]
     async fn notification_event_matrix_covers_execution_state_and_cause() {
         use notification::*;
         ensure_test_docs_root();

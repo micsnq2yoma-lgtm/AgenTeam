@@ -46,6 +46,15 @@ pub enum NotificationTarget {
         #[serde(flatten)]
         target: RecentPrivate,
     },
+    /// A desktop chat Session (not an IM conversation). The `im` slot of the
+    /// notification config is the single "chat target"; this variant keeps one
+    /// target, one parser and one exclusivity rule instead of a parallel field.
+    /// It can only be chosen while creating a Task, from a host-verified source
+    /// Session, so a Task can never push into an arbitrary Session.
+    Session {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+    },
     /// Input convenience, resolved before TaskStore publication.
     Current,
 }
@@ -67,6 +76,12 @@ impl TryFrom<serde_json::Value> for NotificationTarget {
         let (target, keys): (Self, &[&str]) = match field("type")?.as_str() {
             "off" => (Self::Off, &["type"]),
             "current" => (Self::Current, &["type"]),
+            "session" => (
+                Self::Session {
+                    session_id: field("sessionId")?,
+                },
+                &["type", "sessionId"],
+            ),
             "conversation" => (
                 Self::Conversation {
                     address: ConversationRef {
@@ -104,9 +119,18 @@ impl TryFrom<serde_json::Value> for NotificationTarget {
     }
 }
 
+/// Events a Session-targeted Task reports by default: the end of the work, not
+/// every round of it, so a push costs one reply per Task.
+pub const SESSION_DEFAULT_EVENTS: &[&str] = &["done", "blocked"];
+
 #[derive(Debug, Clone, Default)]
 pub struct CreationContext {
     pub conversation: Option<ConversationRef>,
+    /// The desktop Session that is creating the Task, verified by the host.
+    pub session: Option<String>,
+    /// Set by TaskApplication from the Task's execution mode. Only one-shot
+    /// Tasks default to a Session target; schedules never wake a chat by default.
+    pub run_once: bool,
     pub parent_policy: Option<NotificationConfig>,
     pub allowed_channels: Option<Vec<String>>,
 }
@@ -213,15 +237,29 @@ pub fn normalize_create(
         }
     } else {
         let (target, source) = match config.im.take() {
-            Some(NotificationTarget::Current) => (
-                NotificationTarget::Conversation {
-                    address: context
-                        .conversation
-                        .clone()
-                        .ok_or("No current Channel conversation is available")?,
-                },
-                "current",
-            ),
+            Some(NotificationTarget::Current) => match (&context.conversation, &context.session) {
+                (Some(address), _) => (
+                    NotificationTarget::Conversation {
+                        address: address.clone(),
+                    },
+                    "current",
+                ),
+                (None, Some(session_id)) => (
+                    NotificationTarget::Session {
+                        session_id: session_id.clone(),
+                    },
+                    "current",
+                ),
+                (None, None) => return Err("No current Channel conversation is available".into()),
+            },
+            Some(NotificationTarget::Session { session_id }) => {
+                if context.session.as_deref() != Some(session_id.as_str()) {
+                    return Err(
+                        "A Session target must be the Session that creates the Task".into(),
+                    );
+                }
+                (NotificationTarget::Session { session_id }, "explicit")
+            }
             Some(target) => (target, "explicit"),
             None if context.parent_policy.is_some() => (
                 context
@@ -237,8 +275,17 @@ pub fn normalize_create(
                 },
                 "conversation",
             ),
+            None if context.session.is_some() && context.run_once => (
+                NotificationTarget::Session {
+                    session_id: context.session.clone().unwrap(),
+                },
+                "session",
+            ),
             None => (NotificationTarget::Off, "default"),
         };
+        if matches!(target, NotificationTarget::Session { .. }) && config.events.is_none() {
+            config.events = Some(SESSION_DEFAULT_EVENTS.iter().map(|e| (*e).into()).collect());
+        }
         config.im = Some(target);
         config.source = Some(source.into());
         config.version = Some(VERSION);
@@ -295,6 +342,11 @@ pub fn normalize_replacement(
         return Err(
             "current requires a live source context; provide an explicit conversation".into(),
         );
+    }
+    if matches!(config.im, Some(NotificationTarget::Session { .. }))
+        && existing.is_none_or(|old| old.im != config.im)
+    {
+        return Err("A Session target can only be set when the Task is created".into());
     }
     config.version = Some(VERSION);
     if existing.is_some_and(|old| old.im == config.im) {
@@ -755,6 +807,105 @@ mod tests {
             channel_id: "feishu-1".into(),
             session_key: "group:one".into(),
         }
+    }
+
+    fn session_context(run_once: bool) -> CreationContext {
+        CreationContext {
+            session: Some("desktop-session".into()),
+            run_once,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn session_target_parses_strictly() {
+        let target: NotificationTarget =
+            serde_json::from_value(json!({"type":"session","sessionId":"s1"})).unwrap();
+        assert_eq!(
+            target,
+            NotificationTarget::Session {
+                session_id: "s1".into()
+            }
+        );
+        assert_eq!(
+            serde_json::to_value(&target).unwrap(),
+            json!({"type":"session","sessionId":"s1"})
+        );
+        for bad in [
+            json!({"type":"session"}),
+            json!({"type":"session","sessionId":" "}),
+            json!({"type":"session","sessionId":"s1","channelId":"c"}),
+        ] {
+            assert!(serde_json::from_value::<NotificationTarget>(bad).is_err());
+        }
+    }
+
+    #[test]
+    fn a_one_shot_task_created_in_a_desktop_chat_defaults_to_that_chat_with_done_and_blocked() {
+        let config = normalize_create(None, &session_context(true)).unwrap();
+        assert_eq!(
+            config.im,
+            Some(NotificationTarget::Session {
+                session_id: "desktop-session".into()
+            })
+        );
+        assert_eq!(config.source.as_deref(), Some("session"));
+        assert_eq!(
+            config.events,
+            Some(vec!["done".to_string(), "blocked".to_string()])
+        );
+        // No `execution`: a push is one reply per Task, not one per round.
+        assert!(!effective_events(Some(&config)).contains(&"execution".to_string()));
+    }
+
+    #[test]
+    fn schedules_and_ordinary_creation_never_default_to_a_chat() {
+        let recurring = normalize_create(None, &session_context(false)).unwrap();
+        assert_eq!(recurring.im, Some(NotificationTarget::Off));
+        let manual = normalize_create(None, &CreationContext::default()).unwrap();
+        assert_eq!(manual.im, Some(NotificationTarget::Off));
+    }
+
+    #[test]
+    fn an_explicit_choice_wins_over_the_session_default() {
+        let off = normalize_create(
+            Some(policy(json!({"version":1,"im":{"type":"off"}}))),
+            &session_context(true),
+        )
+        .unwrap();
+        assert_eq!(off.im, Some(NotificationTarget::Off));
+        let events = normalize_create(
+            Some(policy(
+                json!({"version":1,"im":{"type":"current"},"events":["execution"]}),
+            )),
+            &session_context(false),
+        )
+        .unwrap();
+        assert_eq!(events.events, Some(vec!["execution".to_string()]));
+        assert!(matches!(
+            events.im,
+            Some(NotificationTarget::Session { .. })
+        ));
+    }
+
+    #[test]
+    fn an_ordinary_task_cannot_name_another_session() {
+        let other = policy(json!({"version":1,"im":{"type":"session","sessionId":"someone-else"}}));
+        assert!(normalize_create(Some(other.clone()), &session_context(true)).is_err());
+        assert!(normalize_create(Some(other), &CreationContext::default()).is_err());
+        let own = policy(json!({"version":1,"im":{"type":"session","sessionId":"desktop-session"}}));
+        assert!(normalize_create(Some(own), &session_context(true)).is_ok());
+    }
+
+    #[test]
+    fn a_session_target_cannot_be_added_by_a_later_update() {
+        let existing = normalize_create(None, &CreationContext::default()).unwrap();
+        let attempt = policy(json!({"version":1,"im":{"type":"session","sessionId":"x"}}));
+        assert!(normalize_replacement(attempt.clone(), Some(&existing)).is_err());
+        assert!(normalize_replacement(attempt, None).is_err());
+        // Keeping the one it was created with is allowed.
+        let created = normalize_create(None, &session_context(true)).unwrap();
+        assert!(normalize_replacement(created.clone(), Some(&created)).is_ok());
     }
     fn channel(agent: Option<&str>) -> crate::im::channel_messaging::ChannelCapability {
         crate::im::channel_messaging::ChannelCapability {

@@ -30,6 +30,8 @@ pub(crate) async fn validate_target(
         NotificationTarget::Current => {
             return Err("current must be resolved from an active conversation".into())
         }
+        // A Session target has no IM channel; the host verified the source Session.
+        NotificationTarget::Session { .. } => return Ok(()),
         NotificationTarget::Conversation { address } => {
             let config = channel(&address.channel_id)?;
             let known = if let Ok(owner) = channel_owner(agents, bots, &address.channel_id).await {
@@ -89,6 +91,9 @@ pub(crate) async fn resolve_target(
     match target {
         NotificationTarget::Off => Ok(None),
         NotificationTarget::Current => Err("Unresolved current notification target".into()),
+        NotificationTarget::Session { .. } => {
+            Err("A Session target is delivered to its Session, not resolved to a channel".into())
+        }
         NotificationTarget::Conversation { address } => {
             channel(&address.channel_id)?;
             Ok(Some(address.clone()))
@@ -161,6 +166,9 @@ fn describe_destination(policy: Option<&crate::task::NotificationConfig>) -> ser
         }
         Some(NotificationTarget::Current) => {
             return json!({"label":"Unresolved source","availability":"unavailable"})
+        }
+        Some(NotificationTarget::Session { session_id }) => {
+            return json!({"label":"Chat that created this Task","sessionId":session_id,"availability":"configured","deliveryMode":"session"})
         }
         Some(NotificationTarget::RecentPrivate {
             target: RecentPrivate::Agent { agent_id },

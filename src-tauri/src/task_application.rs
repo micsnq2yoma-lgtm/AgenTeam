@@ -219,6 +219,8 @@ impl<'a> TaskApplication<'a> {
         &self, mut input: TaskCreateDirectInput, actor: crate::task::TransitionActor,
         source: Option<crate::task::TransitionSource>, context: crate::task::notification::CreationContext,
     ) -> Result<Task, TaskApplicationError> {
+        let mut context = context;
+        context.run_once = matches!(input.execution_mode, crate::task::TaskExecutionMode::Once);
         let mut config = crate::task::notification::normalize_create(input.notification.take(), &context).map_err(TaskApplicationError::mutation)?;
         if config.source.as_deref() != Some("parent-task") { crate::task::notification::freeze_channel_owner(&mut config).map_err(TaskApplicationError::mutation)?; }
         if let Some(app) = crate::logger::get_app_handle() {
