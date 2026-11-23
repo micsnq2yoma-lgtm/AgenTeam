@@ -1,6 +1,6 @@
 # 设计：桌面聊天的 Task 结果回推（保守版）
 
-> 日期：2026-11-23。状态：**草案，等待用户确认后才开发**。按 `CLAUDE.md`，这是新的通知目标和来源，属于需要先讨论架构的改动。
+> 日期：2026-11-23。状态：**用户已按建议确认 §7 五点；§8 已核实；开发中**。按 `CLAUDE.md`，这是新的通知目标和来源，属于需要先讨论架构的改动。
 > 起因：独立复验 N2——助理在桌面聊天里创建画像 Task 后，收不到完成信号，只能靠"记得去查"，三轮实测里普通消息触发查询只有 1/3。指令层面已到头。
 > 本文只依据读过的文档和代码（`task_center.md`、`cli_architecture.md`、`session_architecture.md`、`src/server/session-engine/task-notification.ts`、`src/server/inbox/session-event.ts`、`src-tauri/src/task/notification.rs`）。"需确认的代码事实"一节列出尚未核实的假设。
 
@@ -129,18 +129,31 @@ Task 结果通知已经有完整链路，但目标只有 IM：
 4. **聊天已关闭时不补发**，是否接受？
 5. **全局开关默认值**：`taskResultPushBack` 默认开启，是否接受？
 
-## 8. 需确认的代码事实（开发前先核实）
+## 8. 核实结果（2026-11-23，读代码得出，未运行）
 
-- 桌面 Session 的 SessionEngine 轮次是否能稳定取到"所属 Session ID 和是否用户可见"（`getNotificationConversation()` 在桌面返回 `null`，需要新增并行的取值方法）。
-- `enqueueInboxMessage` 对没有活动 Sidecar 的 Session 的现有行为（是否会隐式拉起），以及"目标 Session 正在回复"时的排队语义。
-- `NotificationTarget` 的 `deny_unknown_fields` 与旧版本兼容：未知目标类型使 TaskStore 只读（文档已述），新增 `session` 需要版本号策略，避免旧客户端读到新数据后进入只读。
-- 合并窗口放在哪一层（Rust worker 或 Node Inbox）才不引入第二个队列。
+用户已按建议确认 §7 的五点。以下是 §8 的核实结果，其中有三处要修改上文设计。
+
+| 事实 | 结果 | 对设计的影响 |
+|---|---|---|
+| 桌面轮次能否取到所属 Session | **能**。`engine.getCurrentSessionContext().sessionId` 和 `getExecutionTurnId()`（当前派发轮次的 queueId）已被 `taskNotificationContext` 使用；`getSessionOrigin(sessionId)` 给出 `desktop` / `agent-channel` 等来源。缺的只是并行于 `getNotificationConversation()` 的"当前 Session 来源" | Node 在 `notificationContext` 里增加 `session: { sessionId }`，仅当该 Session 的来源是 `desktop` 且存在派发轮次时产出；IM 来源仍只产出 `conversation`。Rust 的 `SourceContext` 是 `deny_unknown_fields`，需同步加字段 |
+| `enqueueInboxMessage` 对无活动 Sidecar 的 Session | **会拉起**。`prepare_existing_delivery(path)` 在没有健康 Sidecar 时调用 `ensure_session_sidecar_…`（IM 路径靠它恢复死会话）。但底层 `prepare_delivery` 的 `path` 是 `Option`：传 `None` 且没有健康 Sidecar 时直接返回 `SessionNotFound`，不启动 | 新增只投递到"已有活动 Sidecar"的入口 `prepare_live_only_delivery`（`path = None`）。`SessionNotFound` 再用 `resolve_session_runtime_identity_full` 区分：Session 已不存在 → `session-gone`，仍存在但没有活动 Sidecar → `session-inactive`。"是否活动"由 SidecarManager 裁决，worker 不自己判断 |
+| 目标 Session 正在回复时的语义 | 现有回合队列已处理：`task.result` 经 `enqueueInboxMessage` 排在当前轮之后，`dispatchAcceptance` 在派发被接纳时才结算。输入框里的草稿是前端本地状态，不会被打断 | 不需要新机制，"排队不打断"由现有队列保证 |
+| 旧版本读到新目标类型 | `NotificationTarget` 解析对未知类型返回错误，整个通知配置反序列化失败；既有规则是"未知通知版本使 TaskStore 只读，防止有损重写"。无论加新类型还是升版本号，旧客户端都会进入只读 | 保持 `VERSION = 1`（新增是加法），接受"降级后旧版本对含 `session` 目标的数据只读"，与既有规则一致，不为降级另做兼容；发布说明里写明 |
+| 合并窗口放哪一层 | **比草案想的复杂**：`NotificationDelivery` 是每个 Task 一条记录，有独立的 `attemptId`、`authorize` 复查、`terminal` 回执。合并多个 Task 要让 `TaskResultEvent` 带 `items[]`，`authorize` 和 `terminal` 对每一项分别结算 | 合并放在 Rust worker（它已按到期时间批量扫描投递，不引入第二个队列），但**不在第一版做**。第一版每个 Task 一条事件、一轮模型调用；典型的画像流程只有一个 Task。合并作为单独一步，上线前由 P4 验证 |
+
+### 修订后的实现要点
+
+- **目标存放**：沿用 `NotificationConfig.im` 这个单一目标槽，新增变体 `NotificationTarget::Session { session_id }`，JSON 为 `{"type":"session","sessionId":"…"}`。一个槽、一套解析和互斥校验，不新增并行字段；代价是字段名 `im` 不够贴切，在代码注释和文档里写明它是"聊天目标"，不改名。
+- **默认策略**：`CreationContext` 增加 `session`；当 `config.im` 缺省、没有父 Task 策略、没有 IM 会话，且存在 `session` 来源和**一次性**运行模式时，目标为该 Session，事件默认 `done,blocked`，`source = "session"`。运行模式由 `TaskApplication` 在调用前传入，不让通知模块猜。
+- **授权复查**：`authorize` 目前复查 IM 通道和绑定；对 `session` 目标改查"Session 存在、有活动 Sidecar、来源仍是桌面"，不满足返回 `offline` / `session_gone`，沿用既有的可重试 / 终结回执。
+- **管理面投影**：`notificationDestination`、CLI 人类可读输出、GUI 都要认识 `session` 目标（标签用 Session 标题）。
+- **防链条**：`task.result` 触发的那一轮里创建的 Task，来源上下文不产出 `session`（Node 在当前轮次的 owner 是 `task.result` 事件时不填）。
 
 ## 9. 分步
 
-1. 核实 §8，补全本文。
+1. ~~核实 §8，补全本文~~（已完成，见 §8）。
 2. Rust：目标类型、来源校验、默认策略、决策原因；Node：来源上下文与 `session` 投递。
-3. 合并窗口与防链条。
+3. 防链条；合并窗口（要多项事件，单独一步）。
 4. 全局开关与助理模板更新。
 5. 独立验收 P1–P7。
 
