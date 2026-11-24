@@ -141,7 +141,9 @@ async function warmNpxMcpServers(
         { ...launch, env: { ...getDefaultEnvironment(), ...launch.env } },
         { cwd },
       );
-      if (outcome.status === "failed") {
+      if (outcome.status !== "failed") {
+        console.log(`[antigravity] MCP warmup for ${server.id}: ${outcome.status}`);
+      } else {
         console.warn(`[antigravity] MCP warmup for ${server.id} failed (${outcome.reason}); starting the session anyway`);
       }
     } catch (error) {

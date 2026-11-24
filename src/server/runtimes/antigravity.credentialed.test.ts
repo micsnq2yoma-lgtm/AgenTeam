@@ -6,6 +6,12 @@ import { expect, it } from "vitest";
 import { AntigravityRuntime } from "./antigravity";
 import type { RuntimeProcess, UnifiedEvent } from "./types";
 
+// Windows PowerShell 5.1 writes `>` redirects as UTF-16LE with a BOM.
+function decodeShellText(buffer: Buffer): string {
+  const text = buffer[0] === 0xff && buffer[1] === 0xfe ? buffer.subarray(2).toString("utf16le") : buffer.toString("utf8");
+  return text.trim();
+}
+
 it.skipIf(process.env.MYAGENTS_TEST_AGY !== "1")(
   "runs a workspace file edit with full access and resumes under ordinary approvals",
   async () => {
@@ -79,7 +85,7 @@ it.skipIf(process.env.MYAGENTS_TEST_AGY !== "1")(
       await runtime.respondPermission(proc, approve.requestId, "allow_once");
       expect((await wait("turn_complete")).status).toBe("completed");
       expect(
-        (await readFile(join(workspacePath, "first.txt"), "utf8")).trim(),
+        decodeShellText(await readFile(join(workspacePath, "first.txt"))),
       ).toBe("apple");
       const second = events.length;
       await runtime.sendMessage(
