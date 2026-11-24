@@ -432,7 +432,7 @@ export default function SourceDetailDrawer({
                             {t('knowledge.drawer.chunkOrdinal', { ordinal: chunk.ordinal + 1 })}
                           </span>
                           <div className="flex items-center gap-2">
-                            {chunk.page !== undefined && (
+                            {typeof chunk.page === 'number' && (
                               <span className="rounded bg-[var(--paper-inset)] px-1.5 py-0.5 text-[var(--ink-secondary)]">
                                 {t('knowledge.drawer.chunkPage', { page: chunk.page })}
                               </span>

@@ -94,7 +94,7 @@ export default function KnowledgeSearchTab({
           {hit.prefix && <p className="mt-0.5 truncate text-xs text-[var(--accent)]">{hit.prefix}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2 text-xs text-[var(--ink-muted)]">
-          {hit.page !== undefined && (
+          {typeof hit.page === 'number' && (
             <span className="rounded bg-[var(--paper-inset)] px-1.5 py-0.5 text-[var(--ink-secondary)]">
               {t('knowledge.search.pageLabel', { page: hit.page })}
             </span>

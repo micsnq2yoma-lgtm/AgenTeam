@@ -352,7 +352,15 @@
         "chooseReadableRegularFile": "Select a readable regular file (folders and symlinks are rejected)",
         "refreshLibrary": "Library or source no longer exists; refresh",
         "simplifyGraphemeAndRetry": "Contains an unsplittable character sequence exceeding chunk budget",
-        "checkStorageAndRetry": "Storage error occurred; please retry"
+        "checkStorageAndRetry": "Storage error occurred; please retry",
+        "installDocumentResources": "Install the document conversion bundle (PDF / Office support) and retry",
+        "saveAsUnicodeText": "Save the file as UTF-8 or UTF-16 text and retry",
+        "splitDocument": "Document exceeds conversion limit or timed out; split it and retry",
+        "waitForConversion": "Document conversion queue is full; please try again shortly",
+        "provideUnencryptedCopy": "Document is encrypted; provide an unencrypted copy and retry",
+        "chooseClearerDocument": "No usable text detected; try a clearer document",
+        "resaveDocument": "Document appears malformed or changed during read; resave and retry",
+        "checkDocumentConverter": "Document converter is unavailable; check and retry"
       }
     },
     "drawer": {

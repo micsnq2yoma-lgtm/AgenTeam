@@ -168,6 +168,16 @@ describe('KnowledgeDetail', () => {
               byteRange: [0, 28],
               utf16Range: [0, 28],
             },
+            {
+              chunkId: 'chunk_bbbbbbbbbbbb',
+              ordinal: 1,
+              headingPath: ['Notes'],
+              page: null,
+              prefix: 'architecture.pdf › Notes',
+              text: 'Markdown note without page number.',
+              byteRange: [28, 62],
+              utf16Range: [28, 62],
+            },
           ];
         case 'cmd_kb_search':
           return {
@@ -183,6 +193,17 @@ describe('KnowledgeDetail', () => {
                 page: 3,
                 snippet: 'Core owner boundary details.',
                 score: 0.0325,
+              },
+              {
+                reference: `kb://${state.kb.id}/src_ready#chunk_bbbbbbbbbbbb`,
+                kbId: state.kb.id,
+                sourceId: 'src_ready',
+                chunkId: 'chunk_bbbbbbbbbbbb',
+                title: 'notes.md',
+                prefix: 'notes.md › Notes',
+                page: null,
+                snippet: 'Markdown note without page number.',
+                score: 0.021,
               },
             ],
           };
@@ -303,6 +324,7 @@ describe('KnowledgeDetail', () => {
     expect(await within(drawer).findByText('Core owner boundary details.')).toBeInTheDocument();
     expect(within(drawer).getByText('architecture.pdf › Overview')).toBeInTheDocument();
     expect(within(drawer).getByText(tl('knowledge.drawer.chunkPage', { page: 3 }))).toBeInTheDocument();
+    expect(within(drawer).queryByText('第页')).not.toBeInTheDocument();
   });
 
   it('runs retrieval test and jumps into the matching chunk drawer', async () => {
@@ -317,8 +339,10 @@ describe('KnowledgeDetail', () => {
 
     expect(await screen.findByTestId('kb-search-mode')).toHaveTextContent('BM25');
     expect(screen.getByText('Core owner boundary details.')).toBeInTheDocument();
+    expect(screen.queryByText('第页')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: tl('knowledge.search.openSource') }));
+    const openButtons = screen.getAllByRole('button', { name: tl('knowledge.search.openSource') });
+    fireEvent.click(openButtons[0]);
     const drawer = await screen.findByTestId('source-detail-drawer');
     expect(await within(drawer).findByText('#chunk_aaaaaaaaaaaa')).toBeInTheDocument();
   });

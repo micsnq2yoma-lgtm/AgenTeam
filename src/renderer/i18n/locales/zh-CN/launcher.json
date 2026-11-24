@@ -352,7 +352,15 @@
         "chooseReadableRegularFile": "请选择可读的普通文件（不支持目录或符号链接）",
         "refreshLibrary": "知识库或资料已不存在，请刷新",
         "simplifyGraphemeAndRetry": "包含超长不可拆分的字符序列，请简化内容后重试",
-        "checkStorageAndRetry": "存储读取失败，请重试"
+        "checkStorageAndRetry": "存储读取失败，请重试",
+        "installDocumentResources": "请先安装文档转换组件（PDF / Office 支持）后重试",
+        "saveAsUnicodeText": "请将文件保存为 UTF-8 或 UTF-16 文本编码后重试",
+        "splitDocument": "文档过大或转换超时，请拆分后重新导入",
+        "waitForConversion": "文档转换队列已满，请稍后重试",
+        "provideUnencryptedCopy": "文档已加密，请提供未加密副本后重试",
+        "chooseClearerDocument": "未识别到可用文本，请更换更清晰的文档后重试",
+        "resaveDocument": "文档可能已损坏或内容变更，请另存一份后重试",
+        "checkDocumentConverter": "文档转换服务暂不可用，请检查后重试"
       }
     },
     "drawer": {
