@@ -205,3 +205,81 @@ S2 未触发。模型保留和清除均无桌面观察，未就任一分支判�
 暂无可登记的新桌面缺陷。没有实测复现、实际结果或截图支撑缺陷定级。已有的 Grok 文档与注释偏差已在 L7-E4 记录。
 
 **L7 阻塞，验收未完成。0 项通过，0 项失败，8 项阻塞，1 项不适用。** 主用例缺少可确认独占 `.agenteam` 的桌面和可用的 Anthropic 订阅登录或 API Key。S4 另缺 DeepSeek API Key。尤其是 DSH 偏好下保留 Anthropic 模型时的真实执行者、权限和重启持久化，均无实测结论。
+
+## 订阅路径验收（0.7.0）
+
+验收环境为 Windows 11 x64（10.0.26200）上已安装的 AgenTeam 0.7.0。GitHub 最新发布 `v0.7.0` 指向 `5c533ea28f095690810c1a11b0da924c9cd5f251`，父提交为 `daf4e223e5fe08db716d319962ca46ae7932c63c`。本机 exe 的产品版本为 0.7.0，SHA-256 为 `17c909ebbf3544b4e9082329b454fe8cff7bdcba933e2d4b8cae43ac597472bc`。未重新安装或逐字节对比发布包。 [GitHub 发布](https://github.com/micsnq2yoma-lgtm/AgenTeam/releases/tag/v0.7.0)
+
+按用户本轮授权，在当前 Windows 用户的真实 App 中新建合成助理 `LR-Subscription-QA`。工作区是新建的，`.agenteam` 与当前用户共用。模型设置显示 Codex Runtime v0.171.0（win32-x64）已登录，Codex 订阅模型可选。DeepSeek 已配置，卡片显示掩码和绿色勾。沿用 App 已配置的服务，未读取或导出登录凭据。常驻标注的判据采用本轮预期。 [Codex 状态](evidence-0.7.0-subscription/codex-modal.png) · [DeepSeek 状态](evidence-0.7.0-subscription/deepseek.png)
+
+### S1–S8 结果
+
+| 步骤 | 结果 | 实测及证据 |
+| --- | --- | --- |
+| S1 | 通过 | 主动点选后，启动页显示 DeepSeek Harness，Agent 设置显示 AgenTeam (DeepSeek Harness)。三个字段见下表。 [启动页](evidence-0.7.0-subscription/S1-zh-launcher.png) · [设置](evidence-0.7.0-subscription/S1-zh-settings.png) |
+| S2 | 失败 | 选择 Codex 订阅组的 GPT-6.2-Sol 后，选择器完整显示 Managed Codex。中文顶部弹一次，打开选择器和设置未重弹，输入框周围无常驻标注。写盘将 `runtime` 改为 `builtin` 并填入 `providerId=codex-sub`。已切换到英文界面，锁屏发生在对合成助理执行英文切换前。 [切换通知](evidence-0.7.0-subscription/S2-zh-toast.png) · [通知消失后](evidence-0.7.0-subscription/S2-zh-after.png) |
+| S3 | 失败 | Agent 设置中的运行环境仍为 DSH。打开设置本身无写入，但 S2 留下的两个字段与 S1 基线不一致。 [设置](evidence-0.7.0-subscription/S3-zh-settings.png) |
+| S4 | 失败 | 换回 DeepSeek V4.1 Flash 后，选择器回到 DSH，弹一条返回通知。配置写入 `runtime=dsh`、`providerId=deepseek`，仍与 S1 基线不同。 [返回通知](evidence-0.7.0-subscription/S4-zh-toast.png) |
+| S5 | 通过 | 重新点选 Codex 后，在受模型限制时点菜单里的 DSH。弹一次说明，选择器仍为 Managed Codex。点击前后三个字段与 `config.json` 修改时间相同。 [准备状态](evidence-0.7.0-subscription/S5-zh-pin.png) · [点 DSH 后](evidence-0.7.0-subscription/S5-zh-toast.png) |
+| S6 🔒 | 失败 | 三次往返都复现 `runtime` 切到 `builtin` 又写回 `dsh`，`providerId` 在 `codex-sub` 和 `deepseek` 间反复写入。完全退出后的复验仍阻塞。 [第 1 次去](evidence-0.7.0-subscription/S6-zh-1-codex.png) · [回](evidence-0.7.0-subscription/S6-zh-1-dsh.png) · [第 2 次去](evidence-0.7.0-subscription/S6-zh-2-codex.png) · [回](evidence-0.7.0-subscription/S6-zh-2-dsh.png) · [第 3 次去](evidence-0.7.0-subscription/S6-zh-3-codex.png) · [回](evidence-0.7.0-subscription/S6-zh-3-dsh.png) |
+| S7 🔒 | 阻塞 | Windows 会话锁屏，未发送两条验收消息，缺少会话级运行环境、模型及既有绑定的执行证据。 |
+| S8 | 阻塞 | Windows 会话锁屏，未进入默认模型配置流程。当前 App 进程托管本次验收会话，完全退出和恢复必须跨会话接续。 |
+
+### 通知原文和次数
+
+| 代号 | 中文实测原文 | 英文原文 |
+| --- | --- | --- |
+| A | 这个模型只能由 Managed Codex 运行，本次将用 Managed Codex 执行；你保存的运行环境仍是 AgenTeam (DeepSeek Harness)。 | 未采集 |
+| B | 已回到你保存的运行环境：AgenTeam (DeepSeek Harness)。 | 未采集 |
+| C | 你保存的运行环境已经是 AgenTeam (DeepSeek Harness)，但当前选的模型只能由 Managed Codex 运行。换一个模型即可使用 AgenTeam (DeepSeek Harness)。 | 未采集 |
+
+| 步骤 | 中文实测 | 英文实测 |
+| --- | --- | --- |
+| S1 | 0 条运行环境通知 | 未执行 |
+| S2 | A × 1，后续打开菜单、设置未重弹 | 阻塞，未执行 |
+| S3 | 0 条运行环境通知 | 未执行 |
+| S4 | B × 1 | 未执行 |
+| S5 | A × 1（建立受限状态），C × 1（点击 DSH） | 未执行 |
+| S6 | 准备时 B × 1，正式三轮各 A × 1、B × 1 | 未执行 |
+| S7 | 未执行 | 未执行 |
+| S8 | 未执行 | 未执行 |
+
+已观察到的中文通知均无残留占位符。英文次数留空的步骤未通过本地化文件推定界面结果。
+
+### config.json 逐步对照
+
+「缺字段」表示键不存在。D 表示 `{"family":"integrated","id":"dsh"}`。除 S5 的文件修改时间外，仅记录测试助理的三个字段。
+
+| 步骤 | `runtime` 前 → 后 | `runtimePreference` 前 → 后 | `providerId` 前 → 后 |
+| --- | --- | --- | --- |
+| S1 主动选择 DSH | 缺字段 → `dsh` | 缺字段 → D | 缺字段 → 缺字段 |
+| S2 中文选择 Codex | `dsh` → `builtin` | D → D | 缺字段 → `codex-sub` |
+| S2 英文 | 未采集 | 未采集 | 未采集 |
+| S3 打开 Agent 设置 | `builtin` → `builtin` | D → D | `codex-sub` → `codex-sub` |
+| S4 选择 DeepSeek | `builtin` → `dsh` | D → D | `codex-sub` → `deepseek` |
+| S5 再次用 Codex 模型建立状态 | `dsh` → `builtin` | D → D | `deepseek` → `codex-sub` |
+| S5 在选择器点击 DSH | `builtin` → `builtin` | D → D | `codex-sub` → `codex-sub` |
+| S6 准备，换回 DeepSeek | `builtin` → `dsh` | D → D | `codex-sub` → `deepseek` |
+| S6 第 1 次去 | `dsh` → `builtin` | D → D | `deepseek` → `codex-sub` |
+| S6 第 1 次回 | `builtin` → `dsh` | D → D | `codex-sub` → `deepseek` |
+| S6 第 2 次去 | `dsh` → `builtin` | D → D | `deepseek` → `codex-sub` |
+| S6 第 2 次回 | `builtin` → `dsh` | D → D | `codex-sub` → `deepseek` |
+| S6 第 3 次去 | `dsh` → `builtin` | D → D | `deepseek` → `codex-sub` |
+| S6 第 3 次回 | `builtin` → `dsh` | D → D | `codex-sub` → `deepseek` |
+| S6 重启 | 未采集 | 未采集 | 未采集 |
+| S7 | 未采集 | 未采集 | 未采集 |
+| S8 | 未采集 | 未采集 | 未采集 |
+
+S5 实际点击 DSH 的前后，`config.json` 修改时间均为 Unix 纳秒 `1795492238662123000`。
+
+### 新缺陷
+
+- **高严重度 · 启动页选择模型会改写助理运行环境字段及供应商。** 在新助理的启动页主动选 DSH，随后选 Codex 订阅组的 GPT-6.2-Sol，再换回 DeepSeek V4.1 Flash。预期只有运行环境选择器的主动选择能改变三个字段。实际 `runtime` 在 `dsh` 与 `builtin` 间改写，`providerId` 从缺字段开始写入 `codex-sub`，换回时写入 `deepseek`。`runtimePreference` 保持 DSH，设置页仍显示 DSH。第一次及之后三次往返均复现。影响为配置持久化验收失败。重启后的影响仍待核对。 [S2](evidence-0.7.0-subscription/S2-zh-toast.png) · [S3](evidence-0.7.0-subscription/S3-zh-settings.png) · [S4](evidence-0.7.0-subscription/S4-zh-toast.png)
+
+- **中严重度 · 展开选择器时突出显示外部 Codex CLI。** 在 S2 状态打开运行环境选择器，收起时显示 Managed Codex，展开后突出显示「外部 CLI」组的 Codex CLI。预期选择器应明确显示当前为托管 Codex。该截图只证明菜单状态差异，真实执行仍待 S7 核对。 [运行环境菜单](evidence-0.7.0-subscription/S2-zh-runtime-menu.png)
+
+### 阻塞与结论
+
+Windows 锁屏阻塞英文复验及 S7–S8。当前 AgenTeam 进程是验收会话的上游进程，完整重启将中断本轮工具和后续证据采集，重启用例需跨会话接续。相关步骤未计作通过。锁屏时界面语言已切至英文，App 全局默认模型未更动。
+
+**不通过。2 项通过，4 项失败，2 项阻塞。** S6 已取得违反配置不变要求的证据，重启复验、真实会话执行、既有 Session 绑定及默认模型继承尚未完成。
