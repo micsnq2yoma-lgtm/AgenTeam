@@ -35,3 +35,96 @@
 ## 新缺陷与结论
 
 已完成的检查未发现新缺陷。共 **1 项通过，0 项失败，2 项阻塞**。U3 通过。X1-R 的两次安装结果和 U5 的引导完成后清理仍未获得验收证据。
+
+## X1-R 脚本级复验
+
+2026-11-23，Windows 11 26H2 x64（Build `26300.9974`），原生 Windows PowerShell `5.1.26100.9818`。`git merge-base --is-ancestor ce95e80 origin/main` 返回 `0`，本地 `origin/main` 指向 `daf4e223e5fe08db716d319962ca46ae7932c63c`。调用参数与产品一致。所有调用均在未提升权限的进程中完成。两个 UTF-8 脚本和输出存放在隔离临时目录，环境变量的改动限于子进程。[产品中的 PowerShell 片段](../../../../src-tauri/src/managed_codex.rs)
+
+目标为 `C:\Windows\System32\notepad.exe`，签名证书主体为 `CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US`。测试前后可执行文件的 SHA-256 相同，均为 `2d0b3948c1edc5c6a1d1f3e3658613252cfbbfa1b98b46cb7cc8e5bf2efb158f`。
+
+### 命令与环境
+
+`old.ps1` 的内容如下。
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$sig = Get-AuthenticodeSignature -LiteralPath 'C:\Windows\System32\notepad.exe'
+$cert = $sig.SignerCertificate
+[string]$sig.Status
+if ($cert -ne $null) { [System.BitConverter]::ToString($cert.GetCertHash('SHA256')).Replace('-','').ToLowerInvariant() }
+```
+
+`new.ps1` 仅在第一行后插入以下两行。
+
+```powershell
+$env:PSModulePath = (Join-Path $PSHOME 'Modules') + ';' + (Join-Path $env:windir 'System32\WindowsPowerShell\v1.0\Modules')
+Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
+```
+
+对每份脚本按以下方式编码和启动。用子进程的两条重定向流直接捕获 stdout 与 stderr 字节，再单独记录进程退出码。
+
+```powershell
+$script = [IO.File]::ReadAllText($scriptPath, [Text.Encoding]::UTF8)
+$encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+& "$env:windir\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded
+```
+
+| 环境 | 启动时的 `PSModulePath` |
+| --- | --- |
+| (a) 干净 | 由无配置文件的 Windows PowerShell 5.1 父进程从缺省环境生成 `%USERPROFILE%\Documents\WindowsPowerShell\Modules;C:\Program Files\WindowsPowerShell\Modules;C:\Windows\system32\WindowsPowerShell\v1.0\Modules`。测试子进程直接继承。 |
+| (b) 仅 PowerShell 7 | `C:\Program Files\WindowsApps\OpenAI.CodexPrimaryRuntime.v26-1118-904-0_26.1118.904.0_x64__3k8sg7r9htsxt\dependencies\native\powershell\Modules`。机器有 PowerShell `7.6.9` 的随应用部署副本，常规安装位置 `C:\Program Files\PowerShell\7\Modules` 不存在，使用实际的模块目录。 |
+| (c) 不存在的目录 | `C:\no-such-dir`，已确认不存在。 |
+| (d) 上轮复现环境 | `C:\ProgramData\AgenTeam-Quickcheck-daf4e22\broken-modules;C:\ProgramData\AgenTeam-Quickcheck-daf4e22\pwsh7-modules`。沿用上轮两个原路径。第一个目录是会在加载时抛错的隔离测试模块，第二个目录经 junction 指向 (b) 的 PowerShell 7 模块目录。 |
+| (e) 空字符串 | 子进程启动时显式传入 `PSModulePath=''`，只运行 `new.ps1` 一次。 |
+| 补测（直接继承 PowerShell 7） | 未覆盖当前 PowerShell 7 父进程的路径。其顺序为 `%USERPROFILE%\Documents\PowerShell\Modules;C:\Program Files\PowerShell\Modules;c:\program files\windowsapps\openai.codexprimaryruntime.v26-1118-904-0_26.1118.904.0_x64__3k8sg7r9htsxt\dependencies\native\powershell\Modules;%USERPROFILE%\Documents\WindowsPowerShell\Modules;C:\Program Files\WindowsPowerShell\Modules;C:\Windows\system32\WindowsPowerShell\v1.0\Modules`。 |
+
+### 逐次结果
+
+单元格为「退出码 / stdout / stderr」。`V` 为下列两行签名输出，`—` 为零字节。`P1`、`P2` 分别含一条和两条 CLIXML 进度记录；`E` 为完整的 CLIXML 加载错误。相同标识的输出字节完全一致。25 次指定调用和 6 次补测均留有原始字节。
+
+| 启动环境 | old 第 1 次 | old 第 2 次 | old 第 3 次 | new 第 1 次 | new 第 2 次 | new 第 3 次 |
+| --- | --- | --- | --- | --- | --- | --- |
+| (a) Windows PowerShell 5.1 默认 | `0 / V / P2` | `0 / V / P2` | `0 / V / P2` | `0 / V / P1` | `0 / V / P1` | `0 / V / P1` |
+| (b) 仅 PowerShell 7 | `1 / — / E` | `1 / — / E` | `1 / — / E` | `0 / V / P1` | `0 / V / P1` | `0 / V / P1` |
+| (c) 不存在的目录 | `0 / V / P2` | `0 / V / P2` | `0 / V / P2` | `0 / V / P1` | `0 / V / P1` | `0 / V / P1` |
+| (d) 上轮复现环境 | `1 / — / E` | `1 / — / E` | `1 / — / E` | `0 / V / P1` | `0 / V / P1` | `0 / V / P1` |
+| (e) 空字符串 | — | — | — | `0 / V / P1` | — | — |
+| 补测（直接继承 PowerShell 7） | `1 / — / E` | `1 / — / E` | `1 / — / E` | `0 / V / P1` | `0 / V / P1` | `0 / V / P1` |
+
+### 输出原文
+
+以下按字节相同的输出去重。stderr 按 CP936 解读，保留完整 XML 和 PowerShell 自带截断。证据文件含逐次退出码、流的 SHA-256 和 Base64 编码的原始字节。[逐次原始字节](evidence/X1-R-script-streams.json)
+
+**V · stdout**
+
+```text
+Valid
+d06ec42eadb861493242595674730d1a93bce619e745df855bb550b979869ed4
+```
+
+**E · stderr**
+
+```text
+#< CLIXML
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04"><S S="Error">Get-AuthenticodeSignature : 在模块“Microsoft.PowerShell.Security”中找到“Get-AuthenticodeSignature”命令，但无法加载该模_x000D__x000A_</S><S S="Error">块。有关详细信息，请运行“Import-Module Microsoft.PowerShell.Security”。_x000D__x000A_</S><S S="Error">所在位置 行:2 字符: 8_x000D__x000A_</S><S S="Error">+ $sig = Get-AuthenticodeSignature -LiteralPath 'C:\Windows\System32\no ..._x000D__x000A_</S><S S="Error">+        ~~~~~~~~~~~~~~~~~~~~~~~~~_x000D__x000A_</S><S S="Error">    + CategoryInfo          : ObjectNotFound: (Get-AuthenticodeSignature:String) [], ParentContainsErrorRecordExceptio _x000D__x000A_</S><S S="Error">   n_x000D__x000A_</S><S S="Error">    + FullyQualifiedErrorId : CouldNotAutoloadMatchingModule_x000D__x000A_</S><S S="Error"> _x000D__x000A_</S></Objs>
+```
+
+**P1 · stderr**
+
+```text
+#< CLIXML
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04"><Obj S="progress" RefId="0"><TN RefId="0"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N="SourceId">1</I64><PR N="Record"><AV>正在准备首次使用模块。</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>
+```
+
+**P2 · stderr**
+
+```text
+#< CLIXML
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04"><Obj S="progress" RefId="0"><TN RefId="0"><T>System.Management.Automation.PSCustomObject</T><T>System.Object</T></TN><MS><I64 N="SourceId">1</I64><PR N="Record"><AV>正在准备首次使用模块。</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj><Obj S="progress" RefId="1"><TNRef RefId="0" /><MS><I64 N="SourceId">2</I64><PR N="Record"><AV>正在准备首次使用模块。</AV><AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS></Obj></Objs>
+```
+
+### 缺陷与结论
+
+**脚本级复验通过，无新缺陷或阻塞。** 旧脚本在 (b)、(d) 和补测中反复报 `CouldNotAutoloadMatchingModule`。规定的 13 次新脚本调用全部退出 `0`，输出 `Valid` 和相同的证书 SHA-256，补测的 3 次也通过。成功调用的 stderr 只有进度记录。
+
+结果足以确认 `ce95e80` 加入的两行能在这些启动环境中使产品采用的同一签名查询和证书哈希提取正常工作。复验样本是微软签名的 Notepad，范围限于 PowerShell 子步骤。Codex 运行集的下载、安装和实际证书比对仍需端到端证据，上方桌面用例继续记为阻塞。本轮跳过 Rust CLIXML 转换单元测试。
