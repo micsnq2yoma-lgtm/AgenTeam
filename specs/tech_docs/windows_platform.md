@@ -70,7 +70,7 @@ Windows `spawn_tree()` 先 suspended创建根进程、绑定 `JOB_OBJECT_LIMIT_K
 
 Builtin SDK 的通用 exit 1 只证明异常退出；stderr 尾部可能是较早的 warning。`sdk-subprocess-diagnostics` 保留原始摘要，仅在明确 Bash 缺失、spawn denial 或 native crash 证据下分类，不把通用退出推断为缺 Git、杀毒拦截或模型不支持；只有明确 spawn failure 才称启动失败。
 
-`process_cleanup::kill_stale_processes()` 只用于 prior instance已死亡后的启动恢复和 updater verified-clean。Normal shutdown不扫描全机进程，也不按 `node.exe` / `chrome.exe` 名称清理。
+启动清理以规范化应用数据目录、应用 PID 和启动时间确认 Sidecar / Plugin Bridge 的创建归属，且只回收已退出应用实例的进程。子进程继承归属信息，进程树遍历保留其它实例的边界。缺少归属信息的旧版进程不会仅凭命令行标记被终止，同数据目录的潜在旧版写入进程仍会阻止启动时清理 ref 文件。更新器继续使用已有安装文件占用检查，正常退出由各进程 owner 释放自己的进程树。
 
 Task Activation Detector同样拥有 Job Object。timeout、stdout超限、Task stop/delete和App shutdown都结束同一树；structured executable、args和cwd不经 `cmd /c`。
 

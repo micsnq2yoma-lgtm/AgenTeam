@@ -51,7 +51,7 @@ pub use cleanup::{
     mark_startup_cleanup_done, recover_proxy_spills_after_startup_cleanup,
     wait_for_startup_cleanup,
 };
-use cleanup::{remove_global_port_file, write_global_port_file, STARTUP_CLEANUP_PATTERNS};
+use cleanup::{remove_global_port_file, write_global_port_file, UPDATE_CLEANUP_PATTERNS};
 #[allow(unused_imports)]
 pub use commands::cmd_reconcile_session_tab_activation;
 #[allow(unused_imports)]
@@ -299,6 +299,7 @@ fn append_sidecar_entrypoint_args(
     port: u16,
     role: SidecarProcessRole,
 ) {
+    crate::process_cleanup::mark_startup_owned_process(cmd);
     cmd.env("MYAGENTS_APP_VERSION", env!("CARGO_PKG_VERSION"));
     cmd.env(
         "MYAGENTS_APP_BUILD_MODE",
