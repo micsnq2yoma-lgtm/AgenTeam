@@ -239,6 +239,21 @@ export default function KnowledgeCitationChip({
     setLoading(false);
   }, [cancelPendingHover]);
 
+  useEffect(() => {
+    if (!hoverOpen) return;
+    const dismiss = () => {
+      cancelPendingHover();
+      setHoverOpen(false);
+      setLoading(false);
+    };
+    window.addEventListener('resize', dismiss);
+    window.addEventListener('scroll', dismiss, true);
+    return () => {
+      window.removeEventListener('resize', dismiss);
+      window.removeEventListener('scroll', dismiss, true);
+    };
+  }, [cancelPendingHover, hoverOpen]);
+
   const handleClick = useCallback(
     async (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -252,6 +267,10 @@ export default function KnowledgeCitationChip({
       ) {
         return;
       }
+
+      cancelPendingHover();
+      setHoverOpen(false);
+      setLoading(false);
 
       const seq = ++requestSeqRef.current;
       const result = await resolveReference();
@@ -297,7 +316,7 @@ export default function KnowledgeCitationChip({
         },
       );
     },
-    [resolveReference, t],
+    [cancelPendingHover, resolveReference, t],
   );
 
   const isUnavailable = entry?.state === 'unavailable';

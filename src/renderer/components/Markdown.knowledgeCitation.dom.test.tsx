@@ -243,8 +243,11 @@ describe('Markdown knowledge citation chips (K10)', () => {
     const chips = screen.getAllByTestId('kb-citation-chip');
     expect(chips).toHaveLength(3);
 
-    // Click PDF ref
+    // Hover chip then click -> hover popover must dismiss immediately so it never lingers over split preview
+    fireEvent.mouseEnter(chips[0]);
+    expect(screen.getByTestId('kb-citation-popover')).toBeInTheDocument();
     fireEvent.click(chips[0]);
+    expect(screen.queryByTestId('kb-citation-popover')).not.toBeInTheDocument();
     await waitFor(() =>
       expect(openFileTarget).toHaveBeenCalledWith(
         { scope: 'local', path: '/managed/kb/original.pdf', initialLineNumber: undefined },
