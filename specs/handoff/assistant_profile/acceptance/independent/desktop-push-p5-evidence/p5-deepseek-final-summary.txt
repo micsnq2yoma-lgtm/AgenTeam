@@ -1,0 +1,25 @@
+# DeepSeek run: verified timeline (UTC)
+
+chat session 0c92951c-1b2e-41fa-96cb-485c9e7a5986
+A  d923a222-db21-4038-b873-6523d3a6ff19  P5A 摘要   created 01:27:38.861  done 01:27:50.287
+   notification {"desktop":true,"events":["done","blocked"],"im":{"sessionId":"0c92951c-...","type":"session"},"source":"session"}
+   lastExecution.notification.reason delivery-recorded; deliveries: 1 handed-off
+push event (hidden) 01:27:51.068  turnId=2  type=task.result  task_id=A  target_kind=session
+push-turn assistant message 01:27:52.209  turnId=2  text "B 已创建，等你问时我再查结果。"
+B  b132e843-c037-4cff-8cca-d3cbf4ad0ef3  P5B 三条要点  created 01:27:55.810  done 01:28:09.919
+   notification {"desktop":true,"im":{"type":"off"},"source":"default"}   (no events field)
+   lastExecution.notification.reason desktop-only; deliveries: 0
+   toast 17:28:09.925 任务「P5B 三条要点」执行结束
+after B done: no session message until user 01:29:14.685; task.result events in chat = 1 (only A)
+user asks 01:29:14.685 "B 好了吗？把三条要点发我看看。"
+assistant 01:29:15.742 runs myagents task get b132... + Read B-points.md; answers with three points; no push
+
+D  c3bac41b-b079-4a37-868d-0f500cce8916  P5D 问候  created 01:29:48.686  done 01:30:00.948
+   notification session / source session; handed-off; push event 01:30:01.073 (event #2)
+A2 ae43d804-4dbb-45ef-8cf9-894fc04acbb2  P5A2 生成后续  created 01:30:41.617  done 01:31:15.940
+   notification session / source session; handed-off; push event 01:31:16.071 (event #3)
+C  87dc5f93-f991-410a-9b6f-d3dbfcf3b3c9  C-followup  created 01:30:59.166 (A2's run)  done 01:31:21.737
+   notification {"desktop":true,"events":["done","blocked"],"im":{"type":"off"},"source":"parent-task"}
+   lastExecution.notification.reason desktop-only; deliveries: 0; toast 17:31:21.744
+C2 d4ba50d5-4de2-4524-bcc8-01ea2ef5d51c  C-followup (duplicate created then deleted by A2)  status deleted; same off/parent-task
+final chat: task.result events = 3 (A, D, A2); B and C added none

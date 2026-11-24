@@ -1,0 +1,24 @@
+# Codex run: verified timeline (UTC)
+
+chat session 6a446a5b-799b-4754-953b-86193b66ac3d
+runtime codex, model gpt-6-astra (log: "Starting codex session ... model=gpt-6-astra, scenario=desktop")
+A-C 498d8702-2dd3-4039-be22-48bb8b2433d4  P5A-C 摘要  created 01:35:00.125  done 01:36:06.141
+   notification {"desktop":true,"events":["done","blocked"],"im":{"sessionId":"6a446a5b-...","type":"session"},"source":"session"}
+   lastExecution.notification.reason delivery-recorded; deliveries: 1 handed-off; toast 17:36:06.147
+push event (hidden) 01:36:11.013  turn=user-1795484171010-1  type=task.result  task_id=A-C  target_kind=session
+push-turn assistant message 01:36:15.267  turn=user-1795484171010-1  text "已收到 A 的完成推送，按你的要求创建任务 B。"
+B-C 07f0eee8-ff61-473d-a1a7-e683806eeef2  P5B-C 三条要点  created 01:36:25.019  done 01:37:29.963
+   notification {"desktop":true,"im":{"type":"off"},"source":"default"}   (no events field)
+   lastExecution.notification.reason desktop-only; deliveries: 0; toast 17:37:29.971
+after B-C done: no session message until user 01:37:52.302; task.result events in chat = 1 (only A-C)
+user asks 01:37:52.302 "B-C 好了吗？把三条要点发我看看。"
+assistant 01:37:56.244 runs myagents task get 07f0eee8... + reads B-points-c.md; answers with three points; no push
+
+D-C 412fca6f-4443-4131-a271-28e04fbbb472  P5D-C 问候  created 01:38:36.603  done 01:39:27.941
+   notification session / source session; handed-off; push event 01:39:31.009 (event #2); toast 17:39:27.949
+A2-C c628a535-a2ba-4a3f-9ef3-3e54e3529bd6  P5A2-C 生成后续  created 01:40:03.493  done 01:42:53.995
+   notification session / source session; handed-off; push event 01:42:56.009 (event #3); toast 17:42:54.003
+C-C e4618ac3-b792-4e23-9763-8bef7d890fb5  C-C 后续  created 01:42:03.567 (A2-C's run)  done 01:43:26.951
+   notification {"desktop":true,"events":["done","blocked"],"im":{"type":"off"},"source":"parent-task"}
+   lastExecution.notification.reason desktop-only; deliveries: 0; toast 17:43:26.959
+final chat: task.result events = 3 (A-C, D-C, A2-C); B-C and C-C added none

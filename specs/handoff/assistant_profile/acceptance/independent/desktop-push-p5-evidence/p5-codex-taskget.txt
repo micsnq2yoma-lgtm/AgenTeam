@@ -1,0 +1,330 @@
+###### 498d8702-2dd3-4039-be22-48bb8b2433d4
+{
+ "id": "498d8702-2dd3-4039-be22-48bb8b2433d4",
+ "name": "P5A-C 摘要",
+ "status": "done",
+ "executionMode": "once",
+ "notification": {
+  "desktop": true,
+  "events": [
+   "done",
+   "blocked"
+  ],
+  "im": {
+   "sessionId": "6a446a5b-799b-4754-953b-86193b66ac3d",
+   "type": "session"
+  },
+  "source": "session",
+  "version": 1
+ },
+ "lastExecution": {
+  "at": 1795484166141,
+  "durationMs": 46589,
+  "notification": {
+   "deliveryId": "8d10e3d3-cc71-4b92-b420-eed3a011024b",
+   "events": [
+    "execution",
+    "done",
+    "endCondition"
+   ],
+   "reason": "delivery-recorded",
+   "subscribedEvents": [
+    "done",
+    "blocked"
+   ]
+  },
+  "sessionId": "2ea4104e-bb5d-4d6c-a46a-e9c0b0b25dac",
+  "success": true,
+  "trigger": "scheduled"
+ },
+ "notificationDeliveries": [
+  {
+   "acceptedParts": 0,
+   "agentId": null,
+   "attemptId": null,
+   "createdAt": 1795484166141,
+   "error": null,
+   "events": [
+    "execution",
+    "done",
+    "endCondition"
+   ],
+   "executionSessionId": "2ea4104e-bb5d-4d6c-a46a-e9c0b0b25dac",
+   "id": "8d10e3d3-cc71-4b92-b420-eed3a011024b",
+   "messageIds": [],
+   "policy": {
+    "desktop": true,
+    "events": [
+     "done",
+     "blocked"
+    ],
+    "im": {
+     "sessionId": "6a446a5b-799b-4754-953b-86193b66ac3d",
+     "type": "session"
+    },
+    "source": "session",
+    "version": 1
+   },
+   "preparedText": null,
+   "result": "我会整理这段文字并写入指定文件。\nA 完成",
+   "retryAt": null,
+   "state": "handed-off",
+   "target": null,
+   "targetSessionId": "6a446a5b-799b-4754-953b-86193b66ac3d",
+   "title": "任务「P5A-C 摘要」执行结束",
+   "updatedAt": 1795484171279
+  }
+ ],
+ "sessionIds": [
+  "2ea4104e-bb5d-4d6c-a46a-e9c0b0b25dac"
+ ],
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\p5-acceptance-codex"
+}
+###### 07f0eee8-ff61-473d-a1a7-e683806eeef2
+{
+ "id": "07f0eee8-ff61-473d-a1a7-e683806eeef2",
+ "name": "P5B-C 三条要点",
+ "status": "done",
+ "executionMode": "once",
+ "notification": {
+  "desktop": true,
+  "im": {
+   "type": "off"
+  },
+  "source": "default",
+  "version": 1
+ },
+ "lastExecution": {
+  "at": 1795484249963,
+  "durationMs": 45751,
+  "notification": {
+   "events": [
+    "execution",
+    "done",
+    "endCondition"
+   ],
+   "reason": "desktop-only",
+   "subscribedEvents": [
+    "execution",
+    "done",
+    "blocked",
+    "endCondition"
+   ]
+  },
+  "sessionId": "8ec36e3a-9323-4c91-81c7-d104b662282c",
+  "success": true,
+  "trigger": "scheduled"
+ },
+ "notificationDeliveries": null,
+ "sessionIds": [
+  "8ec36e3a-9323-4c91-81c7-d104b662282c"
+ ],
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\p5-acceptance-codex"
+}
+###### 412fca6f-4443-4131-a271-28e04fbbb472
+{
+ "id": "412fca6f-4443-4131-a271-28e04fbbb472",
+ "name": "P5D-C 问候",
+ "status": "done",
+ "executionMode": "once",
+ "notification": {
+  "desktop": true,
+  "events": [
+   "done",
+   "blocked"
+  ],
+  "im": {
+   "sessionId": "6a446a5b-799b-4754-953b-86193b66ac3d",
+   "type": "session"
+  },
+  "source": "session",
+  "version": 1
+ },
+ "lastExecution": {
+  "at": 1795484367941,
+  "durationMs": 38460,
+  "notification": {
+   "deliveryId": "77e3aecb-8aa8-4880-af90-fb62bc176aca",
+   "events": [
+    "execution",
+    "done",
+    "endCondition"
+   ],
+   "reason": "delivery-recorded",
+   "subscribedEvents": [
+    "done",
+    "blocked"
+   ]
+  },
+  "sessionId": "2f4caa1c-18a8-4ef9-87d2-00fbce9f5c6c",
+  "success": true,
+  "trigger": "scheduled"
+ },
+ "notificationDeliveries": [
+  {
+   "acceptedParts": 0,
+   "agentId": null,
+   "attemptId": null,
+   "createdAt": 1795484367941,
+   "error": null,
+   "events": [
+    "execution",
+    "done",
+    "endCondition"
+   ],
+   "executionSessionId": "2f4caa1c-18a8-4ef9-87d2-00fbce9f5c6c",
+   "id": "77e3aecb-8aa8-4880-af90-fb62bc176aca",
+   "messageIds": [],
+   "policy": {
+    "desktop": true,
+    "events": [
+     "done",
+     "blocked"
+    ],
+    "im": {
+     "sessionId": "6a446a5b-799b-4754-953b-86193b66ac3d",
+     "type": "session"
+    },
+    "source": "session",
+    "version": 1
+   },
+   "preparedText": null,
+   "result": "我会把问候语写入指定文件。\nD 完成",
+   "retryAt": null,
+   "state": "handed-off",
+   "target": null,
+   "targetSessionId": "6a446a5b-799b-4754-953b-86193b66ac3d",
+   "title": "任务「P5D-C 问候」执行结束",
+   "updatedAt": 1795484371248
+  }
+ ],
+ "sessionIds": [
+  "2f4caa1c-18a8-4ef9-87d2-00fbce9f5c6c"
+ ],
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\p5-acceptance-codex"
+}
+###### c628a535-a2ba-4a3f-9ef3-3e54e3529bd6
+{
+ "id": "c628a535-a2ba-4a3f-9ef3-3e54e3529bd6",
+ "name": "P5A2-C 生成后续",
+ "status": "done",
+ "executionMode": "once",
+ "notification": {
+  "desktop": true,
+  "events": [
+   "done",
+   "blocked"
+  ],
+  "im": {
+   "sessionId": "6a446a5b-799b-4754-953b-86193b66ac3d",
+   "type": "session"
+  },
+  "source": "session",
+  "version": 1
+ },
+ "lastExecution": {
+  "at": 1795484573995,
+  "durationMs": 156633,
+  "notification": {
+   "deliveryId": "f5a196f6-8a5f-4b96-b8ef-24f4c0e9fbec",
+   "events": [
+    "execution",
+    "done",
+    "endCondition"
+   ],
+   "reason": "delivery-recorded",
+   "subscribedEvents": [
+    "done",
+    "blocked"
+   ]
+  },
+  "sessionId": "5471f25d-7a47-47a3-80f4-e019f5b56ca3",
+  "success": true,
+  "trigger": "scheduled"
+ },
+ "notificationDeliveries": [
+  {
+   "acceptedParts": 0,
+   "agentId": null,
+   "attemptId": null,
+   "createdAt": 1795484573995,
+   "error": null,
+   "events": [
+    "execution",
+    "done",
+    "endCondition"
+   ],
+   "executionSessionId": "5471f25d-7a47-47a3-80f4-e019f5b56ca3",
+   "id": "f5a196f6-8a5f-4b96-b8ef-24f4c0e9fbec",
+   "messageIds": [],
+   "policy": {
+    "desktop": true,
+    "events": [
+     "done",
+     "blocked"
+    ],
+    "im": {
+     "sessionId": "6a446a5b-799b-4754-953b-86193b66ac3d",
+     "type": "session"
+    },
+    "source": "session",
+    "version": 1
+   },
+   "preparedText": null,
+   "result": "我会写入虚构天气播报，并使用 agenteam-task-automation 技能创建、启动后续任务 C-C。当前目录没有 Git 仓库，无法执行同步；CLI 帮助命令也未返回输出，我正在检查调用方式。A2 完成",
+   "retryAt": null,
+   "state": "handed-off",
+   "target": null,
+   "targetSessionId": "6a446a5b-799b-4754-953b-86193b66ac3d",
+   "title": "任务「P5A2-C 生成后续」执行结束",
+   "updatedAt": 1795484576232
+  }
+ ],
+ "sessionIds": [
+  "5471f25d-7a47-47a3-80f4-e019f5b56ca3"
+ ],
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\p5-acceptance-codex"
+}
+###### e4618ac3-b792-4e23-9763-8bef7d890fb5
+{
+ "id": "e4618ac3-b792-4e23-9763-8bef7d890fb5",
+ "name": "C-C 后续",
+ "status": "done",
+ "executionMode": "once",
+ "notification": {
+  "desktop": true,
+  "events": [
+   "done",
+   "blocked"
+  ],
+  "im": {
+   "type": "off"
+  },
+  "source": "parent-task",
+  "version": 1
+ },
+ "lastExecution": {
+  "at": 1795484606951,
+  "durationMs": 38882,
+  "notification": {
+   "events": [
+    "execution",
+    "done",
+    "endCondition"
+   ],
+   "reason": "desktop-only",
+   "subscribedEvents": [
+    "done",
+    "blocked"
+   ]
+  },
+  "sessionId": "abfd6d71-19a6-4592-90ea-43175ddc7474",
+  "success": true,
+  "trigger": "scheduled"
+ },
+ "notificationDeliveries": null,
+ "sessionIds": [
+  "abfd6d71-19a6-4592-90ea-43175ddc7474"
+ ],
+ "workspacePath": "C:\\Users\\<user>\\.agenteam\\projects\\p5-acceptance-codex"
+}

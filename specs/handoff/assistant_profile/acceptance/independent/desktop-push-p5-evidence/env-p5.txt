@@ -1,0 +1,14 @@
+# P5 acceptance environment
+app_version 0.7.0 (release)
+sidecar_version 0.7.0 bundle, commit 5c533ea28f095690810c1a11b0da924c9cd5f251
+system_skills_version 79
+os Windows 11 Home China 10.0.26200 (local UTC-8)
+user_account <user> (non-admin)
+device_id 38691c9b-8ac3-450d-9fd9-53f9c0f6d292
+data_dir <home>/.agenteam (dirs::home_dir()/.agenteam; no env override in app_dirs.rs)
+workspaces p5-acceptance-deepseek (DeepSeek), p5-acceptance-codex (Codex)
+provider_deepseek valid (deepseek-flash)
+provider_codex status valid (managedCodexAuth, chatgpt)
+anti_chain_code_in_installed_build pushedTurns in server-dist.js; parent-task string in AgenTeam.exe
+isolation_attempt <acceptance-profile> (comment: Temporary AgenTeam acceptance profile 2) -> non-admin cannot log on; LimitBlankPasswordUse=1; CreateProcessWithLogonW returned 1326; no admin to create a user; no separate machine
+isolation_used current account .agenteam, only new workspaces created; other accounts' .agenteam not read
