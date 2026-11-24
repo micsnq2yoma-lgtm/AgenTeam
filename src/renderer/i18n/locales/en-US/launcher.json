@@ -251,5 +251,45 @@
         "hireIn": "Enlist crew for {{project}}"
       }
     }
+  },
+  "modeSwitch": {
+    "label": "Launcher mode",
+    "chat": "Chat",
+    "knowledge": "Knowledge"
+  },
+  "knowledge": {
+    "title": "Knowledge",
+    "subtitle": "Give your documents to a knowledge base so agents can search, organize and cite them",
+    "create": "New knowledge base",
+    "createConfirm": "Create",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "nameLabel": "Knowledge base name",
+    "namePlaceholder": "Name your knowledge base",
+    "descriptionLabel": "Purpose",
+    "descriptionPlaceholder": "What this knowledge base is for (optional)",
+    "emptyTitle": "No knowledge bases yet",
+    "emptyHint": "Create one, import documents, and agents can search them in a conversation.",
+    "loadFailed": "Could not load the knowledge bases",
+    "counting": "Counting…",
+    "countUnknown": "Source count unavailable",
+    "sourceCount": "{{count}} sources",
+    "curationLabel": "Organizing: {{mode}}",
+    "pendingCategories": "{{count}} new categories to confirm",
+    "curation": {
+      "auto": "automatic",
+      "manual": "manual",
+      "off": "off"
+    },
+    "delete": "Delete",
+    "deleteAria": "Delete knowledge base {{name}}",
+    "deleteTitle": "Delete knowledge base \"{{name}}\"?",
+    "deleteMessage": "Its source copies, converted content and generated wiki are removed. Your original files are not touched. This cannot be undone.",
+    "errors": {
+      "unknown": "That did not work, please try again",
+      "KB_INVALID_INPUT": "Invalid input, check the name",
+      "KB_NOT_FOUND": "This knowledge base no longer exists"
+    }
   }
 }

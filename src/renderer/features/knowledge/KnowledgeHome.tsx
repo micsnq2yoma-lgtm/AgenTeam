@@ -1,0 +1,202 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { BookIcon, PlusIcon, TrashIcon } from '@/components/icons';
+import { useToast } from '@/components/Toast';
+
+import { knowledgeClient, knowledgeErrorCode } from './knowledgeClient';
+import type { KnowledgeBaseRecord } from './types';
+
+interface Row {
+  base: KnowledgeBaseRecord;
+  /** undefined while counting; null when the count could not be read. */
+  sources: number | null | undefined;
+}
+
+/**
+ * Library list (K9, first page). The Rust Store is the only authority: every change refetches the list
+ * instead of patching a local copy.
+ */
+export default function KnowledgeHome() {
+  const { t } = useTranslation('launcher');
+  const toast = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<KnowledgeBaseRecord | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
+
+  const reload = useCallback(async () => {
+    try {
+      const bases = await knowledgeClient.list();
+      if (!mounted.current) return;
+      setLoadFailed(false);
+      setRows(bases.map((base) => ({ base, sources: undefined })));
+      await Promise.all(bases.map(async (base) => {
+        let count: number | null = null;
+        try { count = await knowledgeClient.sourceCount(base.id); } catch { /* shown as unknown */ }
+        if (!mounted.current) return;
+        setRows((current) => current?.map((row) => (row.base.id === base.id ? { ...row, sources: count } : row)) ?? current);
+      }));
+    } catch {
+      if (mounted.current) setLoadFailed(true);
+    }
+  }, []);
+  useEffect(() => { void reload(); }, [reload]);
+
+  const create = async () => {
+    const trimmed = name.trim();
+    if (!trimmed || busy) return;
+    setBusy(true);
+    try {
+      await knowledgeClient.create({ name: trimmed, description: description.trim() || undefined });
+      if (!mounted.current) return;
+      setCreating(false);
+      setName('');
+      setDescription('');
+      await reload();
+    } catch (error) {
+      toastRef.current.error(t(`knowledge.errors.${knowledgeErrorCode(error)}`, { defaultValue: t('knowledge.errors.unknown') }));
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    const target = pendingDelete;
+    if (!target || busy) return;
+    setBusy(true);
+    try {
+      await knowledgeClient.remove(target.id);
+      if (!mounted.current) return;
+      setPendingDelete(null);
+      await reload();
+    } catch (error) {
+      toastRef.current.error(t(`knowledge.errors.${knowledgeErrorCode(error)}`, { defaultValue: t('knowledge.errors.unknown') }));
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  };
+
+  const modeLabel = (mode: KnowledgeBaseRecord['curationMode']) => t(`knowledge.curation.${mode}`);
+
+  return (
+    <div className="mx-auto flex h-full w-full max-w-3xl min-h-0 flex-col px-6 py-6" data-testid="knowledge-home">
+      <div className="flex shrink-0 items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold text-[var(--ink)]">{t('knowledge.title')}</h1>
+          <p className="mt-0.5 text-xs text-[var(--ink-muted)]">{t('knowledge.subtitle')}</p>
+        </div>
+        {!creating && (
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[var(--on-accent,#fff)] transition-opacity hover:opacity-90"
+          >
+            <PlusIcon className="h-4 w-4" />
+            {t('knowledge.create')}
+          </button>
+        )}
+      </div>
+
+      {creating && (
+        <form
+          className="mt-4 shrink-0 space-y-3 rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-4"
+          onSubmit={(event) => { event.preventDefault(); void create(); }}
+        >
+          <input
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder={t('knowledge.namePlaceholder')}
+            aria-label={t('knowledge.nameLabel')}
+            maxLength={80}
+            className="h-10 w-full rounded-lg border border-[var(--line-strong)] bg-[var(--paper)] px-3 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+          />
+          <textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder={t('knowledge.descriptionPlaceholder')}
+            aria-label={t('knowledge.descriptionLabel')}
+            rows={2}
+            className="w-full resize-none rounded-lg border border-[var(--line-strong)] bg-[var(--paper)] px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => { setCreating(false); setName(''); setDescription(''); }}
+              className="rounded-lg px-3 py-1.5 text-sm text-[var(--ink-muted)] hover:bg-[var(--hover-bg)]">
+              {t('knowledge.cancel')}
+            </button>
+            <button type="submit" disabled={!name.trim() || busy}
+              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[var(--on-accent,#fff)] disabled:opacity-50">
+              {t('knowledge.createConfirm')}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+        {loadFailed ? (
+          <div role="alert" className="rounded-xl border border-[var(--line)] p-6 text-center text-sm text-[var(--ink-muted)]">
+            <p>{t('knowledge.loadFailed')}</p>
+            <button type="button" onClick={() => void reload()} className="mt-3 rounded-lg bg-[var(--paper-inset)] px-3 py-1.5 text-[var(--ink)] hover:bg-[var(--hover-bg)]">
+              {t('knowledge.retry')}
+            </button>
+          </div>
+        ) : rows === null ? (
+          <p className="py-10 text-center text-sm text-[var(--ink-muted)]" role="status">{t('knowledge.loading')}</p>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-[var(--line-strong)] px-6 py-14 text-center" data-testid="knowledge-empty">
+            <BookIcon className="h-8 w-8 text-[var(--ink-muted)]" />
+            <p className="text-sm font-medium text-[var(--ink)]">{t('knowledge.emptyTitle')}</p>
+            <p className="max-w-sm text-xs text-[var(--ink-muted)]">{t('knowledge.emptyHint')}</p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {rows.map(({ base, sources }) => (
+              <li key={base.id} data-testid="knowledge-row"
+                className="group flex items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] px-4 py-3">
+                <BookIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-[var(--ink)]">{base.name}</div>
+                  {base.description && <div className="mt-0.5 line-clamp-2 text-xs text-[var(--ink-muted)]">{base.description}</div>}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--ink-muted)]">
+                    <span>{sources === undefined ? t('knowledge.counting') : sources === null ? t('knowledge.countUnknown') : t('knowledge.sourceCount', { count: sources })}</span>
+                    <span>{t('knowledge.curationLabel', { mode: modeLabel(base.curationMode) })}</span>
+                    {base.pendingCategories.length > 0 && (
+                      <span className="text-amber-600">{t('knowledge.pendingCategories', { count: base.pendingCategories.length })}</span>
+                    )}
+                  </div>
+                </div>
+                <button type="button" aria-label={t('knowledge.deleteAria', { name: base.name })} title={t('knowledge.delete')}
+                  onClick={() => setPendingDelete(base)}
+                  className="shrink-0 rounded-md p-1.5 text-[var(--ink-muted)] opacity-0 transition hover:bg-[var(--paper-inset)] hover:text-[var(--error)] focus-visible:opacity-100 group-hover:opacity-100">
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={t('knowledge.deleteTitle', { name: pendingDelete.name })}
+          message={t('knowledge.deleteMessage')}
+          confirmText={t('knowledge.delete')}
+          cancelText={t('knowledge.cancel')}
+          confirmVariant="danger"
+          loading={busy}
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => { if (!busy) setPendingDelete(null); }}
+        />
+      )}
+    </div>
+  );
+}

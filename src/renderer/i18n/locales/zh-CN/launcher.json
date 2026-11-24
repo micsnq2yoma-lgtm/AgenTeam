@@ -251,5 +251,45 @@
         "hireIn": "为「{{project}}」招募舰员"
       }
     }
+  },
+  "modeSwitch": {
+    "label": "启动页模式",
+    "chat": "对话",
+    "knowledge": "知识库"
+  },
+  "knowledge": {
+    "title": "知识库",
+    "subtitle": "把资料交给知识库，Agent 可以检索、整理并引用它们",
+    "create": "新建知识库",
+    "createConfirm": "创建",
+    "cancel": "取消",
+    "retry": "重试",
+    "loading": "正在读取…",
+    "nameLabel": "知识库名称",
+    "namePlaceholder": "给知识库起个名字",
+    "descriptionLabel": "用途描述",
+    "descriptionPlaceholder": "这个知识库用来放什么（可选）",
+    "emptyTitle": "还没有知识库",
+    "emptyHint": "创建一个知识库，再导入文档，Agent 就能在对话里检索它们。",
+    "loadFailed": "没能读取知识库列表",
+    "counting": "统计中…",
+    "countUnknown": "资料数未知",
+    "sourceCount": "{{count}} 份资料",
+    "curationLabel": "整理：{{mode}}",
+    "pendingCategories": "{{count}} 个新分类待确认",
+    "curation": {
+      "auto": "自动",
+      "manual": "手动",
+      "off": "关闭"
+    },
+    "delete": "删除",
+    "deleteAria": "删除知识库 {{name}}",
+    "deleteTitle": "删除知识库「{{name}}」？",
+    "deleteMessage": "库内的资料副本、转换结果和整理出的 wiki 会一并删除。你的原文件不会被动。此操作无法撤销。",
+    "errors": {
+      "unknown": "操作失败，请重试",
+      "KB_INVALID_INPUT": "输入不合法，请检查名称",
+      "KB_NOT_FOUND": "知识库不存在，可能已被删除"
+    }
   }
 }
