@@ -293,10 +293,10 @@ fn shutdown_for_update_inner(
     loop {
         // Update path MUST verify our own sidecars (SIDECAR_MARKER) too —
         // NSIS can't overwrite `bun.exe` while it's in use, so we need
-        // confirmation that every MyAgents-related process is gone. Uses
-        // STARTUP patterns (superset that includes the sidecar marker).
+        // confirmation that the installation's processes are gone. This
+        // check includes the sidecar marker.
         let matches = crate::process_cleanup::find_matching_processes_with_roots(
-            STARTUP_CLEANUP_PATTERNS,
+            UPDATE_CLEANUP_PATTERNS,
             protected_roots,
         );
         let residual_matches = crate::process_cleanup::find_live_processes_by_pid(&residual_pids);
@@ -312,7 +312,7 @@ fn shutdown_for_update_inner(
         if start.elapsed() > max_wait {
             ulog_warn!("[sidecar] Update shutdown timeout, force killing remaining...");
             let report = crate::process_cleanup::kill_stale_processes_with_roots(
-                STARTUP_CLEANUP_PATTERNS,
+                UPDATE_CLEANUP_PATTERNS,
                 protected_roots,
             );
             ulog_info!(
@@ -327,7 +327,7 @@ fn shutdown_for_update_inner(
                 residual_pids.dedup();
             }
             let remaining = crate::process_cleanup::find_matching_processes_with_roots(
-                STARTUP_CLEANUP_PATTERNS,
+                UPDATE_CLEANUP_PATTERNS,
                 protected_roots,
             );
             let residual_remaining =
@@ -351,7 +351,7 @@ fn shutdown_for_update_inner(
             describe_process_matches(&blocking)
         );
         let report = crate::process_cleanup::kill_stale_processes_with_roots(
-            STARTUP_CLEANUP_PATTERNS,
+            UPDATE_CLEANUP_PATTERNS,
             protected_roots,
         );
         if report.residual > 0 {
