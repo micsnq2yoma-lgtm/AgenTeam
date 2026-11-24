@@ -34,7 +34,13 @@ export default memo(function LauncherModeSwitch({
               role="tab"
               aria-selected={selected}
               onClick={() => { if (!selected) onChange(item.id); }}
-              className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] ${
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                  event.preventDefault();
+                  onChange(item.id === 'chat' ? 'knowledge' : 'chat');
+                }
+              }}
+              className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] ${
                 selected
                   ? 'bg-[var(--paper-elevated)] text-[var(--ink)] shadow-sm'
                   : 'text-[var(--ink-muted)] hover:text-[var(--ink)]'

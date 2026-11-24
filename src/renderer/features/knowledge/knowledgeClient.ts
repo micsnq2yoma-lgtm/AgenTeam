@@ -1,8 +1,9 @@
+import { invoke } from '@tauri-apps/api/core';
+
 import type { KnowledgeBaseCreateInput, KnowledgeBaseRecord } from './types';
 
 // Thin wrappers around the Rust control plane. Knowledge state never goes through the Sidecar.
-async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  const { invoke } = await import('@tauri-apps/api/core');
+function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   return invoke<T>(command, args);
 }
 

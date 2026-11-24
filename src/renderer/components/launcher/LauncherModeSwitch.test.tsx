@@ -29,4 +29,11 @@ describe('LauncherModeSwitch', () => {
     expect(screen.getByRole('tab', { name: 'Knowledge' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Chat' })).toBeInTheDocument();
   });
+
+  it('switches mode with Left/Right arrow keys', () => {
+    const onChange = vi.fn();
+    render(<LauncherModeSwitch mode="chat" onChange={onChange} />);
+    fireEvent.keyDown(screen.getByRole('tab', { name: '对话' }), { key: 'ArrowRight' });
+    expect(onChange).toHaveBeenCalledWith('knowledge');
+  });
 });

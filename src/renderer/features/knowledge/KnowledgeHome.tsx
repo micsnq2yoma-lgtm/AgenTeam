@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -22,7 +22,9 @@ export default function KnowledgeHome() {
   const { t } = useTranslation('launcher');
   const toast = useToast();
   const toastRef = useRef(toast);
-  toastRef.current = toast;
+  useLayoutEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -30,23 +32,30 @@ export default function KnowledgeHome() {
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<KnowledgeBaseRecord | null>(null);
-  const mounted = useRef(true);
-  useEffect(() => () => { mounted.current = false; }, []);
+  const mounted = useRef(false);
+  const loadSeq = useRef(0);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const reload = useCallback(async () => {
+    const seq = ++loadSeq.current;
     try {
       const bases = await knowledgeClient.list();
-      if (!mounted.current) return;
+      if (!mounted.current || loadSeq.current !== seq) return;
       setLoadFailed(false);
       setRows(bases.map((base) => ({ base, sources: undefined })));
       await Promise.all(bases.map(async (base) => {
         let count: number | null = null;
         try { count = await knowledgeClient.sourceCount(base.id); } catch { /* shown as unknown */ }
-        if (!mounted.current) return;
+        if (!mounted.current || loadSeq.current !== seq) return;
         setRows((current) => current?.map((row) => (row.base.id === base.id ? { ...row, sources: count } : row)) ?? current);
       }));
     } catch {
-      if (mounted.current) setLoadFailed(true);
+      if (mounted.current && loadSeq.current === seq) setLoadFailed(true);
     }
   }, []);
   useEffect(() => { void reload(); }, [reload]);
@@ -88,9 +97,9 @@ export default function KnowledgeHome() {
   const modeLabel = (mode: KnowledgeBaseRecord['curationMode']) => t(`knowledge.curation.${mode}`);
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl min-h-0 flex-col px-6 py-6" data-testid="knowledge-home">
-      <div className="flex shrink-0 items-center justify-between gap-3">
-        <div className="min-w-0">
+    <div className="mx-auto flex h-full w-full max-w-3xl min-h-0 flex-col px-4 py-5 sm:px-6 sm:py-6" data-testid="knowledge-home">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h1 className="text-lg font-semibold text-[var(--ink)]">{t('knowledge.title')}</h1>
           <p className="mt-0.5 text-xs text-[var(--ink-muted)]">{t('knowledge.subtitle')}</p>
         </div>
@@ -98,7 +107,7 @@ export default function KnowledgeHome() {
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[var(--on-accent,#fff)] transition-opacity hover:opacity-90"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--button-primary-bg)] px-3 py-1.5 text-sm font-medium text-[var(--button-primary-text)] transition-colors hover:bg-[var(--button-primary-bg-hover)]"
           >
             <PlusIcon className="h-4 w-4" />
             {t('knowledge.create')}
@@ -134,7 +143,7 @@ export default function KnowledgeHome() {
               {t('knowledge.cancel')}
             </button>
             <button type="submit" disabled={!name.trim() || busy}
-              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[var(--on-accent,#fff)] disabled:opacity-50">
+              className="rounded-lg bg-[var(--button-primary-bg)] px-3 py-1.5 text-sm font-medium text-[var(--button-primary-text)] transition-colors hover:bg-[var(--button-primary-bg-hover)] disabled:opacity-50">
               {t('knowledge.createConfirm')}
             </button>
           </div>
@@ -145,7 +154,7 @@ export default function KnowledgeHome() {
         {loadFailed ? (
           <div role="alert" className="rounded-xl border border-[var(--line)] p-6 text-center text-sm text-[var(--ink-muted)]">
             <p>{t('knowledge.loadFailed')}</p>
-            <button type="button" onClick={() => void reload()} className="mt-3 rounded-lg bg-[var(--paper-inset)] px-3 py-1.5 text-[var(--ink)] hover:bg-[var(--hover-bg)]">
+            <button type="button" onClick={() => void reload()} className="mt-3 rounded-lg bg-[var(--button-secondary-bg)] px-3 py-1.5 text-[var(--button-secondary-text)] transition-colors hover:bg-[var(--button-secondary-bg-hover)]">
               {t('knowledge.retry')}
             </button>
           </div>
@@ -170,13 +179,13 @@ export default function KnowledgeHome() {
                     <span>{sources === undefined ? t('knowledge.counting') : sources === null ? t('knowledge.countUnknown') : t('knowledge.sourceCount', { count: sources })}</span>
                     <span>{t('knowledge.curationLabel', { mode: modeLabel(base.curationMode) })}</span>
                     {base.pendingCategories.length > 0 && (
-                      <span className="text-amber-600">{t('knowledge.pendingCategories', { count: base.pendingCategories.length })}</span>
+                      <span className="text-[var(--warning)]">{t('knowledge.pendingCategories', { count: base.pendingCategories.length })}</span>
                     )}
                   </div>
                 </div>
                 <button type="button" aria-label={t('knowledge.deleteAria', { name: base.name })} title={t('knowledge.delete')}
                   onClick={() => setPendingDelete(base)}
-                  className="shrink-0 rounded-md p-1.5 text-[var(--ink-muted)] opacity-0 transition hover:bg-[var(--paper-inset)] hover:text-[var(--error)] focus-visible:opacity-100 group-hover:opacity-100">
+                  className="shrink-0 rounded-md p-1.5 text-[var(--ink-muted)] opacity-60 transition hover:bg-[var(--paper-inset)] hover:text-[var(--error)] focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
                   <TrashIcon className="h-4 w-4" />
                 </button>
               </li>

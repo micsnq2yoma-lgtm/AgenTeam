@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -98,5 +99,28 @@ describe('KnowledgeHome', () => {
     fireEvent.click(await screen.findByRole('button', { name: tl('knowledge.delete') }));
     await waitFor(() => expect(mocks.invoke).toHaveBeenCalledWith('cmd_kb_delete', { kbId: 'kb_one' }));
     expect(await screen.findByTestId('knowledge-empty')).toBeInTheDocument();
+  });
+
+  it('loads cleanly under React StrictMode and discards stale overlapping reloads', async () => {
+    let resolveFirst!: (value: KnowledgeBaseRecord[]) => void;
+    let call = 0;
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === 'cmd_kb_list') {
+        call += 1;
+        if (call === 1) {
+          return new Promise<KnowledgeBaseRecord[]>((resolve) => { resolveFirst = resolve; });
+        }
+        return Promise.resolve([base({ id: 'kb_fresh', name: '最新库' })]);
+      }
+      if (command === 'cmd_kb_list_sources') return Promise.resolve([]);
+      throw new Error(`unexpected ${command}`);
+    });
+    render(<StrictMode><ToastProvider><KnowledgeHome /></ToastProvider></StrictMode>);
+    expect(await screen.findByText('最新库')).toBeInTheDocument();
+    resolveFirst([base({ id: 'kb_stale', name: '过期库' })]);
+    await waitFor(() => {
+      expect(screen.getByText('最新库')).toBeInTheDocument();
+      expect(screen.queryByText('过期库')).not.toBeInTheDocument();
+    });
   });
 });
