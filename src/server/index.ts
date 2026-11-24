@@ -1,4 +1,5 @@
 import { createMemoryUpdateDispatchGuard } from './session-engine/memory-update-admission';
+import { logsExportZipName } from './logs-export';
 import { hasRecentSessionActivity } from './session-core/session-activity-policy';
 import { normalizeImInbound } from './session-core/channel-context';
 import type { AskUserQuestionAnswers } from '../shared/types/askUserQuestion';
@@ -4868,8 +4869,7 @@ async function main() {
 
           // Output to Desktop
           const desktopDir = joinPath(homedir(), 'Desktop');
-          const timestamp = new Date().toISOString().slice(0, 10);
-          const zipName = `MyAgents-logs-${timestamp}.zip`;
+          const zipName = logsExportZipName();
           const zipPath = joinPath(desktopDir, zipName);
 
           // Create zip using platform-appropriate command
