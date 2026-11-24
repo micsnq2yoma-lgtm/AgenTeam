@@ -128,7 +128,7 @@ describe('TeamOffice', () => {
       expect(onOpenEmployee).toHaveBeenCalledWith(expect.objectContaining({ id: 'p0-s0' }), manyProjects[0]);
 
       const dept = document.querySelector('[data-team-office-department="p0"]') as HTMLElement;
-      fireEvent.click(within(dept).getByRole('button', { name: /项目 1/ }));
+      fireEvent.click(within(dept).getByRole('button', { name: /^项目 1$|^放大查看「项目 1」$/ }));
       expect(container.querySelector('[data-team-office]')).toHaveAttribute('data-team-office-tier', 'room');
       expect(document.querySelector('[data-team-office-back]')).toBeInTheDocument();
 
