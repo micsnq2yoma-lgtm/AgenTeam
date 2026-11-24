@@ -25,7 +25,7 @@ import { normalizeConfigMcpSelections, normalizeProjectMcpSelections, resolveDef
 import { stripBom } from '../../shared/utils';
 import { resolveProviderForModel } from '../../shared/provider-model-routing';
 import { workspacePathsEqual } from '../../shared/workspacePath';
-import { promoteAgentMcpJsonToGlobal } from '../../shared/mcpConfig';
+import { migratePlaywrightPresetToBundled, promoteAgentMcpJsonToGlobal } from '../../shared/mcpConfig';
 import type { AppConfig, ManagedProviderCredential, ManagedProviderEndpoint, McpServerDefinition, PermissionMode, Provider, ProviderVerifyStatus, SubscriptionAuthPolicy } from '../../shared/config-types';
 import {
   ANTIGRAVITY_SUBSCRIPTION_PROVIDER_ID,
@@ -280,6 +280,7 @@ export function loadConfig(): AdminAppConfig {
     // catalogue until the user explicitly removes or disables them.
     normalizeConfigMcpSelections(config);
     promoteAgentMcpJsonToGlobal(config);
+    migratePlaywrightPresetToBundled(config);
     return config;
   } catch {
     // Malformed JSON — try .bak fallback
@@ -296,6 +297,7 @@ export function loadConfig(): AdminAppConfig {
         ) as AdminAppConfig;
         normalizeConfigMcpSelections(config);
         promoteAgentMcpJsonToGlobal(config);
+    migratePlaywrightPresetToBundled(config);
         return config;
       } catch {
         /* bak also corrupt */

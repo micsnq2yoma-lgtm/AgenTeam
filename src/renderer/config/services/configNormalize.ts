@@ -4,7 +4,7 @@
 // `unit` pool without pulling Tauri/runtime imports.
 import { normalizeConfigMcpSelections } from '../../../shared/mcpSelection';
 import type { AppConfig } from '../types';
-export { promoteAgentMcpJsonToGlobal } from '../../../shared/mcpConfig';
+export { migratePlaywrightPresetToBundled, promoteAgentMcpJsonToGlobal } from '../../../shared/mcpConfig';
 
 /**
  * Restore persisted MCP selections and the "stringified JSON" invariant at the

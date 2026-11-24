@@ -111,7 +111,7 @@ describe('built-in Browser toggle persistence', () => {
     const servers = getAllMcpServersFromConfig(baseConfig({ mcpServers: collisions }));
 
     expect(findById(servers, 'playwright')).toMatchObject({
-      command: 'npx',
+      command: '__bundled_playwright_mcp__',
       isBuiltin: true,
     });
     expect(findById(servers, 'myagents-browser')).toMatchObject({

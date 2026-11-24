@@ -1,7 +1,8 @@
 import { accessSync, constants, existsSync, statSync } from 'fs';
+import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 
-import { pinPresetMcpPackageVersions } from '../../shared/mcpPackages';
+import { BUNDLED_PLAYWRIGHT_MCP_COMMAND, pinPresetMcpPackageVersions } from '../../shared/mcpPackages';
 import type { McpServerDefinition } from '../../shared/config-types';
 import { buildMcpSubprocessEnv } from '../session-core/mcp-env-policy';
 import { buildSessionExecutablePath } from './session-executable-path';
@@ -9,6 +10,7 @@ import {
   findExistingPath,
   getBundledNodeDir,
   getBundledRuntimePath,
+  getScriptDir,
   getSystemNpxPaths,
 } from './runtime';
 
@@ -34,7 +36,14 @@ export function buildMcpStdioLaunchConfig(
     ?? buildSessionExecutablePath(parentEnv).value;
   let command = server.command;
   let args = Array.isArray(server.args) ? [...server.args] : [];
-  if (command === 'npx') {
+  if (command === BUNDLED_PLAYWRIGHT_MCP_COMMAND) {
+    const invocation = resolveBundledPlaywrightMcpInvocation(args);
+    command = invocation.command;
+    args = invocation.args;
+    const nodeDir = dirname(command);
+    searchPath = [nodeDir, ...searchPath.split(separator).filter(entry => entry && entry !== nodeDir)]
+      .join(separator);
+  } else if (command === 'npx') {
     const invocation = resolveNpxMcpInvocation(args, { pinPresetPackages: server.isBuiltin === true });
     command = invocation.command;
     args = invocation.args;
@@ -90,6 +99,32 @@ export function isMcpCommandAvailable(
       return true;
     } catch { return false; }
   }));
+}
+
+export class BundledPlaywrightMcpMissingError extends Error {
+  constructor() {
+    super('The bundled Playwright MCP entry (playwright-control/@playwright/mcp/cli.js) was not found');
+    this.name = 'BundledPlaywrightMcpMissingError';
+  }
+}
+
+/** Entry shipped with the app: Resources/playwright-control in production, the
+ * installed dependency in development. Never touches the network or npm cache.
+ */
+export function bundledPlaywrightMcpEntry(): string | null {
+  const shipped = resolve(getScriptDir(), 'playwright-control', '@playwright', 'mcp', 'cli.js');
+  if (existsSync(shipped)) return shipped;
+  try {
+    const manifest = createRequire(import.meta.url).resolve('@playwright/mcp/package.json');
+    const dev = resolve(dirname(manifest), 'cli.js');
+    return existsSync(dev) ? dev : null;
+  } catch { return null; }
+}
+
+export function resolveBundledPlaywrightMcpInvocation(extraArgs: readonly string[]): { command: string; args: string[] } {
+  const entry = bundledPlaywrightMcpEntry();
+  if (!entry) throw new BundledPlaywrightMcpMissingError();
+  return { command: getBundledRuntimePath(), args: [entry, ...extraArgs] };
 }
 
 export interface ResolvedNpxMcpInvocation {

@@ -102,6 +102,12 @@ Detector 在 `env_clear()` 后只恢复 OS、证书、general proxy、PATH 和 U
 - 用户附加参数只追加，不覆盖 preset 的 package / 基础参数；
 - localhost 保护和 proxy env 由对应进程 owner 注入。
 
+### 随包 Playwright MCP
+
+标准 Playwright 预置（id `playwright`）不再走 `npx`：其 command 是产品自有标记 `__bundled_playwright_mcp__`（`src/shared/mcpPackages.ts`），由 `buildMcpStdioLaunchConfig()` 在启动时解析为「内置 Node + `Resources/playwright-control/@playwright/mcp/cli.js`」（开发环境回退到已安装依赖）。原因：`npx` 冷启动可能超过运行时的 MCP 发现窗口（agy 约 5 秒，Codex 默认约 10 秒），随包入口不依赖网络和 npm 缓存；持久化里只存标记，不存安装路径。用户 `mcpServerArgs` 仍只追加。
+
+`migratePlaywrightPresetToBundled()`（`src/shared/mcpConfig.ts`）把旧配置中 id 为 `playwright` 的 `npx @playwright/mcp[@ver] ...` 改写为标记 + 其后的附加参数，覆盖全局 `mcpServers` 与各 Agent 的 `mcpServersJson` 快照；用户自定义的同包服务（其它 id）不动。迁移幂等，无需标记；与其它 MCP 规范化一样在加载时内存执行，磁盘在下一次真实配置写入时收敛，不在加载时 fire-and-forget 写盘（会与配置锁竞争）。
+
 `buildMcpStdioLaunchConfig()` 统一配置检查、preset 预热、initialize probe、builtin prewarm/live 与 Managed Codex 的 stdio 参数：默认 PATH 复用 `buildSessionExecutablePath()`，随后将选中 npx/Node 的目录移到最前，最后合并 per-server env。Windows 统一输出大写 `PATH`，覆盖 MCP SDK 同名默认值，避免 `Path` 与 `PATH` 并存。预热同时使用 server.env 和当前 workspace cwd；custom command 检查使用同一解析结果和 PATH，无需外部 `which/where`。
 
 “系统 npx 优先”特指常见目录中的入口选择；POSIX 仍执行 npx 文件（可包含包管理器 shim），Windows 使用完整 Node/npx CLI 配对。用户显式 command/env 继续生效，npm 的包内 `.bin` 优先级也保持；这不是强制所有 MCP 使用内置 Node。Managed Codex 仅通过每个 MCP 的原生 `env.PATH` 设置子进程 PATH，不污染 Codex parent 或 AI Shell；用户 env 仍经过既有安全校验，代理由对应 Runtime owner 决定。

@@ -26,7 +26,7 @@ import {
     mockLoadConfig,
     mockSaveConfig,
 } from '@/utils/browserMock';
-import { normalizeStringifiedJsonFields, promoteAgentMcpJsonToGlobal } from './configNormalize';
+import { migratePlaywrightPresetToBundled, normalizeStringifiedJsonFields, promoteAgentMcpJsonToGlobal } from './configNormalize';
 import { workspacePathsEqual } from '../../../shared/workspacePath';
 import { type ImBotConfig, DEFAULT_IM_BOT_CONFIG } from '../../../shared/types/im';
 import { normalizeUiLanguage, resolveEffectiveLocale } from '../../../shared/i18n';
@@ -143,6 +143,7 @@ export function migrateUiLanguageField(config: AppConfig): AppConfig {
 function normalizeLoadedConfig(config: AppConfig): AppConfig {
     normalizeStringifiedJsonFields(config);
     promoteAgentMcpJsonToGlobal(config);
+    migratePlaywrightPresetToBundled(config);
     return omitNativeConfig(normalizeDeveloperSettings(
         normalizeThemeConfigRecord(config as unknown as Record<string, unknown>) as unknown as AppConfig,
     ));
@@ -237,6 +238,7 @@ export async function loadAppConfig(): Promise<AppConfig> {
             // and the independent Rust reader normalizes the same way at boot.
             normalizeStringifiedJsonFields(migrated);
             promoteAgentMcpJsonToGlobal(migrated);
+            migratePlaywrightPresetToBundled(migrated);
             const merged = normalizeDeveloperSettings({ ...dynamicDefault, ...migrated });
             return omitNativeConfig(migrateImBotConfig(merged));
         }

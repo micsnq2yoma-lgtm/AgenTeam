@@ -1,5 +1,6 @@
 import type { McpServerDefinition } from './config-types';
 import { DEFAULT_STANDARD_PLAYWRIGHT_ARGS, STANDARD_PLAYWRIGHT_MCP_ID } from './browserTools';
+import { BUNDLED_PLAYWRIGHT_MCP_COMMAND, PLAYWRIGHT_MCP_PACKAGE_NAME } from './mcpPackages';
 
 type AgentMcpConfig = {
   mcpEnabledServers?: unknown;
@@ -162,6 +163,46 @@ export function promoteAgentMcpJsonToGlobal<T extends McpConfigContainer>(config
   if (changed) {
     config.mcpServers = globalServers;
     config.mcpEnabledServers = Array.from(globalEnabled);
+  }
+  return changed;
+}
+
+/** `npx [-y] @playwright/mcp[@version] ...extra` -> bundled launch marker + extra. */
+function migrateStandardPlaywrightEntry(entry: unknown): boolean {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+  const server = entry as Partial<McpServerDefinition>;
+  if (server.id !== STANDARD_PLAYWRIGHT_MCP_ID || server.type !== 'stdio' || server.command !== 'npx') return false;
+  const args = Array.isArray(server.args) ? server.args.filter((arg): arg is string => typeof arg === 'string') : [];
+  const index = args.findIndex(arg => arg === PLAYWRIGHT_MCP_PACKAGE_NAME || arg.startsWith(`${PLAYWRIGHT_MCP_PACKAGE_NAME}@`));
+  if (index < 0) return false;
+  server.command = BUNDLED_PLAYWRIGHT_MCP_COMMAND;
+  server.args = args.slice(index + 1);
+  return true;
+}
+
+/**
+ * One-time (idempotent) migration of the product-owned Playwright preset from
+ * `npx @playwright/mcp@x` to the bundled launch marker, in the global registry
+ * and in every Agent's serialized catalogue snapshot. A second pass finds no
+ * `npx` entry and changes nothing, so no migration marker is needed. Like the
+ * other MCP normalizers it runs in memory at load; disk converges on the next
+ * real config write (a fire-and-forget save at load would race the config lock).
+ */
+export function migratePlaywrightPresetToBundled<T extends McpConfigContainer>(config: T): boolean {
+  let changed = false;
+  if (Array.isArray(config.mcpServers)) {
+    for (const entry of config.mcpServers) if (migrateStandardPlaywrightEntry(entry)) changed = true;
+  }
+  for (const agent of Array.isArray(config.agents) ? config.agents : []) {
+    const holder = asAgentMcpConfig(agent);
+    if (!holder || typeof holder.mcpServersJson !== 'string') continue;
+    const entries = parseMcpServerEntries(holder.mcpServersJson);
+    let entryChanged = false;
+    for (const entry of entries) if (migrateStandardPlaywrightEntry(entry)) entryChanged = true;
+    if (entryChanged) {
+      holder.mcpServersJson = JSON.stringify(entries);
+      changed = true;
+    }
   }
   return changed;
 }

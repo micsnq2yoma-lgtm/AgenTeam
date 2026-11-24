@@ -8,6 +8,7 @@ const runtimeMocks = vi.hoisted(() => ({
   getBundledNodeDir: vi.fn(),
   getBundledRuntimePath: vi.fn(),
   getSystemNpxPaths: vi.fn(),
+  getScriptDir: vi.fn(),
   getSystemNodeDirs: vi.fn(() => []),
 }));
 
@@ -204,5 +205,24 @@ describe('resolveNpxMcpInvocation', () => {
       executionEnv: { PATH: `${otherDir}:${selectedDir}:/usr/bin:/bin` }, cwd: testRoot,
     });
     expect(result).toMatchObject({ serverName: realpathSync(process.execPath), serverVersion: 'configured' });
+  });
+
+  it('launches the bundled Playwright MCP with bundled Node and never npx', () => {
+    const resources = mkdtempSync(join(tmpdir(), 'bundled-pw-'));
+    try {
+      const entry = join(resources, 'playwright-control', '@playwright', 'mcp', 'cli.js');
+      touch(entry);
+      runtimeMocks.getScriptDir.mockReturnValue(resources);
+      runtimeMocks.getBundledRuntimePath.mockReturnValue(join(resources, 'nodejs', 'node'));
+      const launch = buildMcpStdioLaunchConfig({
+        command: '__bundled_playwright_mcp__',
+        args: ['--isolated'],
+        isBuiltin: true,
+      });
+      expect(launch.command).toBe(join(resources, 'nodejs', 'node'));
+      expect(launch.args).toEqual([entry, '--isolated']);
+    } finally {
+      rmSync(resources, { recursive: true, force: true });
+    }
   });
 });

@@ -49,8 +49,8 @@ describe('server MCP catalogue merge', () => {
     });
 
     expect(servers.find((server) => server.id === 'playwright')).toMatchObject({
-      command: 'npx',
-      args: ['@playwright/mcp@0.0.68', '--user-data-dir=/tmp/playwright-profile'],
+      command: '__bundled_playwright_mcp__',
+      args: ['--user-data-dir=/tmp/playwright-profile'],
     });
     expect(servers.find((server) => server.id === 'myagents-browser')).toMatchObject({
       command: '__browser_host__',
@@ -68,7 +68,7 @@ describe('server MCP catalogue merge', () => {
     });
 
     expect(servers.find((server) => server.id === 'playwright')).toMatchObject({
-      command: 'npx',
+      command: '__bundled_playwright_mcp__',
       isBuiltin: true,
     });
     expect(servers.find((server) => server.id === 'myagents-browser')).toMatchObject({

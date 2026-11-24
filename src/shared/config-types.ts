@@ -21,7 +21,7 @@ import {
   MANAGED_BROWSER_MCP_ID,
   STANDARD_PLAYWRIGHT_MCP_ID,
 } from './browserTools';
-import { PLAYWRIGHT_MCP_PACKAGE_SPEC } from './mcpPackages';
+import { BUNDLED_PLAYWRIGHT_MCP_COMMAND } from './mcpPackages';
 import {
   DEFAULT_APPEARANCE_MODE,
   DEFAULT_THEME_ID,
@@ -2801,8 +2801,8 @@ export const PRESET_MCP_SERVERS: McpServerDefinition[] = [
     name: 'Playwright 浏览器',
     description: '标准 Playwright MCP，支持自定义浏览器与运行参数',
     type: 'stdio',
-    command: 'npx',
-    args: [PLAYWRIGHT_MCP_PACKAGE_SPEC],
+    command: BUNDLED_PLAYWRIGHT_MCP_COMMAND,
+    args: [],
     isBuiltin: true,
     isFree: true,
   },

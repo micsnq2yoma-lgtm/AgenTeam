@@ -35,8 +35,8 @@ describe('MCP presets', () => {
   it('keeps standard Playwright generic and exposes the managed Browser separately', () => {
     expect(PRESET_MCP_SERVERS.find(server => server.id === 'playwright')).toMatchObject({
       type: 'stdio',
-      command: 'npx',
-      args: ['@playwright/mcp@0.0.68'],
+      command: '__bundled_playwright_mcp__',
+      args: [],
     });
     expect(PRESET_MCP_SERVERS.find(server => server.id === 'myagents-browser')).toMatchObject({
       name: '浏览器',

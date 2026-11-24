@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { PRESET_MCP_SERVERS, type McpServerDefinition } from './config-types';
 import {
   applyMcpServerConfigAdditions,
+  migratePlaywrightPresetToBundled,
   promoteAgentMcpJsonToGlobal,
   removeMcpServerFromAppConfig,
   type McpConfigContainer,
@@ -39,24 +40,20 @@ describe('MCP config helpers', () => {
       id: 'playwright',
       name: 'Playwright',
       type: 'stdio',
-      command: 'npx',
-      args: ['@playwright/mcp@0.0.68'],
+      command: '__bundled_playwright_mcp__',
+      args: [],
       isBuiltin: true,
     };
 
-    expect(applyMcpServerConfigAdditions([playwright], {})[0].args).toEqual([
-      '@playwright/mcp@0.0.68',
-      '--isolated',
-    ]);
+    expect(applyMcpServerConfigAdditions([playwright], {})[0].args).toEqual(['--isolated']);
     expect(applyMcpServerConfigAdditions([playwright], {
       mcpServerArgs: { playwright: [] },
-    })[0].args).toEqual(['@playwright/mcp@0.0.68']);
+    })[0].args).toEqual([]);
     expect(applyMcpServerConfigAdditions([playwright], {
       mcpServerArgs: {
         playwright: ['--browser=firefox', '--user-data-dir=/tmp/profile'],
       },
     })[0].args).toEqual([
-      '@playwright/mcp@0.0.68',
       '--browser=firefox',
       '--user-data-dir=/tmp/profile',
     ]);
@@ -187,5 +184,26 @@ describe('MCP config helpers', () => {
     expect(legacyList.mcpEnabledServers).toEqual([]);
     expect(legacyList.mcpServersJson).toBeUndefined();
     expect(launcher.mcpEnabledServers).toEqual(['keep-tool']);
+  });
+
+  it('migrates the npx Playwright preset to the bundled marker once, keeping extra args', () => {
+    const legacy = (args: string[]): McpServerDefinition => ({
+      id: 'playwright', name: 'Playwright', type: 'stdio', command: 'npx', args, isBuiltin: true,
+    });
+    const custom: McpServerDefinition = { id: 'my-pw', name: 'mine', type: 'stdio', command: 'npx', args: ['@playwright/mcp@latest'], isBuiltin: false };
+    const config: McpConfigContainer = {
+      mcpServers: [legacy(['-y', '@playwright/mcp@latest', '--browser=firefox']), custom],
+      agents: [{ id: 'a', mcpServersJson: JSON.stringify([legacy(['@playwright/mcp@0.0.68']), custom]) }],
+    };
+
+    expect(migratePlaywrightPresetToBundled(config)).toBe(true);
+    expect(config.mcpServers?.[0]).toMatchObject({ command: '__bundled_playwright_mcp__', args: ['--browser=firefox'] });
+    const snapshot = JSON.parse((config.agents?.[0] as { mcpServersJson: string }).mcpServersJson);
+    expect(snapshot[0]).toMatchObject({ command: '__bundled_playwright_mcp__', args: [] });
+    // User-defined servers are never touched, even when they run the same package.
+    expect(config.mcpServers?.[1]).toEqual(custom);
+    expect(snapshot[1]).toEqual(custom);
+    // Idempotent: nothing left to migrate.
+    expect(migratePlaywrightPresetToBundled(config)).toBe(false);
   });
 });
