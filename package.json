@@ -2,7 +2,7 @@
   "name": "agenteam",
   "description": "AgenTeam — Focus Your Attention on Valuable Things.",
   "type": "module",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "license": "AGPL-3.0-only",
   "engines": {
     "node": ">=24.14.0",
