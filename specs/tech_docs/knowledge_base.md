@@ -244,9 +244,29 @@ Skill 中出现的每条 `myagents kb` 命令和参数都必须存在于 `KNOWLE
 
 `kb wiki log` 只能追加到 `wiki/log.md`，该页不作为可检索来源。lint 报告经 v1 schema 验证，要求 UTC 生成时间、受支持的问题类型、库内 Markdown 路径和属于同一知识库的引用。报告保存在库的 `wiki/lint/`，供后续 UI 展示。
 
+## 评测基线（K11）
+
+知识库检索质量评测集位于 `scripts/knowledge-eval/`，全部为本项目原创编写的合成语料与标注，离线在临时目录中调用真实 Rust `KnowledgeStore`、`KnowledgeIngestManager` 与 `KnowledgeIndex`（Tantivy BM25 + Jieba 分词）执行，不联网、不触碰用户数据目录。
+
+- **语料规模**：`scripts/knowledge-eval/corpus/` 共 40 份文档（中文 16 份、英文 12 份、中英混合 12 份），涵盖会议纪要、合同条款、技术规范与代码片段、结构化表格以及企业制度/运维手册，经 K3 切块后生成 86 个片段。
+- **查询标注**：`scripts/knowledge-eval/qrels.json` 共 60 条独立构造的查询，以 `(file, headingPath)` 标注相关片段（不依赖 `chunk_id`）；自动化校验确认 0 条缺失目标、0 条原文子串复制，且 18/60（30.0%）经真实 Jieba 分词器核验与目标片段（标题 + 正文）零词元重合，用于 P1 向量检索上线后衡量语义召回增益。
+- **查询解析改进**：评测发现无空格纯中文自然语言问句在 Tantivy `QueryParser` 中会被解析为严格连续短语导致 0 命中，含 `:` 或 `*`（如 `verify:theme-css`、`*.dlq`）会触发语法报错。`KnowledgeIndex` 现对非引号片段按同一 Jieba 分词器预分词后交由 `parse_query_lenient` 解析，同时保留双引号内的精确短语查询。
+- **复现命令**：`node scripts/knowledge-eval/run.mjs --check`（以及常驻 CI 测试 `search::knowledge_indexer::eval::k11_eval_corpus_meets_bm25_baseline` 与离线端到端测试 `k11_e2e_create_import_ready_search_resolve_remove_and_empty_search`）。
+
+### BM25 基线指标（2026-11-24）
+
+| 切片 | 查询数 | Recall@8 | MRR@10 | nDCG@10 |
+| --- | ---: | ---: | ---: | ---: |
+| **总体（Overall）** | 60 | **0.7000** | **0.6833** | **0.6877** |
+| 词法改写查询（`lexical`） | 42 | 1.0000 | 0.9762 | 0.9824 |
+| 零词元重合语义查询（`semantic_no_overlap`） | 18 | 0.0000 | 0.0000 | 0.0000 |
+| 中英混合（`bilingual`） | 16 | 1.0000 | 0.9375 | 0.9539 |
+| 英文（`en`） | 22 | 0.6364 | 0.6364 | 0.6364 |
+| 中文（`zh`） | 22 | 0.5455 | 0.5455 | 0.5455 |
+
 ## 待接入章节
 
-### K9–K11 UI、引用与检索评测
+### K9–K10 UI 与引用 chip（已在独立分支完成待合并）
 
 ### K12–K15 Linked folder、物理整理与恢复
 
