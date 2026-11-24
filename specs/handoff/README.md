@@ -1,12 +1,14 @@
 # 后续开发计划
 
-> 更新：2026-11-22。**分工：Claude 负责开发与自检，不再使用 Codex 协作者。** 开发与验收是同一会话，验收记录里标注"自检"；需要独立复核时由用户另开会话。合并到 `main`、推 tag、发布仍需要用户明确授权。
+> 更新：2026-11-24。**知识库（K9 及以后）的开发与验收交给新的协作者，交接说明见 [`knowledge_base/HANDOFF.md`](./knowledge_base/HANDOFF.md)。** 以下分工说明适用于其余方向。
+>
+> 原分工（2026-11-22）：**Claude 负责开发与自检，不再使用 Codex 协作者。** 开发与验收是同一会话，验收记录里标注"自检"；需要独立复核时由用户另开会话。合并到 `main`、推 tag、发布仍需要用户明确授权。
 
 ## 当前状态
 
 | 方向 | 已完成（在 `main`） | 进行中 |
 |---|---|---|
-| 知识库 | K0–K7：契约、Store、摄取、切块、BM25 索引、会话 CLI、Agent/Session 绑定、Skill 与库规则模板；**M1 能检索**已通过 | — |
+| 知识库 | K0–K8：契约、Store、摄取、切块、BM25 索引、会话 CLI、Agent/Session 绑定、Skill 与库规则模板、整理 Task 与 wiki；**M1 能检索**已通过 | K9 知识库 UI（`feat/kb-k9-entry`），交给新协作者，见 `knowledge_base/HANDOFF.md` |
 | 助理记忆 | atmer 模板的记忆使用规则 | `MEMORY_REFRESH`（方案 B1，分支 `feat/memory-refresh-reminder`，CI 分支 `dev/memory-refresh`，待 CI 通过并经用户授权后合并） |
 | 侧栏状态、后台超时、Launcher | 均已合并 | — |
 
