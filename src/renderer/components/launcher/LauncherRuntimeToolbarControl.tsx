@@ -20,6 +20,8 @@ interface LauncherRuntimeToolbarControlProps {
   runtimeDetections: RuntimeDetections;
   runtimeDetecting?: boolean;
   runtimeLabel?: string;
+  /** The saved runtime, marked in the menu while `runtime` shows the real executor. */
+  savedRuntime?: RuntimeType;
   runtimeDetectionFailed?: boolean;
   onRuntimeDetectAgain?: () => void;
   onRuntimeChange: (runtime: RuntimeType) => void;
@@ -30,6 +32,7 @@ export default memo(function LauncherRuntimeToolbarControl({
   runtimeDetections,
   runtimeDetecting,
   runtimeLabel,
+  savedRuntime,
   runtimeDetectionFailed,
   onRuntimeDetectAgain,
   onRuntimeChange,
@@ -48,6 +51,7 @@ export default memo(function LauncherRuntimeToolbarControl({
         value={runtime}
         detections={runtimeDetections}
         valueLabel={runtimeLabel}
+        markedValue={savedRuntime}
         detecting={runtimeDetecting}
         detectionFailed={runtimeDetectionFailed}
         onDetectAgain={onRuntimeDetectAgain}

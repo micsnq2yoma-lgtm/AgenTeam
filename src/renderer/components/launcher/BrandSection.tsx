@@ -138,6 +138,8 @@ interface BrandSectionProps {
   /** Shown beside the runtime picker while a model makes another runtime execute. */
   /** Name shown on the runtime picker when it differs from the type's own (Managed Codex). */
   activeRuntimeLabel?: string;
+  /** The saved runtime preference; the picker menu marks this row while `activeRuntime` is the real executor. */
+  savedRuntime?: RuntimeType;
   /** Only the visible Launcher tab may respond to window-wide Tauri drag events. */
   isActive: boolean;
 }
@@ -211,6 +213,7 @@ export default memo(function BrandSection({
   onRuntimeChange,
   activeRuntime,
   activeRuntimeLabel,
+  savedRuntime,
   isActive,
 }: BrandSectionProps) {
   const { t, i18n } = useTranslation('launcher');
@@ -447,10 +450,11 @@ export default memo(function BrandSection({
         runtimeDetectionFailed={runtimeDetectionFailed}
         onRuntimeDetectAgain={onRuntimeDetectAgain}
         runtimeLabel={activeRuntimeLabel}
+        savedRuntime={savedRuntime}
         onRuntimeChange={onRuntimeChange}
       />
     ) : null
-  ), [runtimeSelectorAvailable, activeRuntime, activeRuntimeLabel, runtimeDetections, runtimeDetecting, runtimeDetectionFailed, onRuntimeDetectAgain, onRuntimeChange]);
+  ), [runtimeSelectorAvailable, activeRuntime, activeRuntimeLabel, savedRuntime, runtimeDetections, runtimeDetecting, runtimeDetectionFailed, onRuntimeDetectAgain, onRuntimeChange]);
 
   const handleSlashAction = useCallback((name: string) => {
     if (name !== 'goal' && name !== 'loop') return;

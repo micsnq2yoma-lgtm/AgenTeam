@@ -81,3 +81,15 @@ executionRuntime = resolveEffectiveRuntime(preferredRuntime, …, executionProvi
 按此决定我做了两处解释，开发前如不对请告知：
 1. **偏好是否被改写**：我解释为**不改写**，选择器显示执行者，偏好留在配置里，换回模型后自动回到偏好。若你希望选 Codex 模型就把偏好永久改成 Codex，需要告诉我。
 2. **默认模型继承时是否弹通知**：我解释为**不弹**，选择器显示执行者即可，避免每次打开启动页都打扰（常驻标注已按用户要求移除）。
+
+## 7. 配置字段口径（2026-11-24，订阅路径验收后澄清）
+
+"偏好不被模型选择改写"指的是**基础选择 `runtimePreference`**（设置页读它）。选择模型本来就会持久化，这是预期，不是缺陷：
+
+| 字段 | 选 Managed Codex 模型时 | 换回 DeepSeek 模型时 |
+|---|---|---|
+| `runtimePreference` | **不变**（仍是 DSH） | 不变 |
+| `runtime` | 变成 `builtin`：托管 Codex 在历史配置里的载体（`agentConfigMutation.ts`，"Preserve that base before storing the managed carrier"） | 恢复为基础选择（`dsh`） |
+| `providerId`、`model` | 记录所选模型（`codex-sub`），这样下次打开启动页仍是该模型 | 记录新模型（`deepseek`） |
+
+验收判据：`runtimePreference` 与设置页显示始终不变；`runtime` 在换回后恢复为基础选择；`providerId` 与所选模型一致。三个字段"逐个不变"的旧判据是验收计划的错误，已更正。第 3.1 节中"运行环境选择器显示执行者"之外，另有一条：**菜单里被标记为已选的是保存的运行环境**（DSH），不是与执行者同类型的外部 CLI 行（此前会错误地把外部 Codex CLI 标成已选，已修）。

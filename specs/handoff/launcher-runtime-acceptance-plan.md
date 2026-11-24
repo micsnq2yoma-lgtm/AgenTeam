@@ -31,3 +31,6 @@ Claude / Codex 外部 CLI 偏好的启动页行为、IM 来源会话、不带 Ag
 
 ## 交付
 分支 `acceptance/launcher-runtime`，文件 `specs/handoff/acceptance/launcher-runtime/REPORT.md`：结果表（通过 / 失败 / 阻塞、证据、备注）、新缺陷、App 版本与平台、结论。不要改 `main`，不要创建 PR。
+
+## 更正（2026-11-24）：配置字段判据
+订阅路径验收曾按"runtime、runtimePreference、providerId 三个字段在模型选择前后都不变"判失败，这个判据本身错了。正确判据：`runtimePreference` 和设置页显示不变；`runtime` 在选 Managed Codex 模型时变为 `builtin`（托管载体），换回后恢复；`providerId` 随所选模型变化。详见 launcher-runtime-selection-design.md 第 7 节。运行环境菜单里被标记的行必须是保存的运行环境（DSH），而不是外部 Codex CLI。

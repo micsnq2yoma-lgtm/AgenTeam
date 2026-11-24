@@ -134,6 +134,18 @@ describe('Launcher runtime display', () => {
     expect(mocks.patchAgentConfig).not.toHaveBeenCalled();
   });
 
+  it('the runtime menu keeps marking the SAVED runtime while a Codex model shows Managed Codex on the button', async () => {
+    renderLauncher();
+    await screen.findByTitle(/Runtime: .*DeepSeek Harness/);
+    await pickCodexModel();
+    fireEvent.click(await screen.findByTitle(/Runtime: .*Codex/));
+    const rows = (await screen.findAllByRole('button')).filter(b => b.hasAttribute('aria-pressed'));
+    const marked = rows.filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.textContent);
+    expect(marked).toHaveLength(1);
+    expect(marked[0]).toMatch(/DeepSeek Harness/);
+    expect(marked[0]).not.toMatch(/Codex/);
+  });
+
   it('L4: clicking the saved runtime while a model pins another executor explains it and rewrites nothing', async () => {
     renderLauncher();
     await screen.findByTitle(/Runtime: .*DeepSeek Harness/);

@@ -81,6 +81,10 @@ interface RuntimeSelectorProps {
   onChange: (runtime: RuntimeType) => void;
   /** Overrides the shown name when the same runtime type has another owner (Managed Codex under the Codex type). */
   valueLabel?: string;
+  /** Which row of the menu is marked as chosen. Defaults to `value`. The launcher passes the SAVED runtime here
+   *  while `value` shows who really executes: a Managed Codex model under a DSH preference shows Codex on the
+   *  button, but the menu must keep marking DSH, not the external Codex CLI row that shares the 'codex' type. */
+  markedValue?: RuntimeType;
   variant?: 'launcher' | 'panel';
   onOpenSettings?: () => void;
   disabled?: boolean;
@@ -98,6 +102,7 @@ export default memo(function RuntimeSelector({
   onDetectAgain,
   onChange,
   valueLabel,
+  markedValue,
   variant = 'launcher',
   onOpenSettings,
   disabled = false,
@@ -198,7 +203,7 @@ export default memo(function RuntimeSelector({
         {availableOptions.map((opt, index) => {
           const detection = detections[opt.type];
           const installed = opt.type === 'builtin' || (detection?.installed && detection.reason !== 'protocol-mismatch' && IMPLEMENTED_RUNTIMES.has(opt.type));
-          const selected = opt.type === value;
+          const selected = opt.type === (markedValue ?? value);
           const help = opt.type === 'antigravity' && !installed && !detecting && !detectionFailed;
           const groupStart = index === 0 || availableOptions[index - 1].group !== opt.group;
           return (

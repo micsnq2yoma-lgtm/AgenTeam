@@ -1161,6 +1161,7 @@ export default function Launcher({
           onRuntimeChange={handleLauncherRuntimeChange}
           activeRuntime={executionDisplay.runtime}
           activeRuntimeLabel={executionDisplay.source ? executionDisplayName : undefined}
+          savedRuntime={selectedRuntime}
           isActive={isActive}
         />
       </main>
