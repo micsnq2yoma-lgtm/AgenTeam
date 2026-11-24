@@ -259,7 +259,7 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
                       type="button"
                       onClick={() => setFocusedProjectId(project.id)}
                       title={t('teamOffice.zoomDepartment', { project: zone.name })}
-                      className={`min-w-0 truncate rounded bg-[var(--paper-elevated)]/90 font-semibold text-[var(--ink)] shadow-xs transition-colors hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isMini ? 'px-1 py-0 text-[10px] leading-tight' : 'px-1.5 py-0.5 text-xs'}`}
+                      className={`min-w-0 truncate rounded bg-[var(--paper-elevated)]/90 font-semibold text-[var(--ink)] shadow-xs transition-colors hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isMini ? 'px-1 py-0 text-xs leading-tight' : 'px-1.5 py-0.5 text-xs'}`}
                     >
                       {zone.name}
                       {hidden > 0 && (

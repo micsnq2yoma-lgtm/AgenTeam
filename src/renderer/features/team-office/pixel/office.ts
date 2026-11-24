@@ -688,7 +688,6 @@ export class OfficeRenderer {
     return this.snapshot.people.map((p) => {
       const seat = this.layout.seats.find((s) => s.agentId === p.agentId);
       const w = this.walkers.get(p.agentId);
-      const x = w ? w.x : (seat?.x ?? 0);
       const y = w ? w.y : (seat?.y ?? 0);
       const hitX = w ? w.x : (seat?.hitX ?? 0);
       const hitY = w ? w.y : (seat?.hitY ?? 0);
