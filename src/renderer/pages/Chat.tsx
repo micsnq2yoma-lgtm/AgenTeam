@@ -1,4 +1,5 @@
 import { perfMark } from '@/utils/perfMark';
+import { shouldResetEffortForProtocol } from '@/utils/reasoningEffortClamp';
 import { useChatWorkspaceLayout } from '@/hooks/useChatWorkspaceLayout';
 import { resolveDefaultMcpSelection } from '../../shared/mcpSelection';
 import { useChatDraftScope } from "@/hooks/useChatDraftScope";
@@ -209,7 +210,6 @@ import { workspacePathsEqual } from '../../shared/workspacePath';
 import type { MainWindowPresentation } from '@/utils/mainWindowPresentation';
 import {
   coerceReasoningEffortForRuntime,
-  reasoningEffortChoices,
   reasoningEffortAfterModelChange,
 } from '../../shared/reasoningEffort';
 import {
@@ -4624,25 +4624,26 @@ export default function Chat({
   // the SDK default 'high' (the query-time isSdkEffortLevel gate). Reset to
   // 'default' (persisted + pushed via the handler) so UI and wire agree.
   useEffect(() => {
-    if (inputUsesExternalRuntimeControls || !effectiveModelProvider) return;
+    if (!effectiveModelProvider) return;
     if (configDispositionRef.current !== 'push') return;
-    if (reasoningEffort === 'default') return;
-    const choices = reasoningEffortChoices(
-      currentRuntime === 'dsh' ? 'dsh' : 'builtin',
-      effectiveModelProvider.apiProtocol,
-      effectiveModelProvider.id,
-      selectedModel,
-      effectiveModelProvider.config.baseUrl,
-    );
     if (
-      (choices && !choices.includes(reasoningEffort)) ||
-      (currentRuntime === 'dsh' && choices === null)
+      shouldResetEffortForProtocol({
+        reasoningEffort,
+        inputUsesExternalRuntimeControls,
+        managedProviderRuntimeActive,
+        runtime: currentRuntime,
+        apiProtocol: effectiveModelProvider.apiProtocol,
+        providerId: effectiveModelProvider.id,
+        model: selectedModel,
+        baseUrl: effectiveModelProvider.config.baseUrl,
+      })
     ) {
       void handleReasoningEffortChange('default');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- narrowed to protocol-relevant provider fields
   }, [
     inputUsesExternalRuntimeControls,
+    managedProviderRuntimeActive,
     effectiveModelProvider?.id,
     effectiveModelProvider?.apiProtocol,
     effectiveModelProvider?.config.baseUrl,
