@@ -342,10 +342,8 @@ impl KnowledgeStore {
                 return Err(KbNotFound);
             }
             let rules_path = format!("{kb_id}/{RULES_FILE}");
-            let fallback = library_templates(crate::i18n::locale_from_config(
-                &files.app.join("config.json"),
-            ))[0]
-            .1;
+            let fallback =
+                library_templates(explicit_config_locale(&files.app.join("config.json")))[0].1;
             let rules = files
                 .read_text(&rules_path, MAX_CONTEXT_TEXT_BYTES)?
                 .unwrap_or_else(|| fallback.to_string());

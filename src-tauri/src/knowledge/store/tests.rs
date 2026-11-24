@@ -1391,3 +1391,28 @@ fn k9_store_views_wiki_browsing_rules_and_stats_work_safely() {
     let chunks = store.list_chunks(&kb.id, &details[0].source.id).unwrap();
     assert!(!chunks.is_empty());
 }
+
+#[test]
+fn explicit_config_locale_respects_config_ui_language_and_defaults_to_zh_cn() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+
+    let default_kb = store.create(settings("Default Locale")).unwrap();
+    let default_rules = store
+        .read_rule_doc(&default_kb.id, RuleDocKind::OrganizeRules)
+        .unwrap()
+        .unwrap();
+    assert!(default_rules.contains("## 分类体系"));
+
+    fs::write(
+        data.path().join("config.json"),
+        r#"{"uiLanguage":"en-US"}"#,
+    )
+    .unwrap();
+    let en_kb = store.create(settings("Configured English")).unwrap();
+    let en_rules = store
+        .read_rule_doc(&en_kb.id, RuleDocKind::OrganizeRules)
+        .unwrap()
+        .unwrap();
+    assert!(en_rules.contains("## Categories"));
+}

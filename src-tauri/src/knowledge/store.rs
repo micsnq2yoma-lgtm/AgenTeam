@@ -95,6 +95,21 @@ fn parse_template_locale(tag: &str) -> crate::i18n::SupportedLocale {
     }
 }
 
+/// Resolve the template locale from explicit `config.json` `uiLanguage` when present,
+/// defaulting to `ZhCn` when unconfigured so headless stores are independent of OS locale.
+pub(super) fn explicit_config_locale(config_path: &Path) -> crate::i18n::SupportedLocale {
+    let Ok(raw) = fs::read_to_string(config_path) else {
+        return crate::i18n::SupportedLocale::ZhCn;
+    };
+    let Ok(value) = serde_json::from_str::<Value>(raw.trim_start_matches('\u{feff}')) else {
+        return crate::i18n::SupportedLocale::ZhCn;
+    };
+    match value.get("uiLanguage").and_then(Value::as_str) {
+        Some(tag) if tag.eq_ignore_ascii_case("en-US") => crate::i18n::SupportedLocale::EnUs,
+        _ => crate::i18n::SupportedLocale::ZhCn,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CurationMode {
@@ -514,9 +529,7 @@ impl KnowledgeStore {
                 .locale
                 .as_deref()
                 .map(parse_template_locale)
-                .unwrap_or_else(|| {
-                    crate::i18n::locale_from_config(&files.app.join("config.json"))
-                });
+                .unwrap_or_else(|| explicit_config_locale(&files.app.join("config.json")));
             let kb = KnowledgeBase::from_patch(id, patch)?;
             // Publication of kbs.json is the visibility boundary. A staged
             // directory has no readers until its settings and default rules

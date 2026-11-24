@@ -230,7 +230,7 @@ Skill 中出现的每条 `myagents kb` 命令和参数都必须存在于 `KNOWLE
 
 `ORGANIZE_RULES.md` 的分类体系支持中英文两种固定格式：中文在 `## 分类体系` 一节下每行 ``- `分类路径`：说明``（全角冒号），英文在 `## Categories` 一节下每行 ``- `category/path`: description``（半角冒号）。K8/K9 校验 `meta set --category` 和确认新增分类时按所在章节语言严格匹配对应分隔符。lint 报告格式见 curator Skill 的 `references/lint-report.md`（`version: 1`，`items[].kind` 为 `contradiction | stale | orphan | missing-citation`），K8 的提交命令按它校验。
 
-模板提供中文（`ORGANIZE_RULES.md`、`WIKI_SCHEMA.md`）与英文（`ORGANIZE_RULES.en.md`、`WIKI_SCHEMA.en.md`）两套，均随 `agenteam-knowledge-curator` Skill 经 `include_str!` 编译进 App（当前 `SYSTEM_SKILLS_VERSION` 为 80）。新建知识库时按 `cmd_kb_create` 传入的 `locale`（省略时回退到 `config.json` 的界面语言）写入对应语言模板，仅写一次，之后归用户所有。
+模板提供中文（`ORGANIZE_RULES.md`、`WIKI_SCHEMA.md`）与英文（`ORGANIZE_RULES.en.md`、`WIKI_SCHEMA.en.md`）两套，均随 `agenteam-knowledge-curator` Skill 经 `include_str!` 编译进 App（当前 `SYSTEM_SKILLS_VERSION` 为 80）。新建知识库时按 `cmd_kb_create` 传入的 `locale` 写入对应语言模板；省略时仅读取 `config.json` 中显式配置的 `uiLanguage`（未显式配置时默认中文，避免受宿主机 OS locale 影响），模板仅写一次，之后归用户所有。
 
 ## K8 元数据与 wiki 整理
 

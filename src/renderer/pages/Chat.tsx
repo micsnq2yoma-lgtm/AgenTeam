@@ -2913,7 +2913,9 @@ export default function Chat({
     if (!isTauriEnvironment()) return;
     try {
       const list = await knowledgeClient.list();
-      setAvailableKnowledgeBases(list);
+      if (Array.isArray(list)) {
+        setAvailableKnowledgeBases(list);
+      }
     } catch {
       /* ignore when KnowledgeStore is unavailable */
     }

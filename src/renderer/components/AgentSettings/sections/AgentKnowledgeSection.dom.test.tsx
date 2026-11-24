@@ -63,4 +63,15 @@ describe('AgentKnowledgeSection', () => {
     );
     expect(onAgentChanged).toHaveBeenCalled();
   });
+
+  it('handles non-array invoke responses without throwing', async () => {
+    mocks.invoke.mockResolvedValueOnce(undefined);
+    render(
+      <ToastProvider>
+        <AgentKnowledgeSection agent={makeAgent([])} onAgentChanged={vi.fn()} />
+      </ToastProvider>,
+    );
+
+    expect(await screen.findByText(/还没有知识库/)).toBeInTheDocument();
+  });
 });

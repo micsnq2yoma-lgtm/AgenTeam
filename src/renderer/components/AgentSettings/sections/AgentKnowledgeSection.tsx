@@ -48,7 +48,7 @@ export default function AgentKnowledgeSection({
     try {
       const list = await knowledgeClient.list();
       if (mounted.current && loadSeq.current === seq) {
-        setBases(list);
+        setBases(Array.isArray(list) ? list : []);
       }
     } catch {
       if (mounted.current && loadSeq.current === seq) {
