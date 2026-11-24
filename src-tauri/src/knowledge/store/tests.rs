@@ -1218,3 +1218,176 @@ fn a_bound_non_curator_writes_metadata_without_settling_the_batch() {
         .unwrap();
     assert_eq!(store.pending_curation(&kb.id).unwrap().0.len(), 1);
 }
+
+#[test]
+fn bilingual_templates_seed_by_locale_and_confirm_categories_in_both_languages() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb_en = store
+        .create(KnowledgeBasePatch {
+            locale: Some("en-US".into()),
+            ..settings("English Library")
+        })
+        .unwrap();
+    let rules_en = store
+        .read_rule_doc(&kb_en.id, RuleDocKind::OrganizeRules)
+        .unwrap()
+        .expect("en rules");
+    let schema_en = store
+        .read_rule_doc(&kb_en.id, RuleDocKind::WikiSchema)
+        .unwrap()
+        .expect("en schema");
+    assert!(rules_en.contains("## Categories"));
+    assert!(schema_en.contains("# Wiki Schema"));
+    let cats_en = store.list_categories(&kb_en.id).unwrap();
+    assert!(cats_en.contains(&"Reference".to_string()));
+    assert!(cats_en.contains(&"Projects".to_string()));
+
+    store
+        .propose_category(&kb_en.id, "Projects/Q4", "Q4 roadmap docs", |_| Ok(()))
+        .unwrap();
+    store.confirm_category(&kb_en.id, "Projects/Q4").unwrap();
+    let updated_rules = store
+        .read_rule_doc(&kb_en.id, RuleDocKind::OrganizeRules)
+        .unwrap()
+        .unwrap();
+    assert!(updated_rules.contains("- `Projects/Q4`: Confirmed by user"));
+    assert!(store
+        .list_categories(&kb_en.id)
+        .unwrap()
+        .contains(&"Projects/Q4".to_string()));
+
+    let kb_zh = store
+        .create(KnowledgeBasePatch {
+            locale: Some("zh-CN".into()),
+            ..settings("中文库")
+        })
+        .unwrap();
+    let rules_zh = store
+        .read_rule_doc(&kb_zh.id, RuleDocKind::OrganizeRules)
+        .unwrap()
+        .expect("zh rules");
+    assert!(rules_zh.contains("## 分类体系"));
+    assert!(store
+        .list_categories(&kb_zh.id)
+        .unwrap()
+        .contains(&"参考资料".to_string()));
+}
+
+#[test]
+fn unlock_metadata_field_releases_user_lock_and_preserves_value() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let mut ui_rx = store.subscribe_ui_events();
+    let kb = store.create(settings("Locks")).unwrap();
+    assert_eq!(ui_rx.try_recv().unwrap().kind, "kb-upserted");
+    let source = store.create_source(&kb.id, note()).unwrap();
+    assert_eq!(ui_rx.try_recv().unwrap().kind, "source-upserted");
+
+    store
+        .set_metadata(
+            &kb.id,
+            &source.id,
+            KnowledgeMetadataOrigin::User,
+            field(MetadataKey::Summary, json!("user summary")),
+        )
+        .unwrap();
+    assert_eq!(ui_rx.try_recv().unwrap().kind, "metadata-changed");
+
+    let locked = store
+        .set_metadata(
+            &kb.id,
+            &source.id,
+            KnowledgeMetadataOrigin::Agent,
+            field(MetadataKey::Summary, json!("agent blocked")),
+        )
+        .unwrap();
+    assert_eq!(
+        locked[&MetadataKey::Summary],
+        MetadataOutcome::Rejected {
+            code: KbFieldLocked
+        }
+    );
+
+    let unlocked = store
+        .unlock_metadata_field(&kb.id, &source.id, MetadataKey::Summary)
+        .unwrap();
+    assert_eq!(
+        unlocked.metadata[&MetadataKey::Summary].value,
+        json!("user summary")
+    );
+    assert_eq!(
+        unlocked.metadata[&MetadataKey::Summary].origin,
+        KnowledgeMetadataOrigin::Agent
+    );
+    assert_eq!(ui_rx.try_recv().unwrap().kind, "metadata-changed");
+
+    let after = store
+        .set_metadata(
+            &kb.id,
+            &source.id,
+            KnowledgeMetadataOrigin::Agent,
+            field(MetadataKey::Summary, json!("agent updated")),
+        )
+        .unwrap();
+    assert_eq!(after[&MetadataKey::Summary], MetadataOutcome::Updated);
+}
+
+#[test]
+fn k9_store_views_wiki_browsing_rules_and_stats_work_safely() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Overview")).unwrap();
+
+    let stats_empty = store.stats(&kb.id).unwrap();
+    assert_eq!(stats_empty.source_count, 0);
+    assert_eq!(stats_empty.search_mode, "bm25");
+    assert!(stats_empty.storage_bytes > 0);
+
+    store
+        .write_rule_doc(&kb.id, RuleDocKind::OrganizeRules, "## 分类体系\n\n- `研发`：工程文档\n")
+        .unwrap();
+    assert_eq!(store.list_categories(&kb.id).unwrap(), vec!["研发".to_string()]);
+
+    store
+        .write_wiki_page(&kb.id, "topics/Alpha.md", "# Alpha\n\nBody.\n", |_| Ok(()))
+        .unwrap();
+    store
+        .write_wiki_page(&kb.id, "index.md", "# Index\n\n- [Alpha](topics/Alpha.md)\n", |_| Ok(()))
+        .unwrap();
+    store
+        .append_wiki_log(&kb.id, "Initial wiki build", |_| Ok(()))
+        .unwrap();
+
+    let pages = store.list_wiki_pages(&kb.id).unwrap();
+    let paths: Vec<&str> = pages.iter().map(|p| p.path.as_str()).collect();
+    assert_eq!(paths, vec!["index.md", "topics/Alpha.md", "log.md"]);
+    assert!(store
+        .read_wiki_page(&kb.id, "topics/Alpha.md")
+        .unwrap()
+        .contains("Body."));
+    assert_eq!(
+        store.read_wiki_page(&kb.id, "../kb.json"),
+        Err(KbInvalidInput)
+    );
+
+    let older = json!({"version": 1, "generatedAt": "2026-11-21T08:00:00Z", "items": []});
+    let newer = json!({"version": 1, "generatedAt": "2026-11-23T08:00:00Z", "items": [
+        {"kind": "orphan", "page": "topics/Alpha.md", "message": "Unlinked", "refs": []}
+    ]});
+    store
+        .save_wiki_lint_report(&kb.id, &serde_json::to_vec(&older).unwrap(), |_| Ok(()))
+        .unwrap();
+    store
+        .save_wiki_lint_report(&kb.id, &serde_json::to_vec(&newer).unwrap(), |_| Ok(()))
+        .unwrap();
+    let reports = store.list_lint_reports(&kb.id).unwrap();
+    assert_eq!(reports.len(), 2);
+    assert_eq!(reports[0].report.generated_at, "2026-11-23T08:00:00Z");
+    assert_eq!(reports[1].report.generated_at, "2026-11-21T08:00:00Z");
+
+    let details = store.list_source_details(&kb.id).unwrap();
+    assert_eq!(details.len(), 2);
+    let chunks = store.list_chunks(&kb.id, &details[0].source.id).unwrap();
+    assert!(!chunks.is_empty());
+}

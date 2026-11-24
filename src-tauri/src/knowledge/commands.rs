@@ -1,17 +1,59 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use tauri::{async_runtime::spawn_blocking, State};
+use tauri::{async_runtime::spawn_blocking, AppHandle, Emitter, Manager, State};
+use tokio::sync::broadcast::error::RecvError;
 
+use super::chunker::KnowledgeChunk;
 use super::ingest::{ImportFailure, ImportOutcome, KnowledgeIngestManager};
 use super::store::ingest::IngestJob;
 use super::store::{
-    KnowledgeBase, KnowledgeBasePatch, KnowledgeSource, KnowledgeStore, MetadataKey,
-    MetadataOutcome, MetadataPatch, ResolvedKnowledgeRef, StoreResult,
+    KnowledgeBase, KnowledgeBasePatch, KnowledgeBaseStats, KnowledgeSource, KnowledgeSourceDetail,
+    KnowledgeStore, KnowledgeUiEvent, LintReportEntry, MetadataKey, MetadataOutcome, MetadataPatch,
+    ResolvedKnowledgeRef, RuleDocKind, StoreResult, WikiPageEntry,
 };
 use super::types::{KnowledgeErrorCode, KnowledgeMetadataOrigin};
+use crate::search::{
+    KnowledgeSearchFilters, KnowledgeSearchResult, KnowledgeSearchStatus, SearchEngine,
+};
+
+pub const KNOWLEDGE_CHANGED_EVENT: &str = "knowledge:changed";
+
+/// Forward Store UI invalidation events to WebView listeners. Carries only IDs
+/// and kind so UI views can refetch from Rust Store without keeping a second copy.
+pub fn spawn_ui_event_forwarder(app: AppHandle, store: Arc<KnowledgeStore>) {
+    let mut rx = store.subscribe_ui_events();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    let _ = app.emit(KNOWLEDGE_CHANGED_EVENT, event);
+                }
+                Err(RecvError::Lagged(_)) => {
+                    let _ = app.emit(
+                        KNOWLEDGE_CHANGED_EVENT,
+                        KnowledgeUiEvent {
+                            kind: "resync",
+                            kb_id: String::new(),
+                            source_id: None,
+                        },
+                    );
+                }
+                Err(RecvError::Closed) => break,
+            }
+        }
+    });
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeSourceView {
+    #[serde(flatten)]
+    pub detail: KnowledgeSourceDetail,
+    pub search_status: KnowledgeSearchStatus,
+}
 
 async fn run_store<T: Send + 'static>(
     state: State<'_, Arc<KnowledgeStore>>,
@@ -185,6 +227,145 @@ pub async fn cmd_kb_dismiss_category(
 ) -> StoreResult<()> {
     run_store(state, move |store| {
         store.dismiss_category(&kb_id, &category)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_stats(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+) -> StoreResult<KnowledgeBaseStats> {
+    run_store(state, move |store| store.stats(&kb_id)).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_list_source_views(
+    app: AppHandle,
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+) -> StoreResult<Vec<KnowledgeSourceView>> {
+    let store = Arc::clone(state.inner());
+    let search = app.try_state::<Arc<SearchEngine>>().map(|s| Arc::clone(s.inner()));
+    spawn_blocking(move || {
+        let details = store.list_source_details(&kb_id)?;
+        let views = details
+            .into_iter()
+            .map(|detail| {
+                let search_status = search
+                    .as_ref()
+                    .and_then(|engine| engine.knowledge_search_status(&kb_id, &detail.source.id).ok())
+                    .unwrap_or(KnowledgeSearchStatus::Pending);
+                KnowledgeSourceView {
+                    detail,
+                    search_status,
+                }
+            })
+            .collect();
+        Ok(views)
+    })
+    .await
+    .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+#[tauri::command]
+pub async fn cmd_kb_list_categories(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+) -> StoreResult<Vec<String>> {
+    run_store(state, move |store| store.list_categories(&kb_id)).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_list_chunks(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+    source_id: String,
+) -> StoreResult<Vec<KnowledgeChunk>> {
+    run_store(state, move |store| store.list_chunks(&kb_id, &source_id)).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_unlock_metadata(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+    source_id: String,
+    key: Value,
+) -> StoreResult<KnowledgeSource> {
+    let key: MetadataKey = decode(key)?;
+    run_store(state, move |store| {
+        store.unlock_metadata_field(&kb_id, &source_id, key)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_search(
+    app: AppHandle,
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_ids: Vec<String>,
+    queries: Vec<String>,
+    filters: Option<Value>,
+    limit: Option<usize>,
+) -> StoreResult<KnowledgeSearchResult> {
+    let filters: KnowledgeSearchFilters = match filters {
+        Some(value) => decode(value)?,
+        None => KnowledgeSearchFilters::default(),
+    };
+    let search = app
+        .try_state::<Arc<SearchEngine>>()
+        .map(|s| Arc::clone(s.inner()))
+        .ok_or(KnowledgeErrorCode::KbStoreUnavailable)?;
+    search
+        .search_knowledge(Arc::clone(state.inner()), kb_ids, queries, filters, limit)
+        .await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_list_wiki_pages(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+) -> StoreResult<Vec<WikiPageEntry>> {
+    run_store(state, move |store| store.list_wiki_pages(&kb_id)).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_read_wiki_page(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+    page: String,
+) -> StoreResult<String> {
+    run_store(state, move |store| store.read_wiki_page(&kb_id, &page)).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_list_lint_reports(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+) -> StoreResult<Vec<LintReportEntry>> {
+    run_store(state, move |store| store.list_lint_reports(&kb_id)).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_read_rule_doc(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+    doc: Value,
+) -> StoreResult<Option<String>> {
+    let doc: RuleDocKind = decode(doc)?;
+    run_store(state, move |store| store.read_rule_doc(&kb_id, doc)).await
+}
+
+#[tauri::command]
+pub async fn cmd_kb_write_rule_doc(
+    state: State<'_, Arc<KnowledgeStore>>,
+    kb_id: String,
+    doc: Value,
+    content: String,
+) -> StoreResult<()> {
+    let doc: RuleDocKind = decode(doc)?;
+    run_store(state, move |store| {
+        store.write_rule_doc(&kb_id, doc, &content)
     })
     .await
 }
