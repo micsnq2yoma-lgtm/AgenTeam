@@ -92,6 +92,8 @@
       }
     },
     "pluginsHeader": "Plugins",
+    "knowledgeHeader": "Knowledge Bases (This Session)",
+    "knowledgeSaveFailed": "Could not update session knowledge base bindings; please try again",
     "pluginLoadsMcpTitle": "Enabling this plugin automatically loads these MCP servers: {{names}}",
     "pluginLoadsMcp": "{{count}} MCP: {{names}}",
     "managePlugins": "Manage plugins",

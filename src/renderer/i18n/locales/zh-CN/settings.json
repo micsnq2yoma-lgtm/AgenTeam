@@ -1172,6 +1172,12 @@
       "pluginTitle": "插件 Plugins",
       "pluginSubtitle": "选择此 Agent 启动会话时自动启用的 Claude 插件（来自 Settings → 插件 中已显示的候选）"
     },
+    "knowledge": {
+      "title": "知识库",
+      "subtitle": "选择此 Agent 新建会话时默认绑定的知识库。修改不会影响已有会话的绑定。",
+      "empty": "还没有知识库。在启动页切换到「知识库」即可创建并导入资料。",
+      "saveFailed": "未能保存知识库绑定，请重试"
+    },
     "agentList": {
       "empty": "尚未创建 Agent。在项目设置中可以将项目升级为 Agent。",
       "disabled": "已禁用",

@@ -10,6 +10,7 @@ import { getAgentById, setProactiveAgentEnabled, reconcilePersistedAgentWorkspac
 import { workspacePathsEqual } from '../../../shared/workspacePath';
 import WorkspaceBasicsSection from './WorkspaceBasicsSection';
 import AgentChannelsSection from './sections/AgentChannelsSection';
+import AgentKnowledgeSection from './sections/AgentKnowledgeSection';
 import AgentHeartbeatSection from './sections/AgentHeartbeatSection';
 import AgentMemoryUpdateSection from './sections/AgentMemoryUpdateSection';
 import AgentMemoryEvolutionSection from './sections/AgentMemoryEvolutionSection';
@@ -132,6 +133,13 @@ export default function WorkspaceGeneralTab({
             />
           )}
         </div>
+
+        {/* Card 2.5: Knowledge Bases — Agent default bindings */}
+        {agent && (
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">
+            <AgentKnowledgeSection agent={agent} onAgentChanged={handleAgentChanged} />
+          </div>
+        )}
 
         {/* Card 3: Proactive Agent mode */}
         <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">

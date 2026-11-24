@@ -1172,6 +1172,12 @@
       "pluginTitle": "Plugins",
       "pluginSubtitle": "Choose Claude plugins automatically enabled when this Agent starts a session."
     },
+    "knowledge": {
+      "title": "Knowledge Bases",
+      "subtitle": "Choose default knowledge bases bound to new sessions for this Agent. Existing sessions keep their own snapshot.",
+      "empty": "No knowledge bases yet. Switch to Knowledge on the Launcher to create one and import files.",
+      "saveFailed": "Could not save knowledge base bindings; please try again"
+    },
     "agentList": {
       "empty": "No Agents yet. Upgrade a project to an Agent from project settings.",
       "disabled": "Disabled",

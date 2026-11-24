@@ -143,6 +143,9 @@ import {
   startCronTask as startCronTaskIpc,
 } from '@/api/cronTaskClient';
 import { updateSession as patchSessionMetadata } from '@/api/sessionClient';
+import { knowledgeClient } from '@/features/knowledge/knowledgeClient';
+import type { KnowledgeBaseRecord } from '@/features/knowledge/types';
+import { useKnowledgeChangeSubscription } from '@/features/knowledge/useKnowledgeEvents';
 import {
   sessionHasPersistentOwners,
 } from '@/api/tauriClient';
@@ -2898,6 +2901,27 @@ export default function Chat({
           [],
       ),
     );
+  const [availableKnowledgeBases, setAvailableKnowledgeBases] = useState<
+    KnowledgeBaseRecord[]
+  >([]);
+  const [sessionKnowledgeBaseIds, setSessionKnowledgeBaseIds] = useState<
+    string[]
+  >(() =>
+    sessionId ? [] : (currentAgent?.knowledgeBaseIds ?? []),
+  );
+  const refreshKnowledgeBases = useCallback(async () => {
+    if (!isTauriEnvironment()) return;
+    try {
+      const list = await knowledgeClient.list();
+      setAvailableKnowledgeBases(list);
+    } catch {
+      /* ignore when KnowledgeStore is unavailable */
+    }
+  }, []);
+  useEffect(() => {
+    void refreshKnowledgeBases();
+  }, [refreshKnowledgeBases]);
+  useKnowledgeChangeSubscription(refreshKnowledgeBases);
   const globalOfficialToolEnabled = useMemo(
     () => normalizeOfficialToolIds(config.enabledOfficialToolIds ?? []),
     [config.enabledOfficialToolIds],
@@ -3510,6 +3534,26 @@ export default function Chat({
     [workspaceEnabledPlugins, persistTabConfigChange, guardCronConfigMutation],
   );
 
+  // K9: Session-level knowledge base toggle. Writes ONLY to this session's
+  // snapshot (`PATCH /sessions/:id`) and never mutates Agent defaults.
+  const handleSessionKnowledgeBaseToggle = useCallback(
+    async (kbId: string, enabled: boolean) => {
+      if (guardCronConfigMutation()) return;
+      const previous = sessionKnowledgeBaseIds;
+      const next = enabled
+        ? (previous.includes(kbId) ? previous : [...previous, kbId])
+        : previous.filter((id) => id !== kbId);
+      setSessionKnowledgeBaseIds(next);
+      try {
+        await patchSnapshot({ knowledgeBaseIds: next });
+      } catch {
+        setSessionKnowledgeBaseIds(previous);
+        toastRef.current.error(t('input.knowledgeSaveFailed'));
+      }
+    },
+    [guardCronConfigMutation, patchSnapshot, sessionKnowledgeBaseIds, t],
+  );
+
   const handleWorkspaceOfficialToolToggle = useCallback(
     async (toolId: OfficialToolId, enabled: boolean) => {
       if (guardCronConfigMutation()) return;
@@ -3786,6 +3830,11 @@ export default function Chat({
     setWorkspaceMcpEnabled(mcp ?? []);
     setWorkspaceEnabledPlugins(plugins);
     setWorkspaceOfficialToolEnabled(normalizeOfficialToolIds(officialTools));
+    setSessionKnowledgeBaseIds(
+      Array.isArray(sessionMeta.knowledgeBaseIds)
+        ? sessionMeta.knowledgeBaseIds
+        : [],
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- currentAgent derived from config, listening to its identity would re-fire on unrelated agent changes
   }, [sessionMeta, configPending, selectedProviderId, providers]);
 
@@ -6890,6 +6939,11 @@ export default function Chat({
               globallyVisiblePlugins={globallyVisiblePlugins}
               workspaceEnabledPlugins={workspaceEnabledPlugins}
               onWorkspacePluginToggle={handleWorkspacePluginToggle}
+              knowledgeBases={availableKnowledgeBases}
+              sessionKnowledgeBaseIds={sessionKnowledgeBaseIds}
+              onSessionKnowledgeBaseToggle={
+                sessionId ? handleSessionKnowledgeBaseToggle : undefined
+              }
                     onRefreshProviders={async () => {
                       await refreshProviders();
                       setWorkspaceRefreshTrigger((value) => value + 1);

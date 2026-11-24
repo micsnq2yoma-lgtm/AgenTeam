@@ -163,6 +163,9 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
   globallyVisiblePlugins = [],
   workspaceEnabledPlugins = [],
   onWorkspacePluginToggle,
+  knowledgeBases = [],
+  sessionKnowledgeBaseIds = [],
+  onSessionKnowledgeBaseToggle,
   mcpServers = [],
   runtimeMcpTools = [],
   mcpEffectiveSnapshot = null,
@@ -444,8 +447,11 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
     const enabledOfficialEntryCount = visibleOfficialTools.filter(
       tool => workspaceOfficialToolEnabled.includes(tool.id),
     ).length;
-    return enabledMcpEntryCount + enabledOfficialEntryCount + antigravityNativeMcpServers.length;
-  }, [antigravityNativeMcpServers.length, externalMcpServers.length, globalMcpEnabled, usesProductMcp, mcpServers, visibleOfficialTools, workspaceMcpEnabled, workspaceOfficialToolEnabled]);
+    const enabledKnowledgeCount = knowledgeBases.filter(
+      kb => sessionKnowledgeBaseIds.includes(kb.id),
+    ).length;
+    return enabledMcpEntryCount + enabledOfficialEntryCount + antigravityNativeMcpServers.length + enabledKnowledgeCount;
+  }, [antigravityNativeMcpServers.length, externalMcpServers.length, globalMcpEnabled, knowledgeBases, mcpServers, sessionKnowledgeBaseIds, usesProductMcp, visibleOfficialTools, workspaceMcpEnabled, workspaceOfficialToolEnabled]);
 
   // #324 — 推理强度 submenu (fixed bottom row of the model menu). Opens on
   // hover/click of the row; share the 120ms close delay with the portaled
@@ -2005,6 +2011,53 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
                       </div>
                     )}
                     </>
+                    )}
+
+                    {knowledgeBases.length > 0 && onSessionKnowledgeBaseToggle && (
+                      <>
+                        <div className="px-3 py-2 mt-1 text-xs font-medium text-[var(--ink-muted)] border-t border-[var(--line)] border-b border-[var(--line)] bg-[var(--paper-inset)]/40">
+                          {t('input.knowledgeHeader')}
+                        </div>
+                        {knowledgeBases.map((kb) => {
+                          const isEnabled = sessionKnowledgeBaseIds.includes(kb.id);
+                          return (
+                            <div
+                              key={kb.id}
+                              className="flex items-center justify-between px-3 py-2"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-[var(--ink)] truncate">
+                                  {kb.name}
+                                </div>
+                                {kb.description && (
+                                  <div className="text-xs text-[var(--ink-muted)] truncate">
+                                    {kb.description}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={isEnabled}
+                                aria-label={kb.name}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSessionKnowledgeBaseToggle(kb.id, !isEnabled);
+                                }}
+                                className={`relative ml-2 inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] ${
+                                  isEnabled ? 'bg-[var(--accent)]' : 'bg-[var(--line-strong)]'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-[var(--toggle-thumb)] shadow-sm ring-0 transition-transform ${
+                                    isEnabled ? 'translate-x-4' : 'translate-x-0.5'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </>
                     )}
               </Popover>
               </>

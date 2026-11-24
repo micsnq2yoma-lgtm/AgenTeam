@@ -1749,4 +1749,29 @@ describe('SimpleChatInput send paths', () => {
 
     expect(textarea).toHaveValue('workspace B draft');
   });
+
+  it('toggles session knowledge base bindings from the chat tool menu', async () => {
+    const onToggleKb = vi.fn();
+    render(
+      <ToastProvider>
+        <ImagePreviewProvider>
+          <SimpleChatInput
+            isLoading={false}
+            onSend={vi.fn()}
+            knowledgeBases={[
+              { id: 'kb_111111111111', name: '产品知识库', description: '设计文档' },
+            ]}
+            sessionKnowledgeBaseIds={[]}
+            onSessionKnowledgeBaseToggle={onToggleKb}
+          />
+        </ImagePreviewProvider>
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '工具' }));
+    const kbSwitch = await screen.findByRole('switch', { name: '产品知识库' });
+    expect(kbSwitch).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(kbSwitch);
+    expect(onToggleKb).toHaveBeenCalledWith('kb_111111111111', true);
+  });
 });

@@ -92,6 +92,8 @@
       }
     },
     "pluginsHeader": "插件 Plugins",
+    "knowledgeHeader": "知识库（当前会话）",
+    "knowledgeSaveFailed": "未能更新当前会话的知识库绑定，请重试",
     "pluginLoadsMcpTitle": "启用此插件会自动加载这些 MCP server：{{names}}",
     "pluginLoadsMcp": "{{count}} 个 MCP：{{names}}",
     "managePlugins": "管理插件",
