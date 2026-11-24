@@ -247,7 +247,7 @@ A13 原样复跑在相同适配器代码、同一 1.5.15 和临时测试资料�
 
 ## 0.7.1 复验
 
-2026-11-24（太平洋时间）。本轮在 AgenTeam **0.7.1** 与 **agy 1.5.16** 上复验 MCP 预热、工具名映射、审批与回归。
+2026-11-24（太平洋时间）。本轮在 AgenTeam **0.7.1** 与 **agy 1.5.16** 上完成 MCP 预热、工具名映射、审批与回归的完整复验（含获授权重启桌面端后的真实 WebView2 桌面 UI 端到端实测、运行时层对照实测与真实账号自动化测试）。
 
 ### 环境与隔离方式
 
@@ -255,25 +255,28 @@ A13 原样复跑在相同适配器代码、同一 1.5.15 和临时测试资料�
 | --- | --- |
 | App 版本 | AgenTeam Windows 正式版 **0.7.1**（`ProductVersion=0.7.1`，`FileVersion=0.7.1`，已核实安装目录 `server-dist.js` 包含 `[antigravity] MCP warmup for` 预热逻辑）；源码基线 `origin/main` 的 `288225db9e35c05a6410d7d3e58588f63dff59a9`（含 `677ca1c1` 与 `288225db`）。 |
 | agy 版本 | **1.5.16**（`%LOCALAPPDATA%\agy\bin\agy.exe --version`；`runtime.detect()` 返回 `installed=true, version="1.5.16"`）。用户已登录 Gemini 订阅，本轮真实模型调用通过，未采集任何令牌或账号标识。 |
-| 隔离方式 | 1) 在临时目录创建独立 detached git worktree（基线 `288225db`）运行 M4 自动化与运行时探针，未修改主工作区、产品代码或 `main`。<br>2) M1/M2/M3 运行时实测调用 0.7.1 的 `AntigravityRuntime` 与安装版随包 Node.js v24，仅向子进程重定向 `LOCALAPPDATA` 到全新空白临时目录（保证 `npm-cache` 100% 为冷缓存且完全不触碰日常 `%LOCALAPPDATA%\npm-cache`），并在独立空白合成工作区目录运行；`agy` 仅通过进程级 `PATH` 接入，未读取或修改日常 `~/.agenteam` 数据。<br>3) 尝试以独立 `LOCALAPPDATA` 与 WebView2 CDP 启动第二个 `AgenTeam.exe` 实例时，因本机已有运行中的 `AgenTeam.exe` 实例占用 WebView2 用户目录与 `~/.agenteam/app.lock` 而返回 `WebView2 HRESULT 0x800700AA`（请求的资源在使用中），且未获得重开桌面主实例授权与 GUI 自动化驱动；已立即终止试探进程，未触碰运行中的日常实例。 |
+| 隔离方式 | 1) 在临时目录创建独立 detached git worktree（基线 `288225db`）运行 M4 自动化与运行时探针，未修改主工作区、产品代码或 `main`。<br>2) 获用户授权暂时关闭日常运行中的 `AgenTeam.exe`，以进程级隔离的全新空 `LOCALAPPDATA`（保证 `npm-cache` 100% 冷缓存，绝不触碰日常 `%LOCALAPPDATA%\npm-cache`）、进程级 `PATH` 补入 `agy` 目录与 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=19222` 启动真实 0.7.1 桌面端进行 UI 端到端实测；M2 单独使用全新空 `LOCALAPPDATA` 与进程级 `HTTP_PROXY`/`HTTPS_PROXY=http://127.0.0.1:1` 启动。测试结束后已恢复启动正常无调试参数的 `AgenTeam.exe`。<br>3) 在桌面端新建空白合成项目 `QA-071-AGY-MCP-Synthetic`（关闭助理模板），所有桌面 UI 实测与截图均限定在该合成项目与右侧主视图区（裁除侧栏，不触碰、不读取、不展示日常项目与日常会话）；应用日志仅从各轮启动前预记的文件字节偏移之后读取并过滤本轮关联行。 |
 
 ### M1–M5 结果表
 
 | 用例 | 结果 | 证据与说明 |
 | --- | --- | --- |
-| M1 冷缓存下的 Playwright（核心） | 阻塞 | **运行时层实测完成，桌面 UI 端到端交互阻塞。** 以 0.7.1 `AntigravityRuntime` + 随包 Node + 真实 `agy 1.5.16` + 预置 Playwright（`npx -y @playwright/mcp@0.0.68 --isolated`）在全新冷缓存（`COLD_CACHE_EXISTS=False`）下运行：冷缓存会话启动耗时 **45,240 ms**，从启动到首个工具调用卡（`tool_use_start`）耗时 **56,814 ms**（`sendMessage` 后 **11,574 ms**），依次调用 `mcp__playwright__browser_navigate` 与 `mcp__playwright__browser_snapshot` 均成功（`isError=false`），助手返回 `about:blank` 空白页快照。预热成功路径无日志输出（`capturedWarns=[]`，见下方说明）。对同一合成项目以全新 Node 进程（模拟桌面新会话独立 Sidecar）复用已热缓存（`WARM_CACHE_EXISTS=True`）重跑两次：**第 1 次热缓存复跑**启动 **14,600 ms**，但模型回复 `PLAYWRIGHT_UNAVAILABLE`（0 次工具调用，`contextOccupiedTokens=9896` 低于发现成功时的 `14307`）；**第 2 次热缓存复跑**启动 **13,051 ms**，首个工具调用卡在 **20,494 ms**（`sendMessage` 后 **7,443 ms**），两次 Playwright 调用均成功。桌面工具菜单开启与卡片视觉渲染因缺少 GUI 自动化工具且已有桌面实例占用而阻塞。 |
-| M2 预热失败不阻断 | 阻塞 | **运行时层实测通过，桌面 UI 不崩溃与菜单文案验证阻塞。** 全新冷缓存（`M2_COLD_CACHE_EXISTS=False`）下将代理指向不可达地址 `http://127.0.0.1:1`：<br>1) 仅给 Playwright 服务端注入不可达代理时，日志准确输出 `[antigravity] MCP warmup for playwright failed (network); starting the session anyway`，会话在 **89,866 ms** 后正常启动并完成 `session_init`，同时发射 `mcp_effective_update`（`playwright` 条目为 `state: "unreported"`, `toolCount: 0`, `releaseReason: "status_read_failed"`，对应 UI 工具菜单"已配置，是否可用待确认"）。<br>2) 将全局 `HTTP_PROXY`/`HTTPS_PROXY` 均指向 `http://127.0.0.1:1` 时，同样输出上述 `failed (network)` 警告且未在预热阶段阻断，进入 `agy` 启动后因 `agy` 自身经死代理无法访问模型服务而在 `session/set_model` 返回 `ACP -32602`。<br>桌面界面不崩溃及工具菜单文案渲染因无 GUI 驱动而阻塞。 |
-| M3 工具名映射 | 阻塞 | **运行时层与单测实测通过，桌面 UI 审批弹窗与工具卡渲染阻塞。** 在 M1 请求批准模式（`accept-edits`）真实会话中，`agy 1.5.16` 原始工具名为 `mcp_playwright_browser_navigate` 与 `mcp_playwright_browser_snapshot`，适配器发出的 `tool_use_start` 与 `permission_request` 的 `toolName` 均为 `mcp__playwright__browser_navigate` 与 `mcp__playwright__browser_snapshot`（不再显示 `"Tool"`）。另运行 0.7.1 单元测试 `antigravity-tool.unit.test.ts`（6/6 通过）与 `mcp-warmup.unit.test.ts`（5/5 通过）。桌面 UI 审批提示与工具卡展示因无 GUI 驱动而阻塞。 |
+| M1 冷缓存下的 Playwright（核心） | 失败 | **真实桌面端 0/3（1 次冷缓存 + 2 次热缓存均返回 `PLAYWRIGHT_UNAVAILABLE`，未出现 Playwright 工具调用卡）。**<br>- **桌面冷缓存**（`COLD_CACHE_EXISTS=False`，会话 `3f95eeb6-de8d-42a9-a039-18956c64d53d`）：在 `QA-071-AGY-MCP-Synthetic` 会话工具菜单启用 Playwright（显示 `工具 1`）后发送访问 `about:blank` 并读快照。`Starting antigravity session`（`03:23:36.054`）到 `turn_start`（`03:24:47.754`）耗时 **71.7 s**（期间冷缓存预热确实将隔离 `npm-cache` 从无填充至 4 个条目），但随后仍回复 **`PLAYWRIGHT_UNAVAILABLE`**（`detail.toolCount=0`），应用日志无预热成功行。[启用开关](evidence-071-agy-1516/M1-playwright-enabled.png) · [冷缓存不可用](evidence-071-agy-1516/M1-cold-desktop-unavailable.png)<br>- **桌面热缓存复跑 ×2**（同一项目点「新任务」，`NPM_CACHE_EXISTS=True`）：第 1 次（会话 `de53c62d-f271-47c6-94cf-78eae46d633d`）启动缩至 **9.2 s**（`03:28:07.957` → `03:28:17.178`，无额外下载等待），但仍回复 `PLAYWRIGHT_UNAVAILABLE 当前会话中没有可用的 Playwright MCP 工具`（`detail.toolCount=0`）；第 2 次复跑同样回复 `PLAYWRIGHT_UNAVAILABLE`。工具菜单显示「已配置，是否可用待确认」。[菜单状态](evidence-071-agy-1516/M1-tools-menu-status.png)<br>- **运行时直连对照**（同版 `AntigravityRuntime` + 随包 Node + `agy 1.5.16`）：冷缓存 45.2 s 启动 / 56.8 s 首次出现 `mcp__playwright__browser_navigate` 并完成快照；新进程热缓存复跑 2 次中第 1 次 14.6 s 回复 `PLAYWRIGHT_UNAVAILABLE`、第 2 次 13.1 s / 首卡 20.5 s 成功。说明预热虽已生效，但 Windows 桌面环境下 `npx` 启动 `@playwright/mcp` 仍稳定或高频错过 `agy` 的发现窗口。 |
+| M2 预热失败不阻断 | 通过 | **真实桌面端 + 运行时实测通过。**<br>- **桌面冷缓存 + 不可达代理**（全新空 `LOCALAPPDATA`，`HTTP_PROXY`/`HTTPS_PROXY=http://127.0.0.1:1`）：发送后应用日志准确记录 `2026-11-24 05:41:04.391 [NODE] [WARN] ... [antigravity] MCP warmup for playwright failed (network); starting the session anyway`；预热失败未阻断进入 `agy` 启动，界面保持响应未崩溃（标题 `AgenTeam`、`工具 1` 菜单可正常打开）。[M2 桌面未崩溃](evidence-071-agy-1516/M2-desktop-unconfirmed.png)<br>- **工具菜单状态核实**：全局死代理下 `agy` 自身因断网未完成 `session/new`；在仅 Playwright 服务端走死代理的 0.7.1 运行时实测中，日志同样记录 `MCP warmup for playwright failed (network); starting the session anyway`，会话正常完成 `session_init`（89.9 s）并发射 `mcp_effective_update`（`state: "unreported"`, `toolCount: 0`），而桌面端工具菜单对 `unreported` 状态实际显示文案为 **「已配置，是否可用待确认」**（见 [菜单状态](evidence-071-agy-1516/M1-tools-menu-status.png)）。 |
+| M3 工具名映射 | 阻塞 | **运行时层与单测通过；桌面 UI 审批弹窗与工具卡渲染受 M1 桌面 Playwright 不可用阻断。** 因桌面端 M1 3/3 返回 `PLAYWRIGHT_UNAVAILABLE` 且工具菜单仅预置 Playwright，未能在桌面界面触发真实 MCP 审批弹窗与工具卡。但在 0.7.1 `AntigravityRuntime` + `agy 1.5.16` + Playwright 请求批准模式（`accept-edits`）真实会话中，原始 `mcp_playwright_browser_navigate` / `mcp_playwright_browser_snapshot` 均已准确还原，在 `tool_use_start` 与 `permission_request` 事件中输出 `mcp__playwright__browser_navigate` 与 `mcp__playwright__browser_snapshot`（非 `"Tool"`）；M4 的 stdio / HTTP MCP 审批放行与单元测试 `antigravity-tool.unit.test.ts`（6/6）、`mcp-warmup.unit.test.ts`（5/5）全部通过。 |
 | M4 真实账号自动化 | 失败 | 执行 `MYAGENTS_TEST_AGY=1 npm run test:credentialed -- src/server/runtimes/antigravity.credentialed.test.ts`（`wt-071` 基线 `288225db`，`agy 1.5.16`）：**退出码 `1`**，共 **4 执行、3 通过、1 失败、0 跳过**（总耗时 163.62 s）。<br>- 完全访问编辑与普通权限恢复：**通过**（46.7 s）。<br>- 会话级 stdio MCP 回执与恢复撤销：**通过**（29.2 s，上一轮失败，本轮已修复）。<br>- 原生问答与会话级鉴权 HTTP MCP 回执：**通过**（50.4 s，上一轮失败，本轮已修复；HTTP 回执已取得，无需额外抓包）。<br>- 审批、取消审批与跨进程恢复：**失败**（35.0 s）。终端命令 `echo apple > first.txt` **已成功触发 `permission_request`**，经 `allow_once` 放行并完成轮次且写出了 `first.txt`，但断言 `antigravity.credentialed.test.ts:83` 失败：`expected '\ufffd\ufffda\u0000p\u0000p\u0000l\u0000e\u0000...' to be 'apple'`。原因是 Windows PowerShell 5.1 下 `>` 重定向默认以 UTF-16LE（带 BOM `FF FE`）写盘，测试以 UTF-8 读取导致断言失败，后续取消审批与跨进程恢复未执行。 |
-| M5 回归（A1/A2/A4/A7/A9） | 阻塞 | **运行时层 A1/A2/A4 通过，桌面 UI 入口及 A7/A9 阻塞。** 运行时探针在 `agy 1.5.16` 上实测：`A1` `detect()` 返回 `installed=true, version="1.5.16"`；`A2` 基础对话准确回复 `AGY-071-QA-OK`；`A4` `queryModels()` 返回 27 个模型及档位，从 `gemini-4-neon-medium` 切换至 `gemini-4-neon-high` 后准确回复 `AGY-071-HIGH-OK`。`A1`/`A2`/`A4` 的桌面界面交互以及 `A7`（关标签后子 Agent 后台完成）与 `A9`（消息排队与取消回草稿）依赖桌面 GUI 驱动，当前环境阻塞。 |
+| M5 回归（A1/A2/A4/A7/A9） | 通过 | **全部 5 项在真实 AgenTeam 0.7.1 桌面 UI 中实测通过。**<br>- **A1 检测**：启动页「外部 CLI」列出 `Antigravity CLI`，「重新检测」后仍可选，选中后切为 Antigravity CLI 与「请求批准」；运行时 `detect()` 返回 `1.5.16`。[A1 启动页](evidence-071-agy-1516/A1-launcher-runtime.png)<br>- **A2 基础对话**：在 `QA-071-AGY-MCP-Synthetic` 中准确回复 `AGY-071-UI-OK-204`。[A2 基础对话](evidence-071-agy-1516/M5-A2-basic-chat.png)<br>- **A4 模型档位**：模型菜单完整列出 `Gemini 4 Neon / Carbon / Argon / Hydrogen / Orchestrator / Gemini 3.8 Flash / Claude Opus 5.5 / Claude Sonnet 5.5 / GPT-OSS 120B (Medium)` 及 `推理强度 默认 (high)`，后续轮准确回复 `AGY-071-A4-HIGH-OK`；运行时 `queryModels()` 返回 27 项，Medium→High 切换通过。[A4 模型菜单](evidence-071-agy-1516/M5-A4-model-menu.png)<br>- **A7 关标签后子 Agent 后台完成**：`Workspace Directory Inspector` 子 Agent 运行期间按 `Ctrl+W` 关闭标签，侧栏保持后台状态并在再次批准+`Ctrl+W` 后于后台完成，重开原会话可见已完成子 Agent 卡（`3m 19s`）与主 Agent 汇总报告（含 `A7-SUBAGENT-BG-OK`）。[A7 重开后完成](evidence-071-agy-1516/M5-A7-reopened-complete.png)<br>- **A9 消息排队与取消**：生成长回复期间排队两条消息，界面显示「当前轮结束后发送（2）」及两个「取消排队」按钮；点击首条「取消排队」后精确回退到草稿框（`cancelCount=1`），清空草稿待轮次完成后确认首条未发送（`hasQ1InChat=false`）、次条正常执行并回复。[A9 取消前](evidence-071-agy-1516/M5-A9-queued-before-cancel.png) · [A9 取消后](evidence-071-agy-1516/M5-A9-after-cancel.png) |
 
 ### M1 耗时与预热日志明细
 
-| 轮次 | 缓存状态 | `startSession` 耗时 | 首次发送到首个工具调用卡（自启动 / 自 `sendMessage`） | 工具调用结果 | 预热相关日志 |
+| 场景与轮次 | 缓存状态 | 启动到 `turn_start` / `startSession` 耗时 | 首次发送到首个工具调用卡 | 工具调用结果 | 预热相关日志 |
 | --- | --- | ---: | ---: | --- | --- |
-| M1 冷缓存 | `COLD_CACHE_EXISTS=False` | 45,240 ms | 56,814 ms / 11,574 ms | `mcp__playwright__browser_navigate`、`mcp__playwright__browser_snapshot` 均成功 | 无输出（`warmNpxMcpServers` 仅在 `failed` 或 `skipped` 时打印 `console.warn`，成功静默） |
-| M1 热缓存复跑 #1（新进程） | `WARM_CACHE_EXISTS=True` | 14,600 ms | 未触发（总耗时 20,126 ms） | 0 次工具调用，回复 `PLAYWRIGHT_UNAVAILABLE` | 无输出 |
-| M1 热缓存复跑 #2（新进程） | `WARM_CACHE_EXISTS=True` | 13,051 ms | 20,494 ms / 7,443 ms | `mcp__playwright__browser_navigate`、`mcp__playwright__browser_snapshot` 均成功 | 无输出 |
+| 桌面 UI 冷缓存（`3f95eeb6`） | `COLD_CACHE_EXISTS=False` → 预热后 4 项 | 71,700 ms | 未出现调用卡（总耗时 ~76.9 s） | `detail.toolCount=0`，回复 `PLAYWRIGHT_UNAVAILABLE` | 无输出（预热成功路径静默） |
+| 桌面 UI 热缓存 #1（`de53c62d`） | `NPM_CACHE_EXISTS=True` | 9,221 ms | 未出现调用卡（总耗时 ~16.4 s） | `detail.toolCount=0`，回复 `PLAYWRIGHT_UNAVAILABLE` | 无输出 |
+| 桌面 UI 热缓存 #2 | `NPM_CACHE_EXISTS=True` | ~10 s | 未出现调用卡 | `detail.toolCount=0`，回复 `PLAYWRIGHT_UNAVAILABLE` | 无输出 |
+| 运行时对照 冷缓存 | `COLD_CACHE_EXISTS=False` | 45,240 ms | 56,814 ms（`sendMessage` 后 11,574 ms） | `mcp__playwright__browser_navigate`、`mcp__playwright__browser_snapshot` 均成功 | 无输出 |
+| 运行时对照 热缓存 #1（新进程） | `WARM_CACHE_EXISTS=True` | 14,600 ms | 未触发（总耗时 20,126 ms） | 0 次工具调用，回复 `PLAYWRIGHT_UNAVAILABLE` | 无输出 |
+| 运行时对照 热缓存 #2（新进程） | `WARM_CACHE_EXISTS=True` | 13,051 ms | 20,494 ms（`sendMessage` 后 7,443 ms） | `mcp__playwright__browser_navigate`、`mcp__playwright__browser_snapshot` 均成功 | 无输出 |
 
 ### M4 计数汇总
 
@@ -283,16 +286,20 @@ A13 原样复跑在相同适配器代码、同一 1.5.15 和临时测试资料�
 
 ### 新缺陷
 
-1. **中 · Windows 下 `antigravity.credentialed.test.ts` 审批用例因 PowerShell UTF-16LE BOM 编码失败（M4）。** 0.7.1 将审批触发动作改为 `echo apple > first.txt` 后，`permission_request` 确实稳定触发并执行，但在 Windows 上 `agy` 经 PowerShell 5.1 执行 `>` 重定向会写出 UTF-16LE（带 BOM）文件，导致 `readFile(..., "utf8").trim()` 断言失败，阻断了该用例后半段的取消审批与跨进程恢复验证（建议改为无重定向编码歧义的命令，例如 `node -e "require('fs').writeFileSync('first.txt','apple')"` 或 `cmd /c echo apple>first.txt`）。
-2. **中 · 热缓存下新会话启动 Playwright 仍偶发回复 `PLAYWRIGHT_UNAVAILABLE`（M1）。** 在 `WARM_CACHE_EXISTS=True` 的两次独立进程新会话复跑中，第 1 次虽已跳过下载（启动 14.6 s）但仍未将 Playwright 工具暴露给模型（0 工具调用，`contextOccupiedTokens=9896`），第 2 次恢复正常（13.1 s 启动并成功调用）。原因指向两点：每会话独立 Sidecar 进程使进程内 `warmed` 集合失效需重新执行 `npx --help`，且 Windows 上 `npx` 启动 `@playwright/mcp` 即使命中缓存仍可能偶发逼近 `agy` 的约 5 秒发现窗口。
+1. **高 · 桌面端 0.7.1 预热完成后 Playwright 仍 3/3 返回 `PLAYWRIGHT_UNAVAILABLE`（M1）。** 在真实 AgenTeam 0.7.1 桌面端中，冷缓存预热确实执行并填充了隔离 `npm-cache`（首次启动 71.7 s，后续热缓存启动缩至 9.2 s），但冷缓存与 2 次热缓存新会话均返回 `PLAYWRIGHT_UNAVAILABLE`（`detail.toolCount=0`）；即便在运行时直连探针中热缓存新进程也出现 1/2 偶发不可用。仅靠 `npx --help` 预热缓存仍不足以保证 Windows 上 `npx -y @playwright/mcp@0.0.68 --isolated` 稳定落入 `agy` 的约 5 秒发现窗口（需考虑直接解析/调用缓存后的包入口而非每次经过 `npx` 启动，或降低启动开销）。
+2. **中 · Windows 下 `antigravity.credentialed.test.ts` 审批用例因 PowerShell UTF-16LE BOM 编码失败（M4）。** 0.7.1 将审批触发动作改为 `echo apple > first.txt` 后，`permission_request` 确实稳定触发并执行，但在 Windows 上 `agy` 经 PowerShell 5.1 执行 `>` 重定向会写出 UTF-16LE（带 BOM）文件，导致 `readFile(..., "utf8").trim()` 断言失败，阻断了该用例后半段的取消审批与跨进程恢复验证（建议改为无重定向编码歧义的命令，如 `node -e "require('fs').writeFileSync('first.txt','apple')"`）。
 3. **低 · MCP 预热成功路径缺少应用日志行（M1 可观测性）。** `src/server/runtimes/antigravity.ts` 的 `warmNpxMcpServers` 仅在 `failed`/`skipped` 时输出 `[antigravity] MCP warmup for <id> ...`；预热成功时没有任何日志记录，不利于排查预热耗时与缓存命中情况。
+4. **低 · 全局不可达代理导致 `agy` 启动失败时错误提示归因为未登录（M2 观察）。** M2 全局 `HTTP_PROXY=http://127.0.0.1:1` 场景下，预热正确记录 `failed (network)` 后进入 `agy` 启动，`agy` 因网络不通失败但上层错误提示为「请在终端运行 agy 并完成登录，然后重试」，易误导网络/代理排障。
 
 ### 阻塞及原因
 
-- **桌面 GUI 端到端验证阻塞（影响 M1/M2/M3 的界面呈现与 M5 的 A1/A2/A4 界面及 A7/A9）**：当前验收会话无桌面 GUI 自动化驱动（如 `computer-use`），且本机已有运行中的 `AgenTeam.exe` 桌面实例占用 `~/.agenteam/app.lock` 与 WebView2 用户目录（另起第二实例报 `WebView2 HRESULT 0x800700AA`），未获授权重启用户的日常桌面实例，因此无法在真实桌面窗口中操作工具菜单、截图验证卡片/审批弹窗以及执行关标签后台子 Agent（A7）和队列取消（A9）。
+- **M3 桌面 UI 审批弹窗与工具卡渲染阻塞**：受 M1 桌面端 Playwright 3/3 返回 `PLAYWRIGHT_UNAVAILABLE` 影响，且默认工具菜单中仅有 Playwright 一项 MCP 服务器，未能在桌面 UI 中触发一次真实 MCP 工具调用以截取弹窗与工具卡界面（运行时层 `tool_use_start` / `permission_request` 映射与单测均已实测通过）。
 
 ### 结论
 
-**不通过（0 项通过、1 项失败、4 项阻塞）。**
-0.7.1 的三项修复在运行时层均得到正向验证：单下划线 MCP 工具名已正确还原为 `mcp__<server>__<tool>`（M3 运行时与 M4 stdio/HTTP MCP 回执双双通过），冷缓存 Playwright 预热成功打通 `about:blank` 导航与快照（M1 运行时冷缓存通过），预热网络失败时记录 `failed (network)` 且不阻断会话启动（M2 运行时通过），M4 审批用例的终端命令也确实触发了 `permission_request`。但整体仍未通过：M4 因 Windows PowerShell `echo apple > first.txt` 写出 UTF-16LE BOM 而以退出码 `1` 失败（3/4 通过）；M1 热缓存新会话复跑出现 1/2 偶发 `PLAYWRIGHT_UNAVAILABLE`；且 M1/M2/M3/M5 的桌面 UI 端到端环节受限于无 GUI 驱动与现有桌面实例占用而阻塞。
+**不通过（2 项通过、2 项失败、1 项阻塞）。**
+- **通过（2）**：M2（预热失败记录 `failed (network)`、不阻断启动、桌面界面不崩溃且 `unreported` 状态显示「已配置，是否可用待确认」）、M5（A1 检测、A2 基础对话、A4 模型档位、A7 关标签子 Agent 后台完成、A9 消息排队取消在真实 0.7.1 桌面端全部通过）。
+- **失败（2）**：M1（桌面端冷缓存预热确实执行、热缓存启动提速至 9.2 s，但冷/热共 3 次会话均仍返回 `PLAYWRIGHT_UNAVAILABLE`）、M4（真实账号自动化 3/4 通过，stdio 与 HTTP MCP 回执均已修复通过，审批用例终端命令已触发 `permission_request`，但因 Windows PowerShell `>` 重定向写出 UTF-16LE BOM 导致 UTF-8 断言失败，退出码 `1`）。
+- **阻塞（1）**：M3（运行时层与单测已验证还原为 `mcp__playwright__...`，桌面 UI 弹窗与卡片视觉验证因 M1 桌面 Playwright 不可用而未能触发）。
+
 
