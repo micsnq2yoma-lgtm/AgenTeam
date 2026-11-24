@@ -282,4 +282,16 @@ describe('Ubuntu settings availability', () => {
     expect(settingsMocks.updateConfig).toHaveBeenCalledWith({ taskResultPushBack: stored === false });
   });
 
+
+  it('keeps the run-log export with the software version, not under General', async () => {
+    const logsTitle = String(i18n.t('general.logsTitle', { ns: 'settings' }));
+    const general = render(<ToastProvider><Settings mode="settings" initialSection="general" isActive /></ToastProvider>);
+    await screen.findByRole('navigation');
+    expect(screen.queryByText(logsTitle)).not.toBeInTheDocument();
+    general.unmount();
+
+    render(<ToastProvider><Settings mode="settings" initialSection="about" isActive /></ToastProvider>);
+    expect(await screen.findByText(logsTitle)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: String(i18n.t('general.logsExport', { ns: 'settings' })) })).toBeInTheDocument();
+  });
 });

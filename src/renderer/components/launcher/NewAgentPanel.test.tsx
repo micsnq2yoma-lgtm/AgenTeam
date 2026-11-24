@@ -97,6 +97,14 @@ describe('NewAgentPanel list', () => {
     expect(within(list).getByText(tl('newAgentPanel.myTemplates'))).toBeInTheDocument();
   });
 
+  it('is as tall as its content (only the window caps it), so the new-project page needs no scrolling', async () => {
+    renderPanel();
+    const dialog = await screen.findByRole('dialog');
+    // A fixed 600px cap made the assistant-mode page scroll; the viewport is the only limit now.
+    expect(dialog.className).toContain('max-h-[calc(100vh-48px)]');
+    expect(dialog.className).not.toMatch(/max-h-\[min\(\d+px/);
+  });
+
   it('closes on Escape from the list', () => {
     const { onClose } = renderPanel();
     fireEvent.keyDown(document.body, { key: 'Escape' });

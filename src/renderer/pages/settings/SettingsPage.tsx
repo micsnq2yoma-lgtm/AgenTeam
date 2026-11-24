@@ -5779,67 +5779,6 @@ export default function Settings({
             </div>
           )}
 
-          {activeSection === 'general' && (
-            <div className="mt-6 space-y-6">
-              {/* Log Export */}
-              <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-medium text-[var(--ink)]">
-                      {tSettings('general.logsTitle')}
-                    </h3>
-                    <p className="mt-1 text-xs text-[var(--ink-muted)]">
-                      {tSettings('general.logsDescription')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setLogExporting(true);
-                      try {
-                        const result = await apiGetJson<{
-                          success: boolean;
-                          path?: string;
-                          error?: string;
-                        }>('/api/logs/export');
-                        if (result.success && result.path) {
-                          toast.success(
-                            tSettings('general.logsExported', {
-                              path: result.path,
-                            }),
-                          );
-                        } else {
-                          toast.error(
-                            result.error ||
-                              tSettings('general.logsExportFailed'),
-                          );
-                        }
-                      } catch {
-                        toast.error(tSettings('general.logsExportFailedRetry'));
-                      } finally {
-                        setLogExporting(false);
-                      }
-                    }}
-                    disabled={logExporting}
-                    className="flex items-center gap-1.5 rounded-lg bg-[var(--paper-inset)] px-3 py-1.5 text-xs text-[var(--ink-secondary)] transition-colors hover:bg-[var(--paper-elevated)] disabled:opacity-50"
-                  >
-                    {logExporting ? (
-                      <>
-                        <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
-                        {tSettings('general.logsExporting')}
-                      </>
-                    ) : (
-                      <>
-                        <DownloadIcon className="h-3.5 w-3.5" />
-                        {tSettings('general.logsExport')}
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {activeSection === 'about' && (
             <div className="space-y-6">
               {/* Brand Header */}
@@ -5942,6 +5881,63 @@ export default function Settings({
                       </button>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Run logs: kept with the software version, where people look when reporting a problem */}
+              <div className="rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-medium text-[var(--ink)]">
+                      {tSettings('general.logsTitle')}
+                    </h3>
+                    <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                      {tSettings('general.logsDescription')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setLogExporting(true);
+                      try {
+                        const result = await apiGetJson<{
+                          success: boolean;
+                          path?: string;
+                          error?: string;
+                        }>('/api/logs/export');
+                        if (result.success && result.path) {
+                          toast.success(
+                            tSettings('general.logsExported', {
+                              path: result.path,
+                            }),
+                          );
+                        } else {
+                          toast.error(
+                            result.error ||
+                              tSettings('general.logsExportFailed'),
+                          );
+                        }
+                      } catch {
+                        toast.error(tSettings('general.logsExportFailedRetry'));
+                      } finally {
+                        setLogExporting(false);
+                      }
+                    }}
+                    disabled={logExporting}
+                    className="flex items-center gap-1.5 rounded-lg bg-[var(--paper-inset)] px-3 py-1.5 text-xs text-[var(--ink-secondary)] transition-colors hover:bg-[var(--paper-elevated)] disabled:opacity-50"
+                  >
+                    {logExporting ? (
+                      <>
+                        <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
+                        {tSettings('general.logsExporting')}
+                      </>
+                    ) : (
+                      <>
+                        <DownloadIcon className="h-3.5 w-3.5" />
+                        {tSettings('general.logsExport')}
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 

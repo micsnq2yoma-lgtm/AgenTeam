@@ -632,7 +632,7 @@ export default memo(function NewAgentPanel({ onClose, onCreated, purpose }: NewA
         aria-modal="true"
         aria-label={t('newAgentPanel.title')}
         data-new-agent-panel
-        className="flex max-h-[min(600px,calc(100vh-48px))] w-[540px] max-w-full flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper-elevated)] shadow-xl"
+        className="flex max-h-[calc(100vh-48px)] w-[540px] max-w-full flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper-elevated)] shadow-xl"
       >
         <div key={pageKey} className="new-agent-panel-page flex min-h-0 flex-1 flex-col" data-enter={pageEnter ?? undefined}>
           {page.view === 'list' ? (
