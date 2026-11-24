@@ -138,3 +138,109 @@ A5、A6、A10 的桌面终端子场景受 **computer-use** 技能限制。该技
 ### 结论
 
 **整组未通过。5 项通过、2 项失败、6 项阻塞。** Google CLI 安装和 Gemini 订阅先决条件已满足。当前 Windows App 验证了运行环境检测、真实对话、模型档位、子 Agent 在关标签后的后台完成和排队取消。A8 与 A13 有失败证据。A3、A5、A6、A10、A11、A12 的缺口分别是共享资料不能全量查验、权限和工具覆盖不足、性能日志与代理对照未采、反代配置回归排除。提交的截图已裁切到合成界面，工具卡的用户目录路径已遮盖。
+
+## MCP 与审批诊断
+
+2026-11-23（太平洋时间）。AgenTeam Windows 正式版 **0.7.0**，发布提交 `5c533ea28f095690810c1a11b0da924c9cd5f251`。用用户已登录的 Gemini 订阅，探针只读写新建的临时空项目和合成数据。安装中的 `agy` 在诊断期间更新到 1.5.16。随后从官方更新器备份复制出签名有效、与验收时记录的 SHA-512 一致的 **1.5.15**，所有版本敏感对照都用该版本验证。桌面重开得到授权。转发器通过本次启动的进程 PATH 接入，只记录指定合成项目的协议字段，捕获后已撤销启用开关。全局 PATH、已安装 CLI、账号与产品代码均未修改。
+
+### 1. ACP 原始能力
+
+运行 `agy acp --process-per-session`，桌面授权模式未加 `--dangerously-skip-permissions`。用 stdio NDJSON 手工发送 `initialize`，协议版本 1，`clientInfo={name:"MyAgents",version:"1"}`，`clientCapabilities={elicitation:{form:{}}}`。随后发 `session/new`，传入合成 `cwd`、`mcpServers` 和 `_meta.antigravity.systemPrompt.append=""`。这是 0.7.0 适配器的启动形状。 [适配器](https://github.com/micsnq2yoma-lgtm/AgenTeam/blob/5c533ea28f095690810c1a11b0da924c9cd5f251/src/server/runtimes/antigravity.ts#L929)
+
+`initialize` 的 `protocolVersion=1`、`agentInfo.version="1.5.15"`。以下是返回的 `agentCapabilities` 原字段和值：
+
+```json
+{
+  "loadSession": true,
+  "load_session": true,
+  "promptCapabilities": {"image": true, "audio": false, "embeddedContext": true},
+  "sessionCapabilities": {"resume": {}, "close": {}, "load": {}, "list": {}, "additionalDirectories": {}},
+  "session_capabilities": {"resume": {}, "close": {}, "load": {}, "list": {}, "additionalDirectories": {}},
+  "mcpCapabilities": {"http": true},
+  "mcp_capabilities": {"http": true},
+  "auth": {"logout": {}},
+  "_meta": {"antigravity": {"tier": true, "systemPrompt": {"append": true}}}
+}
+```
+
+HTTP 明确宣告支持，两个 MCP 能力对象均未返回 `sse` 或明确的 `stdio` 字段。stdio 是否可用由下面的进程启动、枚举和调用实证确认。SSE 未实测。 [ACP v1 会话设置规范](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/docs/protocol/v1/session-setup.mdx)
+
+### 2–4. 直接注入与原生配置
+
+stdio 的注入项为 `{name:"fixture_stdio",command:"<Node.exe>",args:["<fixture.cjs>","<合成回执文件>","<合成回执>"],env:[]}`。HTTP 的注入项为 `{type:"http",name:"fixture_http",url:"http://127.0.0.1:<port>/mcp",headers:[]}`。成功调用的唯一回执不写进提示，工具实际调用时才返回。ACP 发出审批时，直连探针对本轮已知的合成工具选 `allow_once`。
+
+| 步骤 | 边界观察 | ACP 事件与原话 |
+| --- | --- | --- |
+| 2. stdio 注入 | 夹具启动写出 PID 和启动行，依次观察到 `initialize`、`tools/list`、一次 `tools/call echo_probe`。 | `tool_call` 及更新到 `completed`。回复带两个时间字段，最后一行为 `SYNTHETIC_RECEIPT_acy-stdio_94217`。没有单独的 MCP 错误通知。 |
+| 3. 回环 HTTP 注入 | 首轮和串行复测均建立 TCP 连接，收到 `initialize`、`tools/list` 和一次 `tools/call echo_probe`。 | 首轮工具已 `completed`，但 `session/prompt` 90 秒内未结束，无文本。串行复测为 `end_turn`，最后一行为 `SYNTHETIC_RECEIPT_retry-http_94217`。没有单独的 MCP 错误通知。 |
+| 4. 原生工作区 stdio 配置 | 在全新项目的 `.agents/mcp_config.json` 写 `mcpServers.fixture_native={command,args,env:{}}`，ACP 传空数组。夹具已启动并收到 `initialize`、`tools/list`。 | 两次均无 `tool_call`、无回执。回复分别为 `MCP_UNAVAILABLE` 和 `NATIVE_MCP_UNAVAILABLE`。第二次明确提示服务器名、工具名及命名空间。 |
+| 4. 原生工作区 HTTP 配置 | 同一路径用 `mcpServers.fixture_native={serverUrl}` 注册回环服务器。观察到 TCP、`initialize` 及 `tools/list`。 | 两次均无 `tool_call`、无回执，分别回复 `MCP_UNAVAILABLE` 和 `NATIVE_MCP_UNAVAILABLE`。 |
+| A13 传输形状重放 | stdio 使用真实捕获的五个 env 字段名、单一脚本参数和 `fresh_receipt`。HTTP 增加 `Authorization` 头，在回环服务器只记录是否匹配。两条都收到一次 `tools/call`，HTTP 的调用头匹配。 | 原始工具名分别是 `mcp_receipt_fresh_receipt` 和 `mcp_ticket_issue_ticket`。允许一次后，末行分别是 `SYNTHETIC_RECEIPT_wire-stdio_94217` 和 `SYNTHETIC_RECEIPT_wire-http-auth_94217`。 |
+
+原生工作区配置的观察只覆盖 ACP 会话中这两个夹具。启动并能枚举工具仍未带来模型调用，无法由此判定原生 CLI 的其他入口也不可用。未读取或写入日常 `~/.gemini` 配置。 [Google 原生 MCP 配置](https://antigravity.google/docs/cli/mcp/)
+
+### 5. 桌面 A8 与实际请求
+
+用全新空白项目 `QA-AGY-MCP-Diagnostic-Synthetic`，在**首轮发送前**打开 Playwright，模型为 Gemini 3.8 Flash Medium，请求只访问 `about:blank`。普通启动时已复现。获准重开后，用探针确认桌面对端 `initialize` 返回 **1.5.15**，同样出现工具数 1，但助手回复原话 `MCP_DIAG_UNAVAILABLE`。只捕获了 `session/new`，没有 Playwright `tool_call` 或 `session/request_permission`。合成会话 ID 为 `51d0993c-4540-4ce4-9e48-8f84f0b2c310`。 [桌面截图](evidence-mcp-approval-diagnostic/A8-desktop-pinned-1.5.15.png)
+
+对该会话，只从预记文件偏移后的 App 日志取关联行并投影白名单字段。常规日志没有原始请求体：
+
+```text
+2026-11-23 23:22:56.085 [external-session] Starting antigravity session for <session>, model=gemini-3.8-flash-medium, permissionMode=accept-edits, scenario=desktop, resume=false
+2026-11-23 23:23:09.020 [perf] trace=turn phase=final durationMs=4529.402 status=ok runtime=antigravity
+2026-11-23 23:23:09.022 [perf] trace=turn phase=persist_done durationMs=1.012 status=ok runtime=antigravity detail.toolCount=0
+```
+
+以下数组来自透明转发器采集的**真实桌面 `session/new.params.mcpServers`**。路径和环境变量值已遮盖，字段和参数顺序保留：
+
+```json
+[
+  {
+    "name": "playwright",
+    "command": "<path>/node.exe",
+    "args": ["<path>/npx-cli.js", "-y", "@playwright/mcp@0.0.68", "--isolated"],
+    "env": [
+      {"name": "NO_PROXY", "value": "<redacted>"},
+      {"name": "no_proxy", "value": "<redacted>"},
+      {"name": "PATH", "value": "<redacted>"}
+    ]
+  }
+]
+```
+
+与第 2 步一样，桌面使用 ACP v1 stdio 项，省略 `type`，传 `name/command/args/env`。差异集中在 `npx-cli.js` 启动的实际包和环境。用随包 Node 直接启动上述 npx 参数及隔离 npm 缓存，`initialize` 与 `tools/list` 成功，列出 22 个工具，包括 `browser_navigate`。随包 Playwright 的 `cli.js --isolated` 直接注入 agy 并在子进程边界观察时，两次均在提示前列出 22 个工具，均收到 `browser_navigate`，但 ACP 更新为 `failed`。其中一次助手原话包含 `DevTools remote debugging requires a non-default data directory. Specify this using --user-data-dir.`，另一次回复 `PLAYWRIGHT_DIRECT_UNAVAILABLE`。换全新显式资料目录并用无头模式的对照已发出 `tools/call`，90 秒内未收到工具结果，未验证是否能完成导航。
+
+用同一个 `npx-cli.js -y @playwright/mcp@0.0.68 --isolated` 在 agy 1.5.15 下重放，并将观测点放到 MCP 子进程边界：
+
+| npx 启动对照 | 从 `server/discover` 开始的相对时序 | 一轮内的结果 |
+| --- | --- | --- |
+| 冷的临时 npm 缓存 | 子进程启动，约 **4.91 秒**后收到 `notifications/cancelled`，该次没有进入 `initialize` 或 `tools/list`。 | agy 后续重试启动，模型回复 `PLAYWRIGHT_DIRECT_UNAVAILABLE`，全轮 0 个 `tool_call`，与桌面失败一致。 |
+| 本轮预热缓存，仅对探针进程设 `npm_config_offline=true` | 约 **2.02 秒**完成 22 个工具的枚举。Playwright 对可选 `server/discover` 返回 `-32601` 后仍正常完成标准 MCP 初始化。 | 一次 `browser_navigate` 已发出，批准后进入 Chrome 启动，才因默认资料目录的远程调试限制变为 `failed`。 |
+
+这组对照仅改变探针的缓存条件。桌面抓包没有记录原会话的 npm 缓存状态或它内部的 stdio 发现时序，冷缓存的取消链路是对同一启动参数和同一症状的独立复现。
+
+A13 原样复跑在相同适配器代码、同一 1.5.15 和临时测试资料下，捕获到以下实际请求，两个用例仍失败：
+
+| 原 A13 路径 | 实际 `mcpServers` 形状 | 原始事件及影响 |
+| --- | --- | --- |
+| stdio | 一个 `receipt` 项，`command=<path>/node.exe`，`args=["<path>/receipt.cjs"]`，`env` 是 `NO_PROXY`、`no_proxy`、`AGY_TEST_RECEIPT`、`AGY_TEST_CALLS`、`PATH` 的 `[{name,value}]` 数组。 | 原始 `mcp_receipt_fresh_receipt` 进入 `tool_call` 和 `session/request_permission`。实际回 `reject_once`，工具变为 `failed`，回执文件缺失。 |
+| HTTP | 首会话发送一个 `{type:"http",name:"ticket",url:"http://127.0.0.1:<port>/mcp",headers:[{name:"Authorization",value:"<redacted>"}]}` 项，对照会话发送 `[]`。 | 原断言缺回执，带审批跟踪的复跑在等待该轮完成处超时。该轮未捕获 HTTP MCP 工具调用或其审批，不能确认是否有同一拒绝过程。 |
+
+### 6. 请求批准矩阵
+
+复用同样的 ACP 启动方式，每项独立新建合成项目，设置 `configId="mode"`。请求批准对应 `accept-edits`，回包确认生效。工作区外只使用测试目录下的已知兄弟文件，未访问其他路径。原始 `session/request_permission` 对应适配器发出的 `permission_request`。
+
+| 操作 | 模式 | 审批请求 | 实际执行 |
+| --- | --- | ---: | --- |
+| a) 编辑工作区内 `inside.txt` | `accept-edits` | 0 | `edit completed`，文件改成合成标记。 |
+| b) 编辑工作区外的合成兄弟文件 `../outside.txt` | `accept-edits` | 0 | `edit completed`，已核实兄弟文件写入。这一结果只适用于本轮的测试路径。 |
+| c) 终端命令 `cmd.exe /d /c echo SYNTHETIC_TERMINAL_OK` | `accept-edits` | 1 | 原生给出 `allow_once` / `reject_once`，探针允许一次，工具完成并收到合成 stdout。 |
+| 原 A13 模式对照，新建工作区内文件 | `default` | 0 | `edit completed`，合成文件确实建成。另一次替换已存在文件也为 0。 |
+
+### 根因判断
+
+- **A13 stdio 已定位到适配器工具名称映射与测试审批条件。** `agy 1.5.15` 用单下划线名称 `mcp_receipt_fresh_receipt`。产品的 `presentAntigravityTool` 只识别双下划线 MCP 形式，把该事件归为 `Tool`。将同样的工具事件输入未修改的函数，得到 `toolName="Tool"`。A13 只对名称匹配 `/receipt/i` 的请求批准，线上记录到它实际拒绝了已到达的调用。允许一次的直连重放获得回执。HTTP 的单会话重放也能正常调用，若运行时发出同样命名形式的审批，现有映射与 `/ticket/i` 也会拒绝。原样 HTTP 复跑没有观察到该事件，因此 HTTP 缺回执的根因仍未证实。 [工具名称映射](https://github.com/micsnq2yoma-lgtm/AgenTeam/blob/5c533ea28f095690810c1a11b0da924c9cd5f251/src/server/runtimes/antigravity-tool.ts#L34) · [A13 测试](https://github.com/micsnq2yoma-lgtm/AgenTeam/blob/5c533ea28f095690810c1a11b0da924c9cd5f251/src/server/runtimes/antigravity.credentialed.test.ts#L153)
+- **A8 已排除通用传输不支持、请求漏传或 stdio 数组结构错误。** 桌面实际发送了 Playwright，MCP 是否真正对模型可用仍未确认。适配器组装请求后把该条目标记为 `unreported`、`toolCount:0`，以 `status_read_failed` 放行。开关计数给出的只是用户启用意图，不能证明 Playwright 已就绪。桌面故障发生于注入以后、可见工具调用之前。直连观察到的 Chrome 启动错误发生于 `tools/call` 之后，属于另一条已复现的失败，不能解释该桌面轮次的零调用。 [会话组装及状态](https://github.com/micsnq2yoma-lgtm/AgenTeam/blob/5c533ea28f095690810c1a11b0da924c9cd5f251/src/server/runtimes/antigravity.ts#L977)
+- **A13 审批断言所用动作不可靠。** 原测试等待工作区内的新文件编辑触发审批。直接采用测试的 `default` 仍观察到自动写入，采用桌面的 `accept-edits` 也一样。固定的无副作用终端命令给出稳定的正例。工作区外兄弟文件未请求审批的实测已单列，未由一条路径外推至其他目录。 [原等待断言](https://github.com/micsnq2yoma-lgtm/AgenTeam/blob/5c533ea28f095690810c1a11b0da924c9cd5f251/src/server/runtimes/antigravity.credentialed.test.ts#L76)
+
+**诊断结论。** 会话级 stdio 和 HTTP 在 1.5.15 均实调成功。A13 的 stdio 缺回执及文件编辑审批断言已有直接证据。A8 的实际请求和缺失调用已复现，相同桌面 npx 参数的冷缓存重放复现了发现阶段取消，预热离线对照恢复了枚举，支持 npx 启动耗时与 agy 发现窗口的竞争是 A8 的原因。实际桌面轮没有子进程时序，仍无法证明那一轮的具体缓存状态。原样 HTTP 复跑的缺回执原因仍待确认。
