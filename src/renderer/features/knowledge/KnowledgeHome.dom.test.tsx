@@ -22,6 +22,16 @@ function backend(state: { bases: KnowledgeBaseRecord[]; sources?: Record<string,
   mocks.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
     switch (command) {
       case 'cmd_kb_list': return state.bases;
+      case 'cmd_kb_stats': {
+        const kbId = args?.kbId as string;
+        return {
+          kbId,
+          sourceCount: state.sources?.[kbId] ?? 0,
+          storageBytes: 2048,
+          searchMode: 'bm25',
+          pendingCurationCount: 0,
+        };
+      }
       case 'cmd_kb_list_sources': return Array.from({ length: state.sources?.[args?.kbId as string] ?? 0 }, (_, i) => ({ id: `src_${i}` }));
       case 'cmd_kb_create': {
         const settings = args?.settings as { name: string; description?: string };
@@ -80,7 +90,7 @@ describe('KnowledgeHome', () => {
     fireEvent.change(screen.getByLabelText(tl('knowledge.nameLabel')), { target: { value: '  研究笔记 ' } });
     fireEvent.change(screen.getByLabelText(tl('knowledge.descriptionLabel')), { target: { value: '论文摘录' } });
     fireEvent.click(confirm);
-    await waitFor(() => expect(mocks.invoke).toHaveBeenCalledWith('cmd_kb_create', { settings: { name: '研究笔记', description: '论文摘录' } }));
+    await waitFor(() => expect(mocks.invoke).toHaveBeenCalledWith('cmd_kb_create', { settings: { name: '研究笔记', description: '论文摘录', locale: 'zh-CN' } }));
     expect(await screen.findByText('研究笔记')).toBeInTheDocument();
     expect(mocks.invoke.mock.calls.filter(([command]) => command === 'cmd_kb_list').length).toBeGreaterThanOrEqual(2);
   });
@@ -111,6 +121,9 @@ describe('KnowledgeHome', () => {
           return new Promise<KnowledgeBaseRecord[]>((resolve) => { resolveFirst = resolve; });
         }
         return Promise.resolve([base({ id: 'kb_fresh', name: '最新库' })]);
+      }
+      if (command === 'cmd_kb_stats') {
+        return { kbId: 'kb_fresh', sourceCount: 0, storageBytes: 0, searchMode: 'bm25', pendingCurationCount: 0 };
       }
       if (command === 'cmd_kb_list_sources') return Promise.resolve([]);
       throw new Error(`unexpected ${command}`);
