@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveFilePatchRenderModel } from '../../shared/toolDisplay/filePatch';
-import { antigravityToolResult, presentAntigravityTool } from './antigravity-tool';
+import { antigravityToolResult, presentAntigravityTool, productMcpToolName } from './antigravity-tool';
 
 describe('Antigravity tool presentation', () => {
   it('maps the native file range and delegation fields to common cards', () => {
@@ -15,6 +15,25 @@ describe('Antigravity tool presentation', () => {
     })).toEqual({ toolName: 'CollabAgent', input: {
       tool: 'spawnAgent', model: 'current-model', prompt: 'Read notes', description: 'Review', subagent_type: 'task',
     } });
+  });
+
+  it('names agy single-underscore MCP tools after the registered server, not "Tool"', () => {
+    // Captured from agy 1.5.15 in the Antigravity acceptance diagnosis.
+    const tool = (name: string) => ({ toolCallId: 't', name, rawInput: { text: 'x' } });
+    expect(presentAntigravityTool(tool('mcp_receipt_fresh_receipt'), ['receipt']).toolName).toBe('mcp__receipt__fresh_receipt');
+    expect(presentAntigravityTool(tool('mcp_ticket_issue_ticket'), ['ticket']).toolName).toBe('mcp__ticket__issue_ticket');
+    // Without the session's server ids the split would be a guess, so it stays generic.
+    expect(presentAntigravityTool(tool('mcp_receipt_fresh_receipt')).toolName).toBe('Tool');
+    // The product's own double-underscore form is untouched.
+    expect(presentAntigravityTool(tool('mcp__receipt__fresh_receipt'), ['receipt']).toolName).toBe('mcp__receipt__fresh_receipt');
+  });
+
+  it('splits MCP names against the longest matching server id, including ids with punctuation or underscores', () => {
+    expect(productMcpToolName('mcp_my_server_do_thing', ['my', 'my_server'])).toBe('mcp__my_server__do_thing');
+    expect(productMcpToolName('mcp_my_server_do_thing', ['my-server'])).toBe('mcp__my-server__do_thing');
+    expect(productMcpToolName('mcp_other_do_thing', ['my_server'])).toBeUndefined();
+    // A name that is only the prefix has no tool part.
+    expect(productMcpToolName('mcp_receipt_', ['receipt'])).toBeUndefined();
   });
 
   it('preserves native multi-file differences in the renderer patch contract', () => {

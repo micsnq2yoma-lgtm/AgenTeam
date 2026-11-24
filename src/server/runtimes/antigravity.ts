@@ -213,6 +213,8 @@ class AntigravitySession implements RuntimeProcess {
   private readonly tools = new Map<string, { snapshot: ToolCallUpdate; visibleOutput: string }>();
   private readonly pendingReadResults = new Map<string, Extract<UnifiedEvent, { kind: "tool_result" }>>();
   private readonly deniedTools = new Set<string>();
+  /** Ids of the MCP servers registered for this session; agy's single-underscore tool names are split against them. */
+  mcpServerIds: string[] = [];
   readonly pending = new Map<string, Pending>();
   constructor(
     private readonly child: SubprocessHandle,
@@ -295,7 +297,7 @@ class AntigravitySession implements RuntimeProcess {
         this.pending.set(id, { cancel, decide, choose });
         signal.addEventListener("abort", expired, { once: true });
         const tool = params.toolCall;
-        const { toolName, input } = presentAntigravityTool(tool);
+        const { toolName, input } = presentAntigravityTool(tool, this.mcpServerIds);
         void maybeSpill(JSON.stringify(input), {
           mimetype: "application/json",
           inlineMaxBytes: 65_536,
@@ -616,7 +618,7 @@ class AntigravitySession implements RuntimeProcess {
     const prior = this.tools.get(id);
     if (prior?.snapshot.status === "completed" || prior?.snapshot.status === "failed") return;
     const tool = { ...prior?.snapshot, ...update, name: update.name ?? prior?.snapshot.name };
-    const { toolName, input } = presentAntigravityTool(tool);
+    const { toolName, input } = presentAntigravityTool(tool, this.mcpServerIds);
     const { result, metadata } = antigravityToolResult(tool, toolName);
     const state = { snapshot: tool, visibleOutput: prior?.visibleOutput ?? "" };
     this.tools.set(id, state);
@@ -1049,6 +1051,7 @@ export class AntigravityRuntime implements AgentRuntime {
           ? opened.sessionId
           : "");
       if (!s.sessionId) throw new Error("Antigravity 没有返回会话 ID");
+      s.mcpServerIds = servers.map((server) => server.name);
       s.models = (opened as { models?: ModelState }).models;
       s.config = opened.configOptions ?? [];
       s.defaultModel = s.getCurrentModel();

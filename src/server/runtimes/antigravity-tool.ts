@@ -31,11 +31,29 @@ function integer(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isSafeInteger(value) ? value : undefined;
 }
 
-function toolNameFor(tool: ToolCallUpdate, args: Record<string, unknown>, nativeName: string | undefined, dialect: 'bash' | 'pwsh' | undefined): string {
+/**
+ * agy 1.5.x names MCP tools `mcp_<server>_<tool>` (single underscores), not the `mcp__<server>__<tool>`
+ * form the product uses. Server and tool names may themselves contain underscores, so the split is only
+ * trusted against the server ids this session actually registered (longest match wins; agy may replace
+ * non-word characters in a server id with `_`).
+ */
+export function productMcpToolName(nativeName: string, serverIds: readonly string[]): string | undefined {
+  let best: { id: string; rest: string } | undefined;
+  for (const id of serverIds) {
+    const prefix = `mcp_${id.replace(/[^\w]/g, '_')}_`;
+    if (!nativeName.startsWith(prefix) || nativeName.length === prefix.length) continue;
+    if (!best || id.length > best.id.length) best = { id, rest: nativeName.slice(prefix.length) };
+  }
+  return best ? `mcp__${best.id}__${best.rest}` : undefined;
+}
+
+function toolNameFor(tool: ToolCallUpdate, args: Record<string, unknown>, nativeName: string | undefined, dialect: 'bash' | 'pwsh' | undefined, mcpServerIds: readonly string[]): string {
   const knownName = nativeName && nativeToolNames.get(nativeName);
   if (knownName === 'Bash' || typeof args.CommandLine === 'string') return dialect === 'pwsh' ? 'PowerShell' : 'Bash';
   if (knownName) return knownName;
   if (nativeName && /^mcp__[\w.-]+__[\w.-]+$/.test(nativeName)) return nativeName;
+  const mcpName = nativeName && productMcpToolName(nativeName, mcpServerIds);
+  if (mcpName) return mcpName;
   if (tool.kind === 'edit' || tool.kind === 'delete' || tool.kind === 'move'
     || tool.content?.some((part) => part.type === 'diff')) return 'Edit';
   if (tool.kind === 'read' || (typeof args.Path === 'string' && 'StartLine' in args)) return 'Read';
@@ -43,7 +61,7 @@ function toolNameFor(tool: ToolCallUpdate, args: Record<string, unknown>, native
 }
 
 /** Keep ACP presentation text and opaque arguments separate from the product tool identity. */
-export function presentAntigravityTool(tool: ToolCallUpdate): {
+export function presentAntigravityTool(tool: ToolCallUpdate, mcpServerIds: readonly string[] = []): {
   toolName: string;
   input: Record<string, unknown>;
 } {
@@ -51,7 +69,7 @@ export function presentAntigravityTool(tool: ToolCallUpdate): {
   const nativeName = tool.name ?? /^Run ([a-z][a-z0-9_]*)$/.exec(tool.title ?? '')?.[1];
   const shell = string(args.Shell ?? args.shell)?.toLowerCase();
   const dialect = shell === 'pwsh' || shell === 'powershell' ? 'pwsh' : shell === 'bash' ? 'bash' : undefined;
-  const toolName = toolNameFor(tool, args, nativeName, dialect);
+  const toolName = toolNameFor(tool, args, nativeName, dialect, mcpServerIds);
   const location = tool.locations?.[0];
   const changes = tool.content?.flatMap((part) => {
     if (part.type !== 'diff') return [];

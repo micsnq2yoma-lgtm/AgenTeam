@@ -71,8 +71,10 @@ it.skipIf(process.env.MYAGENTS_TEST_AGY !== "1")(
         proc,
         "Remember this conversation token: " +
           marker +
-          ". Use the native file editing tool to create first.txt with exactly the word apple. Do not write the token or use shell commands.",
+          ". Use the terminal tool to run exactly this one command and nothing else: echo apple > first.txt . Do not write the token anywhere.",
       );
+      // Terminal commands are what agy asks permission for. Edits inside (and, as observed on 1.5.15, next to)
+      // the workspace are applied without a request in both `default` and accept-edits modes.
       const approve = await wait("permission_request");
       await runtime.respondPermission(proc, approve.requestId, "allow_once");
       expect((await wait("turn_complete")).status).toBe("completed");
@@ -82,7 +84,7 @@ it.skipIf(process.env.MYAGENTS_TEST_AGY !== "1")(
       const second = events.length;
       await runtime.sendMessage(
         proc,
-        "Use the native file editing tool to create second.txt containing orange. Do not use shell commands.",
+        "Use the terminal tool to run exactly this one command and nothing else: echo orange > second.txt",
       );
       await wait("permission_request", second);
       await runtime.interruptTurn(proc);
