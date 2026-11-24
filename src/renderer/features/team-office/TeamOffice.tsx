@@ -7,6 +7,11 @@
  * 「新员工」 button on a department (or clicking its assistant) starts a new one.
  * The scenery and the wording follow the team skin chosen in Settings → 团队形象.
  *
+ * Adaptive layout: as projects and staff grow, the office grows automatically
+ * from a single room → compact room → multi-floor building → office tower →
+ * campus so the whole team stays visible without scrolling. In compact/mini
+ * tiers, clicking a department name zooms into that department up close.
+ *
  * Naming: project → assistant → 任务. A session is a 任务 everywhere in the UI
  * except here, where the same session is shown as a 员工.
  */
@@ -14,14 +19,14 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { PlusIcon } from '@/components/icons';
+import { ArrowLeftIcon, PlusIcon } from '@/components/icons';
 import type { SessionMetadata } from '@/api/sessionClient';
 import { normalizeTeamOfficeSkin, type Project } from '@/config/types';
 import { useConfig } from '@/hooks/useConfig';
 import { usePassiveWorkspaceSessions } from '@/hooks/useTaskCenterData';
 import { useResolvedTheme } from '@/theme';
 
-import { layoutOffice, OfficeRenderer, seatedLabels } from './pixel/office';
+import { layoutOffice, OfficeRenderer, seatedLabels, type OfficeSnapshot, type OfficeViewport } from './pixel/office';
 import { OFFICE_SKINS } from './pixel/skins';
 import { buildTeamOffice, type EmployeeStatus } from './teamOfficeModel';
 
@@ -36,8 +41,6 @@ const STATUS_DOT: Record<EmployeeStatus, string> = {
   resting: 'bg-[var(--line-strong)]',
 };
 
-const MIN_SCALE = 2;
-const MAX_SCALE = 4;
 const REFRESH_CLOCK_MS = 60_000;
 
 interface TeamOfficeProps {
@@ -66,14 +69,46 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
     () => buildTeamOffice({ projects, sessions: data.sessions, sessionTags: data.sessionTagsMap, now }),
     [data.sessionTagsMap, data.sessions, now, projects],
   );
-  const layout = useMemo(() => layoutOffice(office.snapshot), [office.snapshot]);
-  const labels = useMemo(() => seatedLabels(office.snapshot, layout), [layout, office.snapshot]);
+
+  const [focusedProjectId, setFocusedProjectId] = useState<string | null>(null);
+  const effectiveFocusedId = useMemo(
+    () => (focusedProjectId && office.snapshot.departments.some((d) => d.id === focusedProjectId) ? focusedProjectId : null),
+    [focusedProjectId, office.snapshot.departments],
+  );
+
+  const activeSnapshot = useMemo<OfficeSnapshot>(() => {
+    if (!effectiveFocusedId) return office.snapshot;
+    return {
+      at: office.snapshot.at,
+      departments: office.snapshot.departments.filter((d) => d.id === effectiveFocusedId),
+      people: office.snapshot.people.filter((p) => p.departmentId === effectiveFocusedId),
+    };
+  }, [effectiveFocusedId, office.snapshot]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<OfficeRenderer | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
-  const [scale, setScale] = useState(MIN_SCALE);
+  const [viewport, setViewport] = useState<OfficeViewport | null>(null);
+
+  useLayoutEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w <= 0 || h <= 0) return;
+      setViewport((prev) => (prev && prev.width === w && prev.height === h ? prev : { width: w, height: h }));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [projects.length]);
+
+  const layout = useMemo(() => layoutOffice(activeSnapshot, viewport), [activeSnapshot, viewport]);
+  const labels = useMemo(() => seatedLabels(activeSnapshot, layout), [activeSnapshot, layout]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -97,28 +132,12 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
   }, [resolvedTheme.resolvedColorScheme, skin]);
 
   useEffect(() => {
-    rendererRef.current?.setSnapshot(office.snapshot);
-  }, [office.snapshot]);
+    rendererRef.current?.setSnapshot(activeSnapshot, viewport);
+  }, [activeSnapshot, viewport]);
 
   useEffect(() => {
     if (rendererRef.current) rendererRef.current.selected = hovered;
   }, [hovered]);
-
-  // Largest whole-number scale that fits the viewport width (crisp pixels);
-  // wider offices keep the minimum scale and scroll horizontally.
-  useLayoutEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const measure = () => {
-      const fit = Math.floor((viewport.clientWidth - 2) / layout.width);
-      setScale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, fit)));
-    };
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(viewport);
-    return () => observer.disconnect();
-  }, [layout.width]);
 
   const activate = useCallback((personId: string) => {
     const entry = office.entries.get(personId);
@@ -136,15 +155,48 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
     ) ?? null;
   }, []);
 
-  const width = layout.width * scale;
-  const height = layout.height * scale;
+  const scale = layout.scale;
+  const width = Math.round(layout.width * scale);
+  const height = Math.round(layout.height * scale);
+  const backing = layout.density === 'compact' ? 2 : 1;
+  const isCompact = layout.density !== 'full';
+  const isMini = layout.density === 'mini';
   const statusText = (status: EmployeeStatus) => t(`teamOffice.status.${status}`);
 
+  const hoveredLabel = hovered && isCompact ? labels.find((l) => l.agentId === hovered) ?? null : null;
+  const hoveredEntry = hoveredLabel ? office.entries.get(hoveredLabel.agentId) ?? null : null;
+
   return (
-    <section className="flex h-full min-h-0 w-full flex-col" aria-label={t('teamOffice.title')} data-team-office data-team-office-skin={skin}>
+    <section
+      className="flex h-full min-h-0 w-full flex-col"
+      aria-label={t('teamOffice.title')}
+      data-team-office
+      data-team-office-skin={skin}
+      data-team-office-tier={layout.tier}
+    >
       <header className="mx-auto flex w-full max-w-[1040px] flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-[var(--ink)]">{t('teamOffice.title')}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-[var(--ink)]">{t('teamOffice.title')}</h2>
+            {projects.length > 0 && effectiveFocusedId ? (
+              <button
+                type="button"
+                onClick={() => setFocusedProjectId(null)}
+                className="inline-flex items-center gap-1 rounded-md border border-[var(--line)] bg-[var(--paper-elevated)] px-2 py-0.5 text-xs text-[var(--ink-muted)] transition-colors hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                data-team-office-back
+              >
+                <ArrowLeftIcon className="h-3 w-3" />
+                {t('teamOffice.backToOverview')}
+              </button>
+            ) : projects.length > 0 && viewport ? (
+              <span
+                className="rounded-full border border-[var(--line)] bg-[var(--paper-elevated)] px-2 py-0.5 text-xs text-[var(--ink-muted)]"
+                data-team-office-tier-badge
+              >
+                {t(`teamOffice.tiers.${layout.tier}`)}
+              </span>
+            ) : null}
+          </div>
           <p className="mt-0.5 text-sm text-[var(--ink-muted)]" data-team-office-summary>
             {t(`${words}.summary`, office.counts)}
           </p>
@@ -167,14 +219,14 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
       ) : (
         <div
           ref={viewportRef}
-          className="mx-auto mt-4 min-h-0 w-full max-w-[1040px] flex-1 overflow-auto rounded-xl border border-[var(--line)] bg-[var(--paper-inset)]"
+          className="mx-auto mt-4 flex min-h-0 w-full max-w-[1040px] flex-1 items-center justify-center overflow-auto rounded-xl border border-[var(--line)] bg-[var(--paper-inset)]"
           style={{ scrollbarGutter: 'stable' }}
         >
-          <div className="relative mx-auto" style={{ width, height }}>
+          <div className="relative shrink-0" style={{ width, height }}>
             <canvas
               ref={canvasRef}
-              width={layout.width}
-              height={layout.height}
+              width={Math.max(1, Math.ceil(layout.width * backing))}
+              height={Math.max(1, Math.ceil(layout.height * backing))}
               aria-hidden="true"
               className="block"
               style={{ width, height, imageRendering: 'pixelated', cursor: hovered ? 'pointer' : 'default' }}
@@ -190,27 +242,48 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
               const project = projects.find((candidate) => candidate.id === zone.id);
               if (!project) return null;
               const hidden = office.hiddenStaff.get(project.id) ?? 0;
+              const canZoom = isCompact && !effectiveFocusedId;
+              const zoneLeft = zone.x * scale;
+              const zoneTop = zone.y * scale + (isMini ? 1 : 2 * scale);
+              const zoneWidthPx = zone.w * scale;
+
               return (
                 <div
                   key={zone.id}
-                  className="absolute flex items-center justify-between gap-1 px-2"
-                  style={{ left: zone.x * scale, top: 2 * scale, width: zone.w * scale }}
+                  className={`absolute flex items-center justify-between gap-1 ${isMini ? 'px-1' : 'px-2'}`}
+                  style={{ left: zoneLeft, top: zoneTop, width: zoneWidthPx }}
                   data-team-office-department={project.id}
                 >
-                  <span className="min-w-0 truncate rounded-md bg-[var(--paper-elevated)]/90 px-2 py-0.5 text-xs font-semibold text-[var(--ink)] shadow-xs">
-                    {zone.name}
-                    {hidden > 0 && (
-                      <span className="ml-1 font-normal text-[var(--ink-muted)]">{t('teamOffice.more', { count: hidden })}</span>
-                    )}
-                  </span>
+                  {canZoom ? (
+                    <button
+                      type="button"
+                      onClick={() => setFocusedProjectId(project.id)}
+                      title={t('teamOffice.zoomDepartment', { project: zone.name })}
+                      className={`min-w-0 truncate rounded bg-[var(--paper-elevated)]/90 font-semibold text-[var(--ink)] shadow-xs transition-colors hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isMini ? 'px-1 py-0 text-[10px] leading-tight' : 'px-1.5 py-0.5 text-xs'}`}
+                    >
+                      {zone.name}
+                      {hidden > 0 && (
+                        <span className="ml-1 font-normal text-[var(--ink-muted)]">{t('teamOffice.more', { count: hidden })}</span>
+                      )}
+                    </button>
+                  ) : (
+                    <span className="min-w-0 truncate rounded-md bg-[var(--paper-elevated)]/90 px-2 py-0.5 text-xs font-semibold text-[var(--ink)] shadow-xs">
+                      {zone.name}
+                      {hidden > 0 && (
+                        <span className="ml-1 font-normal text-[var(--ink-muted)]">{t('teamOffice.more', { count: hidden })}</span>
+                      )}
+                    </span>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => onHireEmployee(project)}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--paper-elevated)]/90 px-1.5 py-0.5 text-xs text-[var(--ink-muted)] shadow-xs transition-colors hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                    className={`inline-flex shrink-0 items-center gap-1 rounded bg-[var(--paper-elevated)]/90 text-[var(--ink-muted)] shadow-xs transition-colors hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isMini ? 'p-0.5' : isCompact ? 'p-0.5 text-xs' : 'rounded-md px-1.5 py-0.5 text-xs'}`}
                     aria-label={t(`${words}.hireIn`, { project: zone.name })}
+                    title={t(`${words}.hireIn`, { project: zone.name })}
                   >
-                    <PlusIcon className="h-3 w-3" />
-                    {t(`${words}.hire`)}
+                    <PlusIcon className={isMini ? 'h-2.5 w-2.5' : 'h-3 w-3'} />
+                    {!isCompact && t(`${words}.hire`)}
                   </button>
                 </div>
               );
@@ -221,6 +294,33 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
               if (!entry) return null;
               const x = label.left * width;
               const name = entry.kind === 'lead' ? t(`${words}.lead`, { name: label.name }) : label.name;
+
+              if (isCompact) {
+                return (
+                  <button
+                    key={label.agentId}
+                    type="button"
+                    onClick={() => activate(label.agentId)}
+                    onMouseEnter={() => setHovered(label.agentId)}
+                    onMouseLeave={() => setHovered(null)}
+                    onFocus={() => setHovered(label.agentId)}
+                    onBlur={() => setHovered(null)}
+                    title={`${name} · ${statusText(entry.status)}`}
+                    className="absolute rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                    style={{
+                      left: label.hitLeft * width,
+                      top: label.hitTop * height,
+                      width: Math.max(12, label.hitWidth * width),
+                      height: Math.max(12, label.hitHeight * height),
+                    }}
+                    data-team-office-person={label.agentId}
+                    data-status={entry.status}
+                  >
+                    <span className="sr-only">{name}</span>
+                  </button>
+                );
+              }
+
               return (
                 <div key={label.agentId}>
                   {label.bubble && (
@@ -251,6 +351,25 @@ export default memo(function TeamOffice({ projects, onOpenEmployee, onHireEmploy
                 </div>
               );
             })}
+
+            {hoveredLabel && hoveredEntry && (
+              <div
+                className="pointer-events-none absolute z-20 inline-flex max-w-[220px] -translate-x-1/2 -translate-y-full items-center gap-1.5 rounded-md border border-[var(--line)] bg-[var(--paper-elevated)] px-2 py-1 text-xs leading-tight text-[var(--ink)] shadow-md"
+                style={{
+                  left: Math.max(80, Math.min(width - 80, hoveredLabel.left * width)),
+                  top: Math.max(28, hoveredLabel.hitTop * height - 6),
+                }}
+                data-team-office-tooltip
+              >
+                <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[hoveredEntry.status]}`} aria-hidden="true" />
+                <span className="truncate font-medium">
+                  {hoveredEntry.kind === 'lead'
+                    ? t(`${words}.lead`, { name: hoveredLabel.name })
+                    : hoveredLabel.name}
+                </span>
+                <span className="shrink-0 text-[var(--ink-muted)]">· {statusText(hoveredEntry.status)}</span>
+              </div>
+            )}
           </div>
         </div>
       )}

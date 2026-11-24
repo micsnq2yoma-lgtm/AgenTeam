@@ -223,6 +223,15 @@
       "resting": "Resting"
     },
     "more": "+{{count}}",
+    "tiers": {
+      "room": "Single office",
+      "dense": "Compact office",
+      "floors": "Multi-floor",
+      "tower": "Office tower",
+      "campus": "Office campus"
+    },
+    "backToOverview": "Back to overview",
+    "zoomDepartment": "Inspect {{project}}",
     "emptyTitle": "No projects yet",
     "emptyDescription": "Create a project and its employees will show up for work here.",
     "skins": {
