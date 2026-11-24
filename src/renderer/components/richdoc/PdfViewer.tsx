@@ -29,7 +29,7 @@ import { clampDpr, deviceCanvasSize, estimatedPageHeight, fitScale, pageContaine
 import type { RichDocSubViewerProps } from './types';
 import { useZoom, ZoomControls } from './zoom';
 
-export default function PdfViewer({ bytes, onError, onEmpty }: RichDocSubViewerProps) {
+export default function PdfViewer({ bytes, focusTarget, onError, onEmpty }: RichDocSubViewerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +41,7 @@ export default function PdfViewer({ bytes, onError, onEmpty }: RichDocSubViewerP
   const baseWidthRef = useRef(0);
   const estHeightRef = useRef(0);
   const baseScaleRef = useRef(0);
+  const numPagesRef = useRef(0);
 
   // Resize holders + rescale text layers when zoom changes. Canvas (width:100%)
   // follows the holder; text layers follow the inherited `--scale-factor`.
@@ -163,6 +164,7 @@ export default function PdfViewer({ bytes, onError, onEmpty }: RichDocSubViewerP
         baseWidthRef.current = width;
         estHeightRef.current = estHeight;
         baseScaleRef.current = baseScale;
+        numPagesRef.current = pdf.numPages;
         // Drives every text layer's size/position/font (inherited by .textLayer).
         content.style.setProperty('--scale-factor', String(baseScale * zoomRef.current));
 
@@ -220,6 +222,37 @@ export default function PdfViewer({ bytes, onError, onEmpty }: RichDocSubViewerP
       void Promise.allSettled(pending).then(() => loadingTask?.destroy());
     };
   }, [bytes, onError, onEmpty]);
+
+  // Jump to requested 1-based page once page placeholders are mounted, and
+  // re-apply whenever a new citation navigation request arrives.
+  const targetPage = focusTarget?.page;
+  const focusRequestId = focusTarget?.requestId;
+  useEffect(() => {
+    if (loading || typeof targetPage !== 'number' || !Number.isFinite(targetPage) || targetPage < 1) {
+      return;
+    }
+    const content = contentRef.current;
+    if (!content) return;
+    const total = numPagesRef.current;
+    const clamped = total > 0 ? Math.min(Math.floor(targetPage), total) : Math.floor(targetPage);
+    const holder = content.querySelector<HTMLElement>(`[data-page="${clamped}"]`);
+    if (!holder) return;
+    holder.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    holder.dataset.kbPageFocus = 'true';
+    holder.style.outline = '2px solid var(--accent)';
+    holder.style.outlineOffset = '2px';
+    const timer = window.setTimeout(() => {
+      delete holder.dataset.kbPageFocus;
+      holder.style.outline = '';
+      holder.style.outlineOffset = '';
+    }, 1800);
+    return () => {
+      window.clearTimeout(timer);
+      delete holder.dataset.kbPageFocus;
+      holder.style.outline = '';
+      holder.style.outlineOffset = '';
+    };
+  }, [loading, targetPage, focusRequestId]);
 
   return (
     <div className="relative h-full overflow-hidden bg-[var(--paper-elevated)]">

@@ -301,11 +301,30 @@ pub enum MetadataOutcome {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedPreview {
+    pub path: String,
+    pub name: String,
+    pub is_content_fallback: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub utf16_range: Option<[usize; 2]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line_number: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResolvedKnowledgeRef {
     pub reference: KnowledgeRef,
     pub source: KnowledgeSource,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fragment: Option<ResolvedFragment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub excerpt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<ResolvedPreview>,
 }
 
 /// An internal index notification. Only identities and content hashes cross this channel.
@@ -662,12 +681,34 @@ impl KnowledgeStore {
 
     pub fn resolve_ref(&self, input: &str) -> StoreResult<ResolvedKnowledgeRef> {
         let reference = parse_knowledge_ref(input).ok_or(KbInvalidInput)?;
-        let source = self.get_source(&reference.kb_id, &reference.source_id)?;
-        let fragment = self.resolve_fragment(&reference, &source)?;
+        let (record, source_dir) = self.locked(|files, registry| {
+            let kb_id = reference.kb_id.as_str();
+            let source_id = reference.source_id.as_str();
+            if !registry.contains(kb_id) {
+                return Err(KbNotFound);
+            }
+            let record: SourceRecord = files
+                .read_json(&source_path(kb_id, source_id))?
+                .ok_or(KbNotFound)?;
+            if record.source.id != source_id {
+                return Err(KbStoreCorrupt);
+            }
+            let dir = files.root.join(kb_id).join("sources").join(source_id);
+            if !StoreFiles::is_plain_directory(&dir)? {
+                return Err(KbStoreCorrupt);
+            }
+            Ok((record, dir))
+        })?;
+        let source = record.source;
+        let extension = record.ingest.as_ref().map(|item| item.extension.as_str());
+        let (fragment, excerpt, preview) =
+            self.resolve_citation_details(&reference, &source, extension, &source_dir)?;
         Ok(ResolvedKnowledgeRef {
             reference,
             source,
             fragment,
+            excerpt,
+            preview,
         })
     }
 

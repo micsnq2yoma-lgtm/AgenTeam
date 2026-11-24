@@ -570,3 +570,12 @@
   background: transparent;
   padding: 0;
 }
+
+/* Knowledge citation target highlight in read-only Markdown preview (K10). */
+.kb-citation-highlight {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+  border-radius: 6px;
+  padding-inline: 0.625rem;
+  padding-block: 0.25rem;
+}

@@ -1,3 +1,5 @@
+import type { FilePreviewFocusTarget } from '@/types/filePreview';
+
 /** Props every rich-doc sub-viewer receives from {@link RichDocViewer}. */
 export interface RichDocSubViewerProps {
   /**
@@ -7,6 +9,8 @@ export interface RichDocSubViewerProps {
    * copy first, so a re-run doesn't see a detached buffer.
    */
   bytes: ArrayBuffer;
+  /** Optional navigation target (e.g. PDF page jump from a knowledge citation). */
+  focusTarget?: FilePreviewFocusTarget;
   /** Report a fatal parse/render error up to RichDocViewer's unified error UI. */
   onError: (message: string) => void;
   /** Report that the document parsed fine but has no content (0 slides / 0 sheets

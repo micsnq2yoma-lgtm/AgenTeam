@@ -21,8 +21,10 @@ import { useTranslation } from 'react-i18next';
 import CodeBlock from './markdown/CodeBlock';
 import InlineCode from './markdown/InlineCode';
 import ContentLink from './markdown/ContentLink';
+import KnowledgeCitationChip from './markdown/KnowledgeCitationChip';
 import { MarkdownDocumentDirectoryContext } from './markdown/linkContext';
 import MarkdownTable from './markdown/MarkdownTable';
+import { parseKnowledgeRef } from '../../shared/knowledge';
 const MermaidDiagram = lazy(() => import('./markdown/MermaidDiagram'));
 import { useFileAction } from '@/context/fileActionState';
 import { useWorkspaceFileService } from '@/hooks/useWorkspaceFileService';
@@ -50,7 +52,64 @@ import { fileUrlToPath, resolveAgainstWorkspace } from '@/utils/workspaceFileLin
 // never stripped. STREAM_TAIL_LEN code points fade; as reveal advances the window slides,
 // so each char fades in over a few reveal steps. Tunable taste param.
 const STREAM_TAIL_LEN = 10;
-interface HastNodeLite { type: string; value?: string; tagName?: string; properties?: Record<string, unknown>; children?: HastNodeLite[]; }
+interface HastNodeLite {
+  type: string;
+  value?: string;
+  tagName?: string;
+  position?: { start?: { offset?: number }; end?: { offset?: number } };
+  properties?: Record<string, unknown>;
+  children?: HastNodeLite[];
+}
+
+const CITATION_HIGHLIGHT_TAGS = new Set([
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'li',
+  'blockquote',
+  'tr',
+]);
+
+function createRehypeCitationHighlight(localStart: number, localEnd: number) {
+  return function rehypeCitationHighlight() {
+    return (tree: HastNodeLite) => {
+      const visit = (node: HastNodeLite): boolean => {
+        let childHighlighted = false;
+        if (node.children) {
+          for (const child of node.children) {
+            if (visit(child)) childHighlighted = true;
+          }
+        }
+        if (childHighlighted || node.type !== 'element' || !node.tagName) {
+          return childHighlighted;
+        }
+        if (!CITATION_HIGHLIGHT_TAGS.has(node.tagName)) return false;
+        const start = node.position?.start?.offset;
+        const end = node.position?.end?.offset;
+        if (typeof start !== 'number' || typeof end !== 'number') return false;
+        if (start < localEnd && end > localStart) {
+          const existing = Array.isArray(node.properties?.className)
+            ? (node.properties.className as unknown[])
+            : typeof node.properties?.className === 'string'
+              ? [node.properties.className]
+              : [];
+          node.properties = {
+            ...node.properties,
+            dataKbHighlight: 'true',
+            className: [...existing, 'kb-citation-highlight'],
+          };
+          return true;
+        }
+        return false;
+      };
+      visit(tree);
+    };
+  };
+}
 type TailHit = { parent: HastNodeLite; index: number; value: string };
 function rehypeStreamTail() {
   return (tree: HastNodeLite) => {
@@ -103,6 +162,23 @@ const REHYPE_PLUGINS_STREAMING: ComponentProps<typeof ReactMarkdown>['rehypePlug
 // Strips react-markdown's hast `node` prop so it doesn't get spread onto the DOM <a>.
 const MarkdownLink = memo(function MarkdownLink({ href, children, basePath = '', node, ...props }: React.ComponentProps<'a'> & { node?: Element; basePath?: string }) {
   const originalHref = (node?.data as { originalHref?: unknown } | undefined)?.originalHref;
+  const rawKbCandidate =
+    typeof originalHref === 'string' && /^kb:/i.test(originalHref)
+      ? originalHref
+      : typeof href === 'string' && /^kb:/i.test(href)
+        ? href
+        : null;
+  if (rawKbCandidate !== null) {
+    const parsed = parseKnowledgeRef(rawKbCandidate);
+    if (!parsed) {
+      return <span data-testid="kb-citation-invalid">{children}</span>;
+    }
+    return (
+      <KnowledgeCitationChip reference={rawKbCandidate} parsed={parsed}>
+        {children}
+      </KnowledgeCitationChip>
+    );
+  }
   return <ContentLink reference={href ?? ''} displayReference={typeof originalHref === 'string' ? originalHref : href} basePath={basePath} {...props}>{children}</ContentLink>;
 });
 
@@ -162,8 +238,11 @@ const TableHeadComponent: Components['thead'] = ({ children }) => (
   <thead className="bg-[var(--paper-inset)]/40">{children}</thead>
 );
 
-const TableRowComponent: Components['tr'] = ({ children }) => (
-  <tr className="border-b border-[var(--line-subtle)] last:border-0">
+const TableRowComponent: Components['tr'] = ({ children, className, node: _node, ...props }) => (
+  <tr
+    {...props}
+    className={['border-b border-[var(--line-subtle)] last:border-0', className].filter(Boolean).join(' ')}
+  >
     {children}
   </tr>
 );
@@ -182,8 +261,11 @@ const TableHeaderComponent: Components['th'] = ({ children, node: _node, ...prop
 );
 
 // Custom blockquote for better styling
-const BlockquoteComponent: Components['blockquote'] = ({ children }) => (
-  <blockquote className="markdown-blockquote">
+const BlockquoteComponent: Components['blockquote'] = ({ children, className, node: _node, ...props }) => (
+  <blockquote
+    {...props}
+    className={['markdown-blockquote', className].filter(Boolean).join(' ')}
+  >
     {children}
   </blockquote>
 );
@@ -257,10 +339,18 @@ const LiComponent: Components['li'] = ({ children, className, node: _node, ...pr
 // Paragraph rhythm is owned by the Markdown root stylesheet. Keeping a semantic
 // class here lets default and compact density change as one coherent system.
 const ChunkStart = createContext(0);
-const ParagraphComponent: Components['p'] = ({ children, node }) => {
+const ParagraphComponent: Components['p'] = ({ children, className, node, ...props }) => {
   const start = useContext(ChunkStart);
   const offset = node?.position?.start.offset;
-  return <p data-chat-source={offset === undefined ? undefined : start + offset} className="markdown-paragraph">{children}</p>;
+  return (
+    <p
+      {...props}
+      data-chat-source={offset === undefined ? undefined : start + offset}
+      className={['markdown-paragraph', className].filter(Boolean).join(' ')}
+    >
+      {children}
+    </p>
+  );
 };
 
 const StrongComponent: Components['strong'] = ({ children }) => (
@@ -330,6 +420,9 @@ interface MarkdownProps {
    *  Explicit null means there is no workspace. An absolute `basePath` still
    *  resolves external document references through the existing local-file API. */
   workspacePath?: string | null;
+  /** Optional UTF-16 range `[start, end)` in the source Markdown to highlight
+   *  (used when navigating from a knowledge citation chip in read-only preview). */
+  highlightUtf16Range?: [number, number];
 }
 
 /** Browser URLs, including protocol-relative CDN addresses. */
@@ -465,7 +558,7 @@ const MarkdownChunk = memo(function MarkdownChunk({ source, remarkPlugins, rehyp
   );
 });
 
-const Markdown = memo(function Markdown({ children, compact = false, preserveNewlines = false, allowSetextHeadings = true, raw = false, basePath = '', workspacePath, streaming = false, footnoteNumbers, citationSources }: MarkdownProps) {
+const Markdown = memo(function Markdown({ children, compact = false, preserveNewlines = false, allowSetextHeadings = true, raw = false, basePath = '', workspacePath, streaming = false, footnoteNumbers, citationSources, highlightUtf16Range }: MarkdownProps) {
   const { t } = useTranslation('app');
   const citationUnavailable = t('markdown.citationUnavailable');
   // Skip preprocessing for raw mode (file preview) - preprocessing is for streaming chat messages.
@@ -522,6 +615,36 @@ const Markdown = memo(function Markdown({ children, compact = false, preserveNew
     };
   }, [basePath, workspacePath, footnoteNumbers]);
 
+  const processedOffsetDelta = raw ? processedContent.length - children.length : 0;
+  const chunkRehypePlugins = useMemo(() => {
+    const rangeStart = highlightUtf16Range?.[0];
+    const rangeEnd = highlightUtf16Range?.[1];
+    const hasHighlight =
+      typeof rangeStart === 'number' &&
+      typeof rangeEnd === 'number' &&
+      rangeEnd > rangeStart;
+    return chunks.map((chunk, index) => {
+      const basePlugins =
+        streaming && !raw && index === chunks.length - 1
+          ? REHYPE_PLUGINS_STREAMING
+          : MARKDOWN_REHYPE_PLUGINS;
+      if (!hasHighlight) return basePlugins;
+      const chunkStart = chunkStarts[index];
+      const chunkEnd = chunkStart + chunk.length;
+      const adjStart = rangeStart + processedOffsetDelta;
+      const adjEnd = rangeEnd + processedOffsetDelta;
+      if (adjEnd <= chunkStart || adjStart >= chunkEnd) return basePlugins;
+      const localStart = Math.max(0, adjStart - chunkStart);
+      const localEnd = Math.min(chunk.length, adjEnd - chunkStart);
+      return [
+        ...(basePlugins ?? []),
+        createRehypeCitationHighlight(localStart, localEnd) as unknown as NonNullable<
+          ComponentProps<typeof ReactMarkdown>['rehypePlugins']
+        >[number],
+      ];
+    });
+  }, [chunks, chunkStarts, highlightUtf16Range, processedOffsetDelta, raw, streaming]);
+
   return (
     <MarkdownDocumentDirectoryContext.Provider value={basePath}>
     <div className={`markdown-content min-w-0 max-w-full break-words${compact ? ' markdown-content--compact' : ''}`}>
@@ -535,7 +658,7 @@ const Markdown = memo(function Markdown({ children, compact = false, preserveNew
         <MarkdownChunk
           source={chunk}
           remarkPlugins={remarkPlugins}
-          rehypePlugins={streaming && !raw && index === chunks.length - 1 ? REHYPE_PLUGINS_STREAMING : MARKDOWN_REHYPE_PLUGINS}
+          rehypePlugins={chunkRehypePlugins[index]}
           components={components}
         />
         </ChunkStart.Provider>

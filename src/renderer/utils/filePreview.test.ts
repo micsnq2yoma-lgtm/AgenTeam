@@ -68,4 +68,31 @@ describe('file preview consumer selection', () => {
     expect(filePreviewErrorMessage('max 2 MiB')).toBe('max 2 MiB');
     expect(filePreviewErrorMessage(new Error('not readable'))).toBe('not readable');
   });
+
+  it('uses actual localPath extension so content.md fallback for a PDF citation loads as Markdown while preserving display name', async () => {
+    const files = service();
+    files.readLocalPreview.mockResolvedValue({ name: 'content.md', content: '# Extracted PDF', size: 15 });
+    const resolved = await resolveFilePreview(
+      files,
+      {
+        name: 'contract.pdf',
+        path: '/data/knowledge/kb_0123456789ab/sources/src_0123456789abcdef/content.md',
+        localPath: '/data/knowledge/kb_0123456789ab/sources/src_0123456789abcdef/content.md',
+        sourceScope: 'local',
+        focusTarget: { requestId: 1, lineNumber: 3, page: 2, utf16Range: [0, 15] },
+      },
+      true,
+    );
+    expect(resolved).toMatchObject({
+      kind: 'file',
+      file: {
+        name: 'contract.pdf',
+        content: '# Extracted PDF',
+      },
+    });
+    if (resolved.kind === 'file') {
+      expect(resolved.file.richDocKind).toBeUndefined();
+    }
+    expect(files.readLocalPreview).toHaveBeenCalledTimes(1);
+  });
 });

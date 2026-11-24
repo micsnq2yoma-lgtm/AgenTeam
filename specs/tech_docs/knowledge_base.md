@@ -244,9 +244,16 @@ Skill 中出现的每条 `myagents kb` 命令和参数都必须存在于 `KNOWLE
 
 `kb wiki log` 只能追加到 `wiki/log.md`，该页不作为可检索来源。lint 报告经 v1 schema 验证，要求 UTC 生成时间、受支持的问题类型、库内 Markdown 路径和属于同一知识库的引用。报告保存在库的 `wiki/lint/`，供后续 UI 展示。
 
+## K10 引用 chip 与原文定位
+
+- **解析契约（Rust 权威，AC-K10-4）**：`cmd_kb_resolve_ref` 在同一 Store 锁内解析 `kb://` 引用并返回 `ResolvedKnowledgeRef { reference, source, fragment?, excerpt?, preview? }`。`excerpt` 为约 300 字符的悬停摘录（优先命中切块文本，其次目标页首块、来源摘要或首块正文）。`preview` 由 Store 经 no-follow 路径校验计算并规范化：托管非纯文本原件（如 PDF）优先返回 `original.<ext>` 与 `page`；原件缺失或需要 `content.md` 坐标定位时回退返回 `content.md`（`isContentFallback = true`）并附带 `utf16Range` 与 1-based `lineNumber`。Renderer 不拼接任何知识库文件路径。
+- **Markdown 渲染边界（AC-K10-1 🔒）**：`remarkKnowledgeCitations` 仅将正文里通过 `parseKnowledgeRef` 校验的裸写 `kb://` 转为链接（跳过代码块、行内代码与既有链接）；`MARKDOWN_SANITIZE_SCHEMA` 与 `MARKDOWN_URL_TRANSFORM` 放行合法 `kb://` 协议并清空非法 `kb:` 链接；`MarkdownLink` 将合法 `kb://` 渲染为 `<KnowledgeCitationChip>`，将任何非法 `kb:` 链接降级为普通 `<span>` 文本，不渲染 `<a>`。
+- **悬停预览与生命周期（AC-K10-2）**：`KnowledgeCitationChip` 维护有界模块级缓存（上限 256 条）。悬停或聚焦经 120 ms 防抖后调用 `cmd_kb_resolve_ref` 显示约 300 字符浮层；快速移出或组件卸载立即取消未发出的计时器并递增请求序号，丢弃在途回复，不在卸载后 `setState`。来源已删除（`KB_NOT_FOUND`）时 chip 转为「来源不可用」态且不报错；旧片段 ID 已失效（`fragment.status = unavailable`）时轻提示「片段已更新」并照常打开来源文档。
+- **原文定位与高亮（AC-K10-3）**：点击 chip 经 `FileActionContext.openFileTarget`（`scope: 'local'`）透传 `FilePreviewFocusTarget { lineNumber, page?, utf16Range? }`。`resolveFilePreview` 与 `FilePreviewModal` 按实际文件扩展名区分 PDF 与回退 `content.md` 并保留友好标题：`PdfViewer` 滚至 `[data-page="N"]` 并高亮目标页；只读 Markdown 预览通过后置于 `rehypeSanitize` 的 `rehypeCitationHighlight` 按 `utf16Range` 精确标注匹配块级节点并滚动居中；纯文本预览沿用 Monaco 行号定位。
+
 ## 待接入章节
 
-### K9–K11 UI、引用与检索评测
+### K9、K11 UI 与检索评测
 
 ### K12–K15 Linked folder、物理整理与恢复
 

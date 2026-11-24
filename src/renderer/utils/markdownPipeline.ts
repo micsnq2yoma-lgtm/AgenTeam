@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import type { Root, Nodes } from 'mdast';
+import type { Root, Nodes, PhrasingContent } from 'mdast';
 import type { VFile } from 'vfile';
 import type { Processor } from 'unified';
 import { defaultUrlTransform, type UrlTransform, type default as ReactMarkdown } from 'react-markdown';
@@ -12,6 +12,7 @@ import remarkMath from 'remark-math';
 import { fileUrlToPath } from './workspaceFileLinks';
 import { remarkRuntimeCitations } from './runtimeCitations';
 import { parseAppRouteUrl } from '../../shared/appRoute';
+import { parseKnowledgeRef } from '../../shared/knowledge';
 
 /** Local references use the existing file scheme across the Markdown boundary.
  * Normalize drive spelling before sanitize, which otherwise sees C: as a scheme.
@@ -26,6 +27,71 @@ function normalizeMarkdownFileUrl(value: string): string | null {
   }
   if (!fileUrlToPath(candidate)) return null;
   return new URL(candidate).href;
+}
+
+const BARE_KB_REF_RE = /kb:\/\/[^\s<>()[\]"'`,;!，。；：！？]+/gi;
+
+/** Convert valid bare `kb://` references in prose into links while leaving
+ * invalid `kb://` strings untouched as plain text (AC-K10-1). Skips code and
+ * existing links so literal syntax stays verbatim. */
+function remarkKnowledgeCitations() {
+  return (tree: Root) => {
+    const visit = (node: Nodes) => {
+      if (
+        node.type === 'code' ||
+        node.type === 'inlineCode' ||
+        node.type === 'link' ||
+        node.type === 'linkReference' ||
+        node.type === 'html'
+      ) {
+        return;
+      }
+      if (!('children' in node) || !Array.isArray(node.children)) return;
+      const nextChildren: Nodes[] = [];
+      let changed = false;
+      for (const child of node.children) {
+        if (child.type !== 'text' || !child.value.toLowerCase().includes('kb://')) {
+          visit(child);
+          nextChildren.push(child);
+          continue;
+        }
+        BARE_KB_REF_RE.lastIndex = 0;
+        let lastIndex = 0;
+        let match: RegExpExecArray | null;
+        let localChanged = false;
+        const fragments: PhrasingContent[] = [];
+        while ((match = BARE_KB_REF_RE.exec(child.value)) !== null) {
+          const raw = match[0];
+          if (!parseKnowledgeRef(raw)) {
+            continue;
+          }
+          if (match.index > lastIndex) {
+            fragments.push({ type: 'text', value: child.value.slice(lastIndex, match.index) });
+          }
+          fragments.push({
+            type: 'link',
+            url: raw,
+            children: [{ type: 'text', value: raw }],
+          });
+          lastIndex = match.index + raw.length;
+          localChanged = true;
+        }
+        if (localChanged) {
+          if (lastIndex < child.value.length) {
+            fragments.push({ type: 'text', value: child.value.slice(lastIndex) });
+          }
+          nextChildren.push(...fragments);
+          changed = true;
+        } else {
+          nextChildren.push(child);
+        }
+      }
+      if (changed) {
+        (node as { children: Nodes[] }).children = nextChildren;
+      }
+    };
+    visit(tree);
+  };
 }
 
 /** Preserve the parser's native link spelling before mdast→hast URI encoding.
@@ -82,6 +148,9 @@ function rehypeLocalFileReferences() {
  * Other schemes/attributes still follow ReactMarkdown's default URL policy. */
 export const MARKDOWN_URL_TRANSFORM: UrlTransform = (value, key, node) => {
   if (key === 'href' && node.tagName === 'a' && parseAppRouteUrl(value)) return value;
+  if (key === 'href' && node.tagName === 'a' && /^kb:/i.test(value)) {
+    return parseKnowledgeRef(value) ? value : '';
+  }
   if (((key === 'src' && node.tagName === 'img') || (key === 'href' && node.tagName === 'a'))
     && fileUrlToPath(value)) return value;
   return defaultUrlTransform(value);
@@ -93,7 +162,7 @@ export const MARKDOWN_SANITIZE_SCHEMA = {
   ...defaultSchema,
   protocols: {
     ...defaultSchema.protocols,
-    href: [...(defaultSchema.protocols?.href ?? []), 'file', 'agenteam'],
+    href: [...(defaultSchema.protocols?.href ?? []), 'file', 'agenteam', 'kb'],
     src: [...(defaultSchema.protocols?.src ?? []), 'file'],
   },
   tagNames: [
@@ -127,6 +196,7 @@ export const MARKDOWN_REMARK_PLUGINS_DEFAULT: NonNullable<ComponentProps<typeof 
   remarkGfm,
   remarkMath,
   remarkRuntimeCitations,
+  remarkKnowledgeCitations,
   remarkOriginalReferences,
 ];
 

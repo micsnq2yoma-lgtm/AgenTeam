@@ -55,7 +55,7 @@ pub struct IngestInput {
 #[serde(rename_all = "camelCase")]
 pub(super) struct ImportRecord {
     id: String,
-    extension: String,
+    pub(super) extension: String,
     original_sha256: String,
     document_job_id: Option<String>,
     pub(super) error: Option<KnowledgeErrorCode>,

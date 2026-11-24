@@ -545,11 +545,17 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
   const previewRef = previewHandleRef ?? ownPreviewRef;
   const openTargetIntentIdRef = useRef(0);
 
-  const createFocusTarget = useCallback((lineNumber?: number) => {
-    if (!lineNumber) return undefined;
+  const createFocusTarget = useCallback((
+    lineNumber?: number,
+    page?: number,
+    utf16Range?: [number, number],
+  ) => {
+    if (!lineNumber && !page && !utf16Range) return undefined;
     return {
       requestId: ++previewFocusRequestIdRef.current,
-      lineNumber,
+      lineNumber: lineNumber ?? 1,
+      ...(page !== undefined ? { page } : {}),
+      ...(utf16Range !== undefined ? { utf16Range } : {}),
     } satisfies FilePreviewFocusTarget;
   }, []);
 
@@ -586,14 +592,28 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
     scheduleLocalLeaseExpiryRef.current();
   }, []);
 
-  const handlePreview = useCallback((path: string, options?: { initialLineNumber?: number; scope?: FileActionScope }): boolean => {
+  const handlePreview = useCallback((
+    path: string,
+    options?: {
+      initialLineNumber?: number;
+      scope?: FileActionScope;
+      displayName?: string;
+      page?: number;
+      utf16Range?: [number, number];
+    },
+  ): boolean => {
     const scope = options?.scope ?? 'workspace';
     const fileName = targetFileName(path);
+    const displayName = options?.displayName?.trim() || fileName;
     const svc = fileServiceRef.current;
     if (scope === 'workspace' && !svc.isAvailable) return false;
     const requestId = ++previewRequestIdRef.current;
     const requestWorkspace = workspaceIdentityRef.current;
-    const focusTarget = createFocusTarget(options?.initialLineNumber);
+    const focusTarget = createFocusTarget(
+      options?.initialLineNumber,
+      options?.page,
+      options?.utf16Range,
+    );
     const localPath = scope === 'local' ? path : undefined;
     const workspaceForLocal = workspacePath;
 
@@ -613,7 +633,7 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
     if (onFilePreviewExternalRef.current && !isImageFile(fileName)) {
       try {
         await onFilePreviewExternalRef.current?.({
-          name: fileName,
+          name: displayName,
           path,
           sourceScope: scope,
           localPath,
@@ -626,7 +646,7 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
         console.error('[FileAction] Failed to load preview:', err);
         toastRef.current?.error(`${t('fileActions.previewLoadFailed')}: ${filePreviewErrorMessage(err)}`);
         setPreviewFile({
-          name: fileName,
+          name: displayName,
           content: '',
           size: 0,
           path,
@@ -644,7 +664,7 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
 
     if (richDocKind) {
       const fileData = {
-        name: fileName,
+        name: displayName,
         content: '',
         size: 0,
         path,
@@ -668,7 +688,7 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
             ? await svc.downloadLocalFile({ fullPath: path, workspace: workspaceForLocal })
             : await svc.downloadFile({ path });
           if (!isMountedRef.current || requestId !== previewRequestIdRef.current || requestWorkspace !== workspaceIdentityRef.current) return;
-          openImagePreview(`data:${resp.mimeType};base64,${resp.data}`, resp.name || fileName);
+          openImagePreview(`data:${resp.mimeType};base64,${resp.data}`, options?.displayName?.trim() || resp.name || fileName);
         } catch (err) {
           if (!isMountedRef.current || requestId !== previewRequestIdRef.current || requestWorkspace !== workspaceIdentityRef.current) return;
           invalidateTarget({ scope, path });
@@ -683,7 +703,7 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
 
     // Fallback: show fullscreen modal immediately in loading state
     setPreviewFile({
-      name: fileName,
+      name: displayName,
       content: '',
       size: 0,
       path,
@@ -704,7 +724,7 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
         if (!isMountedRef.current || requestId !== previewRequestIdRef.current || requestWorkspace !== workspaceIdentityRef.current) return;
         setPreviewFile(prev => (
           prev?.requestId === requestId
-            ? { ...prev, content: resp.content, size: resp.size, name: resp.name, isLoading: false }
+            ? { ...prev, content: resp.content, size: resp.size, name: options?.displayName?.trim() || resp.name, isLoading: false }
             : prev
         ));
       } catch (err) {
@@ -725,7 +745,13 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
 
   const handleChatPreviewIntent = useCallback((
     path: string,
-    options?: { initialLineNumber?: number; scope?: FileActionScope },
+    options?: {
+      initialLineNumber?: number;
+      scope?: FileActionScope;
+      displayName?: string;
+      page?: number;
+      utf16Range?: [number, number];
+    },
   ): boolean => {
     const scope = options?.scope ?? 'workspace';
     if (
@@ -796,7 +822,13 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
 
   const openFileTarget = useCallback((
     target: FileActionTarget,
-    options?: { displayPath?: string; forceExternal?: boolean },
+    options?: {
+      displayPath?: string;
+      displayName?: string;
+      forceExternal?: boolean;
+      page?: number;
+      utf16Range?: [number, number];
+    },
   ): void => {
     const intentId = ++openTargetIntentIdRef.current;
     void (async () => {
@@ -837,6 +869,9 @@ export function FileActionProvider({ previewHandleRef, children, workspacePath, 
       if (handleChatPreviewIntent(target.path, {
         initialLineNumber: target.initialLineNumber,
         scope: target.scope,
+        displayName: options?.displayName,
+        page: options?.page,
+        utf16Range: options?.utf16Range,
       })) {
         return;
       }

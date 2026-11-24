@@ -872,5 +872,16 @@
     "peerList": "会话列表",
     "loadFailedRetry": "读取失败 · 重试",
     "noPeers": "还没有会话。Bot 收到第一条消息后会出现在这里。"
+  },
+  "knowledgeCitation": {
+    "pageShort": "p.{{page}}",
+    "pageLabel": "第 {{page}} 页",
+    "loading": "正在加载引用片段…",
+    "sourceUnavailable": "来源不可用",
+    "sourceUnavailableHint": "该知识库来源已被删除或不可访问。",
+    "fragmentUpdated": "片段已更新，已为你打开来源文档。",
+    "previewUnavailable": "该来源暂无可预览的正文或原件。",
+    "noExcerpt": "暂无可展示的片段摘要。",
+    "resolveFailed": "无法解析知识库引用，请稍后重试。"
   }
 }
