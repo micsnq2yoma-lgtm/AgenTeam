@@ -24,20 +24,9 @@ pub(super) fn remove_global_port_file() {
 
 // ============= Stale process cleanup =============
 //
-// Two updater/startup recovery pattern sets share the same legacy child
-// signatures. Normal shutdown never consumes either set; live process owners
-// terminate only their exact `ChildTree` containment authority.
-//
-// * [`STARTUP_CLEANUP_PATTERNS`] additionally sweeps sidecars by
-//   [`SIDECAR_MARKER`]. Startup cleanup runs only when `acquire_lock`
-//   reports a prior instance — in that scenario the prior instance is
-//   already dead (SIGKILL'd by our lock code or crashed), so any matching
-//   sidecar must be an orphan we legitimately own.
-//
-// * [`CHILD_CLEANUP_PATTERNS`] is updater-only residual recovery and
-//   deliberately **does not** sweep by `SIDECAR_MARKER`. It remains separate
-//   from normal shutdown because update file-lock verification has a distinct
-//   protected-root contract.
+// These signatures are for updater recovery, which verifies that installation
+// files are safe to replace. Startup recovery uses app data ownership stamps.
+// Normal shutdown uses the ChildTree retained by each live process owner.
 //
 // All forward-slash form — the matcher in `process_cleanup` normalizes
 // `\` → `/` and lowercases both sides before comparison.
@@ -55,8 +44,8 @@ pub(super) const CHILD_CLEANUP_PATTERNS: &[crate::process_cleanup::ProcessPatter
     crate::process_cleanup::ProcessPattern::new("nodejs", "/myagents/nodejs/"),
 ];
 
-pub(super) const STARTUP_CLEANUP_PATTERNS: &[crate::process_cleanup::ProcessPattern] = &[
-    // Our own Bun sidecar, identified by the argv marker.
+pub(super) const UPDATE_CLEANUP_PATTERNS: &[crate::process_cleanup::ProcessPattern] = &[
+    // Sidecar processes can hold the installation open during replacement.
     crate::process_cleanup::ProcessPattern::new("sidecar", SIDECAR_MARKER),
     // SDK subprocess spawned by Claude Agent SDK.
     crate::process_cleanup::ProcessPattern::new("SDK", "claude-agent-sdk"),
@@ -170,7 +159,13 @@ pub fn cleanup_stale_sidecars(had_prior_instance: bool) -> bool {
         return true;
     }
 
-    let report = crate::process_cleanup::kill_stale_processes(STARTUP_CLEANUP_PATTERNS);
+    let report = match crate::process_cleanup::kill_stale_startup_processes() {
+        Ok(report) => report,
+        Err(reason) => {
+            ulog_warn!("[sidecar] Startup cleanup skipped: {}", reason);
+            return false;
+        }
+    };
     if report.total_targets() == 0 {
         ulog_info!(
             "[sidecar] Startup cleanup complete in {:?} (no stale processes found)",

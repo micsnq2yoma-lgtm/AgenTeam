@@ -124,7 +124,7 @@
 
 **Invariants enforced.** `ChildTree` 在子进程执行用户代码前建立进程树边界：Unix child 进入独立 process group；Windows child 以 suspended 状态创建，绑定 kill-on-close Job Object 后再恢复运行。所有者必须保留 `ChildTree`，显式 stop 与 Drop 只终止这棵精确进程树。应用退出先禁止新的资源创建，等待已经获准的创建流程完成登记或释放，再释放 Sidecar / Plugin Bridge owner；Unix 还要等待有上限的 SIGTERM→SIGKILL 清理任务结束。Windows GUI child 没有可靠的 console signal，stop 直接终止已保留的 Job Object。Task command Detector 同样属于受管进程树：timeout、stdout 超限、Stop、delete 与 App shutdown 都必须通过 retained `ChildTree` 收敛，读取 stdout/stderr 的线程也要 join 后再判断最终上限状态。进程树边界建立失败时必须终止 child 并返回错误，不能降级为未受管理的进程。
 
-**Don't.** 不要直接使用 `std::process::Command::new()`；Sidecar / Plugin Bridge 也不能直接 `.spawn()`。正常 shutdown 不能通过进程名、安装路径或 argv 子串扫描整机来弥补 owner 缺失。`process_cleanup::kill_stale_processes()` 只用于确认前一实例已经退出后的启动恢复，以及更新器的残留进程检查（Windows 更新器另有受保护目录和文件锁验证）；它不是正常生命周期 API。
+**Don't.** 不要直接使用 `std::process::Command::new()`；Sidecar / Plugin Bridge 也不能直接 `.spawn()`。启动恢复通过 `process_cleanup::kill_stale_startup_processes()` 验证数据目录和已退出的进程 owner。命令行和安装路径匹配仅用于更新器的残留进程检查。正常 shutdown 由持有 `ChildTree` 的 owner 终止进程。
 
 macOS 原生 Cmd+Q、应用菜单 Quit 和 Dock Quit 必须先投影为可取消的 `RunEvent::ExitRequested`，再复用 App 的确认、录音落盘和精确资源清理。当前 Tao / tauri-runtime-wry 的成对源码补丁见 [`vendor/tao/MYAGENTS_PATCH.md`](../../vendor/tao/MYAGENTS_PATCH.md)；上游 `applicationWillTerminate` / `RunEvent::Exit` 已处于不可取消阶段，不能作为补救清理入口。不要只替换 Quit 菜单，因为 Dock 等同根原生入口仍会绕过。`npm run test:native:quit` 用隔离 AppKit 实例覆盖请求、取消后重发、回调内请求、最后窗口与显式退出/重启码；强杀与 OS 强制终止不在正常退出保证内。
 

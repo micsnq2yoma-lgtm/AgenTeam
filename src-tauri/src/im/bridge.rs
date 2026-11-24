@@ -1775,6 +1775,7 @@ pub async fn spawn_plugin_bridge<R: tauri::Runtime>(
 
     let mut cmd = plugin_node_command(&node_path)?;
     crate::external_cli::inject_internal_token(&mut cmd);
+    crate::process_cleanup::mark_startup_owned_process(&mut cmd);
     // Inject tsx via absolute file URL pointing at the bundled
     // `resources/tsx-runtime/` (prod) or the project's own `node_modules/tsx`
     // (dev). The loader has zero side effects on `.js` plugin loads (esbuild's
@@ -1798,8 +1799,7 @@ pub async fn spawn_plugin_bridge<R: tauri::Runtime>(
         );
     }
     cmd.arg(bridge_script.to_string_lossy().as_ref())
-        // Same marker as regular sidecars — ensures cleanup_stale_sidecars()
-        // can find and kill orphaned bridge processes after a crash
+        // Same updater-discovery marker as regular sidecars.
         .arg("--myagents-sidecar")
         .arg("--plugin-dir")
         .arg(plugin_dir)
