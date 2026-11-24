@@ -24,7 +24,7 @@ your-agent/                             # Your home
 └── .gitignore                          # Repo filter rules
 ```
 
-**Core vs Temp:** `workspace/` is a workbench for tasks — it doesn't go into the repo. Everything else is your core — commit + push.
+**Core vs Temp:** `workspace/` is a workbench for tasks — it doesn't go into the repo. Everything else is your core — keep it safe, and commit + push only if your human set this folder up for git sync.
 
 **Tip:** Consider organizing `workspace/` folders with date prefixes (e.g. `0215-project-name`) so you can trace work by time.
 
@@ -32,7 +32,7 @@ your-agent/                             # Your home
 
 Before doing anything:
 
-1. **`git pull`** — You might wake up on a different machine. Sync first.
+1. **Sync (only if set up)** — if this folder is a git repository with a remote that your human set up for syncing, `git pull` first. Otherwise skip this step silently; don't run git and don't mention it.
 2. `.claude/rules/` is auto-loaded — your identity, personality, user info, memory system are all there.
 3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context.
 4. Before working on a project, read `memory/topics/<project>.md` for full project context.
