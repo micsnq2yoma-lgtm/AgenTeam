@@ -133,3 +133,75 @@ U4 的通用通知另计。深色中文「已归档项目」1 次、「已取消
 已走通的路径未发现可复现的新产品缺陷。阻塞来源包括四项模型凭据缺失、内部 CLI 执行上下文不可用，以及无 Agent / 历史设备组网会话的真实夹具无法通过新建项目获得。对应的部分验证见结果表。
 
 **验收未完成。4 项通过，0 项失败，11 项阻塞，2 项不适用。** 主动选择写盘、外部 CLI、关于页和双语浅深外观已取得桌面证据。Managed Codex 的实际切换、继承、通知、运行环境与 Session 绑定仍未验证。
+
+## L7 固定 Claude（0.7.0）
+
+验收日期为 2026-11-23（太平洋时间）。目标 App 为 AgenTeam **0.7.0 Windows x64 正式版**。发布标签 `v0.7.0` 和发布目标均指向 `5c533ea28f095690810c1a11b0da924c9cd5f251`，其父提交为 `daf4e223e5fe08db716d319962ca46ae7932c63c`。目标版本来自正式发布记录和源码的 Tauri 版本字段，本轮未在隔离桌面启动该 App，因而没有实测的「关于」页版本。 [正式发布包](https://github.com/micsnq2yoma-lgtm/AgenTeam/releases/tag/v0.7.0) · [目标提交](https://github.com/micsnq2yoma-lgtm/AgenTeam/commit/5c533ea28f095690810c1a11b0da924c9cd5f251)
+
+### 隔离及前置条件证据
+
+- **L7-E1 · Windows Profile。** 0.7.0 原生端调用 `dirs::home_dir()` 定位 `.agenteam`，隔离需要独立 Windows 用户的原生 Profile 或独立机器。本轮没有可使用并可确认独占 `.agenteam` 的交互桌面。当前进程没有管理员权限，本机未检出 Windows Sandbox 可执行文件。上一轮报告中的独立用户、0.6.8 构建及截图仅用于历史参照。本轮未启动宿主实例、未读取宿主配置或登录凭据，也未创建合成助理。 [0.7.0 数据目录实现](https://github.com/micsnq2yoma-lgtm/AgenTeam/blob/5c533ea28f095690810c1a11b0da924c9cd5f251/src-tauri/src/app_dirs.rs#L113) · [上一轮隔离设置截图](evidence-d4d8615/credentials-fresh-profile.jpg)
+- **L7-E2 · Anthropic。** 本轮没有可用于独立测试账号的 Anthropic 订阅登录或 Anthropic API Key。两者任一即可开展主用例。没有对应的 0.7.0 设置页可用状态截图，没有使用其他 provider 代替。
+- **L7-E3 · DeepSeek 与 Grok。** 本轮未提供可用于隔离验收的 DeepSeek API Key，S4 单独受此限制。也没有可用于隔离验收的 Grok 订阅，选测 S8 记为不适用。
+- **L7-E4 · 源码对照。** 复核了设计第 3、4 节、`projectProvidersForRuntime` 与 `describeExecutionRuntime` 的注释和实现，以及上一轮的通知文案表。0.7.0 的 `providerRequiresClaudeSdk` 只匹配 `anthropic-sub` 和 `anthropic-api`。Grok 订阅 `xai-sub` 使用可移植的 OAuth 与 OpenAI Responses，可在 DSH 偏好下由 DSH 执行。设计第 4 节与 `describeExecutionRuntime` 旁的注释曾把 Grok 一并列入，验收按实现判定。DSH 下的 Anthropic 菜单过滤及已选 provider 例外也已在源码中定位。 [设计文档](https://github.com/micsnq2yoma-lgtm/AgenTeam/blob/5c533ea28f095690810c1a11b0da924c9cd5f251/specs/handoff/launcher-runtime-selection-design.md#3-目标设计用户-2026-11-23-已拍板) · [提供方约束](https://github.com/micsnq2yoma-lgtm/AgenTeam/blob/5c533ea28f095690810c1a11b0da924c9cd5f251/src/shared/integrated-runtimes/provider-constraints.ts#L37) · [运行环境投影](https://github.com/micsnq2yoma-lgtm/AgenTeam/blob/5c533ea28f095690810c1a11b0da924c9cd5f251/src/shared/runtimeProviderProjection.ts#L25)
+
+### S1–S9 结果
+
+“未采集”表示没有触发该步骤的桌面操作，因此截图、通知原文及次数均无实测记录。未测次数不能作为 0 条通知的证据。
+
+| 步骤 | 结果 | 证据位置与原因 | 截图 / 通知原文 / 次数 |
+| --- | --- | --- | --- |
+| S1 Claude Agent SDK 基线 | 阻塞 | L7-E1、E2。未选 Anthropic 模型，未观察选择器、权限菜单、默认值或基线静默。 | 均未采集 |
+| S2 主动切到 DSH 偏好 | 阻塞 | L7-E1、E2。缺少 S1 的已选模型状态。各项实际行为见下表。 | 均未采集 |
+| S3 再点已保存的 DSH | 阻塞 | L7-E1、E2。S2 未执行，无法判断触发条件是否成立，也未核对配置是否无写入。 | 均未采集 |
+| S4 切到 DeepSeek | 阻塞 | L7-E1、E2、E3。缺少 S2 状态和 DeepSeek API Key，未观察回到 DSH、Anthropic 隐藏、通知或 DSH 权限。 | 均未采集 |
+| S5 实际执行（🔒） | 阻塞 | L7-E1、E2。两个偏好场景均未发送消息，没有真实执行环境、模型名、会话详情或新聊天页显示的证据。 | 均未采集 |
+| S6 权限（🔒） | 阻塞 | L7-E1、E2、E3。未观察 builtin 与 DSH 的菜单差异、默认值、新会话默认权限或 builtin 的无人值守最大权限 `fullAgency`。 | 均未采集 |
+| S7 完全退出并重启（🔒） | 阻塞 | L7-E1、E2。没有可恢复的隔离助理与 Anthropic 选择状态，未做重启前后对照。 | 均未采集 |
+| S8 Grok 对照（选测） | 不适用 | L7-E3、E4。缺少隔离 Grok 订阅，DSH 显示、执行和静默均无桌面观察。 | 均未采集 |
+| S9 已有 Session 绑定 | 阻塞 | L7-E1、E2。没有可重开的隔离 Anthropic 会话，未观察改偏好和模型后其运行环境、模型与权限是否保持。 | 均未采集 |
+
+### S2 实际行为记录
+
+S2 未触发。模型保留和清除均无桌面观察，未就任一分支判失败。
+
+| 观察项 | 实际记录 |
+| --- | --- |
+| 偏好 | `runtime`、`runtimePreference` 前后均未采集，无法确认有无保存 DSH。 |
+| 模型 | `providerId` 和模型未采集，无法判断是否保留、清除或替换。 |
+| 选择器与常驻文字 | 未观察选择器显示、实际执行者或是否出现常驻「由 X 执行」。 |
+| 通知 | 无实测原文及次数。 |
+| 权限 | 未打开菜单，未观察选项或默认值。 |
+
+### config.json 逐步对照
+
+仅记录该测试助理的三个字段。没有生成该助理的配置记录，表中“未采集”也不代表字段缺失、前后相同或未发生写盘。每列依次为步骤前、步骤后。
+
+| 步骤 | `runtime` 前 → 后 | `runtimePreference` 前 → 后 | `providerId` 前 → 后 |
+| --- | --- | --- | --- |
+| S1 | 未采集 → 未采集 | 未采集 → 未采集 | 未采集 → 未采集 |
+| S2 | 未采集 → 未采集 | 未采集 → 未采集 | 未采集 → 未采集 |
+| S3 | 未采集 → 未采集 | 未采集 → 未采集 | 未采集 → 未采集 |
+| S4 | 未采集 → 未采集 | 未采集 → 未采集 | 未采集 → 未采集 |
+| S5 | 未采集 → 未采集 | 未采集 → 未采集 | 未采集 → 未采集 |
+| S6 | 未采集 → 未采集 | 未采集 → 未采集 | 未采集 → 未采集 |
+| S7 | 未采集 → 未采集 | 未采集 → 未采集 | 未采集 → 未采集 |
+| S8 | 不适用 | 不适用 | 不适用 |
+| S9 | 未采集 → 未采集 | 未采集 → 未采集 | 未采集 → 未采集 |
+
+### 通知文案对照
+
+以下简体中文来自 0.7.0 的本地化模板，已代入运行环境名称供对照。实际显示文本、次数及占位符替换均未实测。 [0.7.0 通知模板](https://github.com/micsnq2yoma-lgtm/AgenTeam/blob/5c533ea28f095690810c1a11b0da924c9cd5f251/src/renderer/i18n/locales/zh-CN/launcher.json#L20)
+
+| 场景 | 文案或预期 |
+| --- | --- |
+| S1 在 Claude Agent SDK 偏好下选 Anthropic | 预期 0 条运行环境切换通知。 |
+| S3 模型保留时再点已保存的 DSH | 预期 1 条。「你保存的运行环境已经是 AgenTeam (DeepSeek Harness)，但当前选的模型只能由 AgenTeam (Claude Agent SDK) 运行。换一个模型即可使用 AgenTeam (DeepSeek Harness)。」 |
+| S4 从 Anthropic 切回 DSH 可用模型 | 预期 1 条。「已回到你保存的运行环境：AgenTeam (DeepSeek Harness)。」 |
+| S8 在 DSH 偏好下选 Grok | 预期 0 条运行环境切换通知。 |
+
+### 新缺陷、阻塞与结论
+
+暂无可登记的新桌面缺陷。没有实测复现、实际结果或截图支撑缺陷定级。已有的 Grok 文档与注释偏差已在 L7-E4 记录。
+
+**L7 阻塞，验收未完成。0 项通过，0 项失败，8 项阻塞，1 项不适用。** 主用例缺少可确认独占 `.agenteam` 的桌面和可用的 Anthropic 订阅登录或 API Key。S4 另缺 DeepSeek API Key。尤其是 DSH 偏好下保留 Anthropic 模型时的真实执行者、权限和重启持久化，均无实测结论。
