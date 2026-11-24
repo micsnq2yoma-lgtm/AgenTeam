@@ -30,8 +30,8 @@ import type { PixelAction } from './pixel/characters';
 import type { OfficePerson, OfficeSnapshot } from './pixel/office';
 import { modelFamilyFor, type ModelFamily } from './pixel/types';
 
-export const STAFF_PER_PROJECT = 6;
-export const MAX_DEPARTMENTS = 8;
+export const STAFF_PER_PROJECT = 16;
+export const MAX_DEPARTMENTS = 20;
 export const RESTING_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type EmployeeStatus = 'working' | 'scheduled' | 'on-call' | 'idle' | 'resting';

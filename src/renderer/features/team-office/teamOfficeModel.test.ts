@@ -11,6 +11,7 @@ import {
   buildTeamOffice,
   employeeStatus,
   isAssistantProject,
+  MAX_DEPARTMENTS,
   RESTING_AFTER_MS,
   STAFF_PER_PROJECT,
 } from './teamOfficeModel';
@@ -135,6 +136,93 @@ describe('buildTeamOffice', () => {
       expect(label.left).toBeGreaterThan(0);
       expect(label.left).toBeLessThan(1);
       expect(label.top).toBeLessThan(1);
+    }
+  });
+
+  it('seats more than 8 departments up to MAX_DEPARTMENTS', () => {
+    const projects = Array.from({ length: MAX_DEPARTMENTS + 3 }, (_, i) => project({
+      id: `p${i}`,
+      path: `/work/p${i}`,
+      lastOpened: new Date(NOW - i * 60_000).toISOString(),
+    }));
+    const office = buildTeamOffice({ projects, sessions: [], sessionTags: tags(), now: NOW });
+    expect(office.snapshot.departments).toHaveLength(MAX_DEPARTMENTS);
+    expect(MAX_DEPARTMENTS).toBeGreaterThanOrEqual(20);
+    expect(STAFF_PER_PROJECT).toBeGreaterThanOrEqual(16);
+  });
+});
+
+describe('adaptive layoutOffice', () => {
+  function snapshotFor(deptCount: number, staffPerDept: number) {
+    const projects = Array.from({ length: deptCount }, (_, i) => project({
+      id: `p${i}`,
+      path: `/work/p${i}`,
+      displayName: `Project ${i + 1}`,
+      templateId: i % 2 === 0 ? 'atmer' : undefined,
+    }));
+    const sessions = projects.flatMap((p) =>
+      Array.from({ length: staffPerDept }, (_, j) => session({
+        id: `${p.id}-s${j}`,
+        agentDir: p.path,
+        title: `Task ${j + 1}`,
+      })),
+    );
+    return buildTeamOffice({ projects, sessions, sessionTags: tags(), now: NOW }).snapshot;
+  }
+
+  it('defaults to single-row full room when viewport is omitted', () => {
+    const snap = snapshotFor(6, 3);
+    const layout = layoutOffice(snap);
+    expect(layout.tier).toBe('room');
+    expect(layout.density).toBe('full');
+    expect(layout.scale).toBe(2);
+  });
+
+  it('grows progressively through room → dense → floors → tower → campus to fit without scrolling', () => {
+    const vp = { width: 1040, height: 700 };
+
+    const small = layoutOffice(snapshotFor(2, 3), vp);
+    expect(small.tier).toBe('room');
+    expect(small.density).toBe('full');
+    expect(small.width * small.scale).toBeLessThanOrEqual(vp.width);
+    expect(small.height * small.scale).toBeLessThanOrEqual(vp.height);
+
+    const medium = layoutOffice(snapshotFor(4, 3), vp);
+    expect(medium.tier).toBe('dense');
+    expect(medium.density).toBe('compact');
+    expect(medium.width * medium.scale).toBeLessThanOrEqual(vp.width);
+    expect(medium.height * medium.scale).toBeLessThanOrEqual(vp.height);
+
+    const multi = layoutOffice(snapshotFor(8, 4), vp);
+    expect(multi.tier).toBe('floors');
+    expect(multi.buildings[0]!.floors.length).toBeGreaterThanOrEqual(2);
+    expect(multi.width * multi.scale).toBeLessThanOrEqual(vp.width);
+    expect(multi.height * multi.scale).toBeLessThanOrEqual(vp.height);
+
+    const tower = layoutOffice(snapshotFor(18, 12), vp);
+    expect(['tower', 'campus']).toContain(tower.tier);
+    expect(tower.density).toBe('mini');
+    expect(tower.width * tower.scale).toBeLessThanOrEqual(vp.width);
+    expect(tower.height * tower.scale).toBeLessThanOrEqual(vp.height);
+
+    const wideShortVp = { width: 1040, height: 340 };
+    const campus = layoutOffice(snapshotFor(20, 16), wideShortVp);
+    expect(campus.tier).toBe('campus');
+    expect(campus.buildings.length).toBeGreaterThanOrEqual(2);
+    expect(campus.width * campus.scale).toBeLessThanOrEqual(wideShortVp.width);
+    expect(campus.height * campus.scale).toBeLessThanOrEqual(wideShortVp.height);
+  });
+
+  it('produces valid normalized hit-boxes for every seated person across tiers', () => {
+    const snap = snapshotFor(12, 8);
+    const layout = layoutOffice(snap, { width: 1040, height: 700 });
+    const labels = seatedLabels(snap, layout);
+    expect(labels).toHaveLength(snap.people.length);
+    for (const label of labels) {
+      expect(label.hitLeft).toBeGreaterThanOrEqual(0);
+      expect(label.hitTop).toBeGreaterThanOrEqual(0);
+      expect(label.hitLeft + label.hitWidth).toBeLessThanOrEqual(1);
+      expect(label.hitTop + label.hitHeight).toBeLessThanOrEqual(1);
     }
   });
 });

@@ -223,6 +223,15 @@
       "resting": "休息中"
     },
     "more": "+{{count}}",
+    "tiers": {
+      "room": "一间办公室",
+      "dense": "密排办公室",
+      "floors": "多层办公室",
+      "tower": "办公楼",
+      "campus": "办公园区"
+    },
+    "backToOverview": "返回全景",
+    "zoomDepartment": "放大查看「{{project}}」",
     "emptyTitle": "还没有项目",
     "emptyDescription": "新建一个项目后，它的员工会在这里上班。",
     "skins": {

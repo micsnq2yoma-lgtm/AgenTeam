@@ -96,4 +96,47 @@ describe('TeamOffice', () => {
     render(<TeamOffice projects={[]} onOpenEmployee={vi.fn()} onHireEmployee={vi.fn()} />);
     expect(screen.getByText(tl('teamOffice.emptyTitle'))).toBeInTheDocument();
   });
+
+  it('adapts to multi-floor mode on large teams and lets users zoom into a department', () => {
+    const widthSpy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1040);
+    const heightSpy = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(700);
+    try {
+      const manyProjects: Project[] = Array.from({ length: 8 }, (_, i) => ({
+        id: `p${i}`,
+        name: `p${i}`,
+        path: `/work/p${i}`,
+        displayName: `项目 ${i + 1}`,
+        providerId: null,
+        permissionMode: null,
+      }));
+      store.sessions = manyProjects.flatMap((p) =>
+        Array.from({ length: 4 }, (_, j) => session(`${p.id}-s${j}`, p.path, `${p.displayName} 任务 ${j + 1}`)),
+      );
+      const onOpenEmployee = vi.fn();
+      const { container } = render(
+        <TeamOffice projects={manyProjects} onOpenEmployee={onOpenEmployee} onHireEmployee={vi.fn()} />,
+      );
+
+      expect(container.querySelector('[data-team-office]')).toHaveAttribute('data-team-office-tier', 'floors');
+      expect(container.querySelector('[data-team-office-tier-badge]')).toHaveTextContent(tl('teamOffice.tiers.floors'));
+
+      const empBtn = document.querySelector('[data-team-office-person="session:p0-s0"]') as HTMLElement;
+      expect(empBtn).toBeInTheDocument();
+      fireEvent.mouseEnter(empBtn);
+      expect(document.querySelector('[data-team-office-tooltip]')).toHaveTextContent('项目 1 任务 1');
+      fireEvent.click(empBtn);
+      expect(onOpenEmployee).toHaveBeenCalledWith(expect.objectContaining({ id: 'p0-s0' }), manyProjects[0]);
+
+      const dept = document.querySelector('[data-team-office-department="p0"]') as HTMLElement;
+      fireEvent.click(within(dept).getByRole('button', { name: /^项目 1$|^放大查看「项目 1」$/ }));
+      expect(container.querySelector('[data-team-office]')).toHaveAttribute('data-team-office-tier', 'room');
+      expect(document.querySelector('[data-team-office-back]')).toBeInTheDocument();
+
+      fireEvent.click(document.querySelector('[data-team-office-back]')!);
+      expect(container.querySelector('[data-team-office]')).toHaveAttribute('data-team-office-tier', 'floors');
+    } finally {
+      widthSpy.mockRestore();
+      heightSpy.mockRestore();
+    }
+  });
 });

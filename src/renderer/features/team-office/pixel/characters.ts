@@ -34,6 +34,10 @@ const PALETTES: Record<ModelFamily, { main: string; shade: string; light: string
   other: { main: "#8A9C8D", shade: "#526D62", light: "#CBD9BB", ink: "#2D453A", eye: "#21352A" },
 };
 
+export function modelFamilyColors(family: ModelFamily): { main: string; shade: string; light: string; ink: string; eye: string } {
+  return PALETTES[family] ?? PALETTES.other;
+}
+
 export function pixelActionFor(state?: string): PixelAction {
   if (state && Object.hasOwn(ACTION_TEXT, state)) return state as PixelAction;
   if (state === "success") return "delivering";
