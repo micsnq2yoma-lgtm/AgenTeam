@@ -23,6 +23,7 @@ import { AntigravityChildTrace } from "./antigravity-child-trace";
 import { fingerprintSessionMcp } from "../session-core/mcp-sync-policy";
 import { resolveRemoteMcpTransportConfig } from "../session-core/mcp-template-resolution";
 import { buildMcpStdioLaunchConfig } from "../utils/mcp-command";
+import { warmNpxMcpPackage } from "../utils/mcp-warmup";
 import { classifyToolAttachmentPresentation } from "../utils/tool-result-attachments";
 import { MANAGED_BROWSER_MCP_ID } from "../../shared/browserTools";
 import {
@@ -118,6 +119,35 @@ async function queryCli(
   } finally {
     abort.removeEventListener("abort", stop);
   }
+}
+
+/**
+ * agy gives a stdio MCP server only a few seconds to answer discovery, and a cold `npx -y <package>`
+ * spends that time downloading. Fetch each `npx` server's package first (best effort, in parallel); the
+ * session still starts if a warmup fails.
+ */
+async function warmNpxMcpServers(
+  definitions: readonly McpServerDefinition[],
+  parentEnv: NodeJS.ProcessEnv,
+  cwd: string,
+): Promise<void> {
+  const npx = definitions.filter((server) => server.type === "stdio" && server.command === "npx");
+  if (npx.length === 0) return;
+  const { getDefaultEnvironment } = await import("@modelcontextprotocol/sdk/client/stdio.js");
+  await Promise.all(npx.map(async (server) => {
+    try {
+      const launch = buildMcpStdioLaunchConfig(server, { parentEnv });
+      const outcome = await warmNpxMcpPackage(
+        { ...launch, env: { ...getDefaultEnvironment(), ...launch.env } },
+        { cwd },
+      );
+      if (outcome.status === "failed") {
+        console.warn(`[antigravity] MCP warmup for ${server.id} failed (${outcome.reason}); starting the session anyway`);
+      }
+    } catch (error) {
+      console.warn(`[antigravity] MCP warmup for ${server.id} skipped: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }));
 }
 
 async function mcpServer(
@@ -930,6 +960,7 @@ export class AntigravityRuntime implements AgentRuntime {
   }
   async startSession(options: SessionStartOptions, emit: UnifiedEventCallback) {
     const { path, env } = await executable(options.envPolicy);
+    await warmNpxMcpServers(options.mcpServers ?? [], env, options.workspacePath);
     const skipPermissions = options.permissionMode === ANTIGRAVITY_FULL_ACCESS;
     const args = [path, "acp", "--process-per-session"];
     if (skipPermissions) args.push("--dangerously-skip-permissions");
