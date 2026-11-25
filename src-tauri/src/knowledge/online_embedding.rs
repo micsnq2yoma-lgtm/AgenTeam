@@ -735,13 +735,14 @@ impl KnowledgeEmbeddingService {
             endpoint.dimensions.unwrap_or(0)
         );
 
-        if let Ok(mut guard) = self.query_cache.lock()
-            && let Some(pos) = guard.iter().position(|(k, _)| k == &cache_key)
-            && let Some((k, v)) = guard.remove(pos)
-        {
-            let hit = v.clone();
-            guard.push_back((k, v));
-            return Ok(hit);
+        if let Ok(mut guard) = self.query_cache.lock() {
+            if let Some(pos) = guard.iter().position(|(k, _)| k == &cache_key) {
+                if let Some((k, v)) = guard.remove(pos) {
+                    let hit = v.clone();
+                    guard.push_back((k, v));
+                    return Ok(hit);
+                }
+            }
         }
 
         let items = vec![("query".to_string(), trimmed.to_string())];
