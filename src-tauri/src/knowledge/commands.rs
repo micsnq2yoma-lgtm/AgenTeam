@@ -500,6 +500,16 @@ pub async fn cmd_kb_organize_undo(
     manager.undo_plan(&kb_id, &plan_id).await
 }
 
+/// User-only external URL import command (K19, SSRF-checked HTML-to-Markdown).
+#[tauri::command]
+pub async fn cmd_kb_import_url(
+    state: State<'_, Arc<KnowledgeIngestManager>>,
+    kb_id: String,
+    url: String,
+) -> StoreResult<ImportOutcome> {
+    super::url_import::import_url_into_kb(Arc::clone(state.inner()), kb_id, url).await
+}
+
 /// User-only local embedding model pack status (K16).
 #[tauri::command]
 pub async fn cmd_kb_embedding_pack_status(
