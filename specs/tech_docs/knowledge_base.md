@@ -366,6 +366,9 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
 - **SSRF 安全边界**：仅允许 `http://` / `https://`（拒绝 `file://`、`ftp://`、`data:`、`javascript:` 及含凭据 URL）；拒绝 `localhost` / `*.localhost` / `*.local` / `*.internal`；逐跳关闭自动重定向（最多 5 跳），每一跳均对 DNS 解析出的全部 IP 地址做公网单播校验（与 `egress_restriction::public_ip` 一致，拒绝环回、RFC1918 私有、链路本地、CGNAT、ULA 及 IPv4-mapped 内网地址）并通过 `resolve_to_addrs` 钉死已验证 IP 防 DNS Rebinding；流式读取响应体硬上限 5 MiB，仅接受 HTML/纯文本/Markdown。
 - **正文提取与入库**：`extract_html_to_markdown` 剔除 `<script>`/`<style>`/`<nav>`/`<footer>`/`<aside>`/`<iframe>` 与非 HTTP(S) 链接，优先提取 `<article>`/`<main>` 转为干净 Markdown 并附加来源 URL，再交由 `KnowledgeIngestManager::import_files` 完成标准摄取、去重、切块与索引。
 
-## 待接入章节
+## K20 全局搜索 Overlay 知识库分类
 
-### K20 全局搜索分类
+全局搜索 Overlay（`HistorySearchOverlayContent`）在搜索模式下新增「对话 / 知识库」分类切换，复用 `KnowledgeIndex` 并遵守既有 Overlay 的分页与取消协议：
+
+- **后端分页命令**：`cmd_kb_global_search(query, limit, cursor)` 汇总全部用户知识库 ID 并复用 `SearchEngine::search_knowledge`，返回 `{ mode, hits, total, nextCursor }`（仅作为桌面 Tauri 命令注册）。
+- **取消与分页协议**：`useKnowledgeOverlaySearch` 沿用 `useHistorySearch` 的 200 ms 防抖、IME `composing` 守卫、单调递增 `generation` 取消在途请求（切换分类、修改输入或关闭 Overlay 立即作废旧结果）以及 `nextCursor` 游标分页去重；点击命中项复用 `copyPlainText` 复制 `kb://` 引用。

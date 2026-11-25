@@ -485,6 +485,13 @@
     "noResults": "未找到结果",
     "searchFailed": "搜索失败，请重试",
     "recentActivityOrder": "按最近活跃排列",
+    "searchCategoryLabel": "搜索分类",
+    "categories": {
+      "sessions": "对话",
+      "knowledge": "知识库"
+    },
+    "knowledgeRefCopied": "已复制知识库引用",
+    "loadMoreKnowledge": "加载更多",
     "searching": "正在搜索…",
     "preparingIndex": "正在准备搜索索引…",
     "resultsLoaded": "已显示 {{loaded}} / {{total}} 个任务",

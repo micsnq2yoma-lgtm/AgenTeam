@@ -56,6 +56,25 @@ export interface RecordSearchHit {
     mediaMs: number | null;
 }
 
+export interface KnowledgeGlobalSearchHit {
+    reference: string;
+    kbId: string;
+    sourceId: string;
+    chunkId: string;
+    title: string;
+    prefix: string;
+    page?: number;
+    snippet: string;
+    score: number;
+}
+
+export interface KnowledgeGlobalSearchResult {
+    mode: string;
+    hits: KnowledgeGlobalSearchHit[];
+    total: number;
+    nextCursor: number | null;
+}
+
 export interface FileSearchResult {
     folderHits: FolderSearchHit[];
     hits: FileSearchHit[];
@@ -123,6 +142,21 @@ export async function searchRecords(
         return { hits: [], total: 0, queryTimeMs: 0 };
     }
     return invoke<RecordSearchResult>('cmd_search_records', { query, limit });
+}
+
+export async function searchKnowledgeGlobal(params: {
+    query: string;
+    limit?: number;
+    cursor?: number;
+}): Promise<KnowledgeGlobalSearchResult> {
+    if (!params.query.trim()) {
+        return { mode: 'bm25', hits: [], total: 0, nextCursor: null };
+    }
+    return invoke<KnowledgeGlobalSearchResult>('cmd_kb_global_search', {
+        query: params.query,
+        limit: params.limit ?? 20,
+        cursor: params.cursor ?? 0,
+    });
 }
 
 /**

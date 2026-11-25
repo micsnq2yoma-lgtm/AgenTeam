@@ -500,6 +500,88 @@ pub async fn cmd_kb_organize_undo(
     manager.undo_plan(&kb_id, &plan_id).await
 }
 
+/// User-only global search overlay endpoint for the "Knowledge" category (K20).
+/// Reuses `KnowledgeIndex` across all libraries and follows cursor pagination.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeGlobalSearchResult {
+    pub mode: &'static str,
+    pub hits: Vec<crate::search::KnowledgeSearchHit>,
+    pub total: usize,
+    pub next_cursor: Option<usize>,
+}
+
+#[tauri::command]
+pub async fn cmd_kb_global_search(
+    app: AppHandle,
+    state: State<'_, Arc<KnowledgeStore>>,
+    query: String,
+    limit: Option<usize>,
+    cursor: Option<usize>,
+) -> StoreResult<KnowledgeGlobalSearchResult> {
+    let trimmed = query.trim().to_string();
+    if trimmed.is_empty() {
+        return Ok(KnowledgeGlobalSearchResult {
+            mode: "bm25",
+            hits: Vec::new(),
+            total: 0,
+            next_cursor: None,
+        });
+    }
+    let page_size = limit.unwrap_or(20).clamp(1, 50);
+    let offset = cursor.unwrap_or(0);
+    let store = Arc::clone(state.inner());
+    let kb_ids: Vec<String> = spawn_blocking(move || {
+        Ok::<Vec<String>, KnowledgeErrorCode>(
+            store.list()?.into_iter().map(|kb| kb.id).collect(),
+        )
+    })
+    .await
+    .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)??;
+
+    if kb_ids.is_empty() {
+        return Ok(KnowledgeGlobalSearchResult {
+            mode: "bm25",
+            hits: Vec::new(),
+            total: 0,
+            next_cursor: None,
+        });
+    }
+
+    let search = app
+        .try_state::<Arc<SearchEngine>>()
+        .map(|s| Arc::clone(s.inner()))
+        .ok_or(KnowledgeErrorCode::KbStoreUnavailable)?;
+    let fetch_limit = (offset + page_size + 1).min(200);
+    let result = search
+        .search_knowledge(
+            Arc::clone(state.inner()),
+            kb_ids,
+            vec![trimmed],
+            KnowledgeSearchFilters::default(),
+            Some(fetch_limit),
+        )
+        .await?;
+    let total = result.hits.len();
+    let page_hits: Vec<_> = result
+        .hits
+        .into_iter()
+        .skip(offset)
+        .take(page_size)
+        .collect();
+    let next_cursor = if offset + page_hits.len() < total {
+        Some(offset + page_hits.len())
+    } else {
+        None
+    };
+    Ok(KnowledgeGlobalSearchResult {
+        mode: result.mode,
+        hits: page_hits,
+        total,
+        next_cursor,
+    })
+}
+
 /// User-only external URL import command (K19, SSRF-checked HTML-to-Markdown).
 #[tauri::command]
 pub async fn cmd_kb_import_url(
