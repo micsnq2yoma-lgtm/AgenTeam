@@ -65,11 +65,22 @@ describe('knowledge Skills track the bundled CLI contract', () => {
     });
   }
 
-  it('runs the K8 curation commands directly', () => {
+  it('runs the K8 curation and K14 organize proposal commands directly', () => {
     expect(invocations(SKILLS.curator).map(routeOf)).toEqual(expect.arrayContaining([
       'kb/curation/context', 'kb/wiki/write', 'kb/wiki/log', 'kb/wiki/lint-report', 'kb/taxonomy/propose',
+      'kb/organize/propose', 'kb/organize/show', 'kb/organize/list', 'kb/organize/feedback',
     ]));
     expect(SKILLS.curator).not.toContain('myagents kb --help');
+  });
+
+  it('never exposes approve, execute, or undo organize commands in CLI contract or help', () => {
+    const routes = Object.keys(KNOWLEDGE_COMMAND_FLAGS);
+    for (const forbidden of ['kb/organize/approve', 'kb/organize/execute', 'kb/organize/undo']) {
+      expect(routes).not.toContain(forbidden);
+      expect(isKnowledgeCommand(forbidden)).toBe(false);
+    }
+    const helpText = Object.values(KNOWLEDGE_CLI_HELP).join('\n');
+    expect(helpText).not.toMatch(/kb organize (approve|execute|undo)\b/);
   });
 
   it('descriptions separate retrieval from conversion, memory and managed curation', () => {

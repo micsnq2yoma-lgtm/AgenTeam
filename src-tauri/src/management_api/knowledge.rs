@@ -10,6 +10,7 @@ use tauri::{async_runtime::spawn_blocking, Manager};
 use super::{get_sidecar_state, no_store_json, request_sidecar_generation};
 use crate::knowledge::{
     ingest::KnowledgeIngestManager,
+    organize::{KnowledgeOrganizeManager, ProposePlanInput},
     read::{self, ReadRequest},
     store::{
         AgentWriteAccess, CurationMode, KnowledgeBase, KnowledgeStore, MetadataKey, MetadataPatch,
@@ -77,6 +78,34 @@ struct Metadata {
     date: Option<String>,
     entities_file: Option<String>,
     duplicate_of: Option<String>,
+}
+
+const MAX_ORGANIZE_PLAN_INPUT_BYTES: u64 = 1024 * 1024;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct OrganizePropose {
+    kb_id: String,
+    plan_file: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct OrganizeShow {
+    plan_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct OrganizeList {
+    kb_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct OrganizeFeedback {
+    kb_id: String,
+    limit: Option<usize>,
 }
 
 struct Scope(Vec<String>);
@@ -260,7 +289,8 @@ pub(super) async fn handle(
         Ok(data) => no_store_json(data),
         Err(code) => no_store_json(error_response(
             code,
-            matches!(action.as_str(), "add" | "meta-set") || curation::is_write(action.as_str()),
+            matches!(action.as_str(), "add" | "meta-set" | "organize-propose")
+                || curation::is_write(action.as_str()),
         )),
     }
 }
@@ -460,6 +490,102 @@ async fn dispatch(action: &str, headers: &HeaderMap, request: Value) -> StoreRes
                 scope.require(&job.kb_id)?;
                 let status = engine.knowledge_search_status(&job.kb_id, &job.source_id)?;
                 Ok(json!({"ok": true, "job": job, "searchStatus": status}))
+            })
+            .await
+        }
+        "organize-propose" => {
+            let input: OrganizePropose = decode(request)?;
+            scope.require(&input.kb_id)?;
+            let check_dir = data_dir.clone();
+            let check_session = caller.product_session_id.clone();
+            let is_group = spawn_blocking(move || {
+                crate::session_metadata::is_group_chat_session(&check_dir, &check_session)
+            })
+            .await
+            .map_err(|_| KbStoreUnavailable)??;
+            if is_group {
+                return Err(KbAccessDenied);
+            }
+            let authority =
+                WriteAuthority::new(sidecar_id, generation, caller, data_dir, &input.kb_id).await;
+            let organize = app
+                .try_state::<Arc<KnowledgeOrganizeManager>>()
+                .ok_or(KbStoreUnavailable)?;
+            let organize = Arc::clone(organize.inner());
+            let app_for_notify = app.clone();
+            blocking(move || {
+                store.check_agent_write(&input.kb_id, |kb| authority.pin(kb))?;
+                let bytes = read_workspace_file_strict(
+                    &authority.caller.workspace_path,
+                    &input.plan_file,
+                    MAX_ORGANIZE_PLAN_INPUT_BYTES,
+                )
+                .map_err(|_| KbInvalidInput)?;
+                let plan_input: ProposePlanInput =
+                    serde_json::from_slice(&bytes).map_err(|_| KbInvalidInput)?;
+                let plan = organize.propose_plan(&input.kb_id, plan_input)?;
+                let body = format!(
+                    "有一份包含 {} 项操作的整理方案（{}）待审阅",
+                    plan.items.len(),
+                    plan.id
+                );
+                crate::notification::show_with_navigation_target(
+                    &app_for_notify,
+                    "知识库整理方案待审阅",
+                    &body,
+                    None,
+                );
+                Ok(json!({"ok": true, "plan": plan}))
+            })
+            .await
+        }
+        "organize-show" => {
+            let input: OrganizeShow = decode(request)?;
+            let organize = app
+                .try_state::<Arc<KnowledgeOrganizeManager>>()
+                .ok_or(KbStoreUnavailable)?;
+            let organize = Arc::clone(organize.inner());
+            blocking(move || {
+                let plan = organize.find_plan(&input.plan_id, &scope.0)?;
+                Ok(json!({"ok": true, "plan": plan}))
+            })
+            .await
+        }
+        "organize-list" => {
+            let input: OrganizeList = decode(request)?;
+            let kb_ids = match input.kb_id {
+                Some(id) => {
+                    scope.require(&id)?;
+                    vec![id]
+                }
+                None => scope.0.clone(),
+            };
+            let organize = app
+                .try_state::<Arc<KnowledgeOrganizeManager>>()
+                .ok_or(KbStoreUnavailable)?;
+            let organize = Arc::clone(organize.inner());
+            blocking(move || {
+                let mut plans = Vec::new();
+                for kb_id in kb_ids {
+                    if let Ok(mut kb_plans) = organize.list_plans(&kb_id) {
+                        plans.append(&mut kb_plans);
+                    }
+                }
+                plans.sort_by(|a, b| b.created_at.cmp(&a.created_at).then_with(|| a.id.cmp(&b.id)));
+                Ok(json!({"ok": true, "plans": plans}))
+            })
+            .await
+        }
+        "organize-feedback" => {
+            let input: OrganizeFeedback = decode(request)?;
+            scope.require(&input.kb_id)?;
+            let organize = app
+                .try_state::<Arc<KnowledgeOrganizeManager>>()
+                .ok_or(KbStoreUnavailable)?;
+            let organize = Arc::clone(organize.inner());
+            blocking(move || {
+                let entries = organize.read_feedback(&input.kb_id, input.limit)?;
+                Ok(json!({"ok": true, "kbId": input.kb_id, "entries": entries}))
             })
             .await
         }

@@ -1,6 +1,7 @@
 import {
   isKnowledgeBaseId,
   isKnowledgeJobId,
+  isKnowledgePlanId,
   parseKnowledgeRef,
 } from '../shared/knowledge';
 import type { KnowledgeCommand } from '../shared/knowledge/cli-contract';
@@ -131,6 +132,26 @@ export function buildKnowledgeInput(
       return { kbId: oneLibrary(flags.kb, args), file: oneFile(flags) };
     case 'kb/taxonomy/propose':
       return { kbId: oneLibrary(flags.kb, args), category: required(flags.category, '--category'), reason: required(flags.reason, '--reason') };
+    case 'kb/organize/propose':
+      return {
+        kbId: oneLibrary(flags.kb, args),
+        planFile: required(flags.planFile, '--plan-file'),
+      };
+    case 'kb/organize/show': {
+      const planId = oneArgument(args, '<plan-id>');
+      if (!isKnowledgePlanId(planId)) throw new Error('Expected a knowledge organize plan ID.');
+      return { planId };
+    }
+    case 'kb/organize/list': {
+      const ids = libraries(flags.kb);
+      if (args.length || ids.length > 1) throw new Error('Use at most one --kb and no positional arguments.');
+      return ids[0] ? { kbId: ids[0] } : {};
+    }
+    case 'kb/organize/feedback':
+      return {
+        kbId: oneLibrary(flags.kb, args),
+        limit: integer(flags.limit, '--limit', 1, 500),
+      };
     case 'kb/status': {
       const jobId = oneArgument(args, '<job-id>');
       if (!isKnowledgeJobId(jobId)) throw new Error('Expected a knowledge import job ID.');

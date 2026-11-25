@@ -11,6 +11,10 @@ export const KNOWLEDGE_COMMAND_FLAGS = {
   'kb/wiki/log': ['kb', 'message'],
   'kb/wiki/lint-report': ['kb', 'file', 'fileValueMissing'],
   'kb/taxonomy/propose': ['kb', 'category', 'reason'],
+  'kb/organize/propose': ['kb', 'planFile'],
+  'kb/organize/show': [],
+  'kb/organize/list': ['kb'],
+  'kb/organize/feedback': ['kb', 'limit'],
 } as const;
 
 export type KnowledgeCommand = keyof typeof KNOWLEDGE_COMMAND_FLAGS;
@@ -19,7 +23,10 @@ export function isKnowledgeCommand(route: string): route is KnowledgeCommand {
   return Object.hasOwn(KNOWLEDGE_COMMAND_FLAGS, route);
 }
 
-export const KNOWLEDGE_CLI_HELP: Record<KnowledgeCommand | 'kb' | 'kb/meta' | 'kb/curation' | 'kb/wiki' | 'kb/taxonomy', string> = {
+export const KNOWLEDGE_CLI_HELP: Record<
+  KnowledgeCommand | 'kb' | 'kb/meta' | 'kb/curation' | 'kb/wiki' | 'kb/taxonomy' | 'kb/organize',
+  string
+> = {
   kb: `myagents kb — Use knowledge libraries bound to this Session
 
   list                         Show accessible libraries and their source counts
@@ -32,6 +39,7 @@ export const KNOWLEDGE_CLI_HELP: Record<KnowledgeCommand | 'kb' | 'kb/meta' | 'k
   curation context --kb <id>   Read library rules and the authorized curation batch
   wiki write|log|lint-report   Maintain the library's wiki
   taxonomy propose             Propose a category for user confirmation
+  organize propose|show|list|feedback  Propose and inspect physical file organize plans (user review required in App)
 
 Run myagents kb <command> --help for the full syntax. Requires a live AgenTeam Session.`,
   'kb/list': `myagents kb list [--json]
@@ -92,4 +100,24 @@ Submit a version 1 wiki lint report from a regular JSON file in this Session's W
   'kb/taxonomy/propose': `myagents kb taxonomy propose --kb <id> --category <path> --reason "<reason>" [--json]
 
 Propose a category for the active curation Task's library. Only a user can approve it.`,
+  'kb/organize': `myagents kb organize propose|show|list|feedback --help
+
+Physical file organization is proposal-only from the CLI.
+Only the user in the desktop App can review and run a plan.`,
+  'kb/organize/propose': `myagents kb organize propose --kb <id> --plan-file <plan.json> [--json]
+
+Submit a physical file organization proposal from a regular JSON file in this Session's Workspace (max 1 MiB, up to 500 items).
+Allowed operations are mkdir, move, and rename within linked folders that have organizeAllowed enabled.
+Each item must include a non-empty reason. Disallowed in group chat or Team AI sessions.
+This command never modifies user files; the user must review it in the App.`,
+  'kb/organize/show': `myagents kb organize show <plan-id> [--json]
+
+Inspect a physical file organization plan in an accessible library.`,
+  'kb/organize/list': `myagents kb organize list [--kb <id>] [--json]
+
+List physical file organization plans across accessible libraries (or one library with --kb).`,
+  'kb/organize/feedback': `myagents kb organize feedback --kb <id> [--limit <n>] [--json]
+
+Read recent user review feedback (rejected or renamed items) for a library so curator avoids repeating rejected proposals.
+Limit is 1–500 (default 100).`,
 };

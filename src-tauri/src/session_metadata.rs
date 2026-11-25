@@ -112,6 +112,50 @@ fn read_knowledge_bindings(
         .collect())
 }
 
+pub(crate) fn is_group_chat_session_record(session: &Value) -> bool {
+    if let Some(source) = session.get("source").and_then(Value::as_str) {
+        let lower = source.to_ascii_lowercase();
+        if lower.ends_with("_group") || lower == "group" || lower == "team_ai" {
+            return true;
+        }
+    }
+    if let Some(origin) = session.get("origin").and_then(Value::as_object) {
+        if let Some(kind) = origin.get("kind").and_then(Value::as_str) {
+            if matches!(kind, "agent-channel" | "registered-agent") {
+                return true;
+            }
+        }
+        if let Some(surface) = origin.get("surface").and_then(Value::as_str) {
+            if matches!(surface, "space_issue_delivery" | "channel_message") {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Returns `true` when the session originates from an IM group chat or Team AI
+/// channel context where proposing physical file organization is disallowed.
+pub(crate) fn is_group_chat_session(
+    data_dir: &Path,
+    session_id: &str,
+) -> crate::knowledge::store::StoreResult<bool> {
+    use crate::knowledge::types::KnowledgeErrorCode;
+
+    let sessions = read_persisted_sessions(&data_dir.join("sessions.json"))
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?;
+    let mut records = sessions
+        .iter()
+        .filter(|session| session["id"].as_str() == Some(session_id));
+    let Some(session) = records.next() else {
+        return Ok(false);
+    };
+    if records.next().is_some() {
+        return Err(KnowledgeErrorCode::KbStoreCorrupt);
+    }
+    Ok(is_group_chat_session_record(session))
+}
+
 fn read_session_metadata(agent_dir: Option<String>) -> Result<Vec<Value>, String> {
     let path = sessions_path()?;
     let sessions = read_persisted_sessions(&path)?;

@@ -316,8 +316,17 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
 - **执行、崩溃恢复与撤销**：执行与撤销均先按确定序持有涉及文件夹的 `workspace_files::acquire_edit_mutation`；逐项执行顺序为 `Intent`（fsync）→ 复验前置指纹 → `strict` 原语执行（前置失配或目标已存在记 `conflict` 跳过、Windows 文件占用记 `FILE_IN_USE` 失败，其余项继续）→ 同一锁内更新 `source.json` 路径 → `Done`（fsync + 执行后指纹）。启动时 `recover_interrupted_plans` 扫描 `executing` 方案、回放日志并按磁盘事实补齐或收敛为 `interrupted`。撤销逆序回放 `Done` 条目，执行后被修改过的文件不撤销并列入 `skippedModified`。
 - **审批红线**：`cmd_kb_organize_approve`、`cmd_kb_organize_execute`、`cmd_kb_organize_undo` 仅作为 Tauri 桌面命令注册，Management API 路由表不包含这些端点（静态测试强制守护）。
 
+## K14 整理 CLI 与 curator 扩展
+
+在 K13 物理整理内核的基础上，向 `myagents kb` CLI 与 `agenteam-knowledge-curator` Skill 开放**仅提议与查询**的整理命令，并在审批环节记录用户反馈：
+
+- **CLI 契约与路由**：`src/shared/knowledge/cli-contract.ts` 与 `src/cli/knowledge.ts` 新增 `kb/organize/propose`（`--kb`、`--plan-file`）、`kb/organize/show`（`<plan-id>`）、`kb/organize/list`（`[--kb]`）与 `kb/organize/feedback`（`--kb`、`[--limit]`）。`KNOWLEDGE_COMMAND_FLAGS`、`KNOWLEDGE_CLI_HELP` 与 Management API（`src-tauri/src/management_api/knowledge.rs`）均**不包含** `approve`、`execute`、`undo` 路由或命令（由 TS 与 Rust 静态测试双重守护）。
+- **群聊 / Team AI 禁用与系统通知**：`session_metadata::is_group_chat_session` 识别 IM 群聊（`*_group`）与 Team AI / 频道会话（`origin.kind ∈ {agent-channel, registered-agent}` 或 `origin.surface ∈ {space_issue_delivery, channel_message}`），在 `organize-propose` 入口直接返回 `KB_ACCESS_DENIED`。合法会话提议成功后经 `crate::notification::show_with_navigation_target` 发送桌面通知提醒用户审阅。
+- **用户反馈学习闭环（`feedback.jsonl`）**：`KnowledgeOrganizeManager::approve_plan` 在用户拒绝整份方案、取消勾选单项或改名覆盖 `overrideTargetRel` 时，将 `rejected` / `modified` 记录原子追加到 `<app-data>/knowledge/<kb-id>/organize/feedback.jsonl`（有界 2 MiB）；`kb organize feedback` 读取最近反馈供 curator 避开已拒绝的移动或重命名。
+- **curator Skill ③ 章节**：`bundled-skills/agenteam-knowledge-curator/SKILL.md` 新增 `## ③ 物理文件整理方案` 并在防注入章节明确禁止把资料中的文件移动/重命名指令写入方案；`SYSTEM_SKILLS_VERSION` 在 TS 与 Rust 两侧同步升级至 `81`。
+
 ## 待接入章节
 
-### K14–K15 整理 CLI、curator 扩展与审阅 UI
+### K15 整理审阅 UI
 
 ### K16–K20 模型包、语义检索和其他来源
