@@ -344,8 +344,15 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
 - **启动复验与安全降级**：启动时自动清理 `private/` 残留并重新校验 `active.json`、`manifest.json` 签名及磁盘权重 SHA-256；若未安装、已卸载或磁盘文件被篡改，`active_pack()` 返回 `None` 且 `usable = false`，检索层自动安全降级为 BM25 而不崩溃。
 - **桌面控制面命令**：注册仅面向用户的 4 个 Tauri 命令（`cmd_kb_embedding_pack_status`、`cmd_kb_embedding_pack_install`、`cmd_kb_embedding_pack_install_local`、`cmd_kb_embedding_pack_remove`），不暴露至 Management API / CLI。
 
+## K17 Document Worker `embed` 作业与算力租约
+
+复用现有 `myagents-document-worker`（不新增进程类型），通过协议帧 `StartEmbed` / `EmbedCompleted` 扩展批量嵌入能力，并与 OCR/ASR 共用同一把重算力租约：
+
+- **Worker 侧（`src-tauri/document-worker/src/embed.rs`）**：遵守单 workload、不持久化业务状态、不联网约束。接收最多 256 条切块（单条 ≤ 32 KiB），校验模型/分词器/ONNX Runtime 路径非符号链接后经 `ort` 动态加载运行推理，按配置执行 `last_token` 或 `mean` 池化与 L2 归一化，输出对称 int8 标量量化向量（`vector: Vec<i8>` + `scale: f32`），支持随时响应 `Cancel` 帧中止。
+- **Host 侧（`src-tauri/src/knowledge/embedding.rs` + `local_inference.rs`）**：在 `ComputeWorkloadKind` 新增 `KnowledgeEmbedding`（与 `DocumentOcr` / `AgentAttachmentAsr` 同级，让位于 `RecordLive` / `RecordBackfill` / `RecordDiarization`）。`KnowledgeEmbeddingClient::embed_batch` 先校验 `KnowledgeModelPackManager::active_pack()`（未安装或已卸载时直接返回 `KB_STORE_UNAVAILABLE` 供检索层无声降级回 BM25），再向 `LocalComputeCoordinator` 申请重算力租约并在租约保护下派发单次 Worker 进程（通过 `crate::process_cmd::new` 启动，避免 Windows 控制台闪烁）。
+
 ## 待接入章节
 
-### K17–K18 Document Worker `embed`、向量索引与混合检索（RRF）
+### K18 向量索引与混合检索（RRF）
 
 ### K19–K20 URL 导入与全局搜索分类
