@@ -325,8 +325,16 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
 - **用户反馈学习闭环（`feedback.jsonl`）**：`KnowledgeOrganizeManager::approve_plan` 在用户拒绝整份方案、取消勾选单项或改名覆盖 `overrideTargetRel` 时，将 `rejected` / `modified` 记录原子追加到 `<app-data>/knowledge/<kb-id>/organize/feedback.jsonl`（有界 2 MiB）；`kb organize feedback` 读取最近反馈供 curator 避开已拒绝的移动或重命名。
 - **curator Skill ③ 章节**：`bundled-skills/agenteam-knowledge-curator/SKILL.md` 新增 `## ③ 物理文件整理方案` 并在防注入章节明确禁止把资料中的文件移动/重命名指令写入方案；`SYSTEM_SKILLS_VERSION` 在 TS 与 Rust 两侧同步升级至 `81`。
 
-## 待接入章节
+## K15 整理审阅 UI 与关联文件夹管理
 
-### K15 整理审阅 UI
+在知识库详情页与设置页接入 K12/K13/K14 的桌面控制面 UI（全部经 `knowledgeClient` 调用 `cmd_kb_*` Tauri 命令，不经过 Sidecar，不另存第二份权威状态）：
+
+- **关联文件夹管理（`KnowledgeSettingsTab`）**：展示 `kb.linkedFolders` 列表与 Git 工作树标记；支持原生目录选择器添加（`cmd_kb_add_linked_folder`）、切换 `organizeAllowed` 与 Git 二次确认 `gitConfirmed`（`cmd_kb_update_linked_folder`）、手动重新扫描（`cmd_kb_scan_linked_folder`）及经 `ConfirmDialog` 移除关联（`cmd_kb_remove_linked_folder`，明确不删除原文件）。
+- **整理审阅页签（`KnowledgeOrganizeTab` + `KnowledgeDetail`）**：详情页新增「整理」页签并在存在 `pending_review` 方案时展示角标。左侧列出历史与待审阅方案，右侧展示按 `folderRoot` 分组的整理前后目录树 Diff 预览（随勾选和目标名修改实时刷新）以及逐项操作审阅列表：
+  - 默认仅勾选安全项（`isOrganizeItemDefaultSelected` 强制对 `affectedMarkdownLinks > 0` 返回 `false`，默认不勾选影响 Markdown 链接的项）；
+  - 每项展示操作类型、理由、外链风险与 Git 风险标记，支持逐项勾选、「仅选安全项 / 全部接受 / 全不选」快捷操作、行内目标路径编辑（`overrideTargetRel`）与拒绝方案（`ConfirmDialog`）；
+  - 批准后自动触发执行并展示执行进度、部分完成汇总与逐项错误原因（如 `FILE_IN_USE`），对已执行方案提供经 `ConfirmDialog` 确认的一键逆序撤销与跳过已修改文件提示。
+
+## 待接入章节
 
 ### K16–K20 模型包、语义检索和其他来源

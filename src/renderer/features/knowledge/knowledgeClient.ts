@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
 import type {
+  ApprovalDecision,
   ImportOutcome,
   IngestJob,
   KnowledgeBaseCreateInput,
@@ -8,13 +9,18 @@ import type {
   KnowledgeBaseStats,
   KnowledgeBaseUpdateInput,
   KnowledgeChunk,
+  KnowledgeLinkedFolder,
   KnowledgeMetadataKey,
   KnowledgeSearchFilters,
   KnowledgeSearchResult,
   KnowledgeSourceView,
+  LinkedFolderAttachResult,
+  LinkedFolderScanSummary,
   LintReportEntry,
   MetadataOutcome,
+  OrganizePlan,
   RuleDocKind,
+  UndoReport,
   WikiPageEntry,
 } from './types';
 
@@ -85,6 +91,33 @@ export const knowledgeClient = {
     call<string | null>('cmd_kb_read_rule_doc', { kbId, doc }),
   writeRuleDoc: (kbId: string, doc: RuleDocKind, content: string) =>
     call<void>('cmd_kb_write_rule_doc', { kbId, doc, content }),
+  addLinkedFolder: (kbId: string, path: string) =>
+    call<LinkedFolderAttachResult>('cmd_kb_add_linked_folder', { kbId, path }),
+  removeLinkedFolder: (kbId: string, path: string) =>
+    call<number>('cmd_kb_remove_linked_folder', { kbId, path }),
+  updateLinkedFolder: (
+    kbId: string,
+    path: string,
+    options: { organizeAllowed?: boolean; gitConfirmed?: boolean },
+  ) =>
+    call<KnowledgeLinkedFolder>('cmd_kb_update_linked_folder', {
+      kbId,
+      path,
+      organizeAllowed: options.organizeAllowed,
+      gitConfirmed: options.gitConfirmed,
+    }),
+  scanLinkedFolder: (kbId: string, path: string) =>
+    call<LinkedFolderScanSummary>('cmd_kb_scan_linked_folder', { kbId, path }),
+  listOrganizePlans: (kbId: string) =>
+    call<OrganizePlan[]>('cmd_kb_organize_list', { kbId }),
+  getOrganizePlan: (kbId: string, planId: string) =>
+    call<OrganizePlan>('cmd_kb_organize_get', { kbId, planId }),
+  approveOrganizePlan: (kbId: string, planId: string, decision: ApprovalDecision) =>
+    call<OrganizePlan>('cmd_kb_organize_approve', { kbId, planId, decision }),
+  executeOrganizePlan: (kbId: string, planId: string) =>
+    call<OrganizePlan>('cmd_kb_organize_execute', { kbId, planId }),
+  undoOrganizePlan: (kbId: string, planId: string) =>
+    call<UndoReport>('cmd_kb_organize_undo', { kbId, planId }),
 };
 
 /** The Store rejects with a bounded `{ code, message }` or bare string error code. */

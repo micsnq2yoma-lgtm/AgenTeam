@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 
 import ConfirmDialog from '@/components/ConfirmDialog';
 import CustomSelect, { type SelectOption } from '@/components/CustomSelect';
-import { PlayIcon, SaveIcon, TrashIcon } from '@/components/icons';
+import {
+  FolderPlusIcon,
+  PlayIcon,
+  RefreshIcon,
+  SaveIcon,
+  TrashIcon,
+  WarningIcon,
+} from '@/components/icons';
 import MarkdownEditor, { type MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor';
 import { useToast } from '@/components/Toast';
 import { useConfig } from '@/hooks/useConfig';
@@ -13,6 +21,7 @@ import type {
   KnowledgeAgentWriteAccess,
   KnowledgeBaseRecord,
   KnowledgeCurationMode,
+  KnowledgeLinkedFolder,
   RuleDocKind,
 } from './types';
 
@@ -50,6 +59,9 @@ export default function KnowledgeSettingsTab({
   const [curating, setCurating] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [folderBusyPath, setFolderBusyPath] = useState<string | null>(null);
+  const [addingFolder, setAddingFolder] = useState(false);
+  const [confirmRemoveFolder, setConfirmRemoveFolder] = useState<string | null>(null);
 
   // Sync form state when Store pushes updated KB settings.
   const kbVersionKey = `${kb.id}:${kb.name}:${kb.description}:${kb.curatorAgentId ?? ''}:${kb.curationMode}:${kb.curationIntervalMinutes}:${kb.agentWriteAccess}:${String(kb.wikiEnabled)}`;
@@ -186,6 +198,103 @@ export default function KnowledgeSettingsTab({
       );
     } finally {
       if (mounted.current) setCurating(false);
+    }
+  };
+
+  const handleAddLinkedFolder = async () => {
+    if (addingFolder) return;
+    try {
+      const selected = await openFileDialog({
+        directory: true,
+        multiple: false,
+        title: t('knowledge.settings.linkedFoldersAddDialog'),
+      });
+      if (!selected || Array.isArray(selected)) return;
+      setAddingFolder(true);
+      const result = await knowledgeClient.addLinkedFolder(kb.id, selected);
+      if (!mounted.current) return;
+      toastRef.current.success(
+        t('knowledge.settings.linkedFolderAdded', {
+          added: result.summary.added,
+          discovered: result.summary.discovered,
+        }),
+      );
+      await onMutated();
+    } catch (error) {
+      toastRef.current.error(
+        t(`knowledge.errors.${knowledgeErrorCode(error)}`, {
+          defaultValue: t('knowledge.errors.unknown'),
+        }),
+      );
+    } finally {
+      if (mounted.current) setAddingFolder(false);
+    }
+  };
+
+  const handleUpdateLinkedFolder = async (
+    folder: KnowledgeLinkedFolder,
+    patch: { organizeAllowed?: boolean; gitConfirmed?: boolean },
+  ) => {
+    if (folderBusyPath) return;
+    setFolderBusyPath(folder.path);
+    try {
+      await knowledgeClient.updateLinkedFolder(kb.id, folder.path, patch);
+      if (!mounted.current) return;
+      await onMutated();
+    } catch (error) {
+      toastRef.current.error(
+        t(`knowledge.errors.${knowledgeErrorCode(error)}`, {
+          defaultValue: t('knowledge.errors.unknown'),
+        }),
+      );
+    } finally {
+      if (mounted.current) setFolderBusyPath(null);
+    }
+  };
+
+  const handleScanLinkedFolder = async (folderPath: string) => {
+    if (folderBusyPath) return;
+    setFolderBusyPath(folderPath);
+    try {
+      const summary = await knowledgeClient.scanLinkedFolder(kb.id, folderPath);
+      if (!mounted.current) return;
+      toastRef.current.success(
+        t('knowledge.settings.linkedFolderScanned', {
+          added: summary.added,
+          moved: summary.moved,
+          updated: summary.updated,
+        }),
+      );
+      await onMutated();
+    } catch (error) {
+      toastRef.current.error(
+        t(`knowledge.errors.${knowledgeErrorCode(error)}`, {
+          defaultValue: t('knowledge.errors.unknown'),
+        }),
+      );
+    } finally {
+      if (mounted.current) setFolderBusyPath(null);
+    }
+  };
+
+  const handleConfirmRemoveLinkedFolder = async () => {
+    if (!confirmRemoveFolder || folderBusyPath) return;
+    const targetPath = confirmRemoveFolder;
+    setFolderBusyPath(targetPath);
+    try {
+      await knowledgeClient.removeLinkedFolder(kb.id, targetPath);
+      if (!mounted.current) return;
+      setConfirmRemoveFolder(null);
+      toastRef.current.info(t('knowledge.settings.linkedFolderRemoved'));
+      await onMutated();
+    } catch (error) {
+      toastRef.current.error(
+        t(`knowledge.errors.${knowledgeErrorCode(error)}`, {
+          defaultValue: t('knowledge.errors.unknown'),
+        }),
+      );
+    } finally {
+      if (mounted.current) setFolderBusyPath(null);
     }
   };
 
@@ -462,6 +571,116 @@ export default function KnowledgeSettingsTab({
         </div>
       </section>
 
+      {/* Linked folders (K12 + K15 organize authorization) */}
+      <section className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-medium text-[var(--ink)]">
+              {t('knowledge.settings.linkedFoldersTitle')}
+            </h3>
+            <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+              {t('knowledge.settings.linkedFoldersHint')}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={addingFolder}
+            onClick={() => void handleAddLinkedFolder()}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--button-secondary-bg)] px-3 py-1.5 text-xs font-medium text-[var(--button-secondary-text)] transition-colors hover:bg-[var(--hover-bg)] disabled:opacity-50"
+          >
+            <FolderPlusIcon className="h-3.5 w-3.5" />
+            {addingFolder
+              ? t('knowledge.settings.linkedFoldersAdding')
+              : t('knowledge.settings.linkedFoldersAdd')}
+          </button>
+        </div>
+
+        {(kb.linkedFolders ?? []).length === 0 ? (
+          <p className="rounded-lg border border-dashed border-[var(--line)] px-4 py-4 text-center text-xs text-[var(--ink-muted)]">
+            {t('knowledge.settings.linkedFoldersEmpty')}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {(kb.linkedFolders ?? []).map((folder) => {
+              const busy = folderBusyPath === folder.path;
+              return (
+                <li
+                  key={folder.path}
+                  className="space-y-2 rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="truncate font-mono text-xs text-[var(--ink)]">
+                        {folder.path}
+                      </span>
+                      {folder.isGitWorkTree && (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--warning)]">
+                          <WarningIcon className="h-3 w-3" />
+                          {t('knowledge.settings.linkedFolderGitBadge')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleScanLinkedFolder(folder.path)}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--line)] px-2 py-1 text-xs text-[var(--ink-muted)] hover:bg-[var(--hover-bg)] hover:text-[var(--ink)] disabled:opacity-50"
+                      >
+                        <RefreshIcon className="h-3 w-3" />
+                        {t('knowledge.settings.linkedFolderScan')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setConfirmRemoveFolder(folder.path)}
+                        className="rounded-md border border-[var(--line)] px-2 py-1 text-xs text-[var(--error)] hover:bg-[var(--hover-bg)] disabled:opacity-50"
+                      >
+                        {t('knowledge.settings.linkedFolderRemove')}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-[var(--ink-muted)]">
+                    <label className="inline-flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={folder.organizeAllowed}
+                        disabled={busy}
+                        onChange={(event) =>
+                          void handleUpdateLinkedFolder(folder, {
+                            organizeAllowed: event.target.checked,
+                          })
+                        }
+                        className="h-3.5 w-3.5 rounded border-[var(--line)]"
+                      />
+                      <span>{t('knowledge.settings.linkedFolderOrganizeAllowed')}</span>
+                    </label>
+
+                    {folder.isGitWorkTree && folder.organizeAllowed && (
+                      <label className="inline-flex items-center gap-1.5 text-[var(--warning)]">
+                        <input
+                          type="checkbox"
+                          checked={folder.gitConfirmed}
+                          disabled={busy}
+                          onChange={(event) =>
+                            void handleUpdateLinkedFolder(folder, {
+                              gitConfirmed: event.target.checked,
+                            })
+                          }
+                          className="h-3.5 w-3.5 rounded border-[var(--line)]"
+                        />
+                        <span>{t('knowledge.settings.linkedFolderGitConfirm')}</span>
+                      </label>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
       {/* Danger zone */}
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--error-subtle)] bg-[var(--paper-elevated)] p-5">
         <div className="min-w-0 flex-1">
@@ -481,6 +700,23 @@ export default function KnowledgeSettingsTab({
           {t('knowledge.delete')}
         </button>
       </section>
+
+      {confirmRemoveFolder && (
+        <ConfirmDialog
+          title={t('knowledge.settings.linkedFolderRemoveTitle')}
+          message={t('knowledge.settings.linkedFolderRemoveMessage', {
+            path: confirmRemoveFolder,
+          })}
+          confirmText={t('knowledge.settings.linkedFolderRemove')}
+          cancelText={t('knowledge.cancel')}
+          confirmVariant="danger"
+          loading={folderBusyPath === confirmRemoveFolder}
+          onConfirm={() => void handleConfirmRemoveLinkedFolder()}
+          onCancel={() => {
+            if (!folderBusyPath) setConfirmRemoveFolder(null);
+          }}
+        />
+      )}
 
       {confirmDelete && (
         <ConfirmDialog
