@@ -258,6 +258,7 @@ impl KnowledgeStore {
                         metadata: BTreeMap::new(),
                     },
                     ingest: None,
+                    linked: None,
                     curation_pending: false,
                 }
             };

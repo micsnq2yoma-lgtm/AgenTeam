@@ -32,6 +32,7 @@ use crate::knowledge::{store::KnowledgeStore, types::KnowledgeErrorCode};
 use crate::workspace_files::path_safety::validate_workspace_root;
 use crate::{ulog_error, ulog_info, ulog_warn};
 
+pub(crate) use file_indexer::SKIP_DIRS as FILE_INDEX_SKIP_DIRS;
 pub use knowledge_indexer::{
     KnowledgeSearchFilters, KnowledgeSearchHit, KnowledgeSearchResult, KnowledgeSearchStatus,
 };

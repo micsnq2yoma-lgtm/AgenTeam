@@ -70,7 +70,7 @@ pub(crate) fn source_limit(path: &Path) -> Result<u64, ConversionError> {
 
 /// Runs on the ingestion manager's blocking worker. The caller owns `stage`
 /// until the Store commits it and must discard that whole attempt on any error.
-pub(super) fn convert(
+pub(crate) fn convert(
     original: &Path,
     stage: &Path,
     documents: Option<&ManagedDocumentProcessing>,
@@ -162,7 +162,7 @@ fn check_cancelled(cancelled: &AtomicBool) -> Result<(), ConversionError> {
     }
 }
 
-fn decode_text(bytes: Vec<u8>) -> Result<String, ConversionError> {
+pub(crate) fn decode_text(bytes: Vec<u8>) -> Result<String, ConversionError> {
     if bytes.starts_with(&[0xff, 0xfe, 0, 0]) || bytes.starts_with(&[0, 0, 0xfe, 0xff]) {
         return Err(INVALID_TEXT);
     }

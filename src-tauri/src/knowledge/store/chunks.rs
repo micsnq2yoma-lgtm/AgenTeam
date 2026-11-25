@@ -152,6 +152,7 @@ impl KnowledgeStore {
         reference: &KnowledgeRef,
         source: &KnowledgeSource,
         original_extension: Option<&str>,
+        linked_folder_root: Option<&Path>,
         source_dir: &Path,
     ) -> StoreResult<(
         Option<ResolvedFragment>,
@@ -244,6 +245,7 @@ impl KnowledgeStore {
         let preview = resolve_preview_target(
             source,
             original_extension,
+            linked_folder_root,
             source_dir,
             resolved_page,
             utf16_range,
@@ -317,9 +319,25 @@ fn normalize_preview_path(path: PathBuf) -> String {
         .into_owned()
 }
 
+fn resolve_linked_original_no_follow(
+    folder_root: &Path,
+    current_path: &Path,
+) -> Option<PathBuf> {
+    let rel = current_path.strip_prefix(folder_root).ok()?;
+    let rel_str = rel.to_str()?;
+    let (resolved, _file) = crate::workspace_files::path_safety::open_workspace_regular_file_no_follow_classified(
+        folder_root,
+        rel_str,
+        "linked knowledge preview",
+    )
+    .ok()?;
+    Some(resolved)
+}
+
 fn resolve_preview_target(
     source: &KnowledgeSource,
     original_extension: Option<&str>,
+    linked_folder_root: Option<&Path>,
     source_dir: &Path,
     page: Option<u32>,
     utf16_range: Option<[usize; 2]>,
@@ -327,10 +345,55 @@ fn resolve_preview_target(
 ) -> Option<ResolvedPreview> {
     let valid_ext = original_extension
         .filter(|ext| !ext.is_empty() && ext.bytes().all(|b| b.is_ascii_alphanumeric()));
-    let original_path =
-        valid_ext.and_then(|ext| regular_child_no_follow(source_dir, &format!("original.{ext}")));
     let content_path = regular_child_no_follow(source_dir, "content.md");
     let display_name = source.display_title().to_string();
+
+    if source.facts.kind == SourceKind::LinkedFile {
+        if let (Some(root), Some(current)) = (linked_folder_root, source.facts.current_path.as_deref())
+        {
+            if let Some(verified) = resolve_linked_original_no_follow(root, current) {
+                let ext = valid_ext.or_else(|| {
+                    verified.extension().and_then(|e| e.to_str())
+                });
+                if ext.is_some_and(|e| !is_plain_text_extension(e)) {
+                    return Some(ResolvedPreview {
+                        path: normalize_preview_path(verified),
+                        name: display_name,
+                        is_content_fallback: false,
+                        page,
+                        utf16_range: None,
+                        line_number: None,
+                    });
+                }
+                let coordinates_match = source
+                    .facts
+                    .content_hash
+                    .as_deref()
+                    .is_some_and(|hash| file_sha256_matches(&verified, hash));
+                if coordinates_match || content_path.is_none() {
+                    return Some(ResolvedPreview {
+                        path: normalize_preview_path(verified),
+                        name: display_name,
+                        is_content_fallback: false,
+                        page,
+                        utf16_range: if coordinates_match { utf16_range } else { None },
+                        line_number: if coordinates_match { line_number } else { None },
+                    });
+                }
+            }
+        }
+        return content_path.map(|content| ResolvedPreview {
+            path: normalize_preview_path(content),
+            name: display_name,
+            is_content_fallback: true,
+            page,
+            utf16_range,
+            line_number,
+        });
+    }
+
+    let original_path =
+        valid_ext.and_then(|ext| regular_child_no_follow(source_dir, &format!("original.{ext}")));
 
     if let (Some(ext), Some(original)) = (valid_ext, original_path) {
         if !is_plain_text_extension(ext) {

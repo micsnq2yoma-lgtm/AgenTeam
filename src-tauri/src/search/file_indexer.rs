@@ -38,7 +38,7 @@ use super::tokenizer;
 use super::util::{byte_to_utf16, ceil_char_boundary, floor_char_boundary};
 
 /// Directories to skip when scanning workspace files.
-const SKIP_DIRS: &[&str] = &[
+pub(crate) const SKIP_DIRS: &[&str] = &[
     "node_modules",
     ".git",
     "__pycache__",
