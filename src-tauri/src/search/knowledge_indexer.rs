@@ -76,7 +76,7 @@ pub struct KnowledgeSearchFilters {
     pub doc_type: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeSearchHit {
     pub reference: String,
@@ -91,9 +91,14 @@ pub struct KnowledgeSearchHit {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KnowledgeSearchResult {
     pub mode: &'static str,
     pub hits: Vec<KnowledgeSearchHit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bm25_hits: Option<Vec<KnowledgeSearchHit>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vector_hits: Option<Vec<KnowledgeSearchHit>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -706,6 +711,8 @@ impl IndexState {
         let mut response = KnowledgeSearchResult {
             mode: "bm25",
             hits: Vec::new(),
+            bm25_hits: None,
+            vector_hits: None,
         };
         if kb_ids.is_empty() {
             return Ok(response);

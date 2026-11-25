@@ -319,9 +319,14 @@ pub async fn cmd_kb_search(
         .try_state::<Arc<SearchEngine>>()
         .map(|s| Arc::clone(s.inner()))
         .ok_or(KnowledgeErrorCode::KbStoreUnavailable)?;
-    search
+    let mut result = search
         .search_knowledge(Arc::clone(state.inner()), kb_ids, queries, filters, limit)
-        .await
+        .await?;
+    result.bm25_hits = Some(result.hits.clone());
+    if result.vector_hits.is_none() {
+        result.vector_hits = Some(Vec::new());
+    }
+    Ok(result)
 }
 
 #[tauri::command]

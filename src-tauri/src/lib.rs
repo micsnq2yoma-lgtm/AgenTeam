@@ -1664,6 +1664,10 @@ pub fn run() {
                     Arc::clone(&store),
                     data_dir.clone(),
                 ));
+                let vector_index = Arc::new(knowledge::vector_index::KnowledgeVectorIndex::new(
+                    data_dir.clone(),
+                ));
+                app.manage(vector_index);
                 match knowledge::model_pack::KnowledgeModelPackManager::initialize(
                     data_dir.join("models").join("knowledge"),
                 ) {
