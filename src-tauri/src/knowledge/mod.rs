@@ -4,7 +4,6 @@ pub(crate) mod curator_task;
 pub mod embedding;
 pub mod ingest;
 pub mod linked;
-pub mod model_pack;
 pub mod online_embedding;
 pub mod organize;
 pub(crate) mod read;

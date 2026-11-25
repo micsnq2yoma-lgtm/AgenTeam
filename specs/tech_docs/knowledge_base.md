@@ -335,29 +335,21 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
   - 每项展示操作类型、理由、外链风险与 Git 风险标记，支持逐项勾选、「仅选安全项 / 全部接受 / 全不选」快捷操作、行内目标路径编辑（`overrideTargetRel`）与拒绝方案（`ConfirmDialog`）；
   - 批准后自动触发执行并展示执行进度、部分完成汇总与逐项错误原因（如 `FILE_IN_USE`），对已执行方案提供经 `ConfirmDialog` 确认的一键逆序撤销与跳过已修改文件提示。
 
-## K16 嵌入模型包管理（`KnowledgeModelPackManager`）
+## K21 在线嵌入模型（取代原 K16/K17 本地嵌入方案）
 
-`KnowledgeModelPackManager`（`src-tauri/src/knowledge/model_pack.rs`）复用语音模型包的信任与发布机制，独立负责本地嵌入权重包的安装、校验、原子激活与卸载（仅管理数据文件，推理引擎与协议留在应用签名包内）：
+原 K16（本地嵌入模型包 `KnowledgeModelPackManager`）与 K17（Document Worker `embed` 作业及 `ComputeWorkloadKind::KnowledgeEmbedding`）已退役，改为统一的在线嵌入模型路径（语音转写与共享 ONNX Runtime / OCR 保持不变）：
 
-- **内建 Source Lock 与模型选型**：`embedding-model-pack-source-lock.json` 编译期固化默认本地嵌入模型包为 **Qwen3-Embedding-0.6B（int8 ONNX）**（`packId = local-knowledge-embedding-qwen3-0.6b-int8`、`packRevision = kb-embed-qwen3-0.6b-int8-v1`、`dimension = 1024`、`maxTokens = 8192`、`pooling = last_token`、`normalize = true`），并锁定官方下载域名 `download.myagents.io`、1 GiB 下载硬上限、Minisign 分离签名策略与文件白名单（`models/embedding/model.int8.onnx`、`models/embedding/tokenizer.json`、`legal/LICENSE.txt`）。
-- **信任校验与原子发布**：在线安装与离线本地包导入均执行相同的安全流水线：官方 HTTPS 域名校验（禁止重定向、禁止凭据 URL）→ 复用 `resource_signature::verify_minisign_bytes`（上游资源公钥 `upstream-resources.pub`）验证 `manifest.json.minisig` → 比对编译期 source lock（`packId`、维度、文件白名单、路径安全）→ 写入 `private/<uuid>/` 并逐文件校验字节大小与 SHA-256 → 原子移入 `packs/<revision>/` → 通过 `write_workspace_file_no_follow` 原子发布 `active.json`。
-- **启动复验与安全降级**：启动时自动清理 `private/` 残留并重新校验 `active.json`、`manifest.json` 签名及磁盘权重 SHA-256；若未安装、已卸载或磁盘文件被篡改，`active_pack()` 返回 `None` 且 `usable = false`，检索层自动安全降级为 BM25 而不崩溃。
-- **桌面控制面命令**：注册仅面向用户的 4 个 Tauri 命令（`cmd_kb_embedding_pack_status`、`cmd_kb_embedding_pack_install`、`cmd_kb_embedding_pack_install_local`、`cmd_kb_embedding_pack_remove`），不暴露至 Management API / CLI。
+- **配置与零填写发现**：`config.json` 中 `embeddingModel` 存储 `{ enabled, providerId, model, dimensions? }`，地址与 API Key 复用所选供应商。已登录 TokenDance 时直接通过运行时 `fetchProviderEmbeddingModels` 发现向量模型（默认推荐 `qwen-text-embedding-v4`，1024 维），也支持任意自定义 OpenAI 兼容供应商（强校验 `https://` 或回环 `http://`，禁止凭据 URL 与重定向）。
+- **在线嵌入服务（`src-tauri/src/knowledge/online_embedding.rs`）**：`KnowledgeEmbeddingService` 每次调用实时读取磁盘配置，外部请求经 `proxy_config::build_client_with_proxy_for_provider`（回环走 `local_http`），429/5xx 指数退避（尊重 `Retry-After`），401/402/403/404 不重试，日志与错误严格脱敏（绝不输出 API Key、文本块或查询文本），浮点向量复用 `quantize_l2_int8` 量化为 int8。
+- **导入后置嵌入阶段（`src-tauri/src/knowledge/ingest/embedding_stage.rs`）**：由 `KnowledgeIngestManager` 持有队列与状态（`pending | embedding | ready | failed | skipped`），每批 ≤ 64 块 / ≤ 100k 字符、并发度 2；重启按 `(model_revision, chunk_content_hash)` 幂等续跑；切换模型/主机/维度按 `generation` 原子切换并清理旧版本目录；删资料/删库立即取消并移除向量。
 
-## K17 Document Worker `embed` 作业与算力租约
-
-复用现有 `myagents-document-worker`（不新增进程类型），通过协议帧 `StartEmbed` / `EmbedCompleted` 扩展批量嵌入能力，并与 OCR/ASR 共用同一把重算力租约：
-
-- **Worker 侧（`src-tauri/document-worker/src/embed.rs`）**：遵守单 workload、不持久化业务状态、不联网约束。接收最多 256 条切块（单条 ≤ 32 KiB），校验模型/分词器/ONNX Runtime 路径非符号链接后经 `ort` 动态加载运行推理，按配置执行 `last_token` 或 `mean` 池化与 L2 归一化，输出对称 int8 标量量化向量（`vector: Vec<i8>` + `scale: f32`），支持随时响应 `Cancel` 帧中止。
-- **Host 侧（`src-tauri/src/knowledge/embedding.rs` + `local_inference.rs`）**：在 `ComputeWorkloadKind` 新增 `KnowledgeEmbedding`（与 `DocumentOcr` / `AgentAttachmentAsr` 同级，让位于 `RecordLive` / `RecordBackfill` / `RecordDiarization`）。`KnowledgeEmbeddingClient::embed_batch` 先校验 `KnowledgeModelPackManager::active_pack()`（未安装或已卸载时直接返回 `KB_STORE_UNAVAILABLE` 供检索层无声降级回 BM25），再向 `LocalComputeCoordinator` 申请重算力租约并在租约保护下派发单次 Worker 进程（通过 `crate::process_cmd::new` 启动，避免 Windows 控制台闪烁）。
-
-## K18 向量索引与混合检索（RRF）
+## K18 向量索引与混合检索（RRF，由 K21-c 接入全链路）
 
 `KnowledgeVectorIndex`（`src-tauri/src/knowledge/vector_index.rs`）为每个知识库持久化派生 int8 向量投影，并与 Tantivy BM25 通过 RRF 融合提供混合检索：
 
-- **存储布局与缓存键**：持久化于 `<app-data>/knowledge/<kb-id>/vectors/<model-revision>/entries.json` 与原子指针 `<kb-id>/vectors/active.json`（含单调递增 `generation`）。缓存键为 `(model_revision, chunk_content_hash)`，文件移动/改名保持 `chunk_content_hash` 不变、零重嵌；切换模型版本时后台构建新版本并原子翻动 `active.json`。
-- **BM25 + 向量 RRF 与降级策略**：`fuse_bm25_and_vector_rrf` 按 `score = Σ 1/(60 + rank)` 融合并维持每源最多 3 条去重上限。未安装本地嵌入模型、模型被卸载或向量索引为空时自动返回 `mode = "bm25"` 且零报错；向量就绪时返回 `mode = "hybrid"`。
-- **检索测试页三列对比**：`KnowledgeSearchResult` 新增可选的 `bm25Hits` 与 `vectorHits`；`KnowledgeSearchTab` 新增「三列对比」切换按钮，可并排查看 BM25 词法、向量语义（降级时显示提示）与 RRF 混合结果。
+- **存储布局与缓存键**：持久化于 `<app-data>/knowledge/<kb-id>/vectors/<model-revision>/entries.json` 与原子指针 `<kb-id>/vectors/active.json`（含单调递增 `generation`）。缓存键为 `(model_revision, chunk_content_hash)`，文件移动/改名保持 `chunk_content_hash` 不变、零重嵌；切换模型版本时后台构建新版本并原子翻动 `active.json`，切换成功后清理旧版本目录。
+- **BM25 + 向量 RRF 与降级策略**：`SearchEngine::search_knowledge` 统一经 `search_hybrid` 执行 BM25 召回 + 查询向量嵌入（5 秒硬超时 + 64 条 SHA-256 键 LRU 缓存）+ `KnowledgeVectorIndex::search_top_k` + `fuse_bm25_and_vector_rrf`（`score = Σ 1/(60 + rank)`，每源最多 3 条）。未启用、无向量、请求失败、超时或被限制模式拒绝时自动降级返回 `mode = "bm25"` 与可选 `degradedReason`，检索命令绝不因嵌入失败报错。
+- **检索测试页三列对比**：`KnowledgeSearchResult` 包含 `bm25Hits`、`vectorHits` 与 `degradedReason`；`KnowledgeSearchTab` 支持并排对比 BM25 词法、向量语义与 RRF 混合结果，并在降级时清晰展示原因。
 
 ## K19 URL 导入
 

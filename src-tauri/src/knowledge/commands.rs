@@ -12,7 +12,6 @@ use super::ingest::{
     SourceEmbeddingProgress,
 };
 use super::linked::{KnowledgeLinkedManager, LinkedFolderScanSummary};
-use super::model_pack::{KnowledgeModelPackManager, KnowledgeModelPackStatus};
 use super::online_embedding::{EmbeddingConnectionTestResult, KnowledgeEmbeddingService};
 use super::organize::{ApprovalDecision, KnowledgeOrganizeManager, OrganizePlan, UndoReport};
 use super::store::ingest::IngestJob;
@@ -616,17 +615,6 @@ pub async fn cmd_kb_import_url(
     super::url_import::import_url_into_kb(Arc::clone(state.inner()), kb_id, url).await
 }
 
-/// User-only local embedding model pack status (K16).
-#[tauri::command]
-pub async fn cmd_kb_embedding_pack_status(
-    state: State<'_, Arc<KnowledgeModelPackManager>>,
-) -> StoreResult<KnowledgeModelPackStatus> {
-    let manager = Arc::clone(state.inner());
-    spawn_blocking(move || Ok(manager.status()))
-        .await
-        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
-}
-
 /// Online embedding progress summary for a knowledge base (K21-b).
 #[tauri::command]
 pub async fn cmd_kb_embedding_summary(
@@ -661,38 +649,6 @@ pub async fn cmd_kb_retry_embedding(
 ) -> StoreResult<()> {
     let manager = Arc::clone(ingest.inner());
     spawn_blocking(move || manager.retry_embedding(&kb_id, source_id.as_deref()))
-        .await
-        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
-}
-
-/// User-only local embedding model pack remote install (K16).
-#[tauri::command]
-pub async fn cmd_kb_embedding_pack_install(
-    state: State<'_, Arc<KnowledgeModelPackManager>>,
-) -> StoreResult<KnowledgeModelPackStatus> {
-    let manager = Arc::clone(state.inner());
-    manager.install_remote().await
-}
-
-/// User-only local embedding model pack offline bundle install (K16).
-#[tauri::command]
-pub async fn cmd_kb_embedding_pack_install_local(
-    state: State<'_, Arc<KnowledgeModelPackManager>>,
-    bundle_dir: PathBuf,
-) -> StoreResult<KnowledgeModelPackStatus> {
-    let manager = Arc::clone(state.inner());
-    spawn_blocking(move || manager.install_from_local_bundle(&bundle_dir))
-        .await
-        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
-}
-
-/// User-only local embedding model pack removal (K16, degrades retrieval cleanly to BM25).
-#[tauri::command]
-pub async fn cmd_kb_embedding_pack_remove(
-    state: State<'_, Arc<KnowledgeModelPackManager>>,
-) -> StoreResult<KnowledgeModelPackStatus> {
-    let manager = Arc::clone(state.inner());
-    spawn_blocking(move || manager.remove())
         .await
         .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
 }

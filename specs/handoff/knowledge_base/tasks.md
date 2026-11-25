@@ -444,11 +444,12 @@ K19 URL 导入；K20 全局搜索「知识库」分类
   - 默认不勾选"会影响 Markdown 链接"的项 `[自动]`
   - M4 阶段验收场景通过 `[手动]`
 
-### K16–K18 语义检索
+### K16–K18 语义检索（已由 K21 在线嵌入模型取代 K16/K17）
 
-- **K16 嵌入模型包**：复用 speech model pack 的 source lock、签名清单、R2、`active.json` 机制；先由验收者根据 K11 评测在 Qwen3-Embedding-0.6B 和 bge-m3 之间定型。
-- **K17 Document Worker `embed` job**：批量输入 chunk、输出 int8 向量；经 `LocalComputeCoordinator` 取得 lease；遵守 Worker"单 workload、不持久化、不联网"的约束。
-- **K18 向量索引与混合检索**：`vectors/<model-revision>/`；BM25 + 向量 RRF；换模型时后台重嵌并按 generation 切换；降级策略；检索测试页三列对比。
+- **K16 嵌入模型包**（已由 K21 取代并退役）：原本地权重包管理已移除。
+- **K17 Document Worker `embed` job**（已由 K21 取代并退役）：原本地嵌入算力租约与 Worker `embed` 帧已移除；保留共享 `ort`（供 OCR/语音）与 `quantize_l2_int8` / `cosine_similarity_int8`。
+- **K18 向量索引与混合检索**（保留并由 K21 接线）：`vectors/<model-revision>/`；BM25 + 向量 RRF；换模型时后台按 generation 原子切换并清理旧版本；降级策略与 `degradedReason`；检索测试页真实三列对比。
+- **K21 在线嵌入模型**：详见 `specs/handoff/knowledge_base/online-embedding.md`（K21-0 ~ K21-e）。
 - **关键验收**：K11 评测里"关键词不重合"那部分查询的 Recall@8 比 BM25 基线提升 ≥ 0.15，整体指标不下降；混合检索 p95 < 300 ms（10k chunk，参考机型）；卸载模型后自动降级且不报错 `[自动]` / `[手动]`。
 
 ### K19 URL 导入、K20 全局搜索分类
