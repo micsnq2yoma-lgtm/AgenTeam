@@ -825,6 +825,11 @@ pub fn run() {
             knowledge::commands::cmd_kb_remove_linked_folder,
             knowledge::commands::cmd_kb_update_linked_folder,
             knowledge::commands::cmd_kb_scan_linked_folder,
+            knowledge::commands::cmd_kb_organize_list,
+            knowledge::commands::cmd_kb_organize_get,
+            knowledge::commands::cmd_kb_organize_approve,
+            knowledge::commands::cmd_kb_organize_execute,
+            knowledge::commands::cmd_kb_organize_undo,
             // Canonical Record commands.
             record::cmd_record_create,
             record::cmd_record_list,
@@ -1651,13 +1656,21 @@ pub fn run() {
                     Arc::clone(&store),
                     document_processing::global().cloned(),
                 ));
+                let organize = Arc::new(knowledge::organize::KnowledgeOrganizeManager::new(
+                    Arc::clone(&store),
+                    data_dir.clone(),
+                ));
                 app.manage(Arc::clone(&store));
                 app.manage(Arc::clone(&ingest));
                 app.manage(Arc::clone(&linked));
+                app.manage(Arc::clone(&organize));
                 knowledge::commands::spawn_ui_event_forwarder(app.handle().clone(), store);
                 tauri::async_runtime::spawn_blocking(move || {
                     if let Err(code) = ingest.recover() {
                         ulog_error!("[knowledge] ingest recovery failed code={:?}", code);
+                    }
+                    if let Err(code) = organize.recover_interrupted_plans() {
+                        ulog_error!("[knowledge] organize crash recovery failed code={:?}", code);
                     }
                     if let Err(code) = linked.start() {
                         ulog_error!("[knowledge] linked folder watcher start failed code={:?}", code);

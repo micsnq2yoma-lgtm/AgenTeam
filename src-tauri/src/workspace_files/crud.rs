@@ -4,14 +4,338 @@
 //! undo). The DirectoryPanel calls the same `cmd_workspace_delete`.
 
 use std::fs;
-use std::path::Path;
+use std::io::ErrorKind;
+use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
+use uuid::Uuid;
 
 use super::path_safety::{
-    reject_managed_global_skill_mutation, resolve_inside_workspace, validate_item_name,
-    validate_workspace_root,
+    metadata_is_link_like, reject_managed_global_skill_mutation, resolve_inside_workspace,
+    validate_item_name, validate_workspace_root,
 };
+
+/// Structured error returned by strict workspace mutation helpers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum StrictFsError {
+    Conflict(String),
+    NotFound(String),
+    InUse(String),
+    CrossDevice(String),
+    InvalidPath(String),
+    Io(String),
+}
+
+impl std::fmt::Display for StrictFsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Conflict(m)
+            | Self::NotFound(m)
+            | Self::InUse(m)
+            | Self::CrossDevice(m)
+            | Self::InvalidPath(m)
+            | Self::Io(m) => f.write_str(m),
+        }
+    }
+}
+
+const WINDOWS_RESERVED_STEMS: &[&str] = &[
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
+const MAX_STRICT_SEGMENT_BYTES: usize = 255;
+const MAX_STRICT_RELATIVE_CHARS: usize = 200;
+const MAX_STRICT_FULL_PATH_CHARS: usize = 240;
+
+/// Validate a relative path for cross-platform strict physical mutations:
+/// rejects traversal (`..`), absolute paths, control/forbidden characters,
+/// Windows reserved device names (`CON`, `aux.txt`, etc.), trailing dots or spaces,
+/// and excessive segment/path lengths.
+pub(crate) fn validate_strict_relative_path(relative: &str) -> Result<Vec<String>, StrictFsError> {
+    if relative.is_empty() || relative.trim().is_empty() {
+        return Err(StrictFsError::InvalidPath(
+            "Relative path cannot be empty".to_string(),
+        ));
+    }
+    if relative.chars().count() > MAX_STRICT_RELATIVE_CHARS {
+        return Err(StrictFsError::InvalidPath(
+            "Relative path exceeds maximum safe length".to_string(),
+        ));
+    }
+    if relative.starts_with('/') || relative.starts_with('\\') {
+        return Err(StrictFsError::InvalidPath(
+            "Path must be relative".to_string(),
+        ));
+    }
+    let normalized = relative.replace('\\', "/");
+    let mut segments = Vec::new();
+    for raw_seg in normalized.split('/') {
+        if raw_seg.is_empty() || raw_seg == "." || raw_seg == ".." {
+            return Err(StrictFsError::InvalidPath(format!(
+                "Invalid path segment in '{}'",
+                relative
+            )));
+        }
+        if raw_seg.len() > MAX_STRICT_SEGMENT_BYTES {
+            return Err(StrictFsError::InvalidPath(format!(
+                "Path segment too long: '{}'",
+                raw_seg
+            )));
+        }
+        if raw_seg.ends_with('.') || raw_seg.ends_with(' ') {
+            return Err(StrictFsError::InvalidPath(format!(
+                "Path segment cannot end with dot or space: '{}'",
+                raw_seg
+            )));
+        }
+        if raw_seg.chars().any(|c| {
+            (c as u32) < 0x20 || matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*')
+        }) {
+            return Err(StrictFsError::InvalidPath(format!(
+                "Path segment contains forbidden characters: '{}'",
+                raw_seg
+            )));
+        }
+        let stem = raw_seg
+            .split('.')
+            .next()
+            .unwrap_or(raw_seg)
+            .to_ascii_uppercase();
+        if WINDOWS_RESERVED_STEMS.contains(&stem.as_str()) {
+            return Err(StrictFsError::InvalidPath(format!(
+                "Path segment uses reserved Windows device name: '{}'",
+                raw_seg
+            )));
+        }
+        validate_item_name(raw_seg).map_err(StrictFsError::InvalidPath)?;
+        segments.push(raw_seg.to_string());
+    }
+    if segments.is_empty() {
+        return Err(StrictFsError::InvalidPath(
+            "Relative path cannot be empty".to_string(),
+        ));
+    }
+    Ok(segments)
+}
+
+fn ensure_no_link_components(workspace_root: &Path, target: &Path) -> Result<(), StrictFsError> {
+    let rel = target.strip_prefix(workspace_root).map_err(|_| {
+        StrictFsError::InvalidPath("Path escapes workspace root".to_string())
+    })?;
+    let mut cursor = workspace_root.to_path_buf();
+    for comp in rel.components() {
+        match comp {
+            Component::Normal(part) => {
+                cursor.push(part);
+                match fs::symlink_metadata(&cursor) {
+                    Ok(meta) => {
+                        if metadata_is_link_like(&meta) {
+                            return Err(StrictFsError::InvalidPath(format!(
+                                "Symlink or junction refused: {}",
+                                cursor.display()
+                            )));
+                        }
+                    }
+                    Err(err) if err.kind() == ErrorKind::NotFound => break,
+                    Err(err) => return Err(StrictFsError::Io(err.to_string())),
+                }
+            }
+            Component::CurDir => {}
+            _ => {
+                return Err(StrictFsError::InvalidPath(
+                    "Invalid path component".to_string(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn classify_rename_io_error(error: std::io::Error) -> StrictFsError {
+    if let Some(raw) = error.raw_os_error() {
+        #[cfg(windows)]
+        {
+            // ERROR_SHARING_VIOLATION (32), ERROR_LOCK_VIOLATION (33)
+            if raw == 32 || raw == 33 {
+                return StrictFsError::InUse(format!("File is in use by another process ({raw})"));
+            }
+            // ERROR_NOT_SAME_DEVICE (17)
+            if raw == 17 {
+                return StrictFsError::CrossDevice(
+                    "Cross-volume move is not supported".to_string(),
+                );
+            }
+        }
+        #[cfg(unix)]
+        {
+            if raw == libc::EXDEV {
+                return StrictFsError::CrossDevice(
+                    "Cross-volume move is not supported".to_string(),
+                );
+            }
+        }
+    }
+    match error.kind() {
+        ErrorKind::NotFound => StrictFsError::NotFound(error.to_string()),
+        ErrorKind::AlreadyExists => StrictFsError::Conflict(error.to_string()),
+        ErrorKind::PermissionDenied => StrictFsError::InUse(error.to_string()),
+        _ => StrictFsError::Io(error.to_string()),
+    }
+}
+
+fn is_case_only_rename(source: &Path, destination: &Path) -> bool {
+    if source.parent() != destination.parent() {
+        return false;
+    }
+    match (
+        source.file_name().and_then(|n| n.to_str()),
+        destination.file_name().and_then(|n| n.to_str()),
+    ) {
+        (Some(src_name), Some(dst_name)) => {
+            src_name != dst_name && src_name.eq_ignore_ascii_case(dst_name)
+        }
+        _ => false,
+    }
+}
+
+/// Strict mkdir inside `workspace_root`: refuses symlinks/junctions, reserved names,
+/// traversal, over-length paths, and existing slots (no overwrite).
+pub(crate) fn strict_mkdir(
+    workspace_root: &Path,
+    relative: &str,
+) -> Result<PathBuf, StrictFsError> {
+    let segments = validate_strict_relative_path(relative)?;
+    let normalized_rel = segments.join("/");
+    let target = resolve_inside_workspace(workspace_root, &normalized_rel)
+        .map_err(StrictFsError::InvalidPath)?;
+    if target.to_string_lossy().chars().count() > MAX_STRICT_FULL_PATH_CHARS {
+        return Err(StrictFsError::InvalidPath(
+            "Target directory path exceeds maximum safe length".to_string(),
+        ));
+    }
+    reject_managed_global_skill_mutation(workspace_root, &target)
+        .map_err(StrictFsError::InvalidPath)?;
+    ensure_no_link_components(workspace_root, &target)?;
+    if slot_occupied(&target) {
+        return Err(StrictFsError::Conflict(format!(
+            "Target already exists: {}",
+            normalized_rel
+        )));
+    }
+    fs::create_dir_all(&target).map_err(|e| StrictFsError::Io(e.to_string()))?;
+    if let Some(parent) = target.parent() {
+        let _ = crate::durable_fs::sync_directory(parent);
+    }
+    Ok(target)
+}
+
+/// Core strict move/rename primitive shared by `strict_move_or_rename` and `cmd_workspace_move`.
+/// Never overwrites an existing target, never auto-renames, never moves cross-volume, and
+/// handles case-only renames via a two-step temporary sibling when `allow_case_only_two_step` is true.
+fn move_entry_strict_paths(
+    workspace_root: &Path,
+    resolved_src: &Path,
+    destination: &Path,
+    allow_case_only_two_step: bool,
+) -> Result<(), StrictFsError> {
+    if !slot_occupied(resolved_src) {
+        return Err(StrictFsError::NotFound(format!(
+            "Source not found: {}",
+            resolved_src.display()
+        )));
+    }
+    reject_managed_global_skill_mutation(workspace_root, resolved_src)
+        .map_err(StrictFsError::InvalidPath)?;
+    reject_managed_global_skill_mutation(workspace_root, destination)
+        .map_err(StrictFsError::InvalidPath)?;
+    if destination.starts_with(resolved_src) {
+        return Err(StrictFsError::InvalidPath(
+            "Cannot move folder into itself or a descendant".to_string(),
+        ));
+    }
+    let Some(dst_parent) = destination.parent() else {
+        return Err(StrictFsError::InvalidPath(
+            "Target has no parent directory".to_string(),
+        ));
+    };
+    if !dst_parent.is_dir() {
+        return Err(StrictFsError::NotFound(format!(
+            "Target parent directory does not exist: {}",
+            dst_parent.display()
+        )));
+    }
+
+    if allow_case_only_two_step && is_case_only_rename(resolved_src, destination) {
+        let mut hop: Option<PathBuf> = None;
+        for _ in 0..8 {
+            let candidate = dst_parent.join(format!(".agenteam-case-{}", Uuid::new_v4().simple()));
+            if !slot_occupied(&candidate) {
+                hop = Some(candidate);
+                break;
+            }
+        }
+        let hop = hop.ok_or_else(|| {
+            StrictFsError::Io("Could not allocate temporary name for case-only rename".to_string())
+        })?;
+        fs::rename(resolved_src, &hop).map_err(classify_rename_io_error)?;
+        if let Err(err) = fs::rename(&hop, destination) {
+            let _ = fs::rename(&hop, resolved_src);
+            return Err(classify_rename_io_error(err));
+        }
+        let _ = crate::durable_fs::sync_directory(dst_parent);
+        return Ok(());
+    }
+
+    if slot_occupied(destination) {
+        return Err(StrictFsError::Conflict(format!(
+            "Target already exists: {}",
+            destination.display()
+        )));
+    }
+
+    fs::rename(resolved_src, destination).map_err(classify_rename_io_error)?;
+    let _ = crate::durable_fs::sync_directory(dst_parent);
+    if let Some(src_parent) = resolved_src.parent() {
+        if src_parent != dst_parent {
+            let _ = crate::durable_fs::sync_directory(src_parent);
+        }
+    }
+    Ok(())
+}
+
+/// Strict move or rename inside `workspace_root`:
+/// validates both relative paths, refuses symlinks/junctions, refuses overwriting an existing
+/// target, refuses cross-volume moves, and supports two-step case-only renames.
+pub(crate) fn strict_move_or_rename(
+    workspace_root: &Path,
+    source_rel: &str,
+    target_rel: &str,
+) -> Result<PathBuf, StrictFsError> {
+    let src_segments = validate_strict_relative_path(source_rel)?;
+    let dst_segments = validate_strict_relative_path(target_rel)?;
+    let src_norm = src_segments.join("/");
+    let dst_norm = dst_segments.join("/");
+    if src_norm == dst_norm {
+        return Err(StrictFsError::InvalidPath(
+            "Source and target paths are identical".to_string(),
+        ));
+    }
+
+    let resolved_src = resolve_inside_workspace(workspace_root, &src_norm)
+        .map_err(StrictFsError::InvalidPath)?;
+    let resolved_dst = resolve_inside_workspace(workspace_root, &dst_norm)
+        .map_err(StrictFsError::InvalidPath)?;
+    if resolved_dst.to_string_lossy().chars().count() > MAX_STRICT_FULL_PATH_CHARS {
+        return Err(StrictFsError::InvalidPath(
+            "Target path exceeds maximum safe length".to_string(),
+        ));
+    }
+    ensure_no_link_components(workspace_root, &resolved_src)?;
+    ensure_no_link_components(workspace_root, &resolved_dst)?;
+    move_entry_strict_paths(workspace_root, &resolved_src, &resolved_dst, true)?;
+    Ok(resolved_dst)
+}
 
 /// Symlink-aware existence probe. `Path::exists()` follows symlinks, which
 /// returns `false` for a broken symlink — see pit_of_success.md#fs-utils (v0.2.5). For
@@ -252,7 +576,8 @@ pub async fn cmd_workspace_move(
             continue;
         }
 
-        if let Err(e) = fs::rename(&resolved_src, &destination) {
+        if let Err(e) = move_entry_strict_paths(&workspace_root, &resolved_src, &destination, false)
+        {
             errors.push(format!("Move {} failed: {}", trimmed, e));
             continue;
         }

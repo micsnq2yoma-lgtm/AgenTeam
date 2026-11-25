@@ -307,8 +307,17 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
 - **跨平台路径归一化**：Windows 统一剥离 `\\?\` 前缀并按大小写不敏感键匹配；macOS 统一剥离 APFS `/System/Volumes/Data` firmlink 前缀并按大小写不敏感键匹配；Linux 保持大小写敏感匹配。
 - **桌面控制面命令**：新增仅面向用户的 Tauri 命令 `cmd_kb_add_linked_folder`、`cmd_kb_remove_linked_folder`、`cmd_kb_update_linked_folder` 与 `cmd_kb_scan_linked_folder`（均不注册到 Management API / CLI）。
 
+## K13 物理整理内核（Rust）
+
+`KnowledgeOrganizeManager`（`src-tauri/src/knowledge/organize.rs`）是物理文件整理方案的唯一写入与执行 owner，持久化于 `<app-data>/knowledge/<kb-id>/organize/plans/<plan-id>/`（`plan.json` + 复用 `durable_journal::DurableRecordJournal` 的带校验和 `journal.jsonl`）。
+
+- **strict 原语与 `cmd_workspace_move` 共用**：`src-tauri/src/workspace_files/crud.rs` 抽出 `validate_strict_relative_path`、`strict_mkdir`、`strict_move_or_rename` 与底层 `move_entry_strict_paths`（不覆盖、不自动改名、不跨卷、拒绝符号链接/junction/保留名/末尾点或空格/超长路径、支持不区分大小写文件系统上的两步纯大小写重命名）。`cmd_workspace_move` 保持原有自动改名行为，底层复用同一 `move_entry_strict_paths`。
+- **方案校验与生命周期**：仅允许 `mkdir` / `move` / `rename`（不支持删除、跨卷），单方案上限 500 项。提议阶段拒绝越界路径、未授权文件夹（`organizeAllowed == false`）、未确认 Git 工作树（`isGitWorkTree && !gitConfirmed`）、`..`、符号链接/junction、Windows 保留名（`CON`、`aux.txt` 等）、末尾点/空格、超长路径、隐藏/凭据路径、目标已存在、空理由与目录移入自身；记录前置指纹与受影响的相对 Markdown 链接数（>0 时默认不勾选）。状态机覆盖 `pending_review → approved → executing → completed | partially_completed | interrupted` 及 `rejected`、`stale`（`pending_review` 超 7 天或前置指纹变更自动过期）。
+- **执行、崩溃恢复与撤销**：执行与撤销均先按确定序持有涉及文件夹的 `workspace_files::acquire_edit_mutation`；逐项执行顺序为 `Intent`（fsync）→ 复验前置指纹 → `strict` 原语执行（前置失配或目标已存在记 `conflict` 跳过、Windows 文件占用记 `FILE_IN_USE` 失败，其余项继续）→ 同一锁内更新 `source.json` 路径 → `Done`（fsync + 执行后指纹）。启动时 `recover_interrupted_plans` 扫描 `executing` 方案、回放日志并按磁盘事实补齐或收敛为 `interrupted`。撤销逆序回放 `Done` 条目，执行后被修改过的文件不撤销并列入 `skippedModified`。
+- **审批红线**：`cmd_kb_organize_approve`、`cmd_kb_organize_execute`、`cmd_kb_organize_undo` 仅作为 Tauri 桌面命令注册，Management API 路由表不包含这些端点（静态测试强制守护）。
+
 ## 待接入章节
 
-### K13–K15 物理整理与恢复
+### K14–K15 整理 CLI、curator 扩展与审阅 UI
 
 ### K16–K20 模型包、语义检索和其他来源

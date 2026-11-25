@@ -482,6 +482,83 @@ impl KnowledgeStore {
         })
     }
 
+    /// Update `current_path` (and `display_name`) for every `LinkedFile` source inside
+    /// `folder_root` matching `old_abs` (exact file or moved directory prefix) in one Store lock.
+    pub(crate) fn relink_moved_paths_under(
+        &self,
+        kb_id: &str,
+        folder_root: &Path,
+        old_abs: &Path,
+        new_abs: &Path,
+    ) -> StoreResult<usize> {
+        let root_key = platform_path_key(folder_root);
+        let old_norm = normalize_linked_path(old_abs);
+        let new_norm = normalize_linked_path(new_abs);
+        let old_key = platform_path_key(&old_norm);
+        let old_prefix = format!("{old_key}/");
+
+        self.locked_kb(kb_id, None, |files, _| {
+            let Some(parent) = files.source_parent(kb_id)? else {
+                return Ok(0);
+            };
+            files.recover_source_publications(&parent)?;
+            let mut updated = 0usize;
+            for id in ingest::valid_kb_source_folders(&parent)? {
+                let Some(mut record) = files.read_record(kb_id, &id)? else {
+                    continue;
+                };
+                if record.source.facts.kind != SourceKind::LinkedFile {
+                    continue;
+                }
+                let Some(meta) = &record.linked else {
+                    continue;
+                };
+                if platform_path_key(&meta.folder_root) != root_key {
+                    continue;
+                }
+                let Some(cur_path) = record.source.facts.current_path.as_deref() else {
+                    continue;
+                };
+                let cur_norm = normalize_linked_path(cur_path);
+                let cur_key = platform_path_key(&cur_norm);
+                let next_path = if cur_key == old_key {
+                    Some(new_norm.clone())
+                } else if cur_key.starts_with(&old_prefix) {
+                    let tail = cur_norm
+                        .strip_prefix(&old_norm)
+                        .ok()
+                        .map(Path::to_path_buf)
+                        .or_else(|| {
+                            let cur_slash = cur_norm.to_string_lossy().replace('\\', "/");
+                            let old_slash = old_norm.to_string_lossy().replace('\\', "/");
+                            let suffix = cur_slash
+                                .get(old_slash.len()..)
+                                .and_then(|s| s.strip_prefix('/'))?;
+                            Some(PathBuf::from(suffix))
+                        });
+                    tail.map(|rel| normalize_linked_path(&new_norm.join(rel)))
+                } else {
+                    None
+                };
+
+                if let Some(next_path) = next_path {
+                    if let Some(name) = next_path.file_name().map(|n| n.to_string_lossy().into_owned()) {
+                        record.source.display_name = Some(name);
+                    }
+                    record.source.facts.current_path = Some(next_path);
+                    files.write_json(&source_path(kb_id, &id), &record)?;
+                    let _ = self.changes.send(KnowledgeChange::MetadataChanged {
+                        kb_id: kb_id.into(),
+                        source_id: id.clone(),
+                    });
+                    self.emit_ui("metadata-changed", kb_id, Some(&id));
+                    updated += 1;
+                }
+            }
+            Ok(updated)
+        })
+    }
+
     /// Update only the file fingerprint when mtime changed without modifying file bytes.
     pub(crate) fn refresh_linked_fingerprint(
         &self,

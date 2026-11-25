@@ -9,6 +9,7 @@ use tokio::sync::broadcast::error::RecvError;
 use super::chunker::KnowledgeChunk;
 use super::ingest::{ImportFailure, ImportOutcome, KnowledgeIngestManager};
 use super::linked::{KnowledgeLinkedManager, LinkedFolderScanSummary};
+use super::organize::{ApprovalDecision, KnowledgeOrganizeManager, OrganizePlan, UndoReport};
 use super::store::ingest::IngestJob;
 use super::store::{
     KnowledgeBase, KnowledgeBasePatch, KnowledgeBaseStats, KnowledgeSource, KnowledgeSourceDetail,
@@ -431,6 +432,66 @@ pub async fn cmd_kb_scan_linked_folder(
     spawn_blocking(move || manager.scan_linked_folder(&kb_id, &path))
         .await
         .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+#[tauri::command]
+pub async fn cmd_kb_organize_list(
+    state: State<'_, Arc<KnowledgeOrganizeManager>>,
+    kb_id: String,
+) -> StoreResult<Vec<OrganizePlan>> {
+    let manager = Arc::clone(state.inner());
+    spawn_blocking(move || manager.list_plans(&kb_id))
+        .await
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+#[tauri::command]
+pub async fn cmd_kb_organize_get(
+    state: State<'_, Arc<KnowledgeOrganizeManager>>,
+    kb_id: String,
+    plan_id: String,
+) -> StoreResult<OrganizePlan> {
+    let manager = Arc::clone(state.inner());
+    spawn_blocking(move || manager.get_plan(&kb_id, &plan_id))
+        .await
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+/// User-only physical organize approval command (never exposed on Management API or CLI).
+#[tauri::command]
+pub async fn cmd_kb_organize_approve(
+    state: State<'_, Arc<KnowledgeOrganizeManager>>,
+    kb_id: String,
+    plan_id: String,
+    decision: Value,
+) -> StoreResult<OrganizePlan> {
+    let decision: ApprovalDecision = decode(decision)?;
+    let manager = Arc::clone(state.inner());
+    spawn_blocking(move || manager.approve_plan(&kb_id, &plan_id, decision))
+        .await
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+/// User-only physical organize execution command (never exposed on Management API or CLI).
+#[tauri::command]
+pub async fn cmd_kb_organize_execute(
+    state: State<'_, Arc<KnowledgeOrganizeManager>>,
+    kb_id: String,
+    plan_id: String,
+) -> StoreResult<OrganizePlan> {
+    let manager = Arc::clone(state.inner());
+    manager.execute_plan(&kb_id, &plan_id).await
+}
+
+/// User-only physical organize undo command (never exposed on Management API or CLI).
+#[tauri::command]
+pub async fn cmd_kb_organize_undo(
+    state: State<'_, Arc<KnowledgeOrganizeManager>>,
+    kb_id: String,
+    plan_id: String,
+) -> StoreResult<UndoReport> {
+    let manager = Arc::clone(state.inner());
+    manager.undo_plan(&kb_id, &plan_id).await
 }
 
 #[cfg(test)]
