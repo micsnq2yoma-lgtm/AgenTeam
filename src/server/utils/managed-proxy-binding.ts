@@ -4,6 +4,7 @@ import { cliproxySdkSystemPrompt } from '../../shared/cliproxy';
 import { completeModelAliases } from '../../shared/config-types';
 import type { ProviderEnv } from '../provider-types';
 import { assertRestrictedProvider } from '../egress-model-policy';
+import { admitModelTurn, builtinTurnNeedsAdmission, modelEgressHostsForProvider } from '../model-turn-admission';
 import { managementApi } from './management-api-client';
 
 export class ManagedProxyError extends Error {
@@ -85,8 +86,14 @@ export async function prepareProviderBinding(args: {
 }): Promise<PreparedProvider> {
   const { providerEnv, controller } = args;
   assertRestrictedProvider(providerEnv);
+  // Restricted mode: a provider without the per-request edge proof is admitted per turn instead.
+  const admitTurn = async (): Promise<void> => {
+    if (builtinTurnNeedsAdmission(providerEnv)) {
+      await admitModelTurn({ hosts: modelEgressHostsForProvider(providerEnv), providerId: providerEnv?.providerId }, controller.signal);
+    }
+  };
   if (!providerEnv?.endpointSource) {
-    return { providerEnv, beforeTurn: async () => {}, reportTerminal: async () => {}, release: async () => {} };
+    return { providerEnv, beforeTurn: admitTurn, reportTerminal: async () => {}, release: async () => {} };
   }
   if (providerEnv.providerId !== 'antigravity-sub'
     || providerEnv.endpointSource.kind !== 'cliproxy'
@@ -141,6 +148,7 @@ export async function prepareProviderBinding(args: {
       providerEnv: effective,
       async beforeTurn() {
         controller.signal.throwIfAborted();
+        await admitTurn();
         if (released || owner.draining) throw new ManagedProxyError('draining', '组件正在切换，请稍后重试');
         requireSuccess(await managementApi('/api/cliproxy/binding/check', 'POST', {
           sidecarId, operationId, leaseId: owner.binding!.leaseId,

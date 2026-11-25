@@ -6,6 +6,7 @@ import { ClaudeCodeRuntime } from './claude-code';
 import { AntigravityRuntime } from './antigravity';
 import { CodexRuntime } from './codex';
 import { DshRuntime } from '../integrated-runtimes/dsh/runtime';
+import { admitModelAccess, admitModelTurn, modelEgressHostsForRuntime } from '../model-turn-admission';
 
 // ─── Runtime registry ───
 
@@ -13,6 +14,35 @@ const runtimes: Partial<Record<RuntimeType, AgentRuntime>> = {};
 
 // Runtime types that have actual implementations
 const SUPPORTED_AGENT_RUNTIMES = new Set<RuntimeType>(['dsh', 'claude-code', 'codex', 'antigravity']);
+
+/**
+ * Restricted-mode admission for every external runtime in one place (design: proxy_config.md).
+ * A session start needs the host's egress verdict; each turn additionally needs fresh evidence and,
+ * where the provider's edge supports it, a matching edge-observed IP. Both are no-ops when no
+ * restriction is configured.
+ */
+function withModelAdmission(runtime: AgentRuntime, type: RuntimeType): AgentRuntime {
+  return new Proxy(runtime, {
+    get(target, prop) {
+      const value: unknown = Reflect.get(target, prop, target);
+      if (typeof value !== 'function') return value;
+      const method = value as (...args: unknown[]) => unknown;
+      if (prop === 'startSession') {
+        return async (...args: unknown[]) => {
+          await admitModelAccess();
+          return method.apply(target, args);
+        };
+      }
+      if (prop === 'sendMessage') {
+        return async (...args: unknown[]) => {
+          await admitModelTurn({ hosts: modelEgressHostsForRuntime(type) });
+          return method.apply(target, args);
+        };
+      }
+      return method.bind(target);
+    },
+  });
+}
 
 function ensureRuntime(type: RuntimeType): AgentRuntime {
   if (!runtimes[type]) {
@@ -32,6 +62,7 @@ function ensureRuntime(type: RuntimeType): AgentRuntime {
       default:
         throw new Error(`Runtime "${type}" is not yet supported. Available: ${[...SUPPORTED_AGENT_RUNTIMES].join(', ')}`);
     }
+    runtimes[type] = withModelAdmission(runtimes[type]!, type);
   }
   return runtimes[type]!;
 }

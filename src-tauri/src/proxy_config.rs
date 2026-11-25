@@ -51,14 +51,17 @@ pub(crate) fn stamp_model_egress_policy(cmd: &mut Command) {
     cmd.env("MYAGENTS_EGRESS_EXPECTED_IP", expected);
 }
 
-pub(crate) const UNVERIFIED_MODEL_EGRESS: &str =
-    "限制模式无法核验此模型连接的出口 IP。请使用内置 Claude Agent SDK 和 Anthropic 或 OpenAI 的官方 API Key。";
+pub(crate) const MODEL_EGRESS_LOCKED: &str =
+    "出口 IP 与限制模式的设置不一致或尚未核验，已暂停模型相关的网络访问。";
 
-pub(crate) fn ensure_unverified_provider_allowed() -> Result<(), String> {
-    if crate::egress_restriction::restriction_enabled() {
-        return Err(UNVERIFIED_MODEL_EGRESS.to_string());
-    }
-    Ok(())
+/// Model-related network work (provider HTTP, OAuth refresh, external runtime
+/// start, component login) is allowed in restricted mode only while the host's
+/// own egress check currently passes. The per-request provider-edge proof stays
+/// exclusive to the official API-key bridge; everything else is gated here and
+/// by the per-turn admission in the Sidecar. Losing the gate retires all
+/// Sidecars (see `egress_shell`).
+pub(crate) fn ensure_model_egress_admitted() -> Result<(), String> {
+    crate::egress_restriction::ensure_allowed().map_err(|_| MODEL_EGRESS_LOCKED.to_string())
 }
 
 const PROXY_ENV_KEYS: &[&str] = &[
@@ -487,7 +490,7 @@ pub fn build_client_with_proxy_for_provider(
     builder: reqwest::ClientBuilder,
     provider_id: &str,
 ) -> Result<reqwest::Client, String> {
-    ensure_unverified_provider_allowed()?;
+    ensure_model_egress_admitted()?;
     let final_builder = if let Some(proxy_settings) = read_proxy_settings_for_provider(provider_id)
     {
         let proxy_url = get_proxy_url(&proxy_settings)?;
@@ -523,7 +526,7 @@ pub fn build_blocking_client_with_proxy_for_provider(
     builder: reqwest::blocking::ClientBuilder,
     provider_id: &str,
 ) -> Result<reqwest::blocking::Client, String> {
-    ensure_unverified_provider_allowed()?;
+    ensure_model_egress_admitted()?;
     let final_builder = if let Some(proxy_settings) = read_proxy_settings_for_provider(provider_id)
     {
         let proxy_url = get_proxy_url(&proxy_settings)?;

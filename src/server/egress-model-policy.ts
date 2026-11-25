@@ -5,7 +5,6 @@ import { stripBom } from '../shared/utils';
 import type { ProviderEnv } from './provider-types';
 import { getHomeDirOrNull } from './utils/platform';
 
-export const UNVERIFIED_MODEL_EGRESS = '限制模式无法核验此模型连接的出口 IP。请使用内置 Claude Agent SDK 和 Anthropic 或 OpenAI 的官方 API Key。';
 const UNKNOWN_POLICY = '无法确认限制模式配置，已暂停模型请求。';
 const PROCESS_POLICY_CHANGED = '限制模式配置已变更，请等待客户端重新启动。';
 const birthExpectedIp = process.env.MYAGENTS_EGRESS_EXPECTED_IP;
@@ -45,20 +44,22 @@ export function getRestrictedModelExpectedIp(): string | null {
   return readModelEgressPolicy(join(home, '.agenteam', 'config.json'), birthExpectedIp);
 }
 
-export async function verifyNativeModelAdmission(expectedIp: string, signal: AbortSignal): Promise<void> {
+export async function verifyNativeModelAdmission(
+  expectedIp: string,
+  signal: AbortSignal,
+  /** Per-turn callers require evidence no older than this; omitted accepts the current native verdict. */
+  maxAgeMs?: number,
+): Promise<void> {
   signal.throwIfAborted();
   const { managementApi } = await import('./utils/management-api-client');
-  const response = await managementApi('/api/model-egress/admission', 'GET', undefined, {
-    timeoutMs: 3_000, parentSignal: signal,
+  const path = maxAgeMs === undefined ? '/api/model-egress/admission' : `/api/model-egress/admission?maxAgeMs=${Math.max(0, Math.floor(maxAgeMs))}`;
+  const response = await managementApi(path, 'GET', undefined, {
+    timeoutMs: maxAgeMs === undefined ? 3_000 : 10_000, parentSignal: signal,
   });
   signal.throwIfAborted();
   if (response.ok !== true || response.expectedIp !== expectedIp) {
     throw new Error('客户端尚未确认当前出口 IP，已暂停模型请求。');
   }
-}
-
-export function requireUnrestrictedModelPath(): void {
-  if (getRestrictedModelExpectedIp() !== null) throw new Error(UNVERIFIED_MODEL_EGRESS);
 }
 
 export function supportsVerifiedModelProvider(provider: ProviderEnv | undefined): boolean {
@@ -91,10 +92,12 @@ export function modelSdkSettingSources(): 'project'[] {
   return getRestrictedModelExpectedIp() === null ? ['project'] : [];
 }
 
+/** True when this provider takes the verified-bridge route (official API key, per-request edge proof).
+ * Any other provider is no longer rejected: it runs on its normal route under the host-level gate and
+ * the per-turn admission (`admitModelTurn`), which the host retires when the egress is lost.
+ */
 export function assertRestrictedProvider(provider: ProviderEnv | undefined): boolean {
-  if (getRestrictedModelExpectedIp() === null) return false;
-  if (!supportsVerifiedModelProvider(provider)) throw new Error(UNVERIFIED_MODEL_EGRESS);
-  return true;
+  return getRestrictedModelExpectedIp() !== null && supportsVerifiedModelProvider(provider);
 }
 
 // Routing selectors recognized by the bundled Claude Code binary. Only the

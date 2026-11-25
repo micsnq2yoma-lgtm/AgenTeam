@@ -44,7 +44,6 @@ import { ensureShellPath } from '../../utils/shell';
 import { getSidecarPort } from '../../session-core/sidecar-port';
 import { getPreparedModelPolicy, prepareProviderBinding, type PreparedProvider } from '../../utils/managed-proxy-binding';
 import { getGeneralProxyEnvironment, getProviderRequestProxyPolicy } from '../../proxy-state';
-import { requireUnrestrictedModelPath } from '../../egress-model-policy';
 import { RuntimeSteerUnavailableError } from '../../runtimes/types';
 import type {
   AgentRuntime,
@@ -931,7 +930,6 @@ export class DshRuntime implements AgentRuntime {
     options: SessionStartOptions,
     onEvent: UnifiedEventCallback,
   ): Promise<RuntimeProcess> {
-    requireUnrestrictedModelPath();
     if (options.runtimeSource && options.runtimeSource !== 'integrated') {
       throw new Error('DSH Runtime source must be integrated');
     }

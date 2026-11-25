@@ -15,7 +15,7 @@ import { randomUUID } from 'crypto';
 import { ensureDirSync } from '../utils/fs-utils';
 import { cancellableFetch } from '../utils/cancellation';
 import { getCurrentTurnSignal } from '../utils/turn-abort';
-import { requireUnrestrictedModelPath } from '../egress-model-policy';
+import { admitModelAccess } from '../model-turn-admission';
 
 // MCP Tool Result type (matches @modelcontextprotocol/sdk/types.js CallToolResult)
 type CallToolResult = {
@@ -319,7 +319,7 @@ async function callGeminiApi(
     baseUrl: string;
   },
 ): Promise<GeminiResponse> {
-  requireUnrestrictedModelPath();
+  await admitModelAccess();
   const baseUrl = config.baseUrl.trim() || DEFAULT_BASE_URL;
   const url = `${baseUrl}/models/${config.model}:generateContent?key=${config.apiKey}`;
 
@@ -811,7 +811,7 @@ export async function validateGeminiImage(
   env: Record<string, string>,
 ): Promise<{ type: string; message: string } | null> {
   try {
-    requireUnrestrictedModelPath();
+    await admitModelAccess();
   } catch (error) {
     return { type: 'runtime_error', message: (error as Error).message };
   }

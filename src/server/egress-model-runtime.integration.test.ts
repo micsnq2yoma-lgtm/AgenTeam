@@ -8,7 +8,6 @@ import { modelSdkSettingSources } from './egress-model-policy';
 import { handleVerifiedAnthropicRoute } from './openai-bridge/verified-anthropic-route';
 import * as verifiedEgress from './openai-bridge/verified-egress';
 import { resolveCodexCommandContext } from './runtimes/codex-command-context';
-import { verifyProviderViaSdk } from './provider-verify';
 import { validateGeminiImage } from './tools/gemini-image-tool';
 
 describe('model execution under an egress restriction', () => {
@@ -41,17 +40,21 @@ describe('model execution under an egress restriction', () => {
     expect(native.ANTHROPIC_API_KEY).not.toBe(provider.apiKey);
     expect(native.CLAUDE_CODE_USE_GATEWAY).toBe('');
     expect(modelSdkSettingSources()).toEqual([]);
+    // A verified provider never runs without its bridge route.
     expect(() => buildClaudeSessionEnv(provider)).toThrow('限制模式');
-    expect(() => buildClaudeSessionEnv({})).toThrow('限制模式');
-    expect(() => buildClaudeSessionEnv({ ...provider, baseUrl: 'https://relay.invalid' }, 'gpt-test', { bridgeToken: 'fixture' })).toThrow('限制模式');
+    // Providers without the per-request proof are no longer refused; they take their normal route and
+    // are admitted per turn (model-turn-admission.unit.test.ts). Project settings stay locked out.
+    expect(() => buildClaudeSessionEnv({})).not.toThrow();
+    expect(() => buildClaudeSessionEnv({ ...provider, apiProtocol: 'anthropic', baseUrl: 'https://relay.invalid' }, 'gpt-test'))
+      .not.toThrow();
+    expect(modelSdkSettingSources()).toEqual([]);
   });
 
-  it('blocks native provider launches, verification and image model probes before credentials leave', async () => {
-    await expect(resolveCodexCommandContext({ source: 'managed-provider' })).rejects.toThrow('限制模式');
-    await expect(verifyProviderViaSdk('custom', 'https://relay.invalid', 'fixture', 'api_key', 'model', 'anthropic'))
-      .resolves.toMatchObject({ success: false, retryable: false });
+  it('holds Codex start and image probes until the host confirms the egress', async () => {
+    // No native host verdict exists in this test process, so admission is refused before anything leaves.
+    await expect(resolveCodexCommandContext({ source: 'managed-provider' })).rejects.toThrow('出口 IP');
     await expect(validateGeminiImage({ GEMINI_API_KEY: 'fixture' }))
-      .resolves.toMatchObject({ type: 'runtime_error', message: expect.stringContaining('限制模式') });
+      .resolves.toMatchObject({ type: 'runtime_error', message: expect.stringContaining('出口 IP') });
   });
 
   it('sends an official Anthropic API key only from the native forwarding owner', async () => {
@@ -70,7 +73,8 @@ describe('model execution under an egress restriction', () => {
       expect(forward).not.toHaveBeenCalled();
       expect(await (await handleVerifiedAnthropicRoute(request, bridge.token, 'messages/count_tokens')).text()).toBe('verified');
       expect(forward).toHaveBeenCalledWith(request, 'messages/count_tokens', provider.providerId, provider.apiKey, '203.0.113.10');
-      expect(() => buildClaudeSessionEnv({ providerId: 'anthropic-sub' })).toThrow('限制模式');
+      // A subscription is admitted per turn and keeps Claude Code's own OAuth route (not sealed).
+      expect(buildClaudeSessionEnv({ providerId: 'anthropic-sub' }).ANTHROPIC_BASE_URL).not.toContain('/bridge/');
     } finally {
       bridge.release();
     }

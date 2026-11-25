@@ -31,8 +31,8 @@ import { TOKENDANCE_APP_URL, TOKENDANCE_PROVIDER_ID } from '../../shared/tokenda
 import { resolveProviderPromptCacheCapabilities } from '../../shared/provider-prompt-cache';
 import { resolveBridgeModel } from './translate/model';
 import { opencodeGoHeaders } from '../opencode-go-request';
-import { getRestrictedModelExpectedIp } from '../egress-model-policy';
-import { fetchWithVerifiedModelEgress, ModelEgressError } from './verified-egress';
+import { getRestrictedModelExpectedIp, verifyNativeModelAdmission } from '../egress-model-policy';
+import { fetchWithVerifiedModelEgress, isVerifiedModelEndpoint, ModelEgressError } from './verified-egress';
 
 const DEFAULT_TIMEOUT = 300_000; // 5 minutes
 const THOUGHT_SIG_CACHE_MAX = 500; // Max cached thought_signatures to prevent unbounded growth
@@ -614,7 +614,17 @@ export function createBridgeHandler(config: BridgeConfig): BridgeHandler {
           signal: controller.signal,
         };
         const expectedIp = getRestrictedModelExpectedIp();
-        if (!expectedIp && proxyUrl) {
+        // Only official endpoints get the per-request edge proof. Other upstreams
+        // (relays, OpenAI-protocol providers) run on their normal route; the host
+        // gate (checked here, cheaply) and the per-turn admission protect them.
+        const edgeProven = expectedIp !== null && isVerifiedModelEndpoint(upstreamUrl);
+        if (expectedIp && !edgeProven) {
+          await verifyNativeModelAdmission(expectedIp, controller.signal).catch((error: unknown) => {
+            if (controller.signal.aborted) throw error;
+            throw new ModelEgressError(error instanceof Error ? error.message : '客户端尚未确认当前出口 IP。');
+          });
+        }
+        if (!edgeProven && proxyUrl) {
           fetchInit.dispatcher = getDispatcherForProxy(proxyUrl);
         }
         // Cast to global Response — undici.Response is structurally identical at
@@ -622,7 +632,7 @@ export function createBridgeHandler(config: BridgeConfig): BridgeHandler {
         // iterators. Downstream handlers (handleStreamResponse etc.) treat the
         // body as a ReadableStream<Uint8Array>, which works for both shapes.
         const options = fetchInit as NonNullable<Parameters<typeof fetch>[1]>;
-        const upstreamResp = (expectedIp
+        const upstreamResp = (edgeProven && expectedIp
           ? await fetchWithVerifiedModelEgress(upstreamUrl, options, proxyUrl, expectedIp)
           : await fetch(upstreamUrl, options)) as unknown as Response;
         // fetch() resolves when response headers arrive. End the headers-only

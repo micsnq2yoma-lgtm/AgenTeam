@@ -130,8 +130,22 @@ async fn session_activity_handler(
 
 // A bridge about to release a model request must check the current native
 // verdict. A successful check in an earlier generation may already be stale.
-async fn model_egress_admission() -> Json<serde_json::Value> {
-    match crate::egress_restriction::required_exit_ip() {
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelEgressAdmissionQuery {
+    /// Per-turn callers ask for evidence no older than this; the per-request
+    /// bridge check omits it and accepts the current native verdict.
+    max_age_ms: Option<u64>,
+}
+
+async fn model_egress_admission(Query(query): Query<ModelEgressAdmissionQuery>) -> Json<serde_json::Value> {
+    let verdict = match query.max_age_ms {
+        Some(ms) => {
+            crate::egress_restriction::fresh_exit_ip(std::time::Duration::from_millis(ms.min(60_000))).await
+        }
+        None => crate::egress_restriction::required_exit_ip(),
+    };
+    match verdict {
         Ok(Some(expected_ip)) => Json(serde_json::json!({"ok": true, "expectedIp": expected_ip})),
         _ => Json(serde_json::json!({"ok": false, "code": "egress_restricted"})),
     }

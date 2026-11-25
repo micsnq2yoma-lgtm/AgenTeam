@@ -18,6 +18,7 @@ import { sdkSubprocessUserMessage } from './utils/sdk-subprocess-diagnostics';
 import { getLastBridgeError } from './openai-bridge';
 import { getProxyForProviderUrl } from './proxy-state';
 import { assertRestrictedProvider, modelSdkSettingSources, usesSdkModelBridge } from './egress-model-policy';
+import { admitModelTurn, builtinTurnNeedsAdmission, modelEgressHostsForProvider } from './model-turn-admission';
 import { SUBSCRIPTION_PROVIDER_ID } from '../shared/config-types';
 import type { Provider } from '../shared/config-types';
 import { TOKENDANCE_PROVIDER_ID } from '../shared/tokendance';
@@ -470,6 +471,9 @@ export async function verifyProviderViaSdk(
   };
   try {
     assertRestrictedProvider(providerEnv);
+    if (builtinTurnNeedsAdmission(providerEnv)) {
+      await admitModelTurn({ hosts: modelEgressHostsForProvider(providerEnv), providerId: providerEnv.providerId });
+    }
   } catch (error) {
     return { success: false, error: (error as Error).message, retryable: false };
   }
@@ -688,6 +692,12 @@ export async function verifySubscription(model?: string): Promise<SubscriptionVe
   // CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST for anthropic-sub, so the native
   // Claude Code runtime consumes the same local login state as `claude` CLI.
   const officialSubscriptionProvider: ProviderEnv = { providerId: SUBSCRIPTION_PROVIDER_ID };
+  try {
+    // Restricted mode: the SDK child talks to api.anthropic.com itself, so the turn is admitted first.
+    await admitModelTurn({ hosts: modelEgressHostsForProvider(officialSubscriptionProvider), providerId: SUBSCRIPTION_PROVIDER_ID });
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '出口核验失败' };
+  }
   const env = buildClaudeSessionEnv(officialSubscriptionProvider, model, {
     providerId: SUBSCRIPTION_PROVIDER_ID,
   });

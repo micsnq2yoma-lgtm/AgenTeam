@@ -309,6 +309,24 @@ pub fn restriction_enabled() -> bool {
     with_gate(|gate| gate.status.enabled)
 }
 
+/// Exit IP for a model turn that is about to start. Unlike [`required_exit_ip`]
+/// this never trusts evidence older than `max_age`: a stale or missing sample
+/// triggers a new probe first. `Ok(None)` means no restriction is configured.
+pub async fn fresh_exit_ip(max_age: Duration) -> Result<Option<IpAddr>, String> {
+    if !restriction_enabled() {
+        return Ok(None);
+    }
+    let stale = with_gate(|gate| {
+        !gate
+            .last_sample
+            .is_some_and(|at| at.is_fresh_at(SampleTime::now(), max_age))
+    });
+    if stale {
+        refresh(true).await;
+    }
+    required_exit_ip()
+}
+
 pub fn required_exit_ip() -> Result<Option<IpAddr>, String> {
     with_gate(|gate| {
         if !gate.status.enabled {
@@ -709,6 +727,13 @@ mod tests {
             std::fs::write(&path, malformed).unwrap();
             assert!(Gate::new(load_policy(&path)).status.must_lock());
         }
+    }
+
+    #[tokio::test]
+    async fn model_turn_admission_is_open_without_a_configured_restriction() {
+        // The test authority starts with the default (disabled) policy.
+        assert_eq!(fresh_exit_ip(Duration::ZERO).await, Ok(None));
+        assert!(crate::proxy_config::ensure_model_egress_admitted().is_ok());
     }
 
     #[test]

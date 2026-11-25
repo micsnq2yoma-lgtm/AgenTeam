@@ -899,7 +899,7 @@ fn ensure_session_sidecar_attempt<R: Runtime>(
         }
     }
     if expected_runtime_identity.runtime != "builtin" {
-        crate::proxy_config::ensure_unverified_provider_allowed()?;
+        crate::proxy_config::ensure_model_egress_admitted()?;
     }
     if expected_recovery_epoch.is_some_and(|epoch| {
         !manager_guard.recovery_attempt_is_authorized(session_id, epoch, &owner)

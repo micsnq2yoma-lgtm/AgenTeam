@@ -143,10 +143,10 @@ impl Instance {
         account_generation: &str,
         component_identity: &str,
     ) -> Result<Arc<Self>> {
-        if crate::egress_restriction::restriction_enabled() {
+        if crate::proxy_config::ensure_model_egress_admitted().is_err() {
             return Err(Error::new(
                 "egress_restricted",
-                crate::proxy_config::UNVERIFIED_MODEL_EGRESS,
+                crate::proxy_config::MODEL_EGRESS_LOCKED,
             ));
         }
         let port = std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))

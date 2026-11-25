@@ -181,7 +181,7 @@
     "restriction": {
       "title": "Restricted mode",
       "description": "Allow AgenTeam to run only when this computer’s public IP matches the address below. Each model request must also pass its own exit check.",
-      "modelHint": "Restricted mode supports the built-in Claude Agent SDK with an API key for the official OpenAI or Anthropic API.",
+      "modelHint": "In restricted mode, official API keys are verified on every request; subscriptions, external CLIs and third-party services are verified before each turn. AgenTeam locks and stops model processes as soon as the exit changes.",
       "desktopOnly": "Open the desktop app to restrict access by public IP.",
       "target": "Allowed public IP",
       "placeholder": "Enter an IPv4 or IPv6 address",

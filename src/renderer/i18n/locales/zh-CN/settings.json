@@ -181,7 +181,7 @@
     "restriction": {
       "title": "限制模式",
       "description": "电脑的公网出口 IP 与指定地址一致时才可使用 AgenTeam。每次模型请求也会单独核验出口。",
-      "modelHint": "限制模式仅支持内置 Claude Agent SDK，通过 API 密钥连接 OpenAI 或 Anthropic 官方 API。",
+      "modelHint": "限制模式下，官方 API 密钥会逐次请求核验出口；订阅、外部 CLI 和第三方服务在每轮对话开始前核验出口。出口变化后 AgenTeam 会立即锁定并停止模型进程。",
       "desktopOnly": "请在桌面客户端中设置允许使用 AgenTeam 的公网出口 IP。",
       "target": "允许的公网出口 IP",
       "placeholder": "输入 IPv4 或 IPv6 地址",

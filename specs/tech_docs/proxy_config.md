@@ -39,8 +39,13 @@ MyAgents 的代理不是一个 process-global 开关，而是按网络请求 own
 - 桌面启动前核验电脑出口。Windows 使用当前用户的系统网络设置，按填写地址的协议族访问 ipify 的 IPv4 或 IPv6 端点。运行中每 15 秒复核，匹配结果最多有效 25 秒。未知、过期或不匹配都会阻止业务。锁定时只启动本地恢复窗口，允许修改地址、重新检测或关闭限制。
 - 切换策略或电脑出口失效时，客户端会停止使用先前网络的模型进程，暂停活动中的 Goal，并记录被打断的 Task。恢复后不会自动重跑这一次任务；周期任务保留后续计划。
 - 电脑通过后，内置 Claude Agent SDK 可通过本地 Bridge 使用 OpenAI 或 Anthropic 官方 API Key。每次实际模型请求先通过该供应商的选定路径向同一域名的 `/cdn-cgi/trace` 发送不含密钥或提示词的检查。供应商边缘返回的域名和出口 IP 必须匹配，且 Rust 仍须确认电脑出口。模型 POST 复用这条经过证书校验的 TLS 连接。中途换连接、重定向、检查不可用、目标不受支持均拒绝。重试重新核验。Anthropic 的消息和 token 计数使用原生 Messages 协议。
-- Claude 订阅、外部 CLI、Integrated DSH 和第三方模型中转目前均无法提供上述证明，限制模式会拒绝它们的模型调用。保护范围是客户端接管的模型请求。用户终端、第三方工具自行建立的连接以及系统 DNS 不在模型出口校验范围内。
-
+- Claude 订阅、外部 CLI（Claude Code / Codex / Antigravity）、Integrated DSH 和第三方模型中转无法提供上述逐请求证明，**不再被拒绝**，改用三层保护（目标：出口 IP 不是填入的地址时不能使用应用，避免账号因 IP 变化被风控）：
+  1. **每轮开始前的新鲜核验**：`admitModelTurn()`（`src/server/model-turn-admission.ts`）向 Rust 的 `/api/model-egress/admission?maxAgeMs=3000` 要求证据不超过 3 秒，过期则 Rust 立即重新探测，不使用最长 25 秒的缓存。会话启动（`startSession`）只检查 Rust 当前结论（`admitModelAccess()`）。
+  2. **供应商域名核验**：能提供 `/cdn-cgi/trace` 的域名（官方 `api.anthropic.com`、`api.openai.com`、`chatgpt.com`）经所选代理路径核验边缘看到的 IP，不匹配或无法核验都拒绝本轮；其他域名只在**明确不匹配**时拒绝，没有 trace 端点（多数中转、Google、DSH）则跳过，仅靠第 1、3 层。该检查由 Sidecar 进程发出，网络栈可能与 CLI 不完全相同，只能降低风险，不能证明实际连接的出口。
+  3. **对话中出口失效即锁定**：Rust 监控把结论变为不匹配或无法确认时，`egress_shell` 暂停 Goal、记录被打断的 Task、停止全部 Sidecar（所有模型进程随之结束）并重启为只有恢复窗口的状态。检测延迟约 15 秒，匹配证据最长有效 25 秒。
+  接入点：内置 Claude 在 `prepareProviderBinding().beforeTurn`（每条消息进入 SDK 之前）；外部 Runtime 与 DSH 在 `runtimes/factory.ts` 的 `withModelAdmission`（`startSession` / `sendMessage`）；非回合的模型相关网络访问（Codex 目录、Gemini 图片探测、供应商探测）用 `admitModelAccess()`；Rust 侧的供应商 HTTP、OAuth 刷新、模型发现、托管 Codex 登录与安装、外部 Runtime 会话启动、CLIProxy 启动统一经 `proxy_config::ensure_model_egress_admitted()`，只要求电脑出口当前已通过。
+  官方 API Key 的逐请求核验保持不变；桥接层（`openai-bridge/handler.ts`）对非官方上游只做 Rust 当前结论检查后走普通路由。
+  **保护范围与残余风险**：保证是"每轮开始前出口正确，进行中出口变化约 15 秒内被发现并掐断"，弱于 API Key 的逐请求证明。订阅程序自己发起的令牌刷新、上报和更新检查走别的域名，不在核验范围；用户终端、第三方工具自行建立的连接以及系统 DNS 同样不在范围内。
 实现入口为 `src-tauri/src/egress_restriction.rs`、`src-tauri/src/egress_shell.rs`、`src/server/egress-model-policy.ts` 和 `src/server/openai-bridge/verified-egress.ts`。
 
 ## Owner 模型

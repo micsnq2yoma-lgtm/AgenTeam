@@ -64,7 +64,7 @@ import { planRetraction } from './utils/message-retraction';
 import type { TransientProviderTextRetryDecision } from './session-core/turn-result-policy';
 import { diagnoseSdkSubprocessFailure } from './utils/sdk-subprocess-diagnostics';
 import { createGuardedSdkQuery } from './utils/sdk-child-launch-guard';
-import { assertRestrictedProvider, modelSdkSettingSources, sealRestrictedSdkRoute, UNVERIFIED_MODEL_EGRESS, usesSdkModelBridge } from './egress-model-policy';
+import { assertRestrictedProvider, modelSdkSettingSources, sealRestrictedSdkRoute, usesSdkModelBridge } from './egress-model-policy';
 import { assertManagedProviderPrepared, getPreparedModelPolicy, ManagedProxyError, prepareProviderBinding, type PreparedProvider } from './utils/managed-proxy-binding';
 import { InactivityWatchdog } from './utils/inactivity-watchdog';
 import {
@@ -6217,7 +6217,7 @@ export function buildClaudeSessionEnv(
   const effectiveProviderEnv = providerEnv ?? configState.currentProviderEnv;
   const restrictedModel = assertRestrictedProvider(effectiveProviderEnv);
   if (restrictedModel && (!opts?.bridgeToken || getSidecarPort() <= 0)) {
-    throw new Error(UNVERIFIED_MODEL_EGRESS);
+    throw new Error('限制模式的受保护模型路由尚未就绪，请稍后重试。');
   }
   assertManagedProviderPrepared(effectiveProviderEnv);
   const boundModelPolicy = getPreparedModelPolicy(effectiveProviderEnv);
