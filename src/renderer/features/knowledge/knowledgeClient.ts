@@ -65,6 +65,8 @@ export const knowledgeClient = {
   curateNow: (kbId: string) => call<string>('cmd_kb_curate_now', { kbId }),
   importFiles: (kbId: string, paths: string[]) =>
     call<ImportOutcome[]>('cmd_kb_import_files', { kbId, paths }),
+  importUrl: (kbId: string, url: string) =>
+    call<ImportOutcome>('cmd_kb_import_url', { kbId, url }),
   jobStatus: (jobId: string) => call<IngestJob>('cmd_kb_job_status', { jobId }),
   cancelJob: (jobId: string) => call<IngestJob>('cmd_kb_cancel_job', { jobId }),
   retrySource: (kbId: string, sourceId: string) =>

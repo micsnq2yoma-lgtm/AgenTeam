@@ -834,6 +834,7 @@ pub fn run() {
             knowledge::commands::cmd_kb_embedding_pack_install,
             knowledge::commands::cmd_kb_embedding_pack_install_local,
             knowledge::commands::cmd_kb_embedding_pack_remove,
+            knowledge::commands::cmd_kb_import_url,
             // Canonical Record commands.
             record::cmd_record_create,
             record::cmd_record_list,
