@@ -641,14 +641,13 @@ impl EmbeddingStage {
         }
 
         if let (Some(rev), Some(dim)) = (target_revision, target_dimension) {
-            if !self.is_cancelled(&kb_cancel, None) {
-                if self
+            if !self.is_cancelled(&kb_cancel, None)
+                && self
                     .vector_index
                     .publish_revision(kb_id, &rev, dim, staged_entries)
                     .is_ok()
-                {
-                    self.vector_index.cleanup_stale_revisions(kb_id, &rev);
-                }
+            {
+                self.vector_index.cleanup_stale_revisions(kb_id, &rev);
             }
         }
 
