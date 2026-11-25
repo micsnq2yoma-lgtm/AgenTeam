@@ -836,6 +836,7 @@ pub fn run() {
             knowledge::commands::cmd_kb_embedding_pack_remove,
             knowledge::commands::cmd_kb_import_url,
             knowledge::commands::cmd_kb_global_search,
+            knowledge::commands::cmd_kb_test_embedding_connection,
             // Canonical Record commands.
             record::cmd_record_create,
             record::cmd_record_list,
@@ -1669,7 +1670,11 @@ pub fn run() {
                 let vector_index = Arc::new(knowledge::vector_index::KnowledgeVectorIndex::new(
                     data_dir.clone(),
                 ));
+                let embedding_service = Arc::new(
+                    knowledge::online_embedding::KnowledgeEmbeddingService::new(data_dir.clone()),
+                );
                 app.manage(vector_index);
+                app.manage(embedding_service);
                 match knowledge::model_pack::KnowledgeModelPackManager::initialize(
                     data_dir.join("models").join("knowledge"),
                 ) {

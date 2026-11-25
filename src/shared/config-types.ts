@@ -91,6 +91,9 @@ export interface ModelConversationUpdates {
   'openai:responses'?: { systemPrompt?: 'in-history'; tools?: 'additional-tools' | 'tool-search' };
 }
 
+/** High-level model category (`'chat' | 'embedding'`; other kinds ignored). */
+export type ModelCategory = 'chat' | 'embedding';
+
 /**
  * Model entity representing a single model configuration
  */
@@ -99,6 +102,7 @@ export interface ModelEntity extends Pick<RuntimeModelInfo, 'supportedReasoningE
   model: string; // API 代码，如 "claude-sonnet-4-6"
   modelName: string; // 显示名称，如 "Claude Sonnet 4.6"
   modelSeries: string; // 品牌系列，如 "claude" | "deepseek" | "zhipu"
+  category?: ModelCategory;
 
   // === 元数据字段（可选，API 发现时填充）===
   contextLength?: number; // 上下文窗口（token 数）
@@ -996,10 +1000,18 @@ export interface DshCollaborationSettings {
   allowedModels?: DshCollaborationModelRef[];
 }
 
+export interface EmbeddingModelConfig {
+  enabled: boolean;
+  providerId: string;
+  model: string;
+  dimensions?: number;
+}
+
 export interface AppConfig {
   // Default settings for new projects
   defaultProviderId?: string;
   defaultModelSelection?: { providerId: string; model: string };
+  embeddingModel?: EmbeddingModelConfig;
   defaultPermissionMode: PermissionMode;
   // Background-agent permission policy (issue #264). Controls what a
   // `run_in_background` sub-agent may do when it hits a tool the SDK can't

@@ -59,6 +59,7 @@ import CronTaskDebugPanel from '@/components/dev/CronTaskDebugPanel';
 import ProxyScopeDialog from '@/components/ProxyScopeDialog';
 import { EgressRestrictionSettings, useEgressRestrictionEnabled } from '@/components/EgressRestriction';
 import ModelManagementPanel from '@/components/ModelManagementPanel';
+import EmbeddingModelCard from './components/EmbeddingModelCard';
 import GrokSubscriptionProvider from '@/components/GrokSubscriptionProvider';
 import CliProxySubscriptionProvider from '@/components/CliProxySubscriptionProvider';
 import { useCliProxyStatus } from '@/hooks/useCliProxyStatus';
@@ -4784,6 +4785,15 @@ export default function Settings({
             <p className="mb-6 text-sm text-[var(--ink-muted)]">
               {tSettings('providers.description')}
             </p>
+
+            <EmbeddingModelCard
+              providers={providers}
+              apiKeys={apiKeys}
+              embeddingModel={config.embeddingModel}
+              onSaveEmbeddingModel={async (next) => {
+                await updateConfig({ embeddingModel: next });
+              }}
+            />
 
             {/* Provider list */}
             <div className="grid grid-cols-2 gap-4">

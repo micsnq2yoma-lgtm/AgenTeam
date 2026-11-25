@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { mergePresetCustomModels, PRESET_PROVIDERS } from '../types';
 import { resolveProviderForModel } from '../../../shared/provider-model-routing';
 import {
+  classifyDiscoveredModelCategory,
+  fetchProviderEmbeddingModels,
   fetchProviderModels,
+  isTokenDanceConversationModel,
   parseModelsResponse,
   toModelEntity,
 } from './modelDiscoveryService';
@@ -53,6 +56,49 @@ describe('Token Dance public model discovery', () => {
         authHeaderValue: null,
       }),
     );
+  });
+
+  it('discovers embedding models separately without altering chat model discovery', async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      data: [
+        {
+          id: 'deepseek-v4-pro-0813',
+          name: 'DeepSeek V4 Pro',
+          context_length: 1000000,
+          supported_protocols: ['openai:chat-completions', 'openai:responses'],
+        },
+        {
+          id: 'qwen-text-embedding-v4',
+          name: 'Qwen: Text Embedding V4',
+          context_length: 8000,
+          supported_protocols: ['openai:embeddings'],
+        },
+        {
+          id: 'qwen3.7-text-embedding',
+          name: 'Qwen: Qwen3.7 Text Embedding',
+          context_length: 128000,
+          supported_protocols: ['openai:embeddings'],
+        },
+        {
+          id: 'cosyvoice-tts-v2',
+          name: 'TTS',
+          supported_protocols: ['openai:audio'],
+        },
+      ],
+    });
+
+    const all = await fetchProviderModels(provider, undefined);
+    const chatModels = all.filter(isTokenDanceConversationModel);
+    expect(chatModels.map((m) => m.id)).toEqual(['deepseek-v4-pro-0813']);
+    expect(classifyDiscoveredModelCategory(all[0])).toBe('chat');
+    expect(classifyDiscoveredModelCategory(all[1])).toBe('embedding');
+    expect(classifyDiscoveredModelCategory(all[3])).toBeUndefined();
+
+    const embeddingModels = await fetchProviderEmbeddingModels(provider, undefined);
+    expect(embeddingModels.map((m) => ({ id: m.id, category: m.category }))).toEqual([
+      { id: 'qwen-text-embedding-v4', category: 'embedding' },
+      { id: 'qwen3.7-text-embedding', category: 'embedding' },
+    ]);
   });
 });
 

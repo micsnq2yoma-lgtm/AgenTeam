@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 import type {
   ApprovalDecision,
+  EmbeddingConnectionTestResult,
   ImportOutcome,
   IngestJob,
   KnowledgeBaseCreateInput,
@@ -129,6 +130,12 @@ export const knowledgeClient = {
     call<KnowledgeModelPackStatus>('cmd_kb_embedding_pack_install_local', { bundleDir }),
   embeddingPackRemove: () =>
     call<KnowledgeModelPackStatus>('cmd_kb_embedding_pack_remove'),
+  testEmbeddingConnection: (providerId: string, model: string, dimensions?: number) =>
+    call<EmbeddingConnectionTestResult>('cmd_kb_test_embedding_connection', {
+      providerId,
+      model,
+      dimensions,
+    }),
 };
 
 /** The Store rejects with a bounded `{ code, message }` or bare string error code. */

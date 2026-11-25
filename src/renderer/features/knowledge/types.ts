@@ -313,6 +313,16 @@ export interface KnowledgeChangeEvent {
 }
 
 /** Bounded error shape of the Store commands (`KnowledgeErrorCode` in shared/knowledge). */
+export interface EmbeddingConnectionTestResult {
+  ok: boolean;
+  dimension?: number;
+  modelRevision?: string;
+  latencyMs: number;
+  errorKind?: string;
+  statusCode?: number;
+}
+
+/** Bounded error shape of the Store commands (`KnowledgeErrorCode` in shared/knowledge). */
 export interface KnowledgeCommandError {
   code?: string;
   message?: string;

@@ -6,7 +6,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Provider, ModelEntity } from '../types';
+import type { Provider, ModelEntity, ModelCategory } from '../types';
 import { parseSupportedProtocols, TOKENDANCE_PROVIDER_ID, type ModelProtocol } from '../../../shared/tokendance';
 import { OPENCODE_GO_PROVIDER_ID } from '../../../shared/opencode-go';
 
@@ -57,9 +57,43 @@ export async function fetchProviderModels(
   return parseModelsResponse(body);
 }
 
+export interface DiscoveredEmbeddingModel extends DiscoveredModel {
+  category: 'embedding';
+}
+
 export function isTokenDanceConversationModel(model: DiscoveredModel): boolean {
   return Boolean(model.supportedProtocols?.length)
     && !/tts|ocr|embedding|rerank|^unifuncs-/i.test(model.id);
+}
+
+/** Classify a discovered model into `'chat' | 'embedding'`, ignoring other modalities. */
+export function classifyDiscoveredModelCategory(model: DiscoveredModel): ModelCategory | undefined {
+  if (/embedding/i.test(model.id)) {
+    return 'embedding';
+  }
+  if (/tts|ocr|rerank|^unifuncs-/i.test(model.id)) {
+    return undefined;
+  }
+  return 'chat';
+}
+
+/** Whether a discovered catalog entry is an embedding model. */
+export function isEmbeddingDiscoveredModel(model: DiscoveredModel): boolean {
+  return classifyDiscoveredModelCategory(model) === 'embedding';
+}
+
+/**
+ * Runtime discovery path for embedding models.
+ * Reuses the provider's `modelListUrl` without altering chat model discovery.
+ */
+export async function fetchProviderEmbeddingModels(
+  provider: Pick<Provider, 'id' | 'config' | 'modelListUrl'>,
+  apiKey: string | undefined,
+): Promise<DiscoveredEmbeddingModel[]> {
+  const models = await fetchProviderModels(provider, apiKey);
+  return models
+    .filter(isEmbeddingDiscoveredModel)
+    .map((m) => ({ ...m, category: 'embedding' as const }));
 }
 
 /** Resolve the URL to fetch models from.

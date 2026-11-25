@@ -10,6 +10,7 @@ use super::chunker::KnowledgeChunk;
 use super::ingest::{ImportFailure, ImportOutcome, KnowledgeIngestManager};
 use super::linked::{KnowledgeLinkedManager, LinkedFolderScanSummary};
 use super::model_pack::{KnowledgeModelPackManager, KnowledgeModelPackStatus};
+use super::online_embedding::{EmbeddingConnectionTestResult, KnowledgeEmbeddingService};
 use super::organize::{ApprovalDecision, KnowledgeOrganizeManager, OrganizePlan, UndoReport};
 use super::store::ingest::IngestJob;
 use super::store::{
@@ -580,6 +581,20 @@ pub async fn cmd_kb_global_search(
         total,
         next_cursor,
     })
+}
+
+/// User-only online embedding connection test (K21-a).
+#[tauri::command]
+pub async fn cmd_kb_test_embedding_connection(
+    state: State<'_, Arc<KnowledgeEmbeddingService>>,
+    provider_id: String,
+    model: String,
+    dimensions: Option<usize>,
+) -> StoreResult<EmbeddingConnectionTestResult> {
+    let service = Arc::clone(state.inner());
+    Ok(service
+        .test_connection(&provider_id, &model, dimensions)
+        .await)
 }
 
 /// User-only external URL import command (K19, SSRF-checked HTML-to-Markdown).
