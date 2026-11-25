@@ -638,6 +638,9 @@ fn management_api_does_not_expose_organize_approve_execute_or_undo_routes() {
         "organize/approve",
         "organize/execute",
         "organize/undo",
+        "organize-approve",
+        "organize-execute",
+        "organize-undo",
         "cmd_kb_organize_approve",
         "cmd_kb_organize_execute",
         "cmd_kb_organize_undo",
@@ -653,4 +656,113 @@ fn management_api_does_not_expose_organize_approve_execute_or_undo_routes() {
             );
         }
     }
+}
+
+#[test]
+fn approve_records_rejected_and_modified_items_to_feedback_jsonl_and_find_plan_enforces_scope() {
+    let (_data, user_dir, _store, _linked, organize, kb_id, folder_root) =
+        setup_authorized_kb(false, false);
+    fs::write(user_dir.path().join("a.md"), "alpha\n").unwrap();
+    fs::write(user_dir.path().join("b.md"), "beta\n").unwrap();
+
+    let plan = organize
+        .propose_plan(
+            &kb_id,
+            ProposePlanInput {
+                items: vec![
+                    ProposeItemInput {
+                        kind: OrganizeOpKind::Rename,
+                        folder_root: folder_root.clone(),
+                        source_rel: Some("a.md".into()),
+                        target_rel: "a-proposed.md".into(),
+                        reason: "normalize a".into(),
+                    },
+                    ProposeItemInput {
+                        kind: OrganizeOpKind::Rename,
+                        folder_root: folder_root.clone(),
+                        source_rel: Some("b.md".into()),
+                        target_rel: "b-proposed.md".into(),
+                        reason: "normalize b".into(),
+                    },
+                ],
+            },
+        )
+        .unwrap();
+
+    // find_plan respects bound scope
+    assert_eq!(
+        organize
+            .find_plan(&plan.id, &[String::from("kb_ffffffffffff")])
+            .unwrap_err(),
+        KbNotFound
+    );
+    assert_eq!(
+        organize.find_plan(&plan.id, std::slice::from_ref(&kb_id)).unwrap().id,
+        plan.id
+    );
+
+    // Approve item 1 with a user rename override; reject item 2.
+    organize
+        .approve_plan(
+            &kb_id,
+            &plan.id,
+            ApprovalDecision {
+                reject: false,
+                items: vec![
+                    ItemApprovalDecision {
+                        item_id: "op_1".into(),
+                        approved: true,
+                        override_target_rel: Some("a-user-custom.md".into()),
+                    },
+                    ItemApprovalDecision {
+                        item_id: "op_2".into(),
+                        approved: false,
+                        override_target_rel: None,
+                    },
+                ],
+            },
+        )
+        .unwrap();
+
+    let feedback = organize.read_feedback(&kb_id, Some(10)).unwrap();
+    assert_eq!(feedback.len(), 2);
+    assert_eq!(feedback[0].item_id, "op_1");
+    assert_eq!(feedback[0].decision, OrganizeFeedbackDecision::Modified);
+    assert_eq!(
+        feedback[0].override_target_rel.as_deref(),
+        Some("a-user-custom.md")
+    );
+    assert_eq!(feedback[1].item_id, "op_2");
+    assert_eq!(feedback[1].decision, OrganizeFeedbackDecision::Rejected);
+
+    let tail_one = organize.read_feedback(&kb_id, Some(1)).unwrap();
+    assert_eq!(tail_one.len(), 1);
+    assert_eq!(tail_one[0].item_id, "op_2");
+}
+
+#[test]
+fn group_chat_and_team_ai_sessions_are_rejected_for_organize_propose() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let sessions = serde_json::json!([
+        { "id": "s_desktop", "source": "desktop", "origin": { "kind": "desktop", "surface": "main_chat" } },
+        { "id": "s_private", "source": "feishu_private" },
+        { "id": "s_feishu_group", "source": "feishu_group" },
+        { "id": "s_tg_group", "source": "telegram_group" },
+        { "id": "s_team_channel", "source": "desktop", "origin": { "kind": "agent-channel", "surface": "channel_message" } },
+        { "id": "s_registered_agent", "origin": { "kind": "registered-agent", "surface": "space_issue_delivery" } }
+    ]);
+    fs::write(
+        dir.path().join("sessions.json"),
+        serde_json::to_vec_pretty(&sessions).unwrap(),
+    )
+    .unwrap();
+
+    assert!(!crate::session_metadata::is_group_chat_session(dir.path(), "s_desktop").unwrap());
+    assert!(!crate::session_metadata::is_group_chat_session(dir.path(), "s_private").unwrap());
+    assert!(crate::session_metadata::is_group_chat_session(dir.path(), "s_feishu_group").unwrap());
+    assert!(crate::session_metadata::is_group_chat_session(dir.path(), "s_tg_group").unwrap());
+    assert!(crate::session_metadata::is_group_chat_session(dir.path(), "s_team_channel").unwrap());
+    assert!(
+        crate::session_metadata::is_group_chat_session(dir.path(), "s_registered_agent").unwrap()
+    );
 }

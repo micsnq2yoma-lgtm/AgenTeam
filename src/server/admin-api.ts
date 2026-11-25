@@ -4764,7 +4764,7 @@ export async function handleKnowledge(
 ): Promise<AdminResponse> {
   const { sessionId } = getSessionEngine().getCurrentSessionContext();
   const sidecarId = sessionId ? process.env.MYAGENTS_SIDECAR_ID ?? '' : '';
-  const action = route.slice('kb/'.length).replace('/', '-');
+  const action = route.slice('kb/'.length).replaceAll('/', '-');
   return wrapMgmtResponse(await managementApi(`/api/knowledge/${action}`, 'POST', { sidecarId, request }));
 }
 
