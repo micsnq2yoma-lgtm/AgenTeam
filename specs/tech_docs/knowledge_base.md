@@ -278,9 +278,27 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
 - **悬停预览与生命周期（AC-K10-2）**：`KnowledgeCitationChip` 维护有界模块级缓存（上限 256 条）。悬停或聚焦经 120 ms 防抖后调用 `cmd_kb_resolve_ref` 显示约 300 字符浮层；快速移出、点击芯片、视口滚动/缩放或组件卸载立即取消未发出的计时器并递增请求序号，丢弃在途回复，不在卸载后 `setState`。来源已删除（`KB_NOT_FOUND`）时 chip 转为「来源不可用」态且不报错；旧片段 ID 已失效（`fragment.status = unavailable`）时轻提示「片段已更新」并照常打开来源文档。
 - **原文定位与高亮（AC-K10-3）**：点击 chip 经 `FileActionContext.openFileTarget`（`scope: 'local'`）透传 `FilePreviewFocusTarget { lineNumber, page?, utf16Range? }`。`resolveFilePreview` 与 `FilePreviewModal` 按实际文件扩展名区分 PDF 与回退 `content.md` 并保留友好标题：`PdfViewer` 滚至 `[data-page="N"]` 并高亮目标页；只读 Markdown 预览通过后置于 `rehypeSanitize` 的 `rehypeCitationHighlight` 按 `utf16Range` 精确标注匹配块级节点并滚动居中；纯文本预览沿用 Monaco 行号定位。
 
-## 待接入章节
+## 评测基线（K11）
 
-### K11 检索评测
+知识库检索质量评测集位于 `scripts/knowledge-eval/`，全部为本项目原创编写的合成语料与标注，离线在临时目录中调用真实 Rust `KnowledgeStore`、`KnowledgeIngestManager` 与 `KnowledgeIndex`（Tantivy BM25 + Jieba 分词）执行，不联网、不触碰用户数据目录。
+
+- **语料规模**：`scripts/knowledge-eval/corpus/` 共 40 份文档（中文 16 份、英文 12 份、中英混合 12 份），涵盖会议纪要、合同条款、技术规范与代码片段、结构化表格以及企业制度/运维手册，经 K3 切块后生成 86 个片段。
+- **查询标注**：`scripts/knowledge-eval/qrels.json` 共 60 条独立构造的查询，以 `(file, headingPath)` 标注相关片段（不依赖 `chunk_id`）；自动化校验确认 0 条缺失目标、0 条原文子串复制，且 18/60（30.0%）经真实 Jieba 分词器核验与目标片段（标题 + 正文）零词元重合，用于 P1 向量检索上线后衡量语义召回增益。
+- **查询解析改进**：评测发现无空格纯中文自然语言问句在 Tantivy `QueryParser` 中会被解析为严格连续短语导致 0 命中，含 `:` 或 `*`（如 `verify:theme-css`、`*.dlq`）会触发语法报错。`KnowledgeIndex` 现对非引号片段按同一 Jieba 分词器预分词后交由 `parse_query_lenient` 解析，同时保留双引号内的精确短语查询。
+- **复现命令**：`node scripts/knowledge-eval/run.mjs --check`（以及常驻 CI 测试 `search::knowledge_indexer::eval::k11_eval_corpus_meets_bm25_baseline` 与离线端到端测试 `k11_e2e_create_import_ready_search_resolve_remove_and_empty_search`）。
+
+### BM25 基线指标（2026-11-24）
+
+| 切片 | 查询数 | Recall@8 | MRR@10 | nDCG@10 |
+| --- | ---: | ---: | ---: | ---: |
+| **总体（Overall）** | 60 | **0.7000** | **0.6833** | **0.6877** |
+| 词法改写查询（`lexical`） | 42 | 1.0000 | 0.9762 | 0.9824 |
+| 零词元重合语义查询（`semantic_no_overlap`） | 18 | 0.0000 | 0.0000 | 0.0000 |
+| 中英混合（`bilingual`） | 16 | 1.0000 | 0.9375 | 0.9539 |
+| 英文（`en`） | 22 | 0.6364 | 0.6364 | 0.6364 |
+| 中文（`zh`） | 22 | 0.5455 | 0.5455 | 0.5455 |
+
+## 待接入章节
 
 ### K12–K15 Linked folder、物理整理与恢复
 

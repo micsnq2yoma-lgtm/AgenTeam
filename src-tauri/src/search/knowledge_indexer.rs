@@ -11,6 +11,7 @@ use tantivy::collector::TopDocs;
 use tantivy::directory::{Directory, MmapDirectory, INDEX_WRITER_LOCK};
 use tantivy::query::{BooleanQuery, BoostQuery, Occur, Query, QueryParser, TermSetQuery};
 use tantivy::schema::{Field, OwnedValue};
+use tantivy::tokenizer::TokenStream;
 use tantivy::{Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, TantivyError, Term};
 use tokio::sync::broadcast;
 
@@ -31,6 +32,8 @@ use crate::workspace_files::path_safety::{
 use super::schema::{knowledge_schema, KnowledgeFields, KNOWLEDGE_SCHEMA_VERSION};
 use super::tokenizer;
 
+#[cfg(test)]
+mod eval;
 #[cfg(test)]
 mod tests;
 
@@ -514,6 +517,46 @@ fn fuse(rankings: Vec<Vec<KnowledgeSearchHit>>, limit: usize) -> Vec<KnowledgeSe
         .collect()
 }
 
+fn prepare_query_input(input: &str) -> String {
+    let mut analyzer = tokenizer::build_chinese_tokenizer();
+    let mut out = Vec::new();
+    let mut rest = input;
+
+    while let Some(open) = rest.find('"') {
+        let before = &rest[..open];
+        append_tokenized_terms(&mut analyzer, before, &mut out);
+        let after_open = &rest[open + 1..];
+        if let Some(close) = after_open.find('"') {
+            let phrase = after_open[..close].trim();
+            if !phrase.is_empty() {
+                out.push(format!("\"{phrase}\""));
+            }
+            rest = &after_open[close + 1..];
+        } else {
+            append_tokenized_terms(&mut analyzer, after_open, &mut out);
+            rest = "";
+            break;
+        }
+    }
+    append_tokenized_terms(&mut analyzer, rest, &mut out);
+    out.join(" ")
+}
+
+fn append_tokenized_terms(
+    analyzer: &mut tantivy::tokenizer::TextAnalyzer,
+    segment: &str,
+    out: &mut Vec<String>,
+) {
+    let mut stream = analyzer.token_stream(segment);
+    while stream.advance() {
+        let token = stream.token().text.trim();
+        if token.is_empty() || token.chars().all(|c| !c.is_alphanumeric()) {
+            continue;
+        }
+        out.push(token.to_string());
+    }
+}
+
 impl IndexState {
     fn open(path: &Path) -> Result<Self, TantivyError> {
         let (schema, fields) = knowledge_schema();
@@ -623,9 +666,8 @@ impl IndexState {
         let mut parser =
             QueryParser::for_index(&self.index, vec![f.title, f.text, f.prefix, f.tags]);
         parser.set_field_boost(f.title, 2.0);
-        let query = parser
-            .parse_query(input)
-            .map_err(|_| KnowledgeErrorCode::KbInvalidInput)?;
+        let prepared = prepare_query_input(input);
+        let (query, _) = parser.parse_query_lenient(&prepared);
         let query = if related.is_empty() {
             query
         } else {

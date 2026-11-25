@@ -1,0 +1,924 @@
+{
+  "version": 1,
+  "description": "AgenTeam Knowledge Base synthetic retrieval evaluation qrels (40 original docs, 60 independently phrased queries, 18 zero-keyword-overlap semantic queries).",
+  "queries": [
+    {
+      "id": "q01",
+      "query": "第三季度研发排期什么时候冻结，移动端同步安排在哪一季？",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "01-meeting-q3-roadmap-zh.md",
+          "headingPath": [
+            "Q3 产品路线图评审纪要",
+            "排期冻结与核心交付"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q02",
+      "query": "离线缓存 SQLite 迁移回滚验证需要留几天？",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "01-meeting-q3-roadmap-zh.md",
+          "headingPath": [
+            "Q3 产品路线图评审纪要",
+            "风险项与跨组依赖"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q03",
+      "query": "支付网关 504 超时事故的工作线程阻塞原因是什么？",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "02-meeting-incident-postmortem-zh.md",
+          "headingPath": [
+            "支付网关连接池耗尽事故复盘",
+            "事故经过与直接根因"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q04",
+      "query": "收单渠道熔断器和独立线程池整改方案有哪些？",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "02-meeting-incident-postmortem-zh.md",
+          "headingPath": [
+            "支付网关连接池耗尽事故复盘",
+            "后续整改与限流措施"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q05",
+      "query": "dark theme body text contrast ratio semantic token rules",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "03-meeting-design-review-bilingual.md",
+          "headingPath": [
+            "Design Token 主题迁移评审纪要",
+            "Semantic Palette & Contrast Check"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q06",
+      "query": "CI 怎么用 verify:theme-css 拦截硬编码颜色？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "03-meeting-design-review-bilingual.md",
+          "headingPath": [
+            "Design Token 主题迁移评审纪要",
+            "Migration Rollout Plan"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q07",
+      "query": "How often do release signing keys rotate under SOC2 audit?",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "04-meeting-security-audit-en.md",
+          "headingPath": [
+            "Quarterly SOC2 Access Audit Minutes",
+            "Privilege Review & Key Rotation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q08",
+      "query": "企业客户对 SAML 2.0 OIDC 单点登录和离线安装包有哪些要求？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "05-meeting-customer-council-zh.md",
+          "headingPath": [
+            "企业客户顾问委员会季度纪要",
+            "身份认证与私有部署诉求"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q09",
+      "query": "When does a flaky browser test get quarantined into the nightly lane?",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "06-meeting-sprint-retro-en.md",
+          "headingPath": [
+            "Sprint 28 Engineering Retrospective",
+            "CI Flakiness & Quarantine Policy"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q10",
+      "query": "SaaS 月度可用性低于 99.95% 或 99.0% 时抵扣券比例怎么算？",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "07-contract-saas-msa-zh.md",
+          "headingPath": [
+            "SaaS 主服务协议核心条款",
+            "服务可用性与补偿"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q11",
+      "query": "主服务协议终止后商业秘密保密义务还要持续几年？",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "07-contract-saas-msa-zh.md",
+          "headingPath": [
+            "SaaS 主服务协议核心条款",
+            "数据归属与保密期限"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q12",
+      "query": "How many days notice must a processor give before adding a sub-processor?",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "08-contract-dpa-en.md",
+          "headingPath": [
+            "Data Processing Addendum Summary",
+            "Sub-Processor Notice & Objection Window"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q13",
+      "query": "Personal data breach notification deadline in DPA",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "08-contract-dpa-en.md",
+          "headingPath": [
+            "Data Processing Addendum Summary",
+            "Security Incident Notification"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q14",
+      "query": "硬件采购合同的初验、终验与质保金付款比例分别是多少？",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "09-contract-vendor-procurement-zh.md",
+          "headingPath": [
+            "供应商硬件采购框架合同",
+            "验收里程碑与付款节点"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q15",
+      "query": "供应商逾期交货违约金每日比率和上限是多少？",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "09-contract-vendor-procurement-zh.md",
+          "headingPath": [
+            "供应商硬件采购框架合同",
+            "违约责任与不可抗力"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q16",
+      "query": "NDA 终止后多少天内要销毁涉密电子副本并出具确认函？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "10-contract-nda-bilingual.md",
+          "headingPath": [
+            "Mutual Non-Disclosure Agreement 双向保密协议",
+            "Return and Destruction Obligations 返还与销毁"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q17",
+      "query": "What triggers source code escrow release to the licensee?",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "11-contract-software-escrow-en.md",
+          "headingPath": [
+            "Source Code Escrow Agreement Terms",
+            "Release Conditions"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q18",
+      "query": "渠道商年度回款 200 万和 500 万对应的阶梯返点比例",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "12-contract-channel-reseller-zh.md",
+          "headingPath": [
+            "区域渠道经销授权协议",
+            "阶梯返点与结算周期"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q19",
+      "query": "Rust TokenBucket 为什么用 Instant 单调时钟而不是系统时间？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "13-code-rate-limiter-rust-bilingual.md",
+          "headingPath": [
+            "Rust 令牌桶限流器实现说明",
+            "Token Bucket Implementation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q20",
+      "query": "How does the gateway avoid global Mutex contention for tenant rate limiters?",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "13-code-rate-limiter-rust-bilingual.md",
+          "headingPath": [
+            "Rust 令牌桶限流器实现说明",
+            "Concurrency & Sharding 并发分片策略"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q21",
+      "query": "Which HTTP error codes must not be retried and how does Idempotency-Key work?",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "14-code-retry-backoff-ts-en.md",
+          "headingPath": [
+            "TypeScript Retry and Exponential Backoff Guide",
+            "Idempotency Rules for Mutating Requests"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q22",
+      "query": "PostgreSQL orders_ledger 超过 18 个月的历史分区如何不阻塞线上卸载？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "15-code-sql-partitioning-zh.md",
+          "headingPath": [
+            "PostgreSQL 订单表按月分区方案",
+            "历史分区卸载与归档"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q23",
+      "query": "Webhook 验签怎么用 timingSafeEqual 校验 HMAC-SHA256？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "16-code-webhook-hmac-bilingual.md",
+          "headingPath": [
+            "Webhook 签名校验与防重放规范",
+            "HMAC-SHA256 Signature Verification"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q24",
+      "query": "What timestamp skew window protects webhooks against replay attacks?",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "16-code-webhook-hmac-bilingual.md",
+          "headingPath": [
+            "Webhook 签名校验与防重放规范",
+            "Replay Protection Window 防重放窗口"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q25",
+      "query": "How does Go singleflight prevent cache stampede on hot keys?",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "17-code-cache-stampede-en.md",
+          "headingPath": [
+            "Mitigating Cache Stampede in Go Services",
+            "Singleflight Request Coalescing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q26",
+      "query": "Kafka 事件总线消费者连续失败几次会进死信队列 *.dlq？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "18-spec-event-bus-zh.md",
+          "headingPath": [
+            "内部事件总线架构规范",
+            "死信队列与人工重放"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q27",
+      "query": "PostgreSQL lock_timeout and CONCURRENTLY guardrails for big table indexes",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "19-spec-zero-downtime-migration-en.md",
+          "headingPath": [
+            "Zero-Downtime Database Schema Migration Playbook",
+            "Online Index Creation Guardrails"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q28",
+      "query": "OpenTelemetry 尾部采样在什么延迟或 gRPC 状态码下保留 100% 链路？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "20-spec-grpc-observability-bilingual.md",
+          "headingPath": [
+            "gRPC OpenTelemetry 链路追踪与采样规范",
+            "Tail-Based Sampling 尾部采样策略"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q29",
+      "query": "核心交易数据库的 RPO 和 RTO 容灾目标分别是多少分钟？",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "21-spec-backup-dr-zh.md",
+          "headingPath": [
+            "数据库容灾与备份恢复手册",
+            "RPO 与 RTO 指标约定"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q30",
+      "query": "CLI 退出码 2、3、4、5 分别对应什么错误类型？",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "22-code-cli-exit-codes-bilingual.md",
+          "headingPath": [
+            "官方 CLI 退出码与结构化错误规范",
+            "Exit Code Contract 退出码约定"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q31",
+      "query": "Team 团队版和 Enterprise 企业版的 API 稳态速率与突发容量是多少？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "23-table-api-quotas-bilingual.md",
+          "headingPath": [
+            "API 套餐配额与突发限流矩阵",
+            "Tier Quota Matrix 套餐配额对比表"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q32",
+      "query": "工作区 Admin 管理员能否删除工作区或修改 SSO 计费？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "24-table-rbac-permissions-zh.md",
+          "headingPath": [
+            "工作区角色权限矩阵",
+            "角色操作权限对照表"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q33",
+      "query": "What spending threshold triggers a cloud cost anomaly alert on Slack?",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "25-table-cloud-cost-budget-en.md",
+          "headingPath": [
+            "Q4 Cloud Infrastructure Cost Allocation",
+            "Cost Anomaly Alerts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q34",
+      "query": "Linux 和 Windows 桌面端支持的最低系统版本与 WebView 引擎要求",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "26-table-browser-support-bilingual.md",
+          "headingPath": [
+            "桌面端与浏览器兼容性矩阵",
+            "Supported Platforms 支持环境列表"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q35",
+      "query": "收到 PAYLOAD_TOO_LARGE 或 AUTH_TOKEN_EXPIRED 错误码客户端该如何处理？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "27-table-error-catalog-zh.md",
+          "headingPath": [
+            "平台统一错误码目录",
+            "常见错误码与处置建议表"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q36",
+      "query": "On-premise hardware RAM and NVMe sizing for 300 active users",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "28-table-hardware-sizing-en.md",
+          "headingPath": [
+            "On-Premise Deployment Hardware Sizing Guide",
+            "Recommended Server Profiles"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q37",
+      "query": "Curator Agent 和 Citation Chip 在简体中文界面里的官方译名是什么？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "29-table-localization-glossary-bilingual.md",
+          "headingPath": [
+            "产品多语言术语对照表",
+            "Core Terminology Glossary 核心术语表"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q38",
+      "query": "P0 和 P1 线上故障的首次响应 SLA 与复盘报告截止时间",
+      "language": "zh",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "30-table-sla-escalation-zh.md",
+          "headingPath": [
+            "线上故障分级与响应升级矩阵",
+            "故障等级响应表"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q39",
+      "query": "Redis Sentinel manual failover ckquorum and split-brain min-replicas-to-write",
+      "language": "en",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "34-runbook-redis-failover-en.md",
+          "headingPath": [
+            "Redis Sentinel Failover and Recovery Runbook",
+            "Preventing Split-Brain Writes"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q40",
+      "query": "边缘 TLS 证书触发 TlsCertExpiringSoon 告警时怎么排查 ACME 自动续期？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "35-runbook-tls-cert-renewal-zh.md",
+          "headingPath": [
+            "边缘 TLS 证书自动续期与应急替换手册",
+            "ACME 自动续期检查"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q41",
+      "query": "灰度发布满足哪些 5xx 错误率或 OOMKilled 条件会触发自动回滚？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "37-guide-release-canary-bilingual.md",
+          "headingPath": [
+            "灰度发布与自动回滚操作指南",
+            "Automatic Rollback Triggers 自动回滚红线"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q42",
+      "query": "企业租户自助数据导出包的 AES-256 加密口令和 manifest.sha256 怎么校验？",
+      "language": "bilingual",
+      "category": "lexical",
+      "relevant": [
+        {
+          "file": "39-guide-customer-data-export-zh.md",
+          "headingPath": [
+            "企业租户自助数据导出指南",
+            "完整性校验与限频规则"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q43",
+      "query": "foreign business trip food stipend limit",
+      "language": "en",
+      "category": "semantic_no_overlap",
+      "notes": "Target uses \"international\", \"meal per diem\", \"USD 105\", \"capped\" — zero token overlap",
+      "relevant": [
+        {
+          "file": "31-policy-travel-reimbursement-en.md",
+          "headingPath": [
+            "Corporate Travel and Expense Reimbursement Policy",
+            "Airfare & Lodging Allowances"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q44",
+      "query": "invoice filing cutoff wire transfer wait duration",
+      "language": "en",
+      "category": "semantic_no_overlap",
+      "notes": "Target uses \"upload itemized receipts\", \"14 calendar days\", \"direct deposit\", \"10 business days\"",
+      "relevant": [
+        {
+          "file": "31-policy-travel-reimbursement-en.md",
+          "headingPath": [
+            "Corporate Travel and Expense Reimbursement Policy",
+            "Receipt Submission & Payout Window"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q45",
+      "query": "剩余公休跨年度顺延上限",
+      "language": "zh",
+      "category": "semantic_no_overlap",
+      "notes": "原文用“当年未休完的年假最多允许结转五天至次年第一季度（3 月 31 日前）使用”",
+      "relevant": [
+        {
+          "file": "32-policy-leave-overtime-zh.md",
+          "headingPath": [
+            "员工休假与加班调休管理制度",
+            "年假额度与结转规则"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q46",
+      "query": "额外工时兑换补休失效期限",
+      "language": "zh",
+      "category": "semantic_no_overlap",
+      "notes": "原文用“法定节假日或周末加班……折算为调休假期……六个月内有效”",
+      "relevant": [
+        {
+          "file": "32-policy-leave-overtime-zh.md",
+          "headingPath": [
+            "员工休假与加班调休管理制度",
+            "加班倒休与病假证明"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q47",
+      "query": "辞职退回办公器材及停用账号截止钟点",
+      "language": "zh",
+      "category": "semantic_no_overlap",
+      "notes": "原文用“员工最后工作日 17:00 前须将电脑……归还……18:00 自动吊销 SSO 会话”",
+      "relevant": [
+        {
+          "file": "33-policy-onboarding-equipment-bilingual.md",
+          "headingPath": [
+            "新员工入职设备与安全凭据指南",
+            "Offboarding Asset Return 离职交接要求"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q48",
+      "query": "陈旧文本定期转存低频对象库防爆盘",
+      "language": "zh",
+      "category": "semantic_no_overlap",
+      "notes": "原文用“超过 30 天的审计日志打包压缩为 zstd……上传至冷存储桶……磁盘写满前自动释放节点空间”",
+      "relevant": [
+        {
+          "file": "36-runbook-log-retention-zh.md",
+          "headingPath": [
+            "审计日志分层归档与磁盘告警处置",
+            "冷热分层与自动瘦身策略"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q49",
+      "query": "抹除超大文本文档后容量没腾出怎样处理",
+      "language": "zh",
+      "category": "semantic_no_overlap",
+      "notes": "原文用“严禁直接 rm -rf 正在被进程打开的日志文件（否则句柄未释放导致空间不回收）”",
+      "relevant": [
+        {
+          "file": "36-runbook-log-retention-zh.md",
+          "headingPath": [
+            "审计日志分层归档与磁盘告警处置",
+            "磁盘高水位应急处置"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q50",
+      "query": "confine cursor traversal within popup overlay without mouse",
+      "language": "en",
+      "category": "semantic_no_overlap",
+      "notes": "Target uses \"trap focus\", \"modal dialog\", \"keyboard\", \"Escape\"",
+      "relevant": [
+        {
+          "file": "38-guide-accessibility-audit-en.md",
+          "headingPath": [
+            "Web Accessibility WCAG AA Audit Checklist",
+            "Keyboard Navigation & Focus Management"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q51",
+      "query": "speak async alert popup assisting blind assistive software",
+      "language": "en",
+      "category": "semantic_no_overlap",
+      "notes": "Target uses \"Screen Reader\", \"aria-live\", \"toast notifications\"",
+      "relevant": [
+        {
+          "file": "38-guide-accessibility-audit-en.md",
+          "headingPath": [
+            "Web Accessibility WCAG AA Audit Checklist",
+            "Screen Reader Semantics & Live Regions"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q52",
+      "query": "后台程序占用空间只升不降怎样定位残留实例",
+      "language": "zh",
+      "category": "semantic_no_overlap",
+      "notes": "原文用“常驻内存（RSS）呈单调阶梯状攀升……堆快照……分配调用栈”",
+      "relevant": [
+        {
+          "file": "40-guide-perf-profiling-bilingual.md",
+          "headingPath": [
+            "生产服务内存泄漏与 CPU 采样排查手册",
+            "Heap Growth & Memory Leak Triage 内存持续增长排查"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q53",
+      "query": "diagnose compute saturation via broad horizontal stack chart",
+      "language": "en",
+      "category": "semantic_no_overlap",
+      "notes": "Target uses \"perf record\", \"flamegraph\", \"plateaus\", \"bottlenecks\"",
+      "relevant": [
+        {
+          "file": "40-guide-perf-profiling-bilingual.md",
+          "headingPath": [
+            "生产服务内存泄漏与 CPU 采样排查手册",
+            "CPU Flamegraph Sampling 火焰图采样分析"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q54",
+      "query": "alter storage field safely with uninterrupted availability",
+      "language": "en",
+      "category": "semantic_no_overlap",
+      "notes": "Target uses \"column\", \"Zero-Downtime\", \"Expand and Contract\", \"Dual-write\"",
+      "relevant": [
+        {
+          "file": "19-spec-zero-downtime-migration-en.md",
+          "headingPath": [
+            "Zero-Downtime Database Schema Migration Playbook",
+            "Expand and Contract Pattern"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q55",
+      "query": "stagger mass entry eviction upon boot preload",
+      "language": "en",
+      "category": "semantic_no_overlap",
+      "notes": "Target uses \"TTL jitter\", \"expire in the same second\", \"cold-start warmups\"",
+      "relevant": [
+        {
+          "file": "17-code-cache-stampede-en.md",
+          "headingPath": [
+            "Mitigating Cache Stampede in Go Services",
+            "Probabilistic Early Expiration & TTL Jitter"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q56",
+      "query": "mechanical platter drive prohibited for retrieval cluster",
+      "language": "en",
+      "category": "semantic_no_overlap",
+      "notes": "Target uses \"spinning HDD volumes are unsupported\", \"Full-text indexing\", \"swap\"",
+      "relevant": [
+        {
+          "file": "28-table-hardware-sizing-en.md",
+          "headingPath": [
+            "On-Premise Deployment Hardware Sizing Guide",
+            "Disk Throughput & Swap Guidelines"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q57",
+      "query": "重大事故爆发时由谁统筹决策且通报外界进度",
+      "language": "zh",
+      "category": "semantic_no_overlap",
+      "notes": "原文用“P0 与 P1 故障触发后……指定唯一故障指挥官……每二十分钟同步对外状态页进展”",
+      "relevant": [
+        {
+          "file": "30-table-sla-escalation-zh.md",
+          "headingPath": [
+            "线上故障分级与响应升级矩阵",
+            "故障指挥官职责"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q58",
+      "query": "每隔三个月取远程存档重建冷库检验账目准确度",
+      "language": "zh",
+      "category": "semantic_no_overlap",
+      "notes": "原文用“每季度最后一个周六执行一次盲测恢复演练：从异地只读桶拉取最新快照”",
+      "relevant": [
+        {
+          "file": "21-spec-backup-dr-zh.md",
+          "headingPath": [
+            "数据库容灾与备份恢复手册",
+            "异地恢复演练与校验"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q59",
+      "query": "代理商登记潜在客户久未推进会被撤回独占期吗",
+      "language": "zh",
+      "category": "semantic_no_overlap",
+      "notes": "原文用“商机报备……锁定 90 天专属跟进保护期……连续 30 天未更新……回收”",
+      "relevant": [
+        {
+          "file": "12-contract-channel-reseller-zh.md",
+          "headingPath": [
+            "区域渠道经销授权协议",
+            "区域保护与报备机制"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q60",
+      "query": "末位超级号主辞职怎样移交最高控制权",
+      "language": "zh",
+      "category": "semantic_no_overlap",
+      "notes": "原文用“唯一所有者离职，须由企业组织管理员凭工单完成所有者强制交接”",
+      "relevant": [
+        {
+          "file": "24-table-rbac-permissions-zh.md",
+          "headingPath": [
+            "工作区角色权限矩阵",
+            "最小权限与所有者交接"
+          ]
+        }
+      ]
+    }
+  ]
+}

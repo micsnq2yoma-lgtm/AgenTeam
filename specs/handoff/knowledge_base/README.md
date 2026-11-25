@@ -34,7 +34,8 @@
 | K7 Skills 与库规则模板 | 已合并（`e24c3bb`） | 自检通过、正式 CI 全绿，用户批准合并，见 `acceptance/K7.md` |
 | K8 | 已合并 | 实机通过（见 `delivery/K8.md`），M2 阶段报告见 `acceptance/M2.md` |
 | K9 知识库 UI | 已合并（`feat/kb-k9-entry`） | **通过**：Windows 实机截图验收与正式 CI 通过，见 `delivery/K9.md` 与 `acceptance/K9.md` |
-| K10、K11 | — | 未开始 |
+| K10 引用 chip | 已合并（`feat/kb-k10-citation-chips`） | **通过**：Windows 实机跳页/高亮验收与正式 CI 通过，见 `delivery/K10.md` 与 `acceptance/K10.md` |
+| K11 端到端与检索评测 | 已合并（`feat/kb-k11-eval-e2e`） | **通过**：40 文档/60 查询 BM25 基线达标（Recall@8=0.7000, MRR@10=0.6833）且离线 E2E 与正式 CI 通过，见 `delivery/K11.md` |
 
 **2026-11-22 起由 Claude 负责开发与自检**，不再使用协作者；自检不是独立验收，记录里会注明。下文「角色变化」一节和 K0/K1 记录保留为历史。
 
