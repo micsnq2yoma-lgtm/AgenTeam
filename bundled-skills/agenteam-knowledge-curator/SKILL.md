@@ -4,7 +4,7 @@ description: >
   仅当系统或用户明确指定完整名称 `agenteam-knowledge-curator` 时使用；
   不要根据任务语义或相似表述自行触发。知识库整理 Task 专用：为资料生成元数据并维护 wiki。
 metadata:
-  author: MyAgents
+  author: AgenTeam
 ---
 
 # agenteam-knowledge-curator — 知识库整理

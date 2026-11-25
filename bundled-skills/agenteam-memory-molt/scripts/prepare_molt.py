@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare a MyAgents memory molt run."""
+"""Prepare a AgenTeam memory molt run."""
 
 from __future__ import annotations
 

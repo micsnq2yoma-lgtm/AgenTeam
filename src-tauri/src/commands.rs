@@ -1129,7 +1129,7 @@ fn sync_admin_agent_blocking<R: Runtime>(app_handle: AppHandle<R>) -> Result<boo
 // matching exclusion list in src/server/index.ts::seedBundledSkills
 // MUST be kept in sync (comment there points back here).
 
-const SYSTEM_SKILLS_VERSION: &str = "81";
+const SYSTEM_SKILLS_VERSION: &str = "82";
 
 /// One process-wide transaction owner for the versioned system-skill
 /// snapshot. Startup automation and ConfigProvider may request convergence at
@@ -1705,7 +1705,7 @@ mod system_skills_tests {
 
     #[test]
     fn system_skill_version_keeps_cuse_and_product_skills_aligned() {
-        assert_eq!(SYSTEM_SKILLS_VERSION, "81");
+        assert_eq!(SYSTEM_SKILLS_VERSION, "82");
         assert!(SYSTEM_SKILLS.contains(&"cuse"));
         assert!(!REQUIRED_SYSTEM_SKILLS.contains(&"cuse"));
         assert!(SYSTEM_SKILLS.contains(&"agenteam-task-alignment"));
@@ -1767,7 +1767,7 @@ mod system_skills_tests {
         assert!(SYSTEM_SKILLS.contains(&"agenteam-task-automation"));
 
         let memory_update = include_str!("../../bundled-skills/agenteam-memory-update/SKILL.md");
-        assert!(memory_update.contains("author: MyAgents"));
+        assert!(memory_update.contains("author: AgenTeam"));
         assert!(memory_update
             .contains("仅当系统或用户明确指定完整名称 `agenteam-memory-update` 时使用"));
         assert!(memory_update.contains("不要根据任务语义或相似表述自行触发"));
@@ -1787,7 +1787,7 @@ mod system_skills_tests {
 
         let product_docs = include_str!("../../bundled-skills/agenteam-docs/SKILL.md");
         assert!(product_docs.contains("name: agenteam-docs"));
-        assert!(product_docs.contains("author: MyAgents"));
+        assert!(product_docs.contains("author: AgenTeam"));
         assert!(product_docs.contains("它面向软件使用而非源码开发"));
         assert!(product_docs.contains("随后加载 `/agenteam-cli`"));
         assert!(product_docs.contains("在内置小助理里加载 `/support`"));
@@ -1798,7 +1798,7 @@ mod system_skills_tests {
             include_str!("../../bundled-skills/agenteam-memory-gardener/SKILL.md"),
             include_str!("../../bundled-skills/agenteam-memory-molt/SKILL.md"),
         ] {
-            assert!(content.contains("author: MyAgents"));
+            assert!(content.contains("author: AgenTeam"));
         }
     }
 
@@ -1936,7 +1936,7 @@ mod system_skills_tests {
                 metadata
                     .get(&serde_yaml::Value::String("author".into()))
                     .and_then(serde_yaml::Value::as_str),
-                Some("MyAgents"),
+                Some("AgenTeam"),
                 "{name} must publish metadata.author"
             );
         }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generic memory lint for MyAgents long-term memory workspaces."""
+"""Generic memory lint for AgenTeam long-term memory workspaces."""
 
 from __future__ import annotations
 

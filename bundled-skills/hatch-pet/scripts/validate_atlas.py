@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a MyAgents/Codex-compatible pet spritesheet atlas."""
+"""Validate a AgenTeam/Codex-compatible pet spritesheet atlas."""
 
 from __future__ import annotations
 

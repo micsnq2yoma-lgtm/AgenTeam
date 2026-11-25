@@ -4,7 +4,7 @@ description: >
   仅当系统或用户明确指定完整名称 `agenteam-user-profile` 时使用；
   不要根据任务语义或相似表述自行触发。助理工作区的后台 Task 用它根据用户明确提供的资料，首次生成、增量更新或定向更正 `03-USER.md` 用户画像。
 metadata:
-  author: MyAgents
+  author: AgenTeam
 ---
 
 # agenteam-user-profile — 用资料生成并维护用户画像

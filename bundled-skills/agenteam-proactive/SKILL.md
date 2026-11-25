@@ -4,7 +4,7 @@ description: >
   仅当系统或用户明确指定完整名称 `agenteam-proactive` 时使用；
   不要根据任务语义或相似表述自行触发。
 metadata:
-  author: MyAgents
+  author: AgenTeam
 ---
 
 # 主动提醒

@@ -1,4 +1,4 @@
-# MyAgents/Codex Pet Contract
+# AgenTeam/Codex Pet Contract
 
 ## Sprite Atlas
 
@@ -32,4 +32,4 @@ Manifest shape:
 }
 ```
 
-MyAgents loads custom pets from the folder name under `${MYAGENTS_HOME:-$HOME/.myagents}/pets/`. Codex-compatible consumers can use the same package shape under `${CODEX_HOME:-$HOME/.codex}/pets/`.
+AgenTeam loads custom pets from the folder name under `${MYAGENTS_HOME:-$HOME/.myagents}/pets/`. Codex-compatible consumers can use the same package shape under `${CODEX_HOME:-$HOME/.codex}/pets/`.
