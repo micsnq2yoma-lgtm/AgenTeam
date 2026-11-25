@@ -9,4 +9,5 @@ pub mod organize;
 pub(crate) mod read;
 pub mod store;
 pub mod types;
+pub mod url_import;
 pub mod vector_index;

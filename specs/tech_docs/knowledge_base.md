@@ -359,6 +359,13 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
 - **BM25 + 向量 RRF 与降级策略**：`fuse_bm25_and_vector_rrf` 按 `score = Σ 1/(60 + rank)` 融合并维持每源最多 3 条去重上限。未安装本地嵌入模型、模型被卸载或向量索引为空时自动返回 `mode = "bm25"` 且零报错；向量就绪时返回 `mode = "hybrid"`。
 - **检索测试页三列对比**：`KnowledgeSearchResult` 新增可选的 `bm25Hits` 与 `vectorHits`；`KnowledgeSearchTab` 新增「三列对比」切换按钮，可并排查看 BM25 词法、向量语义（降级时显示提示）与 RRF 混合结果。
 
+## K19 URL 导入
+
+`src-tauri/src/knowledge/url_import.rs` 提供面向桌面用户的网页导入能力（`cmd_kb_import_url`，不暴露到 Management API/CLI），严格遵守外部 URL SSRF 安全约束并复用 K2 摄取管线：
+
+- **SSRF 安全边界**：仅允许 `http://` / `https://`（拒绝 `file://`、`ftp://`、`data:`、`javascript:` 及含凭据 URL）；拒绝 `localhost` / `*.localhost` / `*.local` / `*.internal`；逐跳关闭自动重定向（最多 5 跳），每一跳均对 DNS 解析出的全部 IP 地址做公网单播校验（与 `egress_restriction::public_ip` 一致，拒绝环回、RFC1918 私有、链路本地、CGNAT、ULA 及 IPv4-mapped 内网地址）并通过 `resolve_to_addrs` 钉死已验证 IP 防 DNS Rebinding；流式读取响应体硬上限 5 MiB，仅接受 HTML/纯文本/Markdown。
+- **正文提取与入库**：`extract_html_to_markdown` 剔除 `<script>`/`<style>`/`<nav>`/`<footer>`/`<aside>`/`<iframe>` 与非 HTTP(S) 链接，优先提取 `<article>`/`<main>` 转为干净 Markdown 并附加来源 URL，再交由 `KnowledgeIngestManager::import_files` 完成标准摄取、去重、切块与索引。
+
 ## 待接入章节
 
-### K19–K20 URL 导入与全局搜索分类
+### K20 全局搜索分类
