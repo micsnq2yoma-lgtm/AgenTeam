@@ -810,6 +810,17 @@ pub fn run() {
             knowledge::commands::cmd_kb_job_status,
             knowledge::commands::cmd_kb_cancel_job,
             knowledge::commands::cmd_kb_retry_source,
+            knowledge::commands::cmd_kb_stats,
+            knowledge::commands::cmd_kb_list_source_views,
+            knowledge::commands::cmd_kb_list_categories,
+            knowledge::commands::cmd_kb_list_chunks,
+            knowledge::commands::cmd_kb_unlock_metadata,
+            knowledge::commands::cmd_kb_search,
+            knowledge::commands::cmd_kb_list_wiki_pages,
+            knowledge::commands::cmd_kb_read_wiki_page,
+            knowledge::commands::cmd_kb_list_lint_reports,
+            knowledge::commands::cmd_kb_read_rule_doc,
+            knowledge::commands::cmd_kb_write_rule_doc,
             // Canonical Record commands.
             record::cmd_record_create,
             record::cmd_record_list,
@@ -1632,8 +1643,9 @@ pub fn run() {
                     Arc::clone(&store),
                     document_processing::global().cloned(),
                 ));
-                app.manage(store);
+                app.manage(Arc::clone(&store));
                 app.manage(Arc::clone(&ingest));
+                knowledge::commands::spawn_ui_event_forwarder(app.handle().clone(), store);
                 tauri::async_runtime::spawn_blocking(move || {
                     if let Err(code) = ingest.recover() {
                         ulog_error!("[knowledge] ingest recovery failed code={:?}", code);

@@ -99,7 +99,11 @@ function renderLauncher() {
 describe('Launcher runtime display', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    mocks.invoke.mockImplementation(async (command: string) => (command === 'cmd_detect_runtimes' ? detections : undefined));
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'cmd_detect_runtimes') return detections;
+      if (command === 'cmd_kb_list') return [];
+      return undefined;
+    });
     mocks.apiGetJson.mockResolvedValue({ success: true, models: [], data: {} });
     mocks.persist.mockResolvedValue(undefined);
     await i18n.changeLanguage('en-US');
@@ -172,6 +176,17 @@ describe('Launcher runtime display', () => {
     expect(await screen.findByTitle(/Runtime: .*Codex/)).toBeInTheDocument();
     expect(screen.queryByTestId('launcher-runtime-execution-note')).not.toBeInTheDocument();
     expect(screen.queryByText(/only runs on/)).not.toBeInTheDocument();
+  });
+
+  it('switches to the knowledge page from the top switch and keeps the chat composer mounted for when you return', async () => {
+    renderLauncher();
+    await screen.findByTitle(/Runtime: .*DeepSeek Harness/);
+    fireEvent.click(screen.getByRole('tab', { name: 'Knowledge' }));
+    expect(await screen.findByTestId('knowledge-home')).toBeInTheDocument();
+    // The runtime picker lives in the (hidden, still mounted) composer: a draft there is not thrown away.
+    expect(screen.getByTitle(/Runtime: .*DeepSeek Harness/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
+    expect(screen.queryByTestId('knowledge-home')).not.toBeInTheDocument();
   });
 
   it('renders the saved DSH preference', async () => {

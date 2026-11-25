@@ -9,6 +9,7 @@ import { getAgentById } from '@/config/services/agentConfigService';
 import type { AgentConfig } from '../../../shared/types/agent';
 import AgentBasicsSection from './sections/AgentBasicsSection';
 import AgentChannelsSection from './sections/AgentChannelsSection';
+import AgentKnowledgeSection from './sections/AgentKnowledgeSection';
 import AgentToolsSection from './sections/AgentToolsSection';
 import AgentHeartbeatSection from './sections/AgentHeartbeatSection';
 import AgentMemoryUpdateSection from './sections/AgentMemoryUpdateSection';
@@ -87,6 +88,11 @@ export default function AgentSettingsPanel({ agentId }: AgentSettingsPanelProps)
       {/* MCP Tools */}
       <div className="border-b border-[var(--line)] pb-6 pt-6">
         <AgentToolsSection agent={agent} onAgentChanged={handleAgentChanged} />
+      </div>
+
+      {/* Knowledge Bases */}
+      <div className="border-b border-[var(--line)] pb-6 pt-6">
+        <AgentKnowledgeSection agent={agent} onAgentChanged={handleAgentChanged} />
       </div>
 
       {/* Heartbeat */}

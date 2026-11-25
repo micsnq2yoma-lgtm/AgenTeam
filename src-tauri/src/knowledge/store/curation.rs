@@ -9,11 +9,12 @@ use super::*;
 pub const CURATION_BATCH_LIMIT: usize = 50;
 pub(super) const MAX_PENDING_CATEGORIES: usize = 50;
 const MAX_CATEGORY_CHARS: usize = 200;
-const MAX_CONTEXT_TEXT_BYTES: u64 = 256 * 1024;
+pub(super) const MAX_CONTEXT_TEXT_BYTES: u64 = 256 * 1024;
 pub(super) const RULES_FILE: &str = "ORGANIZE_RULES.md";
-const SCHEMA_FILE: &str = "WIKI_SCHEMA.md";
+pub(super) const SCHEMA_FILE: &str = "WIKI_SCHEMA.md";
 const WIKI_INDEX: &str = "wiki/index.md";
-const CATEGORY_SECTION: &str = "分类体系";
+const CATEGORY_SECTION_ZH: &str = "分类体系";
+const CATEGORY_SECTION_EN: &str = "Categories";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,10 +83,15 @@ fn rules_lines(rules: &str) -> impl Iterator<Item = (usize, &str)> {
     })
 }
 
-/// The approved category in a ``- `path`：description`` bullet, if the line is one.
-fn category_bullet(line: &str) -> Option<&str> {
+/// The approved category in a bullet matching the active section's delimiter
+/// (``- `path`：description`` under `## 分类体系`, ``- `path`: description`` under `## Categories`).
+fn category_bullet(line: &str, english_section: bool) -> Option<&str> {
     let (path, tail) = line.strip_prefix("- `")?.split_once('`')?;
-    let description = tail.strip_prefix('：')?;
+    let description = if english_section {
+        tail.strip_prefix(':')?
+    } else {
+        tail.strip_prefix('：')?
+    };
     (!description.trim().is_empty()).then_some(path)
 }
 
@@ -94,15 +100,29 @@ fn section_title(line: &str) -> Option<&str> {
     matches!(header, "#" | "##").then_some(title.trim())
 }
 
-/// Categories listed under `## 分类体系`; code blocks and other sections are ignored.
+fn category_section_lang(title: &str) -> Option<bool> {
+    if title == CATEGORY_SECTION_ZH {
+        Some(false)
+    } else if title.eq_ignore_ascii_case(CATEGORY_SECTION_EN) {
+        Some(true)
+    } else {
+        None
+    }
+}
+
+/// Categories listed under `## 分类体系` or `## Categories`; code blocks and other sections are ignored.
 pub(super) fn allowed_categories(rules: &str) -> Vec<String> {
     let mut found = Vec::new();
-    let mut inside = false;
+    let mut section_english: Option<bool> = None;
     for (_, line) in rules_lines(rules) {
         if let Some(title) = section_title(line) {
-            inside = line.starts_with("## ") && title == CATEGORY_SECTION;
-        } else if inside {
-            if let Some(path) = category_bullet(line) {
+            section_english = if line.starts_with("## ") {
+                category_section_lang(title)
+            } else {
+                None
+            };
+        } else if let Some(english) = section_english {
+            if let Some(path) = category_bullet(line, english) {
                 if valid_category(path) && !found.iter().any(|known| known == path) {
                     found.push(path.to_string());
                 }
@@ -126,21 +146,29 @@ pub(super) fn valid_category(path: &str) -> bool {
 
 /// Appends `path` to the category section, creating the section when absent.
 pub(super) fn with_category(rules: &str, path: &str) -> String {
-    let bullet = format!("- `{path}`：用户确认新增");
     let lines: Vec<&str> = rules.lines().collect();
     let mut insertion = None;
+    let mut english_section = false;
     for (index, line) in rules_lines(rules) {
         if let Some(title) = section_title(line) {
             if insertion.is_some() {
                 break;
             }
-            if line.starts_with("## ") && title == CATEGORY_SECTION {
-                insertion = Some(index + 1);
+            if line.starts_with("## ") {
+                if let Some(english) = category_section_lang(title) {
+                    english_section = english;
+                    insertion = Some(index + 1);
+                }
             }
-        } else if insertion.is_some() && category_bullet(line).is_some() {
+        } else if insertion.is_some() && category_bullet(line, english_section).is_some() {
             insertion = Some(index + 1);
         }
     }
+    let bullet = if english_section {
+        format!("- `{path}`: Confirmed by user")
+    } else {
+        format!("- `{path}`：用户确认新增")
+    };
     let mut out: Vec<String> = lines.iter().map(|line| (*line).to_string()).collect();
     match insertion {
         Some(at) => out.insert(at, bullet),
@@ -148,7 +176,7 @@ pub(super) fn with_category(rules: &str, path: &str) -> String {
             if out.last().is_some_and(|line| !line.trim().is_empty()) {
                 out.push(String::new());
             }
-            out.push(format!("## {CATEGORY_SECTION}"));
+            out.push(format!("## {CATEGORY_SECTION_ZH}"));
             out.push(String::new());
             out.push(bullet);
         }
@@ -296,6 +324,7 @@ impl KnowledgeStore {
             kb.pending_category_reasons
                 .insert(path.to_string(), reason.trim().into());
             files.write_json(&format!("{kb_id}/kb.json"), &kb)?;
+            self.emit_ui("kb-upserted", kb_id, None);
             Ok(CategoryProposal::Proposed)
         })
     }
@@ -313,9 +342,11 @@ impl KnowledgeStore {
                 return Err(KbNotFound);
             }
             let rules_path = format!("{kb_id}/{RULES_FILE}");
+            let fallback =
+                library_templates(explicit_config_locale(&files.app.join("config.json")))[0].1;
             let rules = files
                 .read_text(&rules_path, MAX_CONTEXT_TEXT_BYTES)?
-                .unwrap_or_else(|| LIBRARY_TEMPLATES[0].1.to_string());
+                .unwrap_or_else(|| fallback.to_string());
             if !allowed_categories(&rules).iter().any(|known| known == path) {
                 let updated = with_category(&rules, path);
                 if updated.len() as u64 > MAX_CONTEXT_TEXT_BYTES {
@@ -331,7 +362,9 @@ impl KnowledgeStore {
             }
             kb.pending_categories.retain(|known| known != path);
             kb.pending_category_reasons.remove(path);
-            files.write_json(&format!("{kb_id}/kb.json"), &kb)
+            files.write_json(&format!("{kb_id}/kb.json"), &kb)?;
+            self.emit_ui("kb-upserted", kb_id, None);
+            Ok(())
         })
     }
 
@@ -345,7 +378,9 @@ impl KnowledgeStore {
                 return Err(KbNotFound);
             }
             kb.pending_category_reasons.remove(path);
-            files.write_json(&format!("{kb_id}/kb.json"), &kb)
+            files.write_json(&format!("{kb_id}/kb.json"), &kb)?;
+            self.emit_ui("kb-upserted", kb_id, None);
+            Ok(())
         })
     }
 }

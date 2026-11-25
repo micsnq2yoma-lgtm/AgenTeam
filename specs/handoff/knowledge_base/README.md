@@ -32,8 +32,8 @@
 | K5 会话 CLI | 已合并（`6188756`） | **通过**，见 `acceptance/K5.md` |
 | K6 绑定与 Session 快照 | 已合并（`6188756`） | **通过**，M1 能检索实机通过，见 `acceptance/K6.md` |
 | K7 Skills 与库规则模板 | 已合并（`e24c3bb`） | 自检通过、正式 CI 全绿，用户批准合并，见 `acceptance/K7.md` |
-| K8 | 已合并 | 自检通过，AC-K8-7/8 实机通过，见 `delivery/K8.md` |
-| K9 | `feat/kb-k9-entry`（未合并） | 进行中：启动页"对话/知识库"开关与库列表已做，其余见 `HANDOFF.md` |
+| K8 | 已合并 | 实机通过（见 `delivery/K8.md`），M2 阶段报告见 `acceptance/M2.md` |
+| K9 知识库 UI | 已合并（`feat/kb-k9-entry`） | **通过**：Windows 实机截图验收与正式 CI 通过，见 `delivery/K9.md` 与 `acceptance/K9.md` |
 | K10、K11 | — | 未开始 |
 
 **2026-11-22 起由 Claude 负责开发与自检**，不再使用协作者；自检不是独立验收，记录里会注明。下文「角色变化」一节和 K0/K1 记录保留为历史。

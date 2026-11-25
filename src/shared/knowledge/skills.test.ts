@@ -82,11 +82,13 @@ describe('knowledge Skills track the bundled CLI contract', () => {
 });
 
 describe('library rule templates', () => {
-  const rules = read('bundled-skills/agenteam-knowledge-curator/references/ORGANIZE_RULES.md');
-  const schema = read('bundled-skills/agenteam-knowledge-curator/references/WIKI_SCHEMA.md');
+  const rulesZh = read('bundled-skills/agenteam-knowledge-curator/references/ORGANIZE_RULES.md');
+  const schemaZh = read('bundled-skills/agenteam-knowledge-curator/references/WIKI_SCHEMA.md');
+  const rulesEn = read('bundled-skills/agenteam-knowledge-curator/references/ORGANIZE_RULES.en.md');
+  const schemaEn = read('bundled-skills/agenteam-knowledge-curator/references/WIKI_SCHEMA.en.md');
 
-  it('lists categories in the one-per-line form the curator and Store rely on', () => {
-    const section = rules.split('## 分类体系')[1].split('\n## ')[0];
+  it('lists Chinese categories in the one-per-line form the curator and Store rely on', () => {
+    const section = rulesZh.split('## 分类体系')[1].split('\n## ')[0];
     const categories = [...section.matchAll(/^- `([^`]+)`：/gm)].map(match => match[1]);
     expect(categories.length).toBeGreaterThan(0);
     for (const category of categories) {
@@ -94,9 +96,20 @@ describe('library rule templates', () => {
     }
   });
 
-  it('requires kb:// citations and a log entry for wiki changes', () => {
-    expect(schema).toMatch(/kb:\/\//);
-    expect(schema).toMatch(/log\.md/);
-    expect(schema).toMatch(/index\.md/);
+  it('lists English categories in the one-per-line form the curator and Store rely on', () => {
+    const section = rulesEn.split('## Categories')[1].split('\n## ')[0];
+    const categories = [...section.matchAll(/^- `([^`]+)`:/gm)].map(match => match[1]);
+    expect(categories.length).toBeGreaterThan(0);
+    for (const category of categories) {
+      expect(category).not.toMatch(/^\/|\/$|\/\/|\.\./);
+    }
+  });
+
+  it('requires kb:// citations and a log entry for wiki changes in both languages', () => {
+    for (const schema of [schemaZh, schemaEn]) {
+      expect(schema).toMatch(/kb:\/\//);
+      expect(schema).toMatch(/log\.md/);
+      expect(schema).toMatch(/index\.md/);
+    }
   });
 });

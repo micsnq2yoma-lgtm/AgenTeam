@@ -14,14 +14,16 @@ pub use chunks::ResolvedFragment;
 mod curation;
 mod wiki;
 pub(crate) use wiki::MAX_WIKI_PAGE_BYTES;
+pub use wiki::{LintItem, LintKind, LintReport, LintReportEntry, WikiPageEntry};
 pub mod ingest;
 #[cfg(test)]
 use curation::CURATION_BATCH_LIMIT;
 
 use crate::durable_fs::{rename_directory_noreplace, sync_directory};
+use crate::knowledge::chunker::ChunkPosition;
 use crate::utils::file_lock::{with_file_lock_blocking, FileLockOptions};
 use crate::workspace_files::path_safety::{
-    ensure_workspace_directory_no_follow, read_workspace_file_no_follow,
+    ensure_workspace_directory_no_follow, metadata_is_link_like, read_workspace_file_no_follow,
     write_workspace_file_no_follow,
 };
 
@@ -60,6 +62,53 @@ pub(crate) const LIBRARY_TEMPLATES: [(&str, &str); 2] = [
         ),
     ),
 ];
+
+pub(crate) const LIBRARY_TEMPLATES_EN: [(&str, &str); 2] = [
+    (
+        "ORGANIZE_RULES.md",
+        include_str!(
+            "../../../bundled-skills/agenteam-knowledge-curator/references/ORGANIZE_RULES.en.md"
+        ),
+    ),
+    (
+        "WIKI_SCHEMA.md",
+        include_str!(
+            "../../../bundled-skills/agenteam-knowledge-curator/references/WIKI_SCHEMA.en.md"
+        ),
+    ),
+];
+
+pub(super) fn library_templates(
+    locale: crate::i18n::SupportedLocale,
+) -> &'static [(&'static str, &'static str); 2] {
+    match locale {
+        crate::i18n::SupportedLocale::EnUs => &LIBRARY_TEMPLATES_EN,
+        crate::i18n::SupportedLocale::ZhCn => &LIBRARY_TEMPLATES,
+    }
+}
+
+fn parse_template_locale(tag: &str) -> crate::i18n::SupportedLocale {
+    if tag.trim().to_ascii_lowercase().starts_with("en") {
+        crate::i18n::SupportedLocale::EnUs
+    } else {
+        crate::i18n::SupportedLocale::ZhCn
+    }
+}
+
+/// Resolve the template locale from explicit `config.json` `uiLanguage` when present,
+/// defaulting to `ZhCn` when unconfigured so headless stores are independent of OS locale.
+pub(super) fn explicit_config_locale(config_path: &Path) -> crate::i18n::SupportedLocale {
+    let Ok(raw) = fs::read_to_string(config_path) else {
+        return crate::i18n::SupportedLocale::ZhCn;
+    };
+    let Ok(value) = serde_json::from_str::<Value>(raw.trim_start_matches('\u{feff}')) else {
+        return crate::i18n::SupportedLocale::ZhCn;
+    };
+    match value.get("uiLanguage").and_then(Value::as_str) {
+        Some(tag) if tag.eq_ignore_ascii_case("en-US") => crate::i18n::SupportedLocale::EnUs,
+        _ => crate::i18n::SupportedLocale::ZhCn,
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -106,6 +155,8 @@ pub struct KnowledgeBasePatch {
     pub agent_write_access: Option<AgentWriteAccess>,
     pub wiki_enabled: Option<bool>,
     pub pending_categories: Option<Vec<String>>,
+    /// Optional locale hint used only when seeding initial rule templates on `create`.
+    pub locale: Option<String>,
 }
 
 fn deserialize_curator<'de, D>(value: D) -> Result<Option<Option<String>>, D::Error>
@@ -329,9 +380,63 @@ pub enum KnowledgeChange {
     },
 }
 
+/// Bounded UI invalidation payload emitted over Tauri events. Contains only
+/// identities and event kind — never library content or paths.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeUiEvent {
+    pub kind: &'static str,
+    pub kb_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RuleDocKind {
+    OrganizeRules,
+    WikiSchema,
+}
+
+impl RuleDocKind {
+    fn filename(self) -> &'static str {
+        match self {
+            RuleDocKind::OrganizeRules => curation::RULES_FILE,
+            RuleDocKind::WikiSchema => curation::SCHEMA_FILE,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeBaseStats {
+    pub kb_id: KnowledgeBaseId,
+    pub source_count: usize,
+    pub storage_bytes: u64,
+    pub search_mode: &'static str,
+    pub pending_curation_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeSourceDetail {
+    #[serde(flatten)]
+    pub source: KnowledgeSource,
+    pub curation_pending: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ingest_error: Option<KnowledgeErrorCode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ingest_suggestion: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ingest_position: Option<ChunkPosition>,
+}
+
 pub struct KnowledgeStore {
     app_data_dir: PathBuf,
     changes: broadcast::Sender<KnowledgeChange>,
+    ui_events: broadcast::Sender<KnowledgeUiEvent>,
     pub(super) curator_control: tokio::sync::Mutex<()>,
 }
 
@@ -339,15 +444,29 @@ impl KnowledgeStore {
     /// Construction registers the owner without touching the disk on the UI thread.
     pub fn new(app_data_dir: PathBuf) -> Self {
         let (changes, _) = broadcast::channel(256);
+        let (ui_events, _) = broadcast::channel(256);
         Self {
             app_data_dir,
             changes,
+            ui_events,
             curator_control: tokio::sync::Mutex::new(()),
         }
     }
 
     pub fn subscribe_changes(&self) -> broadcast::Receiver<KnowledgeChange> {
         self.changes.subscribe()
+    }
+
+    pub fn subscribe_ui_events(&self) -> broadcast::Receiver<KnowledgeUiEvent> {
+        self.ui_events.subscribe()
+    }
+
+    pub(super) fn emit_ui(&self, kind: &'static str, kb_id: &str, source_id: Option<&str>) {
+        let _ = self.ui_events.send(KnowledgeUiEvent {
+            kind,
+            kb_id: kb_id.to_string(),
+            source_id: source_id.map(str::to_string),
+        });
     }
 
     /// All reads and writes take the same on-disk lock. Commands call this on
@@ -406,17 +525,23 @@ impl KnowledgeStore {
                 |id| registry.contains(id),
                 |entropy| create_knowledge_base_id(entropy[..6].try_into().expect("six bytes")),
             )?;
+            let template_locale = patch
+                .locale
+                .as_deref()
+                .map(parse_template_locale)
+                .unwrap_or_else(|| explicit_config_locale(&files.app.join("config.json")));
             let kb = KnowledgeBase::from_patch(id, patch)?;
             // Publication of kbs.json is the visibility boundary. A staged
             // directory has no readers until its settings and default rules
             // are fully synced, so a library never appears without them.
-            for (name, template) in LIBRARY_TEMPLATES {
+            for (name, template) in library_templates(template_locale) {
                 files.write_text(&format!("{}/{name}", kb.id), template)?;
             }
             files.write_json(&format!("{}/kb.json", kb.id), &kb)?;
             sync_directory(&files.root).map_err(|_| KbStoreUnavailable)?;
             registry.insert(kb.id.clone());
             files.write_json(REGISTRY, registry)?;
+            self.emit_ui("kb-upserted", &kb.id, None);
             Ok(kb)
         })
     }
@@ -426,6 +551,7 @@ impl KnowledgeStore {
             let mut kb = files.read_kb(kb_id)?;
             kb.apply_patch(patch)?;
             files.write_json(&format!("{kb_id}/kb.json"), &kb)?;
+            self.emit_ui("kb-upserted", kb_id, None);
             Ok(kb)
         })
     }
@@ -440,7 +566,111 @@ impl KnowledgeStore {
             let _ = self.changes.send(KnowledgeChange::KbRemoved {
                 kb_id: kb_id.into(),
             });
+            self.emit_ui("kb-removed", kb_id, None);
             files.cleanup(&tombstone);
+            Ok(())
+        })
+    }
+
+    pub fn stats(&self, kb_id: &str) -> StoreResult<KnowledgeBaseStats> {
+        self.locked_kb(kb_id, None, |files, _| {
+            files.read_kb(kb_id)?;
+            let mut source_count = 0usize;
+            let mut pending_curation_count = 0usize;
+            if let Some(parent) = files.source_parent(kb_id)? {
+                files.recover_source_publications(&parent)?;
+                files.cleanup_sources(&parent)?;
+                for entry in fs::read_dir(parent).map_err(|_| KbStoreUnavailable)? {
+                    let entry = entry.map_err(|_| KbStoreUnavailable)?;
+                    let name = entry.file_name();
+                    let Some(id) = name.to_str() else { continue };
+                    if is_knowledge_source_id(id) {
+                        let record = files.require_record(kb_id, id)?;
+                        source_count += 1;
+                        if record.curation_pending
+                            && record.source.facts.status == SourceStatus::Ready
+                        {
+                            pending_curation_count += 1;
+                        }
+                    }
+                }
+            }
+            let storage_bytes = directory_size_no_follow(&files.root.join(kb_id))?;
+            Ok(KnowledgeBaseStats {
+                kb_id: kb_id.into(),
+                source_count,
+                storage_bytes,
+                search_mode: "bm25",
+                pending_curation_count,
+            })
+        })
+    }
+
+    pub fn list_source_details(&self, kb_id: &str) -> StoreResult<Vec<KnowledgeSourceDetail>> {
+        self.locked_kb(kb_id, None, |files, _| {
+            files.read_kb(kb_id)?;
+            let Some(parent) = files.source_parent(kb_id)? else {
+                return Ok(Vec::new());
+            };
+            files.recover_source_publications(&parent)?;
+            files.cleanup_sources(&parent)?;
+            let mut details = Vec::new();
+            for entry in fs::read_dir(parent).map_err(|_| KbStoreUnavailable)? {
+                let entry = entry.map_err(|_| KbStoreUnavailable)?;
+                let name = entry.file_name();
+                let Some(id) = name.to_str() else { continue };
+                if is_knowledge_source_id(id) {
+                    let record = files.require_record(kb_id, id)?;
+                    let (job_id, ingest_error, ingest_suggestion, ingest_position) =
+                        match record.ingest {
+                            Some(import) => (
+                                Some(import.id),
+                                import.error,
+                                import.suggestion,
+                                import.position,
+                            ),
+                            None => (None, None, None, None),
+                        };
+                    details.push(KnowledgeSourceDetail {
+                        source: record.source,
+                        curation_pending: record.curation_pending,
+                        job_id,
+                        ingest_error,
+                        ingest_suggestion,
+                        ingest_position,
+                    });
+                }
+            }
+            details.sort_by(|a, b| a.source.id.cmp(&b.source.id));
+            Ok(details)
+        })
+    }
+
+    pub fn list_categories(&self, kb_id: &str) -> StoreResult<Vec<String>> {
+        self.locked_kb(kb_id, None, |files, _| {
+            files.read_kb(kb_id)?;
+            files.approved_categories(kb_id)
+        })
+    }
+
+    pub fn read_rule_doc(&self, kb_id: &str, doc: RuleDocKind) -> StoreResult<Option<String>> {
+        self.locked_kb(kb_id, None, |files, _| {
+            files.read_kb(kb_id)?;
+            files.read_text(
+                &format!("{kb_id}/{}", doc.filename()),
+                curation::MAX_CONTEXT_TEXT_BYTES,
+            )
+        })
+    }
+
+    pub fn write_rule_doc(&self, kb_id: &str, doc: RuleDocKind, content: &str) -> StoreResult<()> {
+        if content.len() as u64 > curation::MAX_CONTEXT_TEXT_BYTES {
+            return Err(KbLimitExceeded);
+        }
+        self.locked_kb(kb_id, None, |files, _| {
+            files.read_kb(kb_id)?;
+            files.write_text(&format!("{kb_id}/{}", doc.filename()), content)?;
+            self.emit_ui("kb-upserted", kb_id, None);
             Ok(())
         })
     }
@@ -529,8 +759,35 @@ impl KnowledgeStore {
                 kb_id: kb_id.into(),
                 source_id: source_id.into(),
             });
+            self.emit_ui("source-removed", kb_id, Some(source_id));
             files.cleanup(&tombstone);
             Ok(())
+        })
+    }
+
+    /// Release a user lock on a metadata field while keeping its current value,
+    /// allowing future curator runs to update it. User-only Tauri command.
+    pub fn unlock_metadata_field(
+        &self,
+        kb_id: &str,
+        source_id: &str,
+        key: MetadataKey,
+    ) -> StoreResult<KnowledgeSource> {
+        self.locked_kb(kb_id, Some(source_id), |files, _| {
+            let mut record = files.require_record(kb_id, source_id)?;
+            if let Some(field) = record.source.metadata.get_mut(&key) {
+                if field.origin == KnowledgeMetadataOrigin::User {
+                    field.origin = KnowledgeMetadataOrigin::Agent;
+                    field.updated_at = Utc::now().to_rfc3339();
+                    files.write_json(&source_path(kb_id, source_id), &record)?;
+                    let _ = self.changes.send(KnowledgeChange::MetadataChanged {
+                        kb_id: kb_id.into(),
+                        source_id: source_id.into(),
+                    });
+                    self.emit_ui("metadata-changed", kb_id, Some(source_id));
+                }
+            }
+            Ok(record.source)
         })
     }
 
@@ -655,6 +912,7 @@ impl KnowledgeStore {
                     kb_id: kb_id.into(),
                     source_id: source_id.into(),
                 });
+                self.emit_ui("metadata-changed", kb_id, Some(source_id));
             }
             Ok(outcomes)
         })
@@ -677,7 +935,37 @@ impl KnowledgeStore {
             source_id: source.id.clone(),
             content_hash: source.facts.content_hash.clone(),
         });
+        self.emit_ui("source-upserted", kb_id, Some(&source.id));
     }
+}
+
+fn directory_size_no_follow(root: &Path) -> StoreResult<u64> {
+    let mut total = 0u64;
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let entries = match fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == ErrorKind::NotFound => continue,
+            Err(_) => return Err(KbStoreUnavailable),
+        };
+        for entry in entries {
+            let entry = entry.map_err(|_| KbStoreUnavailable)?;
+            let meta = match fs::symlink_metadata(entry.path()) {
+                Ok(meta) => meta,
+                Err(error) if error.kind() == ErrorKind::NotFound => continue,
+                Err(_) => return Err(KbStoreUnavailable),
+            };
+            if metadata_is_link_like(&meta) {
+                continue;
+            }
+            if meta.is_dir() {
+                stack.push(entry.path());
+            } else if meta.is_file() {
+                total = total.saturating_add(meta.len());
+            }
+        }
+    }
+    Ok(total)
 }
 
 fn allocate_id(

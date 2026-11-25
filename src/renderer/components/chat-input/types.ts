@@ -101,6 +101,11 @@ export interface SimpleChatInputProps {
   }>;
   workspaceEnabledPlugins?: string[];
   onWorkspacePluginToggle?: (pluginId: string, enabled: boolean) => void;
+  /** Knowledge bases available in the Rust KnowledgeStore for session binding. */
+  knowledgeBases?: Array<{ id: string; name: string; description?: string }>;
+  /** Session-level knowledge base bindings (`SessionMetadata.knowledgeBaseIds`). */
+  sessionKnowledgeBaseIds?: string[];
+  onSessionKnowledgeBaseToggle?: (kbId: string, enabled: boolean) => void;
   onRefreshProviders?: () => void;
   onOpenAgentSettings?: () => void;
   /** Open the active Runtime's authoritative exact permission-rule inspector. */

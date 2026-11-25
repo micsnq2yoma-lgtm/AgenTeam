@@ -341,7 +341,8 @@ K19 URL 导入；K20 全局搜索「知识库」分类
 - **依赖**：K1、K4、K5、K8
 - **必读**：`specs/DESIGN.md` 相关章节；`specs/tech_docs/react_stability_rules.md`；`src/renderer/features/record/`（Tab feature 模块范本）；ARCHITECTURE §4（Tab 闭合联合、registry）
 - **范围**：
-  - 新 feature 模块 `src/renderer/features/knowledge/`：Tab variant、render binding、持久化 codec、关闭 lifecycle，在唯一的 registry 里登记；侧栏加入口。
+  - **入口（2026-11-24 用户确认，取代原"侧栏入口 + 独立 Tab"方案）**：启动页顶部居中的分段开关"对话 ⇄ 知识库"（参考 MyAgents 启动页的对话/记录开关）。切到"知识库"在启动页内显示知识库页面，对话输入区保持挂载（草稿不丢），切回即恢复。详情页在同一区域内做页内导航（返回按钮），不再另开 Tab，因此不需要 Tab variant、持久化 codec 和侧栏入口；AC-K9-2 的 Tab codec 往返测试随之不适用，"关闭页面不取消后台摄取 job"仍适用（摄取归 Rust `KnowledgeIngestManager`，与页面生命周期无关）。
+  - 新 feature 模块 `src/renderer/features/knowledge/`（页面、`knowledgeClient`、类型投影）。
   - 页面：
     - **列表**：名称、source 数、检索模式、占用空间、整理状态
     - **详情 · 资料**：虚拟文件夹树（按 `category`）+ 资料列表（状态、标签、重复标记、错误与重试）；拖拽导入；拖拽资料到另一个分类 = user 写 `category`

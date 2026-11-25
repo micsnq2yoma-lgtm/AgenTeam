@@ -37,30 +37,46 @@ fn validate_wiki_path(path: &str) -> StoreResult<()> {
     Ok(())
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct LintReport {
-    version: u32,
-    generated_at: String,
-    items: Vec<LintItem>,
+pub struct LintReport {
+    pub version: u32,
+    pub generated_at: String,
+    pub items: Vec<LintItem>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct LintItem {
-    kind: LintKind,
-    page: String,
-    message: String,
-    refs: Vec<String>,
+pub struct LintItem {
+    pub kind: LintKind,
+    pub page: String,
+    pub message: String,
+    pub refs: Vec<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
-enum LintKind {
+pub enum LintKind {
     Contradiction,
     Stale,
     Orphan,
     MissingCitation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WikiPageEntry {
+    pub path: String,
+    pub size_bytes: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LintReportEntry {
+    pub id: String,
+    pub report: LintReport,
 }
 
 fn parse_lint_report(kb_id: &str, bytes: &[u8]) -> StoreResult<(LintReport, String)> {
@@ -313,7 +329,9 @@ impl KnowledgeStore {
             if text.len() as u64 > MAX_WIKI_PAGE_BYTES {
                 return Err(KbLimitExceeded);
             }
-            files.write_text(&path, &text)
+            files.write_text(&path, &text)?;
+            self.emit_ui("kb-upserted", kb, None);
+            Ok(())
         })
     }
 
@@ -332,7 +350,139 @@ impl KnowledgeStore {
             let _permit = authorize(&library)?;
             let path = files.wiki_target(kb, &format!("lint/{stamp}.json"))?;
             files.write_json(&path, &report)?;
+            self.emit_ui("kb-upserted", kb, None);
             Ok(report.items.len())
+        })
+    }
+
+    /// List markdown pages under `<kb>/wiki/` without following symlinks/junctions.
+    pub fn list_wiki_pages(&self, kb: &str) -> StoreResult<Vec<WikiPageEntry>> {
+        self.locked_kb(kb, None, |files, _| {
+            files.read_kb(kb)?;
+            files.recover_wiki_publication(kb)?;
+            let root = files.root.join(kb).join("wiki");
+            match fs::symlink_metadata(&root) {
+                Err(error) if error.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+                Ok(meta) if !meta.is_dir() || metadata_is_link_like(&meta) => {
+                    return Err(KbStoreCorrupt);
+                }
+                Err(_) => return Err(KbStoreUnavailable),
+                Ok(_) => {}
+            }
+            let mut pages = Vec::new();
+            let mut stack = vec![(root, String::new())];
+            while let Some((dir, prefix)) = stack.pop() {
+                for entry in fs::read_dir(&dir).map_err(|_| KbStoreUnavailable)? {
+                    let entry = entry.map_err(|_| KbStoreUnavailable)?;
+                    let meta = fs::symlink_metadata(entry.path()).map_err(|_| KbStoreUnavailable)?;
+                    if metadata_is_link_like(&meta) {
+                        continue;
+                    }
+                    let Some(name) = entry.file_name().to_str().map(str::to_string) else {
+                        continue;
+                    };
+                    if name.starts_with('.') {
+                        continue;
+                    }
+                    let rel = if prefix.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{prefix}/{name}")
+                    };
+                    if meta.is_dir() {
+                        if prefix.is_empty() && name.eq_ignore_ascii_case("lint") {
+                            continue;
+                        }
+                        stack.push((entry.path(), rel));
+                    } else if meta.is_file()
+                        && Path::new(&name)
+                            .extension()
+                            .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
+                    {
+                        let updated_at_ms = meta
+                            .modified()
+                            .ok()
+                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                            .and_then(|d| i64::try_from(d.as_millis()).ok());
+                        pages.push(WikiPageEntry {
+                            path: rel,
+                            size_bytes: meta.len(),
+                            updated_at_ms,
+                        });
+                    }
+                }
+            }
+            pages.sort_by(|a, b| {
+                let rank = |p: &str| match p {
+                    "index.md" => 0,
+                    "log.md" => 2,
+                    _ => 1,
+                };
+                rank(&a.path)
+                    .cmp(&rank(&b.path))
+                    .then_with(|| a.path.cmp(&b.path))
+            });
+            Ok(pages)
+        })
+    }
+
+    /// Read a validated wiki markdown page (including `log.md`).
+    pub fn read_wiki_page(&self, kb: &str, page: &str) -> StoreResult<String> {
+        validate_wiki_path(page)?;
+        self.locked_kb(kb, None, |files, _| {
+            files.read_kb(kb)?;
+            files.recover_wiki_publication(kb)?;
+            let relative = format!("{kb}/wiki/{page}");
+            files
+                .read_text(&relative, MAX_WIKI_PAGE_BYTES)?
+                .ok_or(KbNotFound)
+        })
+    }
+
+    /// List persisted lint reports under `<kb>/wiki/lint/*.json`, newest first.
+    pub fn list_lint_reports(&self, kb: &str) -> StoreResult<Vec<LintReportEntry>> {
+        self.locked_kb(kb, None, |files, _| {
+            files.read_kb(kb)?;
+            let dir = files.root.join(kb).join("wiki").join("lint");
+            match fs::symlink_metadata(&dir) {
+                Err(error) if error.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+                Ok(meta) if !meta.is_dir() || metadata_is_link_like(&meta) => {
+                    return Err(KbStoreCorrupt);
+                }
+                Err(_) => return Err(KbStoreUnavailable),
+                Ok(_) => {}
+            }
+            let mut reports = Vec::new();
+            for entry in fs::read_dir(&dir).map_err(|_| KbStoreUnavailable)? {
+                let entry = entry.map_err(|_| KbStoreUnavailable)?;
+                let meta = fs::symlink_metadata(entry.path()).map_err(|_| KbStoreUnavailable)?;
+                if !meta.is_file() || metadata_is_link_like(&meta) {
+                    continue;
+                }
+                let Some(name) = entry.file_name().to_str().map(str::to_string) else {
+                    continue;
+                };
+                let Some(stem) = name.strip_suffix(".json") else {
+                    continue;
+                };
+                if stem.is_empty() || stem.starts_with('.') {
+                    continue;
+                }
+                let relative = format!("{kb}/wiki/lint/{name}");
+                if let Some(report) = files.read_json::<LintReport>(&relative)? {
+                    reports.push(LintReportEntry {
+                        id: stem.to_string(),
+                        report,
+                    });
+                }
+            }
+            reports.sort_by(|a, b| {
+                b.report
+                    .generated_at
+                    .cmp(&a.report.generated_at)
+                    .then_with(|| b.id.cmp(&a.id))
+            });
+            Ok(reports)
         })
     }
 }

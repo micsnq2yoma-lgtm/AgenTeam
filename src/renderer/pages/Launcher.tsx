@@ -20,6 +20,8 @@ import { projectTaskExecutionOverrides } from '@/utils/taskProviderProjection';
 import { coerceRuntimeBirthPermissionMode, getDefaultNewSessionPermissionMode } from '../../shared/runtimeBirthFields';
 import { useToast } from '@/components/Toast';
 import { BrandSection } from '@/components/launcher';
+import LauncherModeSwitch, { type LauncherMode } from '@/components/launcher/LauncherModeSwitch';
+import KnowledgeHome from '@/features/knowledge/KnowledgeHome';
 import { useConfig } from '@/hooks/useConfig';
 import { useBrowserResourceReady } from '@/hooks/useBrowserResourceReady';
 import {
@@ -146,6 +148,7 @@ export default function Launcher({
     [projects],
   );
 
+  const [launcherMode, setLauncherMode] = useState<LauncherMode>('chat');
   const [launchingProjectId, setLaunchingProjectId] = useState<string | null>(
     null,
   );
@@ -1087,7 +1090,9 @@ export default function Launcher({
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[var(--paper)] text-[var(--ink)]">
-      <main className="flex min-h-0 flex-1 overflow-hidden">
+      <LauncherModeSwitch mode={launcherMode} onChange={setLauncherMode} />
+      {/* The chat side stays mounted (a hidden main) so a draft survives a trip to the knowledge page. */}
+      <main className={`min-h-0 flex-1 overflow-hidden ${launcherMode === 'chat' ? 'flex' : 'hidden'}`}>
         <BrandSection
           projects={visibleProjects}
           selectedProject={selectedWorkspace}
@@ -1162,9 +1167,14 @@ export default function Launcher({
           activeRuntime={executionDisplay.runtime}
           activeRuntimeLabel={executionDisplay.source ? executionDisplayName : undefined}
           savedRuntime={selectedRuntime}
-          isActive={isActive}
+          isActive={isActive && launcherMode === 'chat'}
         />
       </main>
+      {launcherMode === 'knowledge' && (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <KnowledgeHome isActive={isActive} />
+        </div>
+      )}
     </div>
   );
 }

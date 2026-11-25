@@ -228,9 +228,9 @@ Skill 中出现的每条 `myagents kb` 命令和参数都必须存在于 `KNOWLE
 
 新库在 `kbs.json` 发布之前，由 Store 在暂存目录写入 `ORGANIZE_RULES.md` 和 `WIKI_SCHEMA.md`。模板源码位于 `bundled-skills/agenteam-knowledge-curator/references/`，经 `include_str!` 编译进 App，Store 不在运行时读取资源目录。模板只在建库时写一次，之后归用户所有：更新库设置或重开 Store 都不会用模板覆盖用户的修改。K7 之前建立的库没有这两个文件，curator Skill 遇到缺失时不写分类或不改 wiki，并在最终回复中说明。
 
-`ORGANIZE_RULES.md` 的分类体系使用固定格式：`## 分类体系` 一节下每行 ``- `分类路径`：说明``。K8 校验 `meta set --category` 时按这个格式解析允许的分类。lint 报告格式见 curator Skill 的 `references/lint-report.md`（`version: 1`，`items[].kind` 为 `contradiction | stale | orphan | missing-citation`），K8 的提交命令按它校验。
+`ORGANIZE_RULES.md` 的分类体系支持中英文两种固定格式：中文在 `## 分类体系` 一节下每行 ``- `分类路径`：说明``（全角冒号），英文在 `## Categories` 一节下每行 ``- `category/path`: description``（半角冒号）。K8/K9 校验 `meta set --category` 和确认新增分类时按所在章节语言严格匹配对应分隔符。lint 报告格式见 curator Skill 的 `references/lint-report.md`（`version: 1`，`items[].kind` 为 `contradiction | stale | orphan | missing-citation`），K8 的提交命令按它校验。
 
-模板目前只有中文版本。它是用户编辑的文档，不属于界面文案；多语言模板留待 K9 的知识库界面一并确定。
+模板提供中文（`ORGANIZE_RULES.md`、`WIKI_SCHEMA.md`）与英文（`ORGANIZE_RULES.en.md`、`WIKI_SCHEMA.en.md`）两套，均随 `agenteam-knowledge-curator` Skill 经 `include_str!` 编译进 App（当前 `SYSTEM_SKILLS_VERSION` 为 80）。新建知识库时按 `cmd_kb_create` 传入的 `locale` 写入对应语言模板；省略时仅读取 `config.json` 中显式配置的 `uiLanguage`（未显式配置时默认中文，避免受宿主机 OS locale 影响），模板仅写一次，之后归用户所有。
 
 ## K8 元数据与 wiki 整理
 
@@ -244,9 +244,36 @@ Skill 中出现的每条 `myagents kb` 命令和参数都必须存在于 `KNOWLE
 
 `kb wiki log` 只能追加到 `wiki/log.md`，该页不作为可检索来源。lint 报告经 v1 schema 验证，要求 UTC 生成时间、受支持的问题类型、库内 Markdown 路径和属于同一知识库的引用。报告保存在库的 `wiki/lint/`，供后续 UI 展示。
 
+## K9 知识库 UI 与控制面扩展
+
+### 入口与页面结构
+
+知识库入口位于启动页顶部居中的分段开关（`LauncherModeSwitch`，`对话 ⇄ 知识库`），不新增 Tab variant、持久化 codec 或侧栏入口。切到知识库时，对话输入区保持挂载（`hidden`）且 `isActive` 置为 `false`，保留草稿并关闭对话区的窗口文件拖放监听；切回即恢复。
+
+知识库模块位于 `src/renderer/features/knowledge/`，在启动页内容区域内完成列表与详情页的页内导航：
+
+- **列表页（`KnowledgeHome`）**：展示库名、用途描述、来源数、检索模式（`BM25`）、托管占用空间（`cmd_kb_stats`）、整理模式、待整理与待确认分类数；支持新建（按当前界面语言初始化规则模板）与删除（`ConfirmDialog`）。
+- **详情页（`KnowledgeDetail`）**：顶部返回按钮 + 原生文件选择导入按钮（`@tauri-apps/plugin-dialog` → `cmd_kb_import_files`，不在 Renderer 读取文件字节），下方 4 个页内标签「资料 / 检索 / Wiki / 设置」：
+  - **资料（`KnowledgeSourcesTab`）**：左侧基于 `ORGANIZE_RULES.md` 与来源元数据构建的虚拟文件夹树，支持将资料拖拽到目标分类（调用 `cmd_kb_set_metadata` 并锁定 `category`）；右侧展示来源内容状态（Store）与可检索状态（`SearchEngine`）的组合视图、标签、疑似重复标记、失败原因与重试（`cmd_kb_retry_source`）、进行中取消（`cmd_kb_cancel_job`）以及删除确认。原生文件拖放通过 `useTauriFileDrop` 接入并受 `isActive` 门控；离开详情页或切换启动页模式不会取消后台摄取任务。
+  - **资料抽屉（`SourceDetailDrawer`）**：支持编辑全部 8 个元数据字段（仅提交有改动的字段，避免无意锁定未修改字段），`origin === 'user'` 的字段显示锁标记并提供用户专属解锁按钮（`cmd_kb_unlock_metadata`，保留原值并将 `origin` 释放为 `agent`）；切块预览标签通过 `cmd_kb_list_chunks` 展示 `prefix`、页码与片段文本。
+  - **检索（`KnowledgeSearchTab`）**：通过 `cmd_kb_search` 调用 Rust `SearchEngine::search_knowledge`，支持多行改写查询、分类/标签/类型/条数筛选，展示 `mode`、分数、片段并可直达对应切块抽屉。
+  - **Wiki（`KnowledgeWikiTab`）**：展示待确认新分类的采纳/忽略入口（`cmd_kb_confirm_category` / `cmd_kb_dismiss_category`）、复用 `<Markdown>` 浏览 `wiki/` 页面（`cmd_kb_list_wiki_pages` / `cmd_kb_read_wiki_page`）以及浏览 `wiki/lint/` 检查报告（`cmd_kb_list_lint_reports`）并跳转至对应页面。
+  - **设置（`KnowledgeSettingsTab`）**：配置名称、描述、整理 Agent、整理模式/间隔、Agent 写权限、Wiki 开关（`cmd_kb_update`），手动触发「立即整理」（`cmd_kb_curate_now`），复用 `<MarkdownEditor allowImages={false}>` 编辑并保存 `ORGANIZE_RULES.md` 与 `WIKI_SCHEMA.md`（`cmd_kb_read_rule_doc` / `cmd_kb_write_rule_doc`），以及通过 `ConfirmDialog` 删除知识库。
+
+### Agent 与会话绑定入口
+
+- **Agent 设置（`AgentKnowledgeSection`）**：挂载在 `AgentSettingsPanel` 与 `WorkspaceGeneralTab`，经 `patchAgentConfig`（`agent-config-intent.lock`）修改 `AgentConfig.knowledgeBaseIds`，不影响已有 Session 快照。
+- **对话工具菜单（`SimpleChatInput` + `Chat`）**：在活跃会话的工具菜单展示「知识库（当前会话）」开关，读取并仅通过 `patchSnapshot({ knowledgeBaseIds })`（`PATCH /sessions/:id`）更新当前 Session 快照，不修改 Agent 默认值；历史会话缺失 `knowledgeBaseIds` 字段时仍保持空列表。
+
+### Rust 命令与事件失效协议
+
+K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management API 或 CLI）：`cmd_kb_stats`、`cmd_kb_list_source_views`、`cmd_kb_list_categories`、`cmd_kb_list_chunks`、`cmd_kb_unlock_metadata`、`cmd_kb_search`、`cmd_kb_list_wiki_pages`、`cmd_kb_read_wiki_page`、`cmd_kb_list_lint_reports`、`cmd_kb_read_rule_doc`、`cmd_kb_write_rule_doc`。所有路径与文件遍历均沿用 Store 锁、no-follow 校验与字节上限。
+
+`KnowledgeStore` 维护独立的 UI 失效广播通道 `ui_events`（不改变面向 `KnowledgeIndex` 的 `changes` 契约），由 `lib.rs` 启动期经 `tauri::async_runtime::spawn` 转发为 Tauri 事件 `knowledge:changed`。事件载荷仅包含 `{ kind, kbId, sourceId? }`（滞后时发 `resync`），不携带任何正文、路径或凭据。前端经 `listenWithCleanup` 订阅并在防抖后重取 Store 权威数据，不保留第二份权威状态。
+
 ## 待接入章节
 
-### K9–K11 UI、引用与检索评测
+### K10–K11 引用 chip 与检索评测
 
 ### K12–K15 Linked folder、物理整理与恢复
 

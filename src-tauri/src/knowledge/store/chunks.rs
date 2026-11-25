@@ -131,6 +131,22 @@ impl KnowledgeStore {
         Ok(Some((source, chunks)))
     }
 
+    /// Return the derived chunks for a ready source, or an empty list if not yet ready.
+    pub fn list_chunks(&self, kb: &str, source_id: &str) -> StoreResult<Vec<KnowledgeChunk>> {
+        let source = self.get_source(kb, source_id)?;
+        if source.facts.status != SourceStatus::Ready || source.facts.content_hash.is_none() {
+            return Ok(Vec::new());
+        }
+        let result = self.read_content_chunks(kb, &source);
+        let current = self.get_source(kb, source_id)?;
+        if current.facts.content_hash != source.facts.content_hash
+            || current.facts.status != SourceStatus::Ready
+        {
+            return Err(KnowledgeErrorCode::KbJobConflict);
+        }
+        result.map_err(|failure| failure.code)
+    }
+
     pub(super) fn resolve_fragment(
         &self,
         reference: &KnowledgeRef,
