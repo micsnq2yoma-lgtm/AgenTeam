@@ -330,7 +330,9 @@ pub async fn cmd_kb_search(
     let mut result = search
         .search_knowledge(Arc::clone(state.inner()), kb_ids, queries, filters, limit)
         .await?;
-    result.bm25_hits = Some(result.hits.clone());
+    if result.bm25_hits.is_none() {
+        result.bm25_hits = Some(result.hits.clone());
+    }
     if result.vector_hits.is_none() {
         result.vector_hits = Some(Vec::new());
     }
