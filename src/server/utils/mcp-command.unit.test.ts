@@ -210,7 +210,7 @@ describe('resolveNpxMcpInvocation', () => {
   it('launches the bundled Playwright MCP with bundled Node and never npx', () => {
     const resources = mkdtempSync(join(tmpdir(), 'bundled-pw-'));
     try {
-      const entry = join(resources, 'playwright-control', '@playwright', 'mcp', 'cli.js');
+      const entry = join(resources, 'node_modules', '@playwright', 'mcp', 'cli.js');
       touch(entry);
       runtimeMocks.getScriptDir.mockReturnValue(resources);
       runtimeMocks.getBundledRuntimePath.mockReturnValue(join(resources, 'nodejs', 'node'));

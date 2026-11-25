@@ -1,3 +1,4 @@
+import { BUNDLED_PLAYWRIGHT_MCP_COMMAND } from '../../shared/mcpPackages';
 import { spawn as defaultSpawn } from './subprocess';
 
 type Spawn = typeof defaultSpawn;
@@ -14,6 +15,14 @@ export interface McpWarmupLaunch {
 }
 
 const warmed = new Set<string>();
+
+/** Servers worth a `--help` run before an agent starts them: `npx` packages (download) and the
+ * bundled Playwright entry (first Node/Windows-Defender load of the large package can itself
+ * outlast an agent's discovery window, e.g. agy's 10 s preload). */
+export function isWarmableMcpServer(server: { type?: string; command?: string }): boolean {
+  return server.type === 'stdio'
+    && (server.command === 'npx' || server.command === BUNDLED_PLAYWRIGHT_MCP_COMMAND);
+}
 
 /** Test hook: forget what this process already warmed. */
 export function resetMcpWarmupCacheForTests(): void {

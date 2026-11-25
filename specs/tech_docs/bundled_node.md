@@ -104,7 +104,7 @@ Detector 在 `env_clear()` 后只恢复 OS、证书、general proxy、PATH 和 U
 
 ### 随包 Playwright MCP
 
-标准 Playwright 预置（id `playwright`）不再走 `npx`：其 command 是产品自有标记 `__bundled_playwright_mcp__`（`src/shared/mcpPackages.ts`），由 `buildMcpStdioLaunchConfig()` 在启动时解析为「内置 Node + `Resources/playwright-control/@playwright/mcp/cli.js`」（开发环境回退到已安装依赖）。原因：`npx` 冷启动可能超过运行时的 MCP 发现窗口（agy 约 5 秒，Codex 默认约 10 秒），随包入口不依赖网络和 npm 缓存；持久化里只存标记，不存安装路径。用户 `mcpServerArgs` 仍只追加。
+标准 Playwright 预置（id `playwright`）不再走 `npx`：其 command 是产品自有标记 `__bundled_playwright_mcp__`（`src/shared/mcpPackages.ts`），由 `buildMcpStdioLaunchConfig()` 在启动时解析为「内置 Node + 随包 `node_modules/@playwright/mcp/cli.js`」（安装目录内与 server-dist.js 同级，由 tauri.conf.json 从 playwright-control 暂存目录映射而来；开发环境回退到已安装依赖）。原因：`npx` 冷启动可能超过运行时的 MCP 发现窗口（agy 约 5 秒，Codex 默认约 10 秒），随包入口不依赖网络和 npm 缓存，Antigravity 启动前仍会对它跑一次 `--help` 预热（首次加载大包可能本身超过 agy 的 10 秒预加载窗口，0.7.2 Windows 验收冷启动首轮即因此失败）；持久化里只存标记，不存安装路径。用户 `mcpServerArgs` 仍只追加。
 
 `migratePlaywrightPresetToBundled()`（`src/shared/mcpConfig.ts`）把旧配置中 id 为 `playwright` 的 `npx @playwright/mcp[@ver] ...` 改写为标记 + 其后的附加参数，覆盖全局 `mcpServers` 与各 Agent 的 `mcpServersJson` 快照；用户自定义的同包服务（其它 id）不动。迁移幂等，无需标记；与其它 MCP 规范化一样在加载时内存执行，磁盘在下一次真实配置写入时收敛，不在加载时 fire-and-forget 写盘（会与配置锁竞争）。
 

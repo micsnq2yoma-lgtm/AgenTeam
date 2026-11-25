@@ -23,7 +23,7 @@ import { AntigravityChildTrace } from "./antigravity-child-trace";
 import { fingerprintSessionMcp } from "../session-core/mcp-sync-policy";
 import { resolveRemoteMcpTransportConfig } from "../session-core/mcp-template-resolution";
 import { buildMcpStdioLaunchConfig } from "../utils/mcp-command";
-import { warmNpxMcpPackage } from "../utils/mcp-warmup";
+import { isWarmableMcpServer, warmNpxMcpPackage } from "../utils/mcp-warmup";
 import { classifyToolAttachmentPresentation } from "../utils/tool-result-attachments";
 import { MANAGED_BROWSER_MCP_ID } from "../../shared/browserTools";
 import {
@@ -131,7 +131,7 @@ async function warmNpxMcpServers(
   parentEnv: NodeJS.ProcessEnv,
   cwd: string,
 ): Promise<void> {
-  const npx = definitions.filter((server) => server.type === "stdio" && server.command === "npx");
+  const npx = definitions.filter(isWarmableMcpServer);
   if (npx.length === 0) return;
   const { getDefaultEnvironment } = await import("@modelcontextprotocol/sdk/client/stdio.js");
   await Promise.all(npx.map(async (server) => {

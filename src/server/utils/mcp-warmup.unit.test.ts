@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { resetMcpWarmupCacheForTests, warmNpxMcpPackage } from './mcp-warmup';
+import { isWarmableMcpServer, resetMcpWarmupCacheForTests, warmNpxMcpPackage } from './mcp-warmup';
 
 const launch = { command: 'node', args: ['npx-cli.js', '-y', '@playwright/mcp@0.0.68'], env: {} };
 
@@ -61,5 +61,14 @@ describe('warmNpxMcpPackage', () => {
       .toEqual({ status: 'failed', reason: 'spawn_error' });
     expect(await warmNpxMcpPackage(launch, { spawn: (() => handle({ error: new Error('boom') })) as never }))
       .toEqual({ status: 'failed', reason: 'spawn_error' });
+  });
+});
+
+describe('isWarmableMcpServer', () => {
+  it('warms npx servers and the bundled Playwright entry, nothing else', () => {
+    expect(isWarmableMcpServer({ type: 'stdio', command: 'npx' })).toBe(true);
+    expect(isWarmableMcpServer({ type: 'stdio', command: '__bundled_playwright_mcp__' })).toBe(true);
+    expect(isWarmableMcpServer({ type: 'stdio', command: 'node' })).toBe(false);
+    expect(isWarmableMcpServer({ type: 'http', command: 'npx' })).toBe(false);
   });
 });

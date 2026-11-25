@@ -103,16 +103,17 @@ export function isMcpCommandAvailable(
 
 export class BundledPlaywrightMcpMissingError extends Error {
   constructor() {
-    super('The bundled Playwright MCP entry (playwright-control/@playwright/mcp/cli.js) was not found');
+    super('The bundled Playwright MCP entry (node_modules/@playwright/mcp/cli.js) was not found');
     this.name = 'BundledPlaywrightMcpMissingError';
   }
 }
 
-/** Entry shipped with the app: Resources/playwright-control in production, the
- * installed dependency in development. Never touches the network or npm cache.
+/** Entry shipped with the app: `node_modules/@playwright/mcp` beside server-dist.js
+ * in production (tauri.conf.json maps the staged playwright-control packages
+ * there), the installed dependency in development. Never touches the network or npm cache.
  */
 export function bundledPlaywrightMcpEntry(): string | null {
-  const shipped = resolve(getScriptDir(), 'playwright-control', '@playwright', 'mcp', 'cli.js');
+  const shipped = resolve(getScriptDir(), 'node_modules', '@playwright', 'mcp', 'cli.js');
   if (existsSync(shipped)) return shipped;
   try {
     const manifest = createRequire(import.meta.url).resolve('@playwright/mcp/package.json');
