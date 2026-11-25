@@ -66,12 +66,28 @@ pub(crate) fn strip_macos_firmlink_prefix(path: &Path) -> PathBuf {
     path.to_path_buf()
 }
 
+/// Strip Windows verbatim prefix (`\\?\C:\...` or `//?/C:/...`) portably across OSes.
+fn strip_windows_verbatim_prefix(path: &Path) -> PathBuf {
+    let raw = path.to_string_lossy();
+    let stripped = raw
+        .strip_prefix(r"\\?\")
+        .or_else(|| raw.strip_prefix("//?/"));
+    if let Some(rest) = stripped {
+        let bytes = rest.as_bytes();
+        if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+            return PathBuf::from(rest);
+        }
+    }
+    path.to_path_buf()
+}
+
 /// Normalize a linked folder or file path across platforms:
 /// - Strip Windows `\\?\` verbatim prefix.
 /// - Strip macOS `/System/Volumes/Data` APFS firmlink prefix.
 pub(crate) fn normalize_linked_path(path: &Path) -> PathBuf {
     let external = crate::sidecar::normalize_external_path(path.to_path_buf());
-    strip_macos_firmlink_prefix(&external)
+    let no_verbatim = strip_windows_verbatim_prefix(&external);
+    strip_macos_firmlink_prefix(&no_verbatim)
 }
 
 /// Deterministic comparison key for path identity matching with configurable case folding.
