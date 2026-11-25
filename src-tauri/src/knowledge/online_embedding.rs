@@ -330,6 +330,7 @@ impl KnowledgeEmbeddingService {
     /// Enforce egress restriction before every online embedding batch (K21 §5.6):
     /// 1. `proxy_config::ensure_model_egress_admitted()` (current host exit gate)
     /// 2. `egress_restriction::fresh_exit_ip(3s)` (fresh exit IP evidence <= 3s)
+    ///
     /// Note: Rust-side embedding has these two layers only (no Node domain trace layer).
     async fn admit_embedding_egress(&self) -> Result<(), EmbeddingError> {
         #[cfg(test)]
