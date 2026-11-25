@@ -830,6 +830,10 @@ pub fn run() {
             knowledge::commands::cmd_kb_organize_approve,
             knowledge::commands::cmd_kb_organize_execute,
             knowledge::commands::cmd_kb_organize_undo,
+            knowledge::commands::cmd_kb_embedding_pack_status,
+            knowledge::commands::cmd_kb_embedding_pack_install,
+            knowledge::commands::cmd_kb_embedding_pack_install_local,
+            knowledge::commands::cmd_kb_embedding_pack_remove,
             // Canonical Record commands.
             record::cmd_record_create,
             record::cmd_record_list,
@@ -1660,6 +1664,19 @@ pub fn run() {
                     Arc::clone(&store),
                     data_dir.clone(),
                 ));
+                match knowledge::model_pack::KnowledgeModelPackManager::initialize(
+                    data_dir.join("models").join("knowledge"),
+                ) {
+                    Ok(model_pack) => {
+                        app.manage(model_pack);
+                    }
+                    Err(code) => {
+                        ulog_error!(
+                            "[knowledge] embedding model pack manager init failed code={}",
+                            code
+                        );
+                    }
+                }
                 app.manage(Arc::clone(&store));
                 app.manage(Arc::clone(&ingest));
                 app.manage(Arc::clone(&linked));

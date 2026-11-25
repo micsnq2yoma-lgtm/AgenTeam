@@ -11,6 +11,7 @@ import type {
   KnowledgeChunk,
   KnowledgeLinkedFolder,
   KnowledgeMetadataKey,
+  KnowledgeModelPackStatus,
   KnowledgeSearchFilters,
   KnowledgeSearchResult,
   KnowledgeSourceView,
@@ -118,6 +119,14 @@ export const knowledgeClient = {
     call<OrganizePlan>('cmd_kb_organize_execute', { kbId, planId }),
   undoOrganizePlan: (kbId: string, planId: string) =>
     call<UndoReport>('cmd_kb_organize_undo', { kbId, planId }),
+  embeddingPackStatus: () =>
+    call<KnowledgeModelPackStatus>('cmd_kb_embedding_pack_status'),
+  embeddingPackInstall: () =>
+    call<KnowledgeModelPackStatus>('cmd_kb_embedding_pack_install'),
+  embeddingPackInstallLocal: (bundleDir: string) =>
+    call<KnowledgeModelPackStatus>('cmd_kb_embedding_pack_install_local', { bundleDir }),
+  embeddingPackRemove: () =>
+    call<KnowledgeModelPackStatus>('cmd_kb_embedding_pack_remove'),
 };
 
 /** The Store rejects with a bounded `{ code, message }` or bare string error code. */
