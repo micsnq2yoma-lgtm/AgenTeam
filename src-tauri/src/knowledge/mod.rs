@@ -1,6 +1,7 @@
 pub mod chunker;
 pub mod commands;
 pub(crate) mod curator_task;
+pub mod embedding;
 pub mod ingest;
 pub mod linked;
 pub mod model_pack;

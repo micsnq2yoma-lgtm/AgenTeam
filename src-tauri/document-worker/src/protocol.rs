@@ -12,6 +12,7 @@ pub const MAX_CONTROL_FRAME_BYTES: usize = 1024 * 1024;
 )]
 pub enum WorkerRequest {
     Start(StartRequest),
+    StartEmbed(EmbedStartRequest),
     Cancel {
         protocol_version: u32,
         job_id: String,
@@ -22,6 +23,45 @@ pub enum WorkerRequest {
         job_id: String,
         worker_generation: u64,
     },
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmbedInputItem {
+    pub id: String,
+    pub text: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmbedStartRequest {
+    pub protocol_version: u32,
+    pub job_id: String,
+    pub worker_generation: u64,
+    pub model_path: String,
+    pub tokenizer_path: String,
+    pub onnx_runtime_path: String,
+    pub dimension: usize,
+    pub max_tokens: usize,
+    pub pooling: String,
+    pub normalize: bool,
+    pub items: Vec<EmbedInputItem>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmbedVectorItem {
+    pub id: String,
+    pub vector: Vec<i8>,
+    pub scale: f32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmbedCompletedResult<'a> {
+    pub dimension: usize,
+    pub vectors: &'a [EmbedVectorItem],
+    pub elapsed_ms: u64,
 }
 
 #[derive(Deserialize)]
@@ -137,6 +177,12 @@ pub enum WorkerResponse<'a> {
         job_id: &'a str,
         worker_generation: u64,
         result: CompletedResult<'a>,
+    },
+    EmbedCompleted {
+        protocol_version: u32,
+        job_id: &'a str,
+        worker_generation: u64,
+        result: EmbedCompletedResult<'a>,
     },
     Failed {
         protocol_version: u32,

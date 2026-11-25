@@ -1,11 +1,12 @@
+mod embed;
 mod manifest;
 mod ocr;
 mod pipeline;
 mod protocol;
 
 use protocol::{
-    CompletedResult, FailedResult, PROTOCOL_VERSION, WorkerRequest, WorkerResponse, read_frame,
-    write_frame,
+    CompletedResult, EmbedCompletedResult, FailedResult, PROTOCOL_VERSION, WorkerRequest,
+    WorkerResponse, read_frame, write_frame,
 };
 use std::io;
 use std::path::Path;
@@ -109,6 +110,9 @@ fn run() -> Result<(), String> {
     let parsed = serde_json::from_slice(&first);
     first.zeroize();
     let request: WorkerRequest = parsed.map_err(|_| "invalid start frame".to_string())?;
+    if let WorkerRequest::StartEmbed(embed_start) = request {
+        return run_embed_workload(embed_start);
+    }
     let WorkerRequest::Start(start) = request else {
         return Err("first frame must be start".into());
     };
@@ -169,6 +173,7 @@ fn run() -> Result<(), String> {
                     control_reader.changed.notify_all();
                 }
                 WorkerRequest::Start(_)
+                | WorkerRequest::StartEmbed(_)
                 | WorkerRequest::Cancel { .. }
                 | WorkerRequest::GrantOcrLease { .. } => {}
             }
@@ -290,6 +295,91 @@ fn public_error_message(code: &str) -> &'static str {
             "A bundled document-processing runtime could not be loaded. Reinstall MyAgents."
         }
         _ => "The document could not be converted safely.",
+    }
+}
+
+fn run_embed_workload(start: protocol::EmbedStartRequest) -> Result<(), String> {
+    if start.protocol_version != PROTOCOL_VERSION
+        || start.job_id.is_empty()
+        || start.worker_generation == 0
+    {
+        return Err("invalid embed start identity".into());
+    }
+    let job_id = start.job_id.clone();
+    let generation = start.worker_generation;
+    {
+        let mut stdout = io::stdout().lock();
+        write_frame(
+            &mut stdout,
+            &WorkerResponse::Ready {
+                protocol_version: PROTOCOL_VERSION,
+                job_id: &job_id,
+                worker_generation: generation,
+            },
+        )
+        .map_err(|_| "failed to write ready frame".to_string())?;
+    }
+    let control = WorkerControl::new();
+    let control_reader = Arc::clone(&control);
+    let cancel_job = job_id.clone();
+    std::thread::spawn(move || {
+        let mut stdin = io::stdin().lock();
+        while let Ok(Some(frame)) = read_frame(&mut stdin) {
+            let Ok(request) = serde_json::from_slice::<WorkerRequest>(&frame) else {
+                continue;
+            };
+            if let WorkerRequest::Cancel {
+                protocol_version,
+                job_id,
+                worker_generation,
+            } = request
+            {
+                if protocol_version == PROTOCOL_VERSION
+                    && job_id == cancel_job
+                    && worker_generation == generation
+                {
+                    control_reader.cancelled.store(true, Ordering::Release);
+                    control_reader.changed.notify_all();
+                    break;
+                }
+            }
+        }
+    });
+
+    match embed::run_embed_job(&start, &control.cancelled) {
+        Ok((vectors, elapsed_ms)) => {
+            let mut stdout = io::stdout().lock();
+            write_frame(
+                &mut stdout,
+                &WorkerResponse::EmbedCompleted {
+                    protocol_version: PROTOCOL_VERSION,
+                    job_id: &job_id,
+                    worker_generation: generation,
+                    result: EmbedCompletedResult {
+                        dimension: start.dimension,
+                        vectors: &vectors,
+                        elapsed_ms,
+                    },
+                },
+            )
+            .map_err(|_| "failed to write embed completed frame".to_string())
+        }
+        Err((code, message)) => {
+            let mut stdout = io::stdout().lock();
+            write_frame(
+                &mut stdout,
+                &WorkerResponse::Failed {
+                    protocol_version: PROTOCOL_VERSION,
+                    job_id: &job_id,
+                    worker_generation: generation,
+                    error: FailedResult {
+                        code,
+                        message: &message,
+                    },
+                },
+            )
+            .map_err(|_| "failed to write embed failed frame".to_string())
+        }
     }
 }
 
