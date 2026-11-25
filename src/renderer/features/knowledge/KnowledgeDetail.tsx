@@ -5,6 +5,7 @@ import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import {
   ArrowLeftIcon,
   FolderIcon,
+  ListChecksIcon,
   NotebookIcon,
   SearchIcon,
   SettingsIcon,
@@ -13,15 +14,21 @@ import {
 import { useToast } from '@/components/Toast';
 
 import { knowledgeClient, knowledgeErrorCode } from './knowledgeClient';
+import KnowledgeOrganizeTab from './KnowledgeOrganizeTab';
 import KnowledgeSearchTab from './KnowledgeSearchTab';
 import KnowledgeSettingsTab from './KnowledgeSettingsTab';
 import KnowledgeSourcesTab from './KnowledgeSourcesTab';
 import KnowledgeWikiTab from './KnowledgeWikiTab';
 import SourceDetailDrawer from './SourceDetailDrawer';
-import type { KnowledgeBaseRecord, KnowledgeChangeEvent, KnowledgeSourceView } from './types';
+import type {
+  KnowledgeBaseRecord,
+  KnowledgeChangeEvent,
+  KnowledgeSourceView,
+  OrganizePlan,
+} from './types';
 import { useKnowledgeChangeSubscription } from './useKnowledgeEvents';
 
-export type KnowledgeDetailTab = 'sources' | 'search' | 'wiki' | 'settings';
+export type KnowledgeDetailTab = 'sources' | 'search' | 'wiki' | 'organize' | 'settings';
 
 interface DrawerState {
   sourceId: string;
@@ -60,6 +67,7 @@ export default function KnowledgeDetail({
   const [kb, setKb] = useState<KnowledgeBaseRecord | null>(initialBase ?? null);
   const [sources, setSources] = useState<KnowledgeSourceView[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [organizePlans, setOrganizePlans] = useState<OrganizePlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -77,10 +85,11 @@ export default function KnowledgeDetail({
   const reload = useCallback(async () => {
     const seq = ++loadSeq.current;
     try {
-      const [bases, sourceList, categoryList] = await Promise.all([
+      const [bases, sourceList, categoryList, planList] = await Promise.all([
         knowledgeClient.list(),
         knowledgeClient.listSourceViews(kbId),
         knowledgeClient.listCategories(kbId),
+        knowledgeClient.listOrganizePlans(kbId).catch(() => [] as OrganizePlan[]),
       ]);
       if (!mounted.current || loadSeq.current !== seq) return;
       const found = bases.find((item) => item.id === kbId) ?? null;
@@ -91,6 +100,7 @@ export default function KnowledgeDetail({
       setKb(found);
       setSources(sourceList);
       setCategories(categoryList);
+      setOrganizePlans(Array.isArray(planList) ? planList : []);
       setLoadFailed(false);
       setLoading(false);
     } catch {
@@ -180,6 +190,11 @@ export default function KnowledgeDetail({
     [drawer, sources],
   );
 
+  const pendingOrganizeCount = useMemo(
+    () => organizePlans.filter((plan) => plan.status === 'pending_review').length,
+    [organizePlans],
+  );
+
   const tabs: Array<{
     id: KnowledgeDetailTab;
     label: string;
@@ -193,6 +208,12 @@ export default function KnowledgeDetail({
       label: t('knowledge.detail.tabs.wiki'),
       icon: <NotebookIcon className="h-3.5 w-3.5" />,
       badge: kb?.pendingCategories.length || undefined,
+    },
+    {
+      id: 'organize',
+      label: t('knowledge.detail.tabs.organize'),
+      icon: <ListChecksIcon className="h-3.5 w-3.5" />,
+      badge: pendingOrganizeCount || undefined,
     },
     { id: 'settings', label: t('knowledge.detail.tabs.settings'), icon: <SettingsIcon className="h-3.5 w-3.5" /> },
   ];
@@ -308,6 +329,13 @@ export default function KnowledgeDetail({
           />
         ) : tab === 'wiki' ? (
           <KnowledgeWikiTab kb={kb} onMutated={reload} />
+        ) : tab === 'organize' ? (
+          <KnowledgeOrganizeTab
+            kb={kb}
+            plans={organizePlans}
+            loading={loading}
+            onReload={reload}
+          />
         ) : (
           <KnowledgeSettingsTab kb={kb} onMutated={reload} onDeleted={onDeleted} />
         )}
