@@ -15,14 +15,17 @@
 #[cfg(test)]
 mod tests;
 
+use std::collections::VecDeque;
 use std::fs;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, RETRY_AFTER};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::knowledge::embedding::{quantize_l2_int8, QuantizedEmbedding};
 use crate::ulog_warn;
@@ -31,6 +34,8 @@ pub const MAX_ONLINE_EMBED_BATCH_ITEMS: usize = 64;
 pub const MAX_ONLINE_EMBED_BATCH_CHARS: usize = 100_000;
 pub const MAX_ONLINE_EMBED_ITEM_CHARS: usize = 16_000;
 pub const MAX_ONLINE_EMBED_RETRIES: usize = 5;
+pub const QUERY_EMBED_TIMEOUT: Duration = Duration::from_secs(5);
+const QUERY_CACHE_CAPACITY: usize = 64;
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_RETRY_AFTER_SECS: u64 = 30;
 const BASE_BACKOFF_MS: u64 = 250;
@@ -72,6 +77,26 @@ pub enum EmbeddingErrorKind {
     EgressBlocked,
     InvalidResponse,
     InvalidInput,
+}
+
+impl EmbeddingErrorKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::NotConfigured => "not_configured",
+            Self::InvalidBaseUrl => "invalid_base_url",
+            Self::AuthFailed => "auth_failed",
+            Self::InsufficientBalance => "insufficient_balance",
+            Self::ModelNotFound => "model_not_found",
+            Self::RateLimited => "rate_limited",
+            Self::ServerError => "server_error",
+            Self::NetworkUnreachable => "network_unreachable",
+            Self::Timeout => "timeout",
+            Self::EgressBlocked => "egress_blocked",
+            Self::InvalidResponse => "invalid_response",
+            Self::InvalidInput => "invalid_input",
+        }
+    }
 }
 
 /// Sanitized error type: guaranteed NEVER to carry API keys, chunk text,
@@ -258,9 +283,18 @@ fn truncate_chars(text: &str, max_chars: usize) -> String {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CachedQueryVector {
+    pub model_revision: String,
+    pub dimension: usize,
+    pub vector: Vec<i8>,
+    pub scale: f32,
+}
+
 pub struct KnowledgeEmbeddingService {
     data_dir: PathBuf,
     retry_base_backoff_ms: u64,
+    query_cache: Mutex<VecDeque<(String, CachedQueryVector)>>,
 }
 
 impl KnowledgeEmbeddingService {
@@ -268,6 +302,7 @@ impl KnowledgeEmbeddingService {
         Self {
             data_dir,
             retry_base_backoff_ms: BASE_BACKOFF_MS,
+            query_cache: Mutex::new(VecDeque::with_capacity(QUERY_CACHE_CAPACITY)),
         }
     }
 
@@ -276,6 +311,7 @@ impl KnowledgeEmbeddingService {
         Self {
             data_dir,
             retry_base_backoff_ms: 5,
+            query_cache: Mutex::new(VecDeque::with_capacity(QUERY_CACHE_CAPACITY)),
         }
     }
 
@@ -677,6 +713,68 @@ impl KnowledgeEmbeddingService {
                 elapsed_ms: started.elapsed().as_millis() as u64,
             });
         }
+    }
+
+    /// Embed a search query with a hard timeout (default 5s) and a small bounded LRU cache.
+    /// Cache keys hash the query text with SHA-256 so raw query text is never persisted or logged.
+    pub async fn embed_query(
+        &self,
+        query: &str,
+        timeout: Duration,
+    ) -> Result<CachedQueryVector, EmbeddingError> {
+        let trimmed = query.trim();
+        if trimmed.is_empty() {
+            return Err(EmbeddingError::new(EmbeddingErrorKind::InvalidInput));
+        }
+        let endpoint = self.resolve_active_endpoint()?;
+        let query_hash = format!("{:x}", Sha256::digest(trimmed.as_bytes()));
+        let cache_key = format!(
+            "{}:{}:{}:{query_hash}",
+            endpoint.host,
+            endpoint.model,
+            endpoint.dimensions.unwrap_or(0)
+        );
+
+        if let Ok(mut guard) = self.query_cache.lock()
+            && let Some(pos) = guard.iter().position(|(k, _)| k == &cache_key)
+            && let Some((k, v)) = guard.remove(pos)
+        {
+            let hit = v.clone();
+            guard.push_back((k, v));
+            return Ok(hit);
+        }
+
+        let items = vec![("query".to_string(), trimmed.to_string())];
+        let out = match tokio::time::timeout(
+            timeout,
+            self.embed_with_endpoint(&endpoint, &items, timeout, 0),
+        )
+        .await
+        {
+            Ok(Ok(batch)) => batch,
+            Ok(Err(err)) => return Err(err),
+            Err(_) => return Err(EmbeddingError::new(EmbeddingErrorKind::Timeout)),
+        };
+
+        let first = out
+            .vectors
+            .into_iter()
+            .next()
+            .ok_or_else(|| EmbeddingError::new(EmbeddingErrorKind::InvalidResponse))?;
+        let cached = CachedQueryVector {
+            model_revision: out.model_revision,
+            dimension: out.dimension,
+            vector: first.vector,
+            scale: first.scale,
+        };
+
+        if let Ok(mut guard) = self.query_cache.lock() {
+            if guard.len() >= QUERY_CACHE_CAPACITY {
+                guard.pop_front();
+            }
+            guard.push_back((cache_key, cached.clone()));
+        }
+        Ok(cached)
     }
 
     pub fn data_dir(&self) -> &Path {

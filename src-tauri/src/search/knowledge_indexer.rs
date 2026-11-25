@@ -35,6 +35,8 @@ use super::tokenizer;
 #[cfg(test)]
 mod eval;
 #[cfg(test)]
+mod hybrid_tests;
+#[cfg(test)]
 mod tests;
 
 const RETRIEVAL_LIMIT: usize = 50;
@@ -99,6 +101,8 @@ pub struct KnowledgeSearchResult {
     pub bm25_hits: Option<Vec<KnowledgeSearchHit>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vector_hits: Option<Vec<KnowledgeSearchHit>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub degraded_reason: Option<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -478,6 +482,173 @@ impl KnowledgeIndex {
     }
 }
 
+fn source_matches_filters(
+    store: &KnowledgeStore,
+    kb_id: &str,
+    source_id: &str,
+    filters: &KnowledgeSearchFilters,
+) -> bool {
+    if filters.category.is_none() && filters.tag.is_none() && filters.doc_type.is_none() {
+        return true;
+    }
+    let Ok(source) = store.get_source(kb_id, source_id) else {
+        return false;
+    };
+    if let Some(ref cat) = filters.category {
+        let matched = source
+            .metadata
+            .get(&MetadataKey::Category)
+            .and_then(|f| f.value.as_str())
+            .is_some_and(|v| v == cat);
+        if !matched {
+            return false;
+        }
+    }
+    if let Some(ref dt) = filters.doc_type {
+        let matched = source
+            .metadata
+            .get(&MetadataKey::DocType)
+            .and_then(|f| f.value.as_str())
+            .is_some_and(|v| v == dt);
+        if !matched {
+            return false;
+        }
+    }
+    if let Some(ref tag) = filters.tag {
+        let matched = source
+            .metadata
+            .get(&MetadataKey::Tags)
+            .and_then(|f| f.value.as_array())
+            .is_some_and(|arr| arr.iter().any(|v| v.as_str() == Some(tag.as_str())));
+        if !matched {
+            return false;
+        }
+    }
+    true
+}
+
+/// Hybrid BM25 + Online Vector RRF search (K21-c §5.5).
+///
+/// Guarantees:
+/// - Any failure in online embedding (disabled, unconfigured, missing vectors, timeout >5s,
+///   auth/balance/network/egress error) degrades cleanly to `mode: "bm25"` with an optional
+///   `degraded_reason` and NEVER fails the search command.
+/// - Populates `bm25_hits` and `vector_hits` for 3-column comparison in the search test tab.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn search_hybrid(
+    index: Arc<KnowledgeIndex>,
+    store: Arc<KnowledgeStore>,
+    vector_index: Option<Arc<crate::knowledge::vector_index::KnowledgeVectorIndex>>,
+    embedding_service: Option<Arc<crate::knowledge::online_embedding::KnowledgeEmbeddingService>>,
+    kb_ids: Vec<String>,
+    queries: Vec<String>,
+    filters: KnowledgeSearchFilters,
+    limit: Option<usize>,
+) -> SearchResult<KnowledgeSearchResult> {
+    let resolved_limit = limit.unwrap_or(DEFAULT_LIMIT);
+    let store_for_bm25 = Arc::clone(&store);
+    let kb_ids_for_bm25 = kb_ids.clone();
+    let queries_for_bm25 = queries.clone();
+    let filters_for_bm25 = KnowledgeSearchFilters {
+        tag: filters.tag.clone(),
+        category: filters.category.clone(),
+        doc_type: filters.doc_type.clone(),
+    };
+    let mut bm25_result = tauri::async_runtime::spawn_blocking(move || {
+        index.search(
+            &store_for_bm25,
+            &kb_ids_for_bm25,
+            &queries_for_bm25,
+            &filters_for_bm25,
+            limit,
+        )
+    })
+    .await
+    .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)??;
+
+    let bm25_hits = bm25_result.hits.clone();
+    bm25_result.bm25_hits = Some(bm25_hits.clone());
+    bm25_result.vector_hits = Some(Vec::new());
+
+    let combined_query: String = queries
+        .iter()
+        .map(|q| q.trim())
+        .filter(|q| !q.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    if kb_ids.is_empty() || combined_query.is_empty() {
+        return Ok(bm25_result);
+    }
+
+    let (Some(vec_idx), Some(embed_svc)) = (vector_index, embedding_service) else {
+        return Ok(bm25_result);
+    };
+
+    if let Err(err) = embed_svc.resolve_active_endpoint() {
+        bm25_result.degraded_reason = Some(err.kind.as_str().to_string());
+        return Ok(bm25_result);
+    }
+
+    let has_any_vectors = kb_ids
+        .iter()
+        .any(|kb| vec_idx.active_generation(kb).is_some_and(|p| p.entry_count > 0));
+    if !has_any_vectors {
+        bm25_result.degraded_reason = Some("no_vectors".to_string());
+        return Ok(bm25_result);
+    }
+
+    let qvec = match embed_svc
+        .embed_query(
+            &combined_query,
+            crate::knowledge::online_embedding::QUERY_EMBED_TIMEOUT,
+        )
+        .await
+    {
+        Ok(v) => v,
+        Err(err) => {
+            bm25_result.degraded_reason = Some(err.kind.as_str().to_string());
+            return Ok(bm25_result);
+        }
+    };
+
+    let raw_vector_hits = vec_idx.search_top_k(
+        &kb_ids,
+        &qvec.model_revision,
+        &qvec.vector,
+        qvec.scale,
+        resolved_limit.max(20),
+    );
+    let vector_hits: Vec<KnowledgeSearchHit> = raw_vector_hits
+        .into_iter()
+        .filter(|hit| source_matches_filters(&store, &hit.kb_id, &hit.source_id, &filters))
+        .collect();
+
+    if vector_hits.is_empty() {
+        let rev_matched = kb_ids.iter().any(|kb| {
+            vec_idx
+                .active_generation(kb)
+                .is_some_and(|p| p.model_revision == qvec.model_revision && p.entry_count > 0)
+        });
+        if !rev_matched {
+            bm25_result.degraded_reason = Some("no_vectors".to_string());
+        }
+        return Ok(bm25_result);
+    }
+
+    let (mode, fused) = crate::knowledge::vector_index::fuse_bm25_and_vector_rrf(
+        bm25_hits.clone(),
+        vector_hits.clone(),
+        resolved_limit,
+    );
+    Ok(KnowledgeSearchResult {
+        mode,
+        hits: fused,
+        bm25_hits: Some(bm25_hits),
+        vector_hits: Some(vector_hits.into_iter().take(resolved_limit).collect()),
+        degraded_reason: None,
+    })
+}
+
 impl QueryFailure {
     fn code(self) -> KnowledgeErrorCode {
         match self {
@@ -713,6 +884,7 @@ impl IndexState {
             hits: Vec::new(),
             bm25_hits: None,
             vector_hits: None,
+            degraded_reason: None,
         };
         if kb_ids.is_empty() {
             return Ok(response);

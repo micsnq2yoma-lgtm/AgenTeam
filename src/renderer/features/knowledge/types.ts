@@ -272,6 +272,7 @@ export interface KnowledgeSearchResult {
   hits: KnowledgeSearchHit[];
   bm25Hits?: KnowledgeSearchHit[];
   vectorHits?: KnowledgeSearchHit[];
+  degradedReason?: string;
 }
 
 export interface WikiPageEntry {

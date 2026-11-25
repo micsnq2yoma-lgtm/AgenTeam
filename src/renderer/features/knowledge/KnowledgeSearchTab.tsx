@@ -265,6 +265,16 @@ export default function KnowledgeSearchTab({
                     }),
                   })}
                 </span>
+                {result.mode === 'bm25' && result.degradedReason && (
+                  <span
+                    data-testid="kb-search-degraded-reason"
+                    className="rounded-md bg-[var(--warning-bg)] px-2 py-0.5 text-xs text-[var(--warning)]"
+                  >
+                    {t(`knowledge.search.degradedReasons.${result.degradedReason}`, {
+                      defaultValue: result.degradedReason,
+                    })}
+                  </span>
+                )}
               </div>
             </div>
             {compareMode ? (

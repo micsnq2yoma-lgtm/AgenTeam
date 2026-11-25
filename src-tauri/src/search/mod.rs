@@ -20,6 +20,8 @@ mod tokenizer;
 pub(crate) mod util;
 mod watcher;
 
+use crate::knowledge::online_embedding::KnowledgeEmbeddingService;
+use crate::knowledge::vector_index::KnowledgeVectorIndex;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::{
@@ -60,6 +62,8 @@ pub struct SearchEngine {
     session_index: Arc<session_indexer::SessionIndex>,
     record_index: Arc<record_indexer::RecordIndex>,
     knowledge_index: Arc<knowledge_indexer::KnowledgeIndex>,
+    knowledge_vectors: std::sync::RwLock<Option<Arc<KnowledgeVectorIndex>>>,
+    knowledge_embedding: std::sync::RwLock<Option<Arc<KnowledgeEmbeddingService>>>,
     file_indices: Arc<file_indexer::FileIndexManager>,
 }
 
@@ -85,8 +89,23 @@ impl SearchEngine {
             session_index: Arc::new(session_index),
             record_index: Arc::new(record_index),
             knowledge_index,
+            knowledge_vectors: std::sync::RwLock::new(None),
+            knowledge_embedding: std::sync::RwLock::new(None),
             file_indices: Arc::new(file_manager),
         })
+    }
+
+    pub fn attach_knowledge_embedding(
+        &self,
+        vector_index: Arc<KnowledgeVectorIndex>,
+        embedding_service: Arc<KnowledgeEmbeddingService>,
+    ) {
+        if let Ok(mut guard) = self.knowledge_vectors.write() {
+            *guard = Some(vector_index);
+        }
+        if let Ok(mut guard) = self.knowledge_embedding.write() {
+            *guard = Some(embedding_service);
+        }
     }
 
     /// Start background indexing of existing sessions.
@@ -101,6 +120,16 @@ impl SearchEngine {
         let data_dir = self.data_dir.clone();
         let session_index = self.session_index.clone();
         let readiness = self.session_readiness.clone();
+
+        if let (Some(vec_idx), Some(embed_svc)) = (
+            app_handle.try_state::<Arc<KnowledgeVectorIndex>>(),
+            app_handle.try_state::<Arc<KnowledgeEmbeddingService>>(),
+        ) {
+            self.attach_knowledge_embedding(
+                Arc::clone(vec_idx.inner()),
+                Arc::clone(embed_svc.inner()),
+            );
+        }
 
         if let Some(store) = app_handle.try_state::<Arc<KnowledgeStore>>() {
             let store = Arc::clone(store.inner());
@@ -233,11 +262,12 @@ impl SearchEngine {
         limit: Option<usize>,
     ) -> Result<KnowledgeSearchResult, KnowledgeErrorCode> {
         let index = Arc::clone(&self.knowledge_index);
-        tauri::async_runtime::spawn_blocking(move || {
-            index.search(&store, &kb_ids, &queries, &filters, limit)
-        })
+        let vectors = self.knowledge_vectors.read().ok().and_then(|g| g.clone());
+        let embedding = self.knowledge_embedding.read().ok().and_then(|g| g.clone());
+        knowledge_indexer::search_hybrid(
+            index, store, vectors, embedding, kb_ids, queries, filters, limit,
+        )
         .await
-        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
     }
 
     pub fn knowledge_search_status(
