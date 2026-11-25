@@ -48,6 +48,9 @@ use KnowledgeErrorCode::{KbAccessDenied, KbInvalidInput, KbLimitExceeded, KbNotF
 const MAX_PLAN_ITEMS: usize = 500;
 const MAX_PRECONDITION_HASH_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_PLAN_JSON_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_FEEDBACK_BYTES: u64 = 2 * 1024 * 1024;
+const DEFAULT_FEEDBACK_LIMIT: usize = 100;
+const MAX_FEEDBACK_LIMIT: usize = 500;
 const JOURNAL_SCHEMA_VERSION: u32 = 1;
 const JOURNAL_MAX_LINE_BYTES: usize = 64 * 1024;
 const PLAN_EXPIRY_DAYS: i64 = 7;
@@ -218,6 +221,30 @@ pub struct UndoReport {
     pub skipped_modified: Vec<String>,
     pub conflicts: Vec<String>,
     pub failed: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrganizeFeedbackDecision {
+    Rejected,
+    Modified,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrganizeFeedbackEntry {
+    pub timestamp: String,
+    pub plan_id: String,
+    pub item_id: String,
+    pub kind: OrganizeOpKind,
+    pub folder_root: PathBuf,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_rel: Option<String>,
+    pub target_rel: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub override_target_rel: Option<String>,
+    pub decision: OrganizeFeedbackDecision,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -482,6 +509,50 @@ impl KnowledgeOrganizeManager {
 
     fn plan_rel_json(kb_id: &str, plan_id: &str) -> String {
         format!("{kb_id}/organize/plans/{plan_id}/plan.json")
+    }
+
+    fn feedback_rel_path(kb_id: &str) -> String {
+        format!("{kb_id}/organize/feedback.jsonl")
+    }
+
+    fn append_feedback_locked(
+        &self,
+        kb_id: &str,
+        entries: &[OrganizeFeedbackEntry],
+    ) -> StoreResult<()> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+        let rel = Self::feedback_rel_path(kb_id);
+        let existing_text = match read_workspace_file_no_follow(
+            &self.knowledge_root,
+            &rel,
+            MAX_FEEDBACK_BYTES,
+        ) {
+            Ok((_, bytes)) => String::from_utf8_lossy(&bytes).into_owned(),
+            Err(_) => String::new(),
+        };
+        let mut lines: Vec<String> = existing_text
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(str::to_owned)
+            .collect();
+        for entry in entries {
+            let line = serde_json::to_string(entry).map_err(|_| KbStoreUnavailable)?;
+            lines.push(line);
+        }
+        let mut total_bytes: usize = lines.iter().map(|l| l.len() + 1).sum();
+        while total_bytes > MAX_FEEDBACK_BYTES as usize && lines.len() > 1 {
+            let removed = lines.remove(0);
+            total_bytes = total_bytes.saturating_sub(removed.len() + 1);
+        }
+        let mut out = lines.join("\n");
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        write_workspace_file_no_follow(&self.knowledge_root, &rel, out.as_bytes())
+            .map_err(|_| KbStoreUnavailable)?;
+        Ok(())
     }
 
     fn journal_abs_path(&self, kb_id: &str, plan_id: &str) -> PathBuf {
@@ -785,6 +856,57 @@ impl KnowledgeOrganizeManager {
         })
     }
 
+    pub fn find_plan(&self, plan_id: &str, allowed_kbs: &[String]) -> StoreResult<OrganizePlan> {
+        if !is_knowledge_plan_id(plan_id) {
+            return Err(KbInvalidInput);
+        }
+        for kb_id in allowed_kbs {
+            if !is_knowledge_base_id(kb_id) {
+                continue;
+            }
+            match self.get_plan(kb_id, plan_id) {
+                Ok(plan) => return Ok(plan),
+                Err(KbNotFound) => continue,
+                Err(err) => return Err(err),
+            }
+        }
+        Err(KbNotFound)
+    }
+
+    pub fn read_feedback(
+        &self,
+        kb_id: &str,
+        limit: Option<usize>,
+    ) -> StoreResult<Vec<OrganizeFeedbackEntry>> {
+        if let Some(n) = limit {
+            if !(1..=MAX_FEEDBACK_LIMIT).contains(&n) {
+                return Err(KbInvalidInput);
+            }
+        }
+        let max_items = limit.unwrap_or(DEFAULT_FEEDBACK_LIMIT);
+        self.with_kb_organize_lock(kb_id, || {
+            let rel = Self::feedback_rel_path(kb_id);
+            let bytes = match read_workspace_file_no_follow(
+                &self.knowledge_root,
+                &rel,
+                MAX_FEEDBACK_BYTES,
+            ) {
+                Ok((_, bytes)) => bytes,
+                Err(_) => return Ok(Vec::new()),
+            };
+            let text = String::from_utf8_lossy(&bytes);
+            let mut entries: Vec<OrganizeFeedbackEntry> = text
+                .lines()
+                .filter(|line| !line.trim().is_empty())
+                .filter_map(|line| serde_json::from_str(line).ok())
+                .collect();
+            if entries.len() > max_items {
+                entries = entries.split_off(entries.len() - max_items);
+            }
+            Ok(entries)
+        })
+    }
+
     /// User-only approval step (only exposed via Tauri command `cmd_kb_organize_approve`).
     pub fn approve_plan(
         &self,
@@ -800,13 +922,28 @@ impl KnowledgeOrganizeManager {
             if self.check_and_mark_stale_locked(&mut plan)? {
                 return Err(KnowledgeErrorCode::KbJobConflict);
             }
+            let now_ts = Utc::now().to_rfc3339();
             if decision.reject {
                 plan.status = OrganizePlanStatus::Rejected;
+                let mut feedback_entries = Vec::with_capacity(plan.items.len());
                 for item in &mut plan.items {
                     item.approved = false;
+                    feedback_entries.push(OrganizeFeedbackEntry {
+                        timestamp: now_ts.clone(),
+                        plan_id: plan.id.clone(),
+                        item_id: item.id.clone(),
+                        kind: item.kind,
+                        folder_root: item.folder_root.clone(),
+                        source_rel: item.source_rel.clone(),
+                        target_rel: item.target_rel.clone(),
+                        override_target_rel: None,
+                        decision: OrganizeFeedbackDecision::Rejected,
+                        reason: item.reason.clone(),
+                    });
                 }
-                plan.updated_at = Utc::now().to_rfc3339();
+                plan.updated_at = now_ts;
                 self.save_plan_locked(&plan)?;
+                let _ = self.append_feedback_locked(kb_id, &feedback_entries);
                 return Ok(plan);
             }
 
@@ -816,6 +953,7 @@ impl KnowledgeOrganizeManager {
                 .map(|d| (d.item_id.as_str(), d))
                 .collect();
 
+            let mut feedback_entries = Vec::new();
             for item in &mut plan.items {
                 if let Some(d) = decision_map.get(item.id.as_str()) {
                     item.approved = d.approved;
@@ -830,6 +968,35 @@ impl KnowledgeOrganizeManager {
                         item.override_target_rel = Some(norm);
                     }
                 }
+                if !item.approved {
+                    feedback_entries.push(OrganizeFeedbackEntry {
+                        timestamp: now_ts.clone(),
+                        plan_id: plan.id.clone(),
+                        item_id: item.id.clone(),
+                        kind: item.kind,
+                        folder_root: item.folder_root.clone(),
+                        source_rel: item.source_rel.clone(),
+                        target_rel: item.target_rel.clone(),
+                        override_target_rel: None,
+                        decision: OrganizeFeedbackDecision::Rejected,
+                        reason: item.reason.clone(),
+                    });
+                } else if let Some(override_rel) = item.override_target_rel.as_ref() {
+                    if override_rel != &item.target_rel {
+                        feedback_entries.push(OrganizeFeedbackEntry {
+                            timestamp: now_ts.clone(),
+                            plan_id: plan.id.clone(),
+                            item_id: item.id.clone(),
+                            kind: item.kind,
+                            folder_root: item.folder_root.clone(),
+                            source_rel: item.source_rel.clone(),
+                            target_rel: item.target_rel.clone(),
+                            override_target_rel: Some(override_rel.clone()),
+                            decision: OrganizeFeedbackDecision::Modified,
+                            reason: item.reason.clone(),
+                        });
+                    }
+                }
             }
 
             if !plan.items.iter().any(|item| item.approved) {
@@ -837,8 +1004,9 @@ impl KnowledgeOrganizeManager {
             } else {
                 plan.status = OrganizePlanStatus::Approved;
             }
-            plan.updated_at = Utc::now().to_rfc3339();
+            plan.updated_at = now_ts;
             self.save_plan_locked(&plan)?;
+            let _ = self.append_feedback_locked(kb_id, &feedback_entries);
             Ok(plan)
         })
     }

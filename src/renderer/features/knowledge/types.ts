@@ -33,6 +33,114 @@ export interface KnowledgeLinkedFolder {
   isGitWorkTree: boolean;
 }
 
+export interface LinkedFolderScanSummary {
+  discovered: number;
+  added: number;
+  updated: number;
+  moved: number;
+  removed: number;
+  skipped: number;
+}
+
+export interface LinkedFolderAttachResult {
+  folder: KnowledgeLinkedFolder;
+  summary: LinkedFolderScanSummary;
+}
+
+export type OrganizePlanStatus =
+  | 'pending_review'
+  | 'approved'
+  | 'executing'
+  | 'completed'
+  | 'partially_completed'
+  | 'interrupted'
+  | 'rejected'
+  | 'stale';
+
+export type OrganizeOpKind = 'mkdir' | 'move' | 'rename';
+
+export type OrganizeItemStatus =
+  | 'pending'
+  | 'succeeded'
+  | 'conflict'
+  | 'failed'
+  | 'skipped'
+  | 'undone'
+  | 'undo_skipped_modified'
+  | 'undo_conflict'
+  | 'undo_failed';
+
+export interface OrganizePlanItem {
+  id: string;
+  kind: OrganizeOpKind;
+  folderRoot: string;
+  sourceRel?: string;
+  targetRel: string;
+  reason: string;
+  sourceId?: string;
+  affectedMarkdownLinks: number;
+  defaultSelected: boolean;
+  approved: boolean;
+  overrideTargetRel?: string;
+  status: OrganizeItemStatus;
+  error?: string;
+}
+
+export interface OrganizePlan {
+  id: string;
+  kbId: string;
+  status: OrganizePlanStatus;
+  createdAt: string;
+  expiresAt: string;
+  updatedAt: string;
+  items: OrganizePlanItem[];
+}
+
+export interface ItemApprovalDecision {
+  itemId: string;
+  approved: boolean;
+  overrideTargetRel?: string;
+}
+
+export interface ApprovalDecision {
+  reject?: boolean;
+  items?: ItemApprovalDecision[];
+}
+
+export interface UndoReport {
+  planId: string;
+  undone: string[];
+  skippedModified: string[];
+  conflicts: string[];
+  failed: string[];
+}
+
+export type KnowledgeModelPackStatusKind =
+  | 'not_installed'
+  | 'checking'
+  | 'downloading'
+  | 'verifying'
+  | 'installing'
+  | 'removing'
+  | 'ready'
+  | 'update_available'
+  | 'error';
+
+export interface KnowledgeModelPackStatus {
+  status: KnowledgeModelPackStatusKind;
+  usable: boolean;
+  packId: string;
+  displayName: string;
+  dimension: number;
+  maxTokens: number;
+  activeRevision?: string;
+  availableRevision: string;
+  downloadedBytes: number;
+  totalDownloadBytes: number;
+  installedModelBytes: number;
+  lastErrorCode?: string;
+}
+
 export interface KnowledgeBaseRecord {
   id: string;
   name: string;
@@ -162,6 +270,8 @@ export interface KnowledgeSearchHit {
 export interface KnowledgeSearchResult {
   mode: string;
   hits: KnowledgeSearchHit[];
+  bm25Hits?: KnowledgeSearchHit[];
+  vectorHits?: KnowledgeSearchHit[];
 }
 
 export interface WikiPageEntry {

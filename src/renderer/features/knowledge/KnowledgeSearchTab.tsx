@@ -26,6 +26,7 @@ export default function KnowledgeSearchTab({
   const [docType, setDocType] = useState('');
   const [limit, setLimit] = useState(8);
   const [searching, setSearching] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
   const [result, setResult] = useState<KnowledgeSearchResult | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
 
@@ -240,18 +241,77 @@ export default function KnowledgeSearchTab({
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--ink-muted)]">
               <span>{t('knowledge.search.hitsSummary', { count: result.hits.length })}</span>
-              <span
-                data-testid="kb-search-mode"
-                className="rounded-md bg-[var(--paper-inset)] px-2 py-0.5 font-medium text-[var(--ink-secondary)]"
-              >
-                {t('knowledge.search.modeBadge', {
-                  mode: t(`knowledge.searchModes.${result.mode}`, {
-                    defaultValue: result.mode.toUpperCase(),
-                  }),
-                })}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCompareMode((prev) => !prev)}
+                  aria-pressed={compareMode}
+                  data-testid="kb-search-compare-toggle"
+                  className={`rounded-md border px-2 py-0.5 text-xs font-medium transition-colors ${
+                    compareMode
+                      ? 'border-[var(--accent)] bg-[var(--paper-inset)] text-[var(--ink)]'
+                      : 'border-[var(--line)] text-[var(--ink-muted)] hover:bg-[var(--hover-bg)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  {t('knowledge.search.compareColumnsToggle')}
+                </button>
+                <span
+                  data-testid="kb-search-mode"
+                  className="rounded-md bg-[var(--paper-inset)] px-2 py-0.5 font-medium text-[var(--ink-secondary)]"
+                >
+                  {t('knowledge.search.modeBadge', {
+                    mode: t(`knowledge.searchModes.${result.mode}`, {
+                      defaultValue: result.mode.toUpperCase(),
+                    }),
+                  })}
+                </span>
+              </div>
             </div>
-            {result.hits.length === 0 ? (
+            {compareMode ? (
+              <div
+                data-testid="kb-search-compare-grid"
+                className="grid grid-cols-1 gap-3 lg:grid-cols-3"
+              >
+                {[
+                  {
+                    key: 'bm25',
+                    title: t('knowledge.search.columnBm25'),
+                    items: result.bm25Hits ?? result.hits,
+                    emptyText: t('knowledge.search.noHits'),
+                  },
+                  {
+                    key: 'vector',
+                    title: t('knowledge.search.columnVector'),
+                    items: result.vectorHits ?? [],
+                    emptyText: t('knowledge.search.vectorDegradedHint'),
+                  },
+                  {
+                    key: 'hybrid',
+                    title: t('knowledge.search.columnHybrid'),
+                    items: result.hits,
+                    emptyText: t('knowledge.search.noHits'),
+                  },
+                ].map((col) => (
+                  <div
+                    key={col.key}
+                    data-testid={`kb-search-col-${col.key}`}
+                    className="space-y-2 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3"
+                  >
+                    <div className="flex items-center justify-between text-xs font-semibold text-[var(--ink-muted)]">
+                      <span>{col.title}</span>
+                      <span>{col.items.length}</span>
+                    </div>
+                    {col.items.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-[var(--ink-muted)]">
+                        {col.emptyText}
+                      </p>
+                    ) : (
+                      <ul className="space-y-2">{col.items.map(renderHit)}</ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : result.hits.length === 0 ? (
               <p className="py-10 text-center text-sm text-[var(--ink-muted)]">
                 {t('knowledge.search.noHits')}
               </p>
