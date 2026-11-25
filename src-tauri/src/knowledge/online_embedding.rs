@@ -19,6 +19,8 @@ use std::collections::VecDeque;
 use std::fs;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
+#[cfg(test)]
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -295,6 +297,8 @@ pub struct KnowledgeEmbeddingService {
     data_dir: PathBuf,
     retry_base_backoff_ms: u64,
     query_cache: Mutex<VecDeque<(String, CachedQueryVector)>>,
+    #[cfg(test)]
+    force_egress_blocked: AtomicBool,
 }
 
 impl KnowledgeEmbeddingService {
@@ -303,6 +307,8 @@ impl KnowledgeEmbeddingService {
             data_dir,
             retry_base_backoff_ms: BASE_BACKOFF_MS,
             query_cache: Mutex::new(VecDeque::with_capacity(QUERY_CACHE_CAPACITY)),
+            #[cfg(test)]
+            force_egress_blocked: AtomicBool::new(false),
         }
     }
 
@@ -312,7 +318,30 @@ impl KnowledgeEmbeddingService {
             data_dir,
             retry_base_backoff_ms: 5,
             query_cache: Mutex::new(VecDeque::with_capacity(QUERY_CACHE_CAPACITY)),
+            force_egress_blocked: AtomicBool::new(false),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_force_egress_blocked(&self, blocked: bool) {
+        self.force_egress_blocked.store(blocked, Ordering::Release);
+    }
+
+    /// Enforce egress restriction before every online embedding batch (K21 §5.6):
+    /// 1. `proxy_config::ensure_model_egress_admitted()` (current host exit gate)
+    /// 2. `egress_restriction::fresh_exit_ip(3s)` (fresh exit IP evidence <= 3s)
+    /// Note: Rust-side embedding has these two layers only (no Node domain trace layer).
+    async fn admit_embedding_egress(&self) -> Result<(), EmbeddingError> {
+        #[cfg(test)]
+        if self.force_egress_blocked.load(Ordering::Acquire) {
+            return Err(EmbeddingError::new(EmbeddingErrorKind::EgressBlocked));
+        }
+        crate::proxy_config::ensure_model_egress_admitted()
+            .map_err(|_| EmbeddingError::new(EmbeddingErrorKind::EgressBlocked))?;
+        crate::egress_restriction::fresh_exit_ip(Duration::from_secs(3))
+            .await
+            .map_err(|_| EmbeddingError::new(EmbeddingErrorKind::EgressBlocked))?;
+        Ok(())
     }
 
     /// Read current `embeddingModel` config fresh from disk (`config.json`).
@@ -532,6 +561,7 @@ impl KnowledgeEmbeddingService {
         }
 
         let url = build_embeddings_endpoint_url(&endpoint.base_url)?;
+        self.admit_embedding_egress().await?;
         let client = self.build_http_client(endpoint, timeout)?;
         let started = Instant::now();
 

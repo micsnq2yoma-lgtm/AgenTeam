@@ -44,6 +44,7 @@ MyAgents 的代理不是一个 process-global 开关，而是按网络请求 own
   2. **供应商域名核验**：能提供 `/cdn-cgi/trace` 的域名（官方 `api.anthropic.com`、`api.openai.com`、`chatgpt.com`）经所选代理路径核验边缘看到的 IP，不匹配或无法核验都拒绝本轮；其他域名只在**明确不匹配**时拒绝，没有 trace 端点（多数中转、Google、DSH）则跳过，仅靠第 1、3 层。该检查由 Sidecar 进程发出，网络栈可能与 CLI 不完全相同，只能降低风险，不能证明实际连接的出口。
   3. **对话中出口失效即锁定**：Rust 监控把结论变为不匹配或无法确认时，`egress_shell` 暂停 Goal、记录被打断的 Task、停止全部 Sidecar（所有模型进程随之结束）并重启为只有恢复窗口的状态。检测延迟约 15 秒，匹配证据最长有效 25 秒。
   接入点：内置 Claude 在 `prepareProviderBinding().beforeTurn`（每条消息进入 SDK 之前）；外部 Runtime 与 DSH 在 `runtimes/factory.ts` 的 `withModelAdmission`（`startSession` / `sendMessage`）；非回合的模型相关网络访问（Codex 目录、Gemini 图片探测、供应商探测）用 `admitModelAccess()`；Rust 侧的供应商 HTTP、OAuth 刷新、模型发现、托管 Codex 登录与安装、外部 Runtime 会话启动、CLIProxy 启动统一经 `proxy_config::ensure_model_egress_admitted()`，只要求电脑出口当前已通过。
+  知识库在线嵌入（`src-tauri/src/knowledge/online_embedding.rs`）属于 Rust 侧模型出站请求：每批嵌入与查询嵌入前先调用 `proxy_config::ensure_model_egress_admitted()`，再调用 `egress_restriction::fresh_exit_ip(3s)` 要求 3 秒内的新鲜出口证据，不满足则该批直接返回 `EgressBlocked` 并降级为 BM25；Rust 侧无 Node `admitModelTurn` 的域名 `/cdn-cgi/trace` 核验层，因此知识库在线嵌入请求只具备出口核验的前两层（当前出口放行 + 3 秒新鲜出口 IP 核验，以及运行中 15 秒监控锁定）。
   官方 API Key 的逐请求核验保持不变；桥接层（`openai-bridge/handler.ts`）对非官方上游只做 Rust 当前结论检查后走普通路由。
   **保护范围与残余风险**：保证是"每轮开始前出口正确，进行中出口变化约 15 秒内被发现并掐断"，弱于 API Key 的逐请求证明。订阅程序自己发起的令牌刷新、上报和更新检查走别的域名，不在核验范围；用户终端、第三方工具自行建立的连接以及系统 DNS 同样不在范围内。
 实现入口为 `src-tauri/src/egress_restriction.rs`、`src-tauri/src/egress_shell.rs`、`src/server/egress-model-policy.ts` 和 `src/server/openai-bridge/verified-egress.ts`。

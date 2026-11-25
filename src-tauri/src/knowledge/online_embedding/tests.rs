@@ -318,3 +318,54 @@ fn resolves_tokendance_preset_gateway_endpoint() {
     assert_eq!(ep.api_key.as_deref(), Some("td-key-test"));
     assert!(!ep.is_loopback);
 }
+
+#[tokio::test]
+async fn restricted_mode_rejects_embedding_batch_before_any_http_call() {
+    let hits = Arc::new(AtomicUsize::new(0));
+    let hits_ref = Arc::clone(&hits);
+    let app = Router::new().route(
+        "/v1/embeddings",
+        post(move || {
+            let c = Arc::clone(&hits_ref);
+            async move {
+                c.fetch_add(1, Ordering::SeqCst);
+                (StatusCode::OK, Json(json!({ "data": [] }))).into_response()
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tauri::async_runtime::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+
+    let dir = TempDir::new().unwrap();
+    write_test_config(
+        dir.path(),
+        "local",
+        &format!("http://{addr}/v1"),
+        "sk-1",
+        "m1",
+        true,
+    );
+    let svc = KnowledgeEmbeddingService::with_fast_backoff(dir.path().to_path_buf());
+    svc.set_force_egress_blocked(true);
+
+    let err = svc
+        .embed_batch(&[("c1".into(), "hello".into())], None)
+        .await
+        .unwrap_err();
+    assert_eq!(err.kind, EmbeddingErrorKind::EgressBlocked);
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "egress rejection must happen before any HTTP request is sent"
+    );
+
+    let q_err = svc
+        .embed_query("hello", Duration::from_secs(5))
+        .await
+        .unwrap_err();
+    assert_eq!(q_err.kind, EmbeddingErrorKind::EgressBlocked);
+    assert_eq!(hits.load(Ordering::SeqCst), 0);
+}
