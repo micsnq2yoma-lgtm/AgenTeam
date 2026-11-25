@@ -509,6 +509,22 @@
       "dangerTitle": "危险操作",
       "dangerHint": "删除知识库会移除托管副本、转换结果与 Wiki，不会删除你的原始文件。"
     },
+    "embedding": {
+      "libraryTitle": "在线向量嵌入进度",
+      "libraryProgress": "已嵌入 {{embedded}} / {{total}} 块（估算约 {{tokens}} tokens）",
+      "disabledHint": "未启用在线嵌入模型，当前仅使用本地 BM25 检索。可在「设置 → 模型设置」开启。",
+      "failedSourcesHint": "{{count}} 份资料嵌入失败（{{reason}}），请检查模型配置后重试。",
+      "reembedLibrary": "重新嵌入",
+      "retry": "重试嵌入",
+      "chunkProgress": "已嵌入 {{embedded}} / {{total}} 块",
+      "status": {
+        "pending": "向量待嵌入",
+        "embedding": "向量嵌入中…",
+        "ready": "向量已就绪",
+        "failed": "向量嵌入失败",
+        "skipped": "已跳过向量嵌入"
+      }
+    },
     "organize": {
       "emptyTitle": "暂无物理文件整理方案",
       "emptyHint": "为关联文件夹开启物理整理权限后，整理 Agent 提出的方案会在此展示，需经你审阅后才会执行。",

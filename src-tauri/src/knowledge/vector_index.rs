@@ -209,6 +209,91 @@ impl KnowledgeVectorIndex {
         }
     }
 
+    /// Return cloned entries for `(kb_id, model_revision)` if currently active.
+    pub fn current_entries(&self, kb_id: &str, model_revision: &str) -> Vec<VectorChunkEntry> {
+        self.ensure_loaded(kb_id);
+        let Ok(guard) = self.cache.read() else {
+            return Vec::new();
+        };
+        match guard.get(kb_id) {
+            Some(loaded) if loaded.pointer.model_revision == model_revision => {
+                loaded.entries.clone()
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// Atomically replace one source's entries within `model_revision`, publish a new
+    /// generation pointer, and clean up stale sibling revision directories on success.
+    pub fn upsert_source_entries(
+        &self,
+        kb_id: &str,
+        model_revision: &str,
+        dimension: usize,
+        source_id: &str,
+        new_entries: Vec<VectorChunkEntry>,
+    ) -> Result<VectorGenerationPointer, KnowledgeErrorCode> {
+        let mut merged: Vec<VectorChunkEntry> = self
+            .current_entries(kb_id, model_revision)
+            .into_iter()
+            .filter(|e| e.source_id != source_id)
+            .collect();
+        merged.extend(new_entries);
+        let pointer = self.publish_revision(kb_id, model_revision, dimension, merged)?;
+        self.cleanup_stale_revisions(kb_id, model_revision);
+        Ok(pointer)
+    }
+
+    /// Remove all entries belonging to `source_id` from the active revision, if present.
+    pub fn remove_source_entries(&self, kb_id: &str, source_id: &str) {
+        self.ensure_loaded(kb_id);
+        let snapshot = {
+            let Ok(guard) = self.cache.read() else {
+                return;
+            };
+            guard.get(kb_id).map(|loaded| {
+                let had_source = loaded.entries.iter().any(|e| e.source_id == source_id);
+                (
+                    had_source,
+                    loaded.pointer.model_revision.clone(),
+                    loaded.pointer.dimension,
+                    loaded.entries.clone(),
+                )
+            })
+        };
+        if let Some((true, rev, dim, entries)) = snapshot {
+            let remaining: Vec<VectorChunkEntry> = entries
+                .into_iter()
+                .filter(|e| e.source_id != source_id)
+                .collect();
+            let _ = self.publish_revision(kb_id, &rev, dim, remaining);
+        }
+    }
+
+    /// Remove old revision directories under `<knowledge_root>/<kb_id>/vectors/`
+    /// once `keep_revision` has been atomically published.
+    pub fn cleanup_stale_revisions(&self, kb_id: &str, keep_revision: &str) {
+        if !is_knowledge_base_id(kb_id) || !is_safe_revision(keep_revision) {
+            return;
+        }
+        let vectors_dir = self.knowledge_root.join(kb_id).join("vectors");
+        let Ok(read_dir) = fs::read_dir(&vectors_dir) else {
+            return;
+        };
+        for entry in read_dir.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
+            if name != keep_revision {
+                let _ = fs::remove_dir_all(&path);
+            }
+        }
+    }
+
     fn ensure_loaded(&self, kb_id: &str) {
         if !is_knowledge_base_id(kb_id) {
             return;

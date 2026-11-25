@@ -6,6 +6,7 @@ import {
   LayersIcon,
   LockIcon,
   LockOpenIcon,
+  RefreshIcon,
   SaveIcon,
   TagIcon,
 } from '@/components/icons';
@@ -13,7 +14,12 @@ import { useToast } from '@/components/Toast';
 
 import { sourceDisplayTitle } from './folderTree';
 import { knowledgeClient, knowledgeErrorCode } from './knowledgeClient';
-import type { KnowledgeChunk, KnowledgeMetadataKey, KnowledgeSourceView } from './types';
+import type {
+  KnowledgeChunk,
+  KnowledgeMetadataKey,
+  KnowledgeSourceView,
+  SourceEmbeddingProgress,
+} from './types';
 
 type DrawerTab = 'metadata' | 'chunks';
 
@@ -89,6 +95,8 @@ export default function SourceDetailDrawer({
   const [unlockingKey, setUnlockingKey] = useState<KnowledgeMetadataKey | null>(null);
   const [chunks, setChunks] = useState<KnowledgeChunk[] | null>(null);
   const [chunksError, setChunksError] = useState(false);
+  const [embeddingProgress, setEmbeddingProgress] = useState<SourceEmbeddingProgress | null>(null);
+  const [retryingEmbed, setRetryingEmbed] = useState(false);
 
   const mounted = useRef(false);
   const chunkSeq = useRef(0);
@@ -128,6 +136,32 @@ export default function SourceDetailDrawer({
       void loadChunks();
     }
   }, [tab, loadChunks]);
+
+  const loadEmbeddingStatus = useCallback(async () => {
+    try {
+      const progress = await knowledgeClient.sourceEmbeddingStatus(kbId, source.id);
+      if (mounted.current) {
+        setEmbeddingProgress(progress);
+      }
+    } catch {
+      // Non-fatal: older mock clients in tests may not return embedding status.
+    }
+  }, [kbId, source.id]);
+
+  useEffect(() => {
+    void loadEmbeddingStatus();
+  }, [loadEmbeddingStatus]);
+
+  const handleRetryEmbedding = async () => {
+    if (retryingEmbed) return;
+    setRetryingEmbed(true);
+    try {
+      await knowledgeClient.retryEmbedding(kbId, source.id);
+      await loadEmbeddingStatus();
+    } finally {
+      if (mounted.current) setRetryingEmbed(false);
+    }
+  };
 
   const dirtyKeys = useMemo(() => {
     const keys: KnowledgeMetadataKey[] = [];
@@ -240,6 +274,43 @@ export default function SourceDetailDrawer({
             <CloseIcon className="h-4 w-4" />
           </button>
         </div>
+
+        {embeddingProgress && (
+          <div
+            data-testid="source-embedding-status"
+            className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] bg-[var(--paper-elevated)] px-5 py-2 text-xs text-[var(--ink-muted)]"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-[var(--ink)]">
+                {t(`knowledge.embedding.status.${embeddingProgress.status}`)}
+              </span>
+              {embeddingProgress.totalChunks > 0 && (
+                <span>
+                  {t('knowledge.embedding.chunkProgress', {
+                    embedded: embeddingProgress.embeddedChunks,
+                    total: embeddingProgress.totalChunks,
+                  })}
+                </span>
+              )}
+              {embeddingProgress.errorKind && (
+                <span className="text-[var(--error)]">
+                  ({embeddingProgress.errorKind})
+                </span>
+              )}
+            </div>
+            {(embeddingProgress.status === 'failed' || embeddingProgress.status === 'pending') && (
+              <button
+                type="button"
+                disabled={retryingEmbed}
+                onClick={() => void handleRetryEmbedding()}
+                className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium text-[var(--ink)] hover:bg-[var(--hover-bg)] disabled:opacity-50"
+              >
+                <RefreshIcon className="h-3 w-3" />
+                {t('knowledge.embedding.retry')}
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="flex shrink-0 items-center gap-1 border-b border-[var(--line)] px-5 py-2" role="tablist">
           <button

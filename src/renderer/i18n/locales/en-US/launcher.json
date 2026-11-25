@@ -509,6 +509,22 @@
       "dangerTitle": "Danger zone",
       "dangerHint": "Deleting removes managed copies, converted content, and wiki pages. Original files are never deleted."
     },
+    "embedding": {
+      "libraryTitle": "Online Embedding Progress",
+      "libraryProgress": "Embedded {{embedded}} / {{total}} chunks (est. ~{{tokens}} tokens)",
+      "disabledHint": "Online embedding is disabled; using local BM25 search only. Enable it in Settings → Model Settings.",
+      "failedSourcesHint": "{{count}} source(s) failed to embed ({{reason}}). Check your model configuration and retry.",
+      "reembedLibrary": "Re-embed",
+      "retry": "Retry embedding",
+      "chunkProgress": "Embedded {{embedded}} / {{total}} chunks",
+      "status": {
+        "pending": "Embedding pending",
+        "embedding": "Embedding…",
+        "ready": "Vectors ready",
+        "failed": "Embedding failed",
+        "skipped": "Embedding skipped"
+      }
+    },
     "organize": {
       "emptyTitle": "No organize plans yet",
       "emptyHint": "Enable physical organize on a linked folder and let the curator agent propose a plan for your review.",
