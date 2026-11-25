@@ -1416,3 +1416,114 @@ fn explicit_config_locale_respects_config_ui_language_and_defaults_to_zh_cn() {
         .unwrap();
     assert!(en_rules.contains("## Categories"));
 }
+
+#[test]
+fn resolve_ref_returns_preview_target_excerpt_and_falls_back_when_original_missing() {
+    let data = tempdir().unwrap();
+    let store = KnowledgeStore::new(data.path().into());
+    let kb = store.create(settings("Citations")).unwrap();
+
+    // 1. Markdown/wiki source with multi-line sections and long text (>300 chars)
+    let long_para = "长段落测试内容，用来验证悬停摘要会在大约三百个字符处优雅截断。".repeat(16);
+    let md = format!("# 标题\n\n第一段简介。\n\n## 目标章节\n\n{long_para}\n");
+    let wiki_source = store
+        .write_wiki_page(&kb.id, "topics/Design.md", &md, |_| Ok(()))
+        .unwrap();
+    let (_, chunks) = store
+        .search_document(&kb.id, &wiki_source.id)
+        .unwrap()
+        .unwrap();
+    let target_chunk = chunks
+        .iter()
+        .find(|c| c.heading_path.iter().any(|h| h == "目标章节"))
+        .unwrap();
+
+    let resolved = store
+        .resolve_ref(&format!(
+            "kb://{}/{}#{}",
+            kb.id, wiki_source.id, target_chunk.chunk_id
+        ))
+        .unwrap();
+    let excerpt = resolved.excerpt.expect("expected excerpt");
+    assert!(excerpt.chars().count() <= 301);
+    assert!(excerpt.ends_with('…'));
+    let preview = resolved.preview.expect("expected preview");
+    assert!(!preview.is_content_fallback);
+    assert!(preview.path.ends_with("content.md"));
+    assert_eq!(preview.utf16_range, Some(target_chunk.utf16_range));
+    assert_eq!(preview.line_number, Some(7));
+
+    // 2. Managed PDF source: prefers original.pdf when present, falls back to content.md if deleted
+    let pdf_md = "## Page 1\n\nCover text.\n\n## Page 2\n\nSecond page clause.\n";
+    let pdf_hash = format!(
+        "{:x}",
+        <sha2::Sha256 as sha2::Digest>::digest(pdf_md.as_bytes())
+    );
+    let pdf_source = store
+        .create_source(
+            &kb.id,
+            SourceFacts {
+                kind: SourceKind::File,
+                current_path: None,
+                file_fingerprint: Some(SourceFingerprint {
+                    size: 16,
+                    mtime_ms: 1,
+                }),
+                content_hash: Some(pdf_hash),
+                status: SourceStatus::Ready,
+            },
+        )
+        .unwrap();
+    let src_dir = data
+        .path()
+        .join("knowledge")
+        .join(&kb.id)
+        .join("sources")
+        .join(&pdf_source.id);
+    fs::write(src_dir.join("content.md"), pdf_md).unwrap();
+    fs::write(src_dir.join("original.pdf"), b"%PDF-1.4\n%%EOF\n").unwrap();
+    let source_json_path = src_dir.join("source.json");
+    let mut record_val: Value =
+        serde_json::from_str(&fs::read_to_string(&source_json_path).unwrap()).unwrap();
+    record_val["displayName"] = json!("contract.pdf");
+    record_val["ingest"] = json!({
+        "id": "job_20261124_0123456789ab",
+        "extension": "pdf",
+        "originalSha256": "0".repeat(64),
+        "documentJobId": null,
+        "error": null,
+        "suggestion": null
+    });
+    fs::write(
+        &source_json_path,
+        serde_json::to_vec_pretty(&record_val).unwrap(),
+    )
+    .unwrap();
+
+    let resolved_pdf = store
+        .resolve_ref(&format!("kb://{}/{}?page=2", kb.id, pdf_source.id))
+        .unwrap();
+    let pdf_preview = resolved_pdf.preview.expect("expected pdf preview");
+    assert!(!pdf_preview.is_content_fallback);
+    assert!(pdf_preview.path.ends_with("original.pdf"));
+    assert_eq!(pdf_preview.name, "contract.pdf");
+    assert_eq!(pdf_preview.page, Some(2));
+    assert_eq!(pdf_preview.utf16_range, None);
+    assert!(resolved_pdf
+        .excerpt
+        .as_deref()
+        .unwrap_or_default()
+        .contains("Second page clause"));
+
+    // Remove original.pdf -> must fall back cleanly to content.md
+    fs::remove_file(src_dir.join("original.pdf")).unwrap();
+    let resolved_fallback = store
+        .resolve_ref(&format!("kb://{}/{}?page=2", kb.id, pdf_source.id))
+        .unwrap();
+    let fb_preview = resolved_fallback.preview.expect("expected fallback preview");
+    assert!(fb_preview.is_content_fallback);
+    assert!(fb_preview.path.ends_with("content.md"));
+    assert_eq!(fb_preview.page, Some(2));
+    assert!(fb_preview.utf16_range.is_some());
+    assert_eq!(fb_preview.line_number, Some(7));
+}

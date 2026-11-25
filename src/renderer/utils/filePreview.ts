@@ -28,14 +28,15 @@ export async function resolveFilePreview(
       : await service.resolvePreviewPath({ path: target.path });
     return { kind: 'browser', target, url };
   }
-  const richDocKind = getRichDocKind(target.name);
+  const actualName = local ? (localPath.split(/[/\\]/).pop() ?? target.name) : target.name;
+  const richDocKind = getRichDocKind(actualName);
   if (richDocKind) {
     return { kind: 'file', file: { ...target, content: '', size: 0, richDocKind } };
   }
   const loaded = local
     ? await service.readLocalPreview({ fullPath: localPath })
     : await service.readPreview({ path: target.path });
-  return { kind: 'file', file: { ...target, ...loaded } };
+  return { kind: 'file', file: { ...target, ...loaded, name: target.name || loaded.name } };
 }
 
 /** Tauri Result<_, String> rejects with a string, not necessarily an Error. */

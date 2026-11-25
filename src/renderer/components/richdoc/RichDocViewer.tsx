@@ -30,6 +30,7 @@ import { ExternalIcon, FileWarningIcon, LoaderIcon } from '@/components/icons';
 import { FileIcon } from '@/components/file-icon';
 import { useWorkspaceFileService } from '@/hooks/useWorkspaceFileService';
 import type { RichDocKind } from '../../../shared/fileTypes';
+import type { FilePreviewFocusTarget } from '@/types/filePreview';
 import { installExternalResourceGuard } from './externalResourceGuard';
 import type { RichDocSubViewerProps } from './types';
 
@@ -53,6 +54,8 @@ interface RichDocViewerProps {
   workspacePath: string | null;
   /** Absolute local path for read-only previews outside the active workspace. */
   localPath?: string | null;
+  /** Optional navigation target (e.g. PDF page jump from a knowledge citation). */
+  focusTarget?: FilePreviewFocusTarget;
 }
 
 const Spinner = (
@@ -61,7 +64,13 @@ const Spinner = (
   </div>
 );
 
-export default function RichDocViewer({ kind, path, workspacePath, localPath = null }: RichDocViewerProps) {
+export default function RichDocViewer({
+  kind,
+  path,
+  workspacePath,
+  localPath = null,
+  focusTarget,
+}: RichDocViewerProps) {
   const { t } = useTranslation('app');
   // `useWorkspaceFileService` returns a useMemo-stable object (per its own docs),
   // so it's safe to depend on directly in effects/callbacks without a ref mirror.
@@ -159,7 +168,13 @@ export default function RichDocViewer({ kind, path, workspacePath, localPath = n
     <div ref={hostRef} className="h-full overflow-hidden">
       <Suspense fallback={Spinner}>
         {/* key={path} forces a clean remount (+ sub-viewer cleanup) on file switch. */}
-        <SubViewer key={path} bytes={state.bytes} onError={setRenderError} onEmpty={markEmpty} />
+        <SubViewer
+          key={path}
+          bytes={state.bytes}
+          focusTarget={focusTarget}
+          onError={setRenderError}
+          onEmpty={markEmpty}
+        />
       </Suspense>
     </div>
   );

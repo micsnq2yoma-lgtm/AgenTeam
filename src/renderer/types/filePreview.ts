@@ -2,6 +2,10 @@ export interface FilePreviewFocusTarget {
   /** Source-local navigation event id. Same line can be focused repeatedly. */
   requestId: number;
   lineNumber: number;
+  /** 1-based page number for paginated rich-doc previews (e.g. PDF citations). */
+  page?: number;
+  /** UTF-16 character range `[start, end)` inside the previewed Markdown/text document. */
+  utf16Range?: [number, number];
   query?: string;
   highlights?: [number, number][];
 }

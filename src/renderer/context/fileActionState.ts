@@ -44,7 +44,13 @@ export interface FileActionContextValue {
    *  a non-destructive hint instead of launching an OS application. */
   openFileTarget: (
     target: FileActionTarget,
-    options?: { displayPath?: string; forceExternal?: boolean },
+    options?: {
+      displayPath?: string;
+      displayName?: string;
+      forceExternal?: boolean;
+      page?: number;
+      utf16Range?: [number, number];
+    },
   ) => void;
   /** Workspace root, for resolving workspace-relative paths to absolute (e.g. the
    *  inline audio play button, whose player needs an absolute path). May be null

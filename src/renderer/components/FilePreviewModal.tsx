@@ -467,7 +467,10 @@ export default function FilePreviewModal({
     // onRevealFile manually — passing `workspacePath` is enough.
     const canReveal = !!(onRevealFile || workspacePath || localPath);
 
-    const isMarkdown = useMemo(() => isMarkdownFile(name), [name]);
+    const isMarkdown = useMemo(
+        () => !richDocKind && (isMarkdownFile(localPath ?? path) || isMarkdownFile(name)),
+        [richDocKind, localPath, path, name],
+    );
     const isWorkspaceMarkdown = isMarkdown && canEdit && !!workspacePath && !onSave;
     const markdownEditorRef = useRef<MarkdownEditorHandle>(null);
     const [markdownSourceMode, setMarkdownSourceMode] = useState(false);
@@ -582,6 +585,18 @@ export default function FilePreviewModal({
             setMdViewMode('edit');
         }
     }, [canEdit, focusTarget, isMarkdown, isWorkspaceMarkdown]);
+
+    // In read-only Markdown preview, scroll the highlighted citation block into view.
+    useEffect(() => {
+        if (!isMarkdown || canEdit || !focusTarget?.utf16Range || isLoading) return;
+        const container = markdownScrollRef.current;
+        if (!container) return;
+        const raf = window.requestAnimationFrame(() => {
+            const target = container.querySelector<HTMLElement>('[data-kb-highlight="true"]');
+            target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        });
+        return () => window.cancelAnimationFrame(raf);
+    }, [canEdit, editContent, focusTarget?.requestId, focusTarget?.utf16Range, isLoading, isMarkdown]);
 
     // Syntax highlighting has its own budget, separate from the 2MB preview/save
     // cap. Normal source can highlight up to 1MB; unknown or long-line data stays
@@ -1334,7 +1349,14 @@ export default function FilePreviewModal({
                 <Suspense fallback={monacoLoading}>
                     {/* key={path}: a split-view file switch reuses this modal — keying
                         forces RichDocViewer to remount (clean state + viewer cleanup). */}
-                    <RichDocViewer key={localPath ?? path} kind={richDocKind} path={path} workspacePath={workspacePath} localPath={localPath} />
+                    <RichDocViewer
+                        key={localPath ?? path}
+                        kind={richDocKind}
+                        path={path}
+                        workspacePath={workspacePath}
+                        localPath={localPath}
+                        focusTarget={focusTarget}
+                    />
                 </Suspense>
             );
         }
@@ -1390,7 +1412,13 @@ export default function FilePreviewModal({
             return (
                 <div ref={markdownScrollRef} className="h-full overflow-auto overscroll-contain p-6 bg-[var(--paper-elevated)]">
                     <div className="ai-message-content mx-auto max-w-3xl">
-                        <Markdown raw preserveNewlines basePath={filePathDirname(localPath ?? path ?? '')} workspacePath={workspacePath}>{previewSource}</Markdown>
+                        <Markdown
+                            raw
+                            preserveNewlines
+                            basePath={filePathDirname(localPath ?? path ?? '')}
+                            workspacePath={workspacePath}
+                            highlightUtf16Range={focusTarget?.utf16Range}
+                        >{previewSource}</Markdown>
                     </div>
                 </div>
             );

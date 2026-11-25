@@ -875,5 +875,16 @@
     "peerList": "Conversations",
     "loadFailedRetry": "Couldn’t load · Retry",
     "noPeers": "No conversations yet. They appear here after a Bot receives its first message."
+  },
+  "knowledgeCitation": {
+    "pageShort": "p.{{page}}",
+    "pageLabel": "Page {{page}}",
+    "loading": "Loading citation excerpt…",
+    "sourceUnavailable": "Source unavailable",
+    "sourceUnavailableHint": "This knowledge base source has been deleted or is no longer accessible.",
+    "fragmentUpdated": "Fragment updated; opened the source document instead.",
+    "previewUnavailable": "No previewable original or content is available for this source.",
+    "noExcerpt": "No excerpt available.",
+    "resolveFailed": "Could not resolve knowledge base citation."
   }
 }
