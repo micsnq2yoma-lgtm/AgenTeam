@@ -1,4 +1,4 @@
-name: Verify the signed Windows 0.7.5 upgrade
+name: Attach the accepted Windows 0.7.5 installer
 on:
   push:
     branches: [codex/qa-agenteam-v0.7.5]
@@ -12,55 +12,49 @@ env:
   BUILD: '45628647866'
   PACKAGE: AgenTeam_0.7.5_x64-setup.exe
 jobs:
-  verify:
+
+  attach:
     if: github.repository == 'micsnq2yoma-lgtm/AgenTeam'
-    runs-on: windows-2022
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Download the exact installers and dedicated loopback shell
+      - name: Attach the accepted installer to its matching draft
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: pwsh
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          $root = Join-Path $env:RUNNER_TEMP 'agenteam-075-upgrade'
-          "QA_ROOT=$root" >> $env:GITHUB_ENV
-          $build = gh api "repos/$env:REPO/actions/runs/$env:BUILD" | ConvertFrom-Json
-          if ($build.head_sha -cne $env:SOURCE -or $build.conclusion -ne 'success') { throw 'Unexpected build source' }
-          gh run download 44299783178 --repo $env:REPO --name 'AgenTeam-Windows-x64-8384e2d06013b68f36ed4ed256beeef9b4fb9566' --dir "$root/original"
-          gh run download $env:BUILD --repo $env:REPO --name "AgenTeam-Windows-x64-$env:SOURCE" --dir "$root/target"
-          gh run download 45553203280 --repo $env:REPO --name 'baseline-060-loopback-shell' --dir "$root/shell"
-          $target = Join-Path $root 'target'
-          $metadata = 'qa/agenteam-075-metadata'
-          $expected = @(Get-Content -LiteralPath "$metadata/SHA256SUMS")
-          $installer = Join-Path $target $env:PACKAGE
-          $hash = (Get-FileHash -LiteralPath $installer).Hash.ToLowerInvariant()
-          $record = "$hash  $env:PACKAGE"
-          if ((Get-Content -LiteralPath "$target/SHA256SUMS") -cne $record -or $expected -cnotcontains $record) { throw 'Installer digest mismatch' }
-          foreach ($file in "$env:PACKAGE.sig",'latest.json') {
-            $path = Join-Path $metadata $file
-            $hash = (Get-FileHash -LiteralPath $path).Hash.ToLowerInvariant()
-            if ($expected -cnotcontains "$hash  $file") { throw 'Signed metadata digest mismatch' }
-            Copy-Item -LiteralPath $path -Destination $target
-          }
-      - name: Verify download, cache recovery, rejection paths, native install and retained data
-        shell: pwsh
-        run: ./qa/prepare-agenteam-upgrade-075.ps1
-      - name: Collect limited updater diagnostics
-        if: failure()
-        shell: pwsh
-        run: |
-          $logs = Join-Path $env:USERPROFILE '.agenteam/logs'
-          if (Test-Path -LiteralPath $logs) {
-            Get-ChildItem -LiteralPath $logs -File -Recurse | Where-Object Length -lt 20MB | Select-String -Pattern '\[Updater\]' | Select-Object -Last 30 | ForEach-Object { $_.Line.Substring(0,[Math]::Min($_.Line.Length,350)) }
-          }
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: AgenTeam-0.7.5-upgrade-evidence
-          path: ${{ runner.temp }}/agenteam-075-upgrade/evidence/
-          retention-days: 30
+          set -euo pipefail
+          gh api "repos/$REPO/actions/runs/$BUILD" | jq -e --arg sha "$SOURCE" '.head_sha==$sha and .conclusion=="success"'
+          mkdir payload
+          gh run download "$BUILD" --repo "$REPO" --name "AgenTeam-Windows-x64-$SOURCE" --dir payload
+          cp qa/agenteam-075-metadata/{SHA256SUMS,latest.json,"$PACKAGE.sig"} payload/
+          (cd payload && sha256sum --check --strict SHA256SUMS)
+          release_id=''
+          for attempt in {1..45}; do
+            if gh release view v0.7.5 --repo "$REPO" --json isDraft,targetCommitish > draft.json 2>/dev/null; then
+              jq -e --arg sha "$SOURCE" '.isDraft and .targetCommitish==$sha' draft.json
+              release_id=$(gh api "repos/$REPO/releases" --jq '.[]|select(.tag_name=="v0.7.5" and .draft)|.id')
+              if [[ -n $release_id ]]; then
+                gh api "repos/$REPO/releases/$release_id" > release.json
+                count=$(jq '[.assets[] | select(.state=="uploaded")]|length' release.json)
+                if [[ $count -ge 3 ]]; then break; fi
+              fi
+            fi
+            sleep 10
+          done
+          test -n "$release_id"
+          for file in "$PACKAGE.sig" latest.json SHA256SUMS; do
+            digest=$(sha256sum "payload/$file" | cut -d ' ' -f1)
+            jq -e --arg name "$file" --arg digest "sha256:$digest" 'any(.assets[]; .name==$name and .digest==$digest and .state=="uploaded")' release.json
+          done
+          jq -e --arg sha "$SOURCE" '.draft and .target_commitish==$sha and (.assets|length)==3' release.json
+          gh release upload v0.7.5 "payload/$PACKAGE" --repo "$REPO"
+          gh api "repos/$REPO/releases/$release_id" > release.json
+          digest=$(sha256sum "payload/$PACKAGE" | cut -d ' ' -f1)
+          jq -e --arg name "$PACKAGE" --arg digest "sha256:$digest" '.draft and (.assets|length)==4 and any(.assets[]; .name==$name and .digest==$digest and .state=="uploaded")' release.json
