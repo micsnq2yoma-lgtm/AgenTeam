@@ -837,6 +837,9 @@ pub fn run() {
             knowledge::commands::cmd_kb_import_url,
             knowledge::commands::cmd_kb_global_search,
             knowledge::commands::cmd_kb_test_embedding_connection,
+            knowledge::commands::cmd_kb_embedding_summary,
+            knowledge::commands::cmd_kb_source_embedding_status,
+            knowledge::commands::cmd_kb_retry_embedding,
             // Canonical Record commands.
             record::cmd_record_create,
             record::cmd_record_list,
@@ -1655,10 +1658,22 @@ pub fn run() {
             // Register KnowledgeStore before Task startup reconciles managed curators.
             if let Some(data_dir) = app_dirs::myagents_data_dir() {
                 let store = Arc::new(knowledge::store::KnowledgeStore::new(data_dir.clone()));
-                let ingest = Arc::new(knowledge::ingest::KnowledgeIngestManager::new(
-                    Arc::clone(&store),
-                    document_processing::global().cloned(),
+                let vector_index = Arc::new(knowledge::vector_index::KnowledgeVectorIndex::new(
+                    data_dir.clone(),
                 ));
+                let embedding_service = Arc::new(
+                    knowledge::online_embedding::KnowledgeEmbeddingService::new(data_dir.clone()),
+                );
+                let ingest = Arc::new(
+                    knowledge::ingest::KnowledgeIngestManager::new(
+                        Arc::clone(&store),
+                        document_processing::global().cloned(),
+                    )
+                    .with_online_embedding(
+                        Arc::clone(&vector_index),
+                        Arc::clone(&embedding_service),
+                    ),
+                );
                 let linked = Arc::new(knowledge::linked::KnowledgeLinkedManager::new(
                     Arc::clone(&store),
                     document_processing::global().cloned(),
@@ -1667,12 +1682,6 @@ pub fn run() {
                     Arc::clone(&store),
                     data_dir.clone(),
                 ));
-                let vector_index = Arc::new(knowledge::vector_index::KnowledgeVectorIndex::new(
-                    data_dir.clone(),
-                ));
-                let embedding_service = Arc::new(
-                    knowledge::online_embedding::KnowledgeEmbeddingService::new(data_dir.clone()),
-                );
                 app.manage(vector_index);
                 app.manage(embedding_service);
                 match knowledge::model_pack::KnowledgeModelPackManager::initialize(

@@ -1,4 +1,5 @@
 pub(crate) mod conversion;
+pub mod embedding_stage;
 #[cfg(test)]
 mod tests;
 
@@ -10,11 +11,16 @@ use std::time::Duration;
 
 use serde::Serialize;
 
+pub use embedding_stage::{
+    EmbeddingStage, LibraryEmbeddingSummary, SourceEmbeddingProgress, SourceEmbeddingStatusKind,
+};
+use super::online_embedding::KnowledgeEmbeddingService;
 use super::store::ingest::{ImportReceipt, IngestJob};
 use super::store::{KnowledgeBase, KnowledgeStore, SourceStatus, StoreResult};
 use super::types::{
     is_knowledge_base_id, is_knowledge_job_id, is_knowledge_source_id, KnowledgeErrorCode,
 };
+use super::vector_index::KnowledgeVectorIndex;
 use crate::document_processing::ManagedDocumentProcessing;
 use conversion::ConversionError;
 
@@ -62,6 +68,7 @@ struct Queue {
 pub struct KnowledgeIngestManager {
     store: Arc<KnowledgeStore>,
     documents: Option<ManagedDocumentProcessing>,
+    embedding: Option<Arc<EmbeddingStage>>,
     queue: Mutex<Queue>,
     settled: Condvar,
 }
@@ -71,8 +78,100 @@ impl KnowledgeIngestManager {
         Self {
             store,
             documents,
+            embedding: None,
             queue: Mutex::default(),
             settled: Condvar::new(),
+        }
+    }
+
+    pub fn with_online_embedding(
+        mut self,
+        vector_index: Arc<KnowledgeVectorIndex>,
+        service: Arc<KnowledgeEmbeddingService>,
+    ) -> Self {
+        self.embedding = Some(Arc::new(EmbeddingStage::new(
+            Arc::clone(&self.store),
+            vector_index,
+            service,
+        )));
+        self
+    }
+
+    pub fn embedding_summary(&self, kb_id: &str) -> StoreResult<LibraryEmbeddingSummary> {
+        if !is_knowledge_base_id(kb_id) {
+            return Err(KnowledgeErrorCode::KbInvalidInput);
+        }
+        if let Some(stage) = &self.embedding {
+            Ok(stage.library_summary(kb_id))
+        } else {
+            Ok(LibraryEmbeddingSummary {
+                kb_id: kb_id.to_string(),
+                enabled: false,
+                active_model_revision: None,
+                active_dimension: None,
+                embedded_chunks: 0,
+                total_chunks: 0,
+                estimated_tokens: 0,
+                ready_sources: 0,
+                pending_sources: 0,
+                embedding_sources: 0,
+                failed_sources: 0,
+                skipped_sources: 0,
+                last_error_kind: None,
+            })
+        }
+    }
+
+    pub fn source_embedding_status(
+        &self,
+        kb_id: &str,
+        source_id: &str,
+    ) -> StoreResult<SourceEmbeddingProgress> {
+        if !is_knowledge_base_id(kb_id) || !is_knowledge_source_id(source_id) {
+            return Err(KnowledgeErrorCode::KbInvalidInput);
+        }
+        if let Some(stage) = &self.embedding {
+            Ok(stage.source_progress(kb_id, source_id))
+        } else {
+            Ok(SourceEmbeddingProgress {
+                kb_id: kb_id.to_string(),
+                source_id: source_id.to_string(),
+                status: SourceEmbeddingStatusKind::Skipped,
+                embedded_chunks: 0,
+                total_chunks: 0,
+                estimated_tokens: 0,
+                model_revision: None,
+                error_kind: None,
+            })
+        }
+    }
+
+    pub fn retry_embedding(&self, kb_id: &str, source_id: Option<&str>) -> StoreResult<()> {
+        if !is_knowledge_base_id(kb_id) {
+            return Err(KnowledgeErrorCode::KbInvalidInput);
+        }
+        if let Some(sid) = source_id {
+            if !is_knowledge_source_id(sid) {
+                return Err(KnowledgeErrorCode::KbInvalidInput);
+            }
+            if let Some(stage) = &self.embedding {
+                stage.spawn_source(kb_id.to_string(), sid.to_string());
+            }
+        } else if let Some(stage) = &self.embedding {
+            stage.spawn_library(kb_id.to_string());
+        }
+        Ok(())
+    }
+
+    pub fn cancel_source_embedding(&self, kb_id: &str, source_id: &str) {
+        if let Some(stage) = &self.embedding {
+            stage.cancel_source(kb_id, source_id);
+        }
+    }
+
+    pub fn cancel_library_embedding(&self, kb_id: &str) {
+        if let Some(stage) = &self.embedding {
+            stage.cancel_library(kb_id);
         }
     }
 
@@ -92,6 +191,9 @@ impl KnowledgeIngestManager {
             queue.pending.extend(self.store.recover_ingest_staging()?);
             queue.recovered = true;
             self.start_next(&mut queue);
+            if let Some(stage) = &self.embedding {
+                stage.spawn_resume_all();
+            }
         }
         Ok(queue)
     }
@@ -188,13 +290,23 @@ impl KnowledgeIngestManager {
         };
         match conversion {
             Ok(()) => {
-                if let Err(code) = self.store.finish_chunking(id, cancelled) {
-                    // Late results are expected after cancellation, removal or retry.
-                    if !matches!(
-                        code,
-                        KnowledgeErrorCode::KbJobConflict | KnowledgeErrorCode::KbNotFound
-                    ) {
-                        let _ = self.store.fail_ingest(id, code, "checkStorageAndRetry");
+                match self.store.finish_chunking(id, cancelled) {
+                    Ok(()) => {
+                        if let (Some(stage), Ok(job)) = (&self.embedding, self.store.ingest_job(id))
+                        {
+                            if job.status == SourceStatus::Ready {
+                                stage.spawn_source(job.kb_id, job.source_id);
+                            }
+                        }
+                    }
+                    Err(code) => {
+                        // Late results are expected after cancellation, removal or retry.
+                        if !matches!(
+                            code,
+                            KnowledgeErrorCode::KbJobConflict | KnowledgeErrorCode::KbNotFound
+                        ) {
+                            let _ = self.store.fail_ingest(id, code, "checkStorageAndRetry");
+                        }
                     }
                 }
             }
@@ -270,6 +382,9 @@ impl KnowledgeIngestManager {
     }
 
     fn shutdown_with_timeout(&self, timeout: Duration) -> StoreResult<()> {
+        if let Some(stage) = &self.embedding {
+            stage.shutdown();
+        }
         let mut queue = self.queue()?;
         queue.closed = true;
         if let Some((_, cancelled)) = &queue.active {

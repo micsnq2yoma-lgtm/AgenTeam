@@ -322,6 +322,40 @@ export interface EmbeddingConnectionTestResult {
   statusCode?: number;
 }
 
+export type SourceEmbeddingStatusKind =
+  | 'pending'
+  | 'embedding'
+  | 'ready'
+  | 'failed'
+  | 'skipped';
+
+export interface SourceEmbeddingProgress {
+  kbId: string;
+  sourceId: string;
+  status: SourceEmbeddingStatusKind;
+  embeddedChunks: number;
+  totalChunks: number;
+  estimatedTokens: number;
+  modelRevision?: string;
+  errorKind?: string;
+}
+
+export interface LibraryEmbeddingSummary {
+  kbId: string;
+  enabled: boolean;
+  activeModelRevision?: string;
+  activeDimension?: number;
+  embeddedChunks: number;
+  totalChunks: number;
+  estimatedTokens: number;
+  readySources: number;
+  pendingSources: number;
+  embeddingSources: number;
+  failedSources: number;
+  skippedSources: number;
+  lastErrorKind?: string;
+}
+
 /** Bounded error shape of the Store commands (`KnowledgeErrorCode` in shared/knowledge). */
 export interface KnowledgeCommandError {
   code?: string;

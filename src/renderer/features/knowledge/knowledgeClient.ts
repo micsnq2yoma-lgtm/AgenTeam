@@ -16,12 +16,14 @@ import type {
   KnowledgeSearchFilters,
   KnowledgeSearchResult,
   KnowledgeSourceView,
+  LibraryEmbeddingSummary,
   LinkedFolderAttachResult,
   LinkedFolderScanSummary,
   LintReportEntry,
   MetadataOutcome,
   OrganizePlan,
   RuleDocKind,
+  SourceEmbeddingProgress,
   UndoReport,
   WikiPageEntry,
 } from './types';
@@ -136,6 +138,12 @@ export const knowledgeClient = {
       model,
       dimensions,
     }),
+  embeddingSummary: (kbId: string) =>
+    call<LibraryEmbeddingSummary>('cmd_kb_embedding_summary', { kbId }),
+  sourceEmbeddingStatus: (kbId: string, sourceId: string) =>
+    call<SourceEmbeddingProgress>('cmd_kb_source_embedding_status', { kbId, sourceId }),
+  retryEmbedding: (kbId: string, sourceId?: string) =>
+    call<void>('cmd_kb_retry_embedding', { kbId, sourceId: sourceId ?? null }),
 };
 
 /** The Store rejects with a bounded `{ code, message }` or bare string error code. */

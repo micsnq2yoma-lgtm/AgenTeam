@@ -22,6 +22,7 @@ import type {
   KnowledgeBaseRecord,
   KnowledgeCurationMode,
   KnowledgeLinkedFolder,
+  LibraryEmbeddingSummary,
   RuleDocKind,
 } from './types';
 
@@ -62,6 +63,8 @@ export default function KnowledgeSettingsTab({
   const [folderBusyPath, setFolderBusyPath] = useState<string | null>(null);
   const [addingFolder, setAddingFolder] = useState(false);
   const [confirmRemoveFolder, setConfirmRemoveFolder] = useState<string | null>(null);
+  const [embeddingSummary, setEmbeddingSummary] = useState<LibraryEmbeddingSummary | null>(null);
+  const [reembedding, setReembedding] = useState(false);
 
   // Sync form state when Store pushes updated KB settings.
   const kbVersionKey = `${kb.id}:${kb.name}:${kb.description}:${kb.curatorAgentId ?? ''}:${kb.curationMode}:${kb.curationIntervalMinutes}:${kb.agentWriteAccess}:${String(kb.wikiEnabled)}`;
@@ -113,6 +116,32 @@ export default function KnowledgeSettingsTab({
   useEffect(() => {
     void loadRuleDoc(activeDoc);
   }, [activeDoc, loadRuleDoc]);
+
+  const loadEmbeddingSummary = useCallback(async () => {
+    try {
+      const summary = await knowledgeClient.embeddingSummary(kb.id);
+      if (mounted.current) {
+        setEmbeddingSummary(summary);
+      }
+    } catch {
+      // Non-fatal in mock environments.
+    }
+  }, [kb.id]);
+
+  useEffect(() => {
+    void loadEmbeddingSummary();
+  }, [loadEmbeddingSummary]);
+
+  const handleRetryLibraryEmbedding = async () => {
+    if (reembedding) return;
+    setReembedding(true);
+    try {
+      await knowledgeClient.retryEmbedding(kb.id);
+      await loadEmbeddingSummary();
+    } finally {
+      if (mounted.current) setReembedding(false);
+    }
+  };
 
   const agents = useMemo(() => config.agents ?? [], [config.agents]);
   const agentOptions = useMemo<SelectOption[]>(
@@ -500,6 +529,53 @@ export default function KnowledgeSettingsTab({
           {t('knowledge.settings.curateNow')}
         </button>
       </section>
+
+      {/* Online embedding progress & token estimate (K21-b) */}
+      {embeddingSummary && (
+        <section
+          data-testid="kb-embedding-summary"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5"
+        >
+          <div className="min-w-0 flex-1 space-y-1">
+            <h3 className="text-sm font-medium text-[var(--ink)]">
+              {t('knowledge.embedding.libraryTitle')}
+            </h3>
+            <p className="text-xs text-[var(--ink-muted)]">
+              {embeddingSummary.enabled
+                ? t('knowledge.embedding.libraryProgress', {
+                    embedded: embeddingSummary.embeddedChunks,
+                    total: embeddingSummary.totalChunks,
+                    tokens: embeddingSummary.estimatedTokens.toLocaleString(),
+                  })
+                : t('knowledge.embedding.disabledHint')}
+            </p>
+            {embeddingSummary.activeModelRevision && (
+              <p className="font-mono text-xs text-[var(--ink-muted)]">
+                {embeddingSummary.activeModelRevision}
+              </p>
+            )}
+            {embeddingSummary.failedSources > 0 && (
+              <p className="text-xs text-[var(--error)]">
+                {t('knowledge.embedding.failedSourcesHint', {
+                  count: embeddingSummary.failedSources,
+                  reason: embeddingSummary.lastErrorKind ?? 'unknown',
+                })}
+              </p>
+            )}
+          </div>
+          {embeddingSummary.enabled && (
+            <button
+              type="button"
+              disabled={reembedding}
+              onClick={() => void handleRetryLibraryEmbedding()}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--button-secondary-bg)] px-3.5 py-1.5 text-sm font-medium text-[var(--button-secondary-text)] transition-colors hover:bg-[var(--button-secondary-bg-hover)] disabled:opacity-50"
+            >
+              <RefreshIcon className="h-4 w-4" />
+              {t('knowledge.embedding.reembedLibrary')}
+            </button>
+          )}
+        </section>
+      )}
 
       {/* Rule documents editor (reusing existing MarkdownEditor) */}
       <section className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--paper-elevated)] p-5">

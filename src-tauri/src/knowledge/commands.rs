@@ -7,7 +7,10 @@ use tauri::{async_runtime::spawn_blocking, AppHandle, Emitter, Manager, State};
 use tokio::sync::broadcast::error::RecvError;
 
 use super::chunker::KnowledgeChunk;
-use super::ingest::{ImportFailure, ImportOutcome, KnowledgeIngestManager};
+use super::ingest::{
+    ImportFailure, ImportOutcome, KnowledgeIngestManager, LibraryEmbeddingSummary,
+    SourceEmbeddingProgress,
+};
 use super::linked::{KnowledgeLinkedManager, LinkedFolderScanSummary};
 use super::model_pack::{KnowledgeModelPackManager, KnowledgeModelPackStatus};
 use super::online_embedding::{EmbeddingConnectionTestResult, KnowledgeEmbeddingService};
@@ -150,8 +153,10 @@ pub async fn cmd_kb_update(
 #[tauri::command]
 pub async fn cmd_kb_delete(
     state: State<'_, Arc<KnowledgeStore>>,
+    ingest: State<'_, Arc<KnowledgeIngestManager>>,
     kb_id: String,
 ) -> StoreResult<()> {
+    ingest.cancel_library_embedding(&kb_id);
     super::curator_task::delete(Arc::clone(state.inner()), kb_id).await
 }
 
@@ -183,9 +188,11 @@ pub async fn cmd_kb_get_source(
 #[tauri::command]
 pub async fn cmd_kb_remove_source(
     state: State<'_, Arc<KnowledgeStore>>,
+    ingest: State<'_, Arc<KnowledgeIngestManager>>,
     kb_id: String,
     source_id: String,
 ) -> StoreResult<()> {
+    ingest.cancel_source_embedding(&kb_id, &source_id);
     run_store(state, move |store| store.remove_source(&kb_id, &source_id)).await
 }
 
@@ -614,6 +621,44 @@ pub async fn cmd_kb_embedding_pack_status(
 ) -> StoreResult<KnowledgeModelPackStatus> {
     let manager = Arc::clone(state.inner());
     spawn_blocking(move || Ok(manager.status()))
+        .await
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+/// Online embedding progress summary for a knowledge base (K21-b).
+#[tauri::command]
+pub async fn cmd_kb_embedding_summary(
+    ingest: State<'_, Arc<KnowledgeIngestManager>>,
+    kb_id: String,
+) -> StoreResult<LibraryEmbeddingSummary> {
+    let manager = Arc::clone(ingest.inner());
+    spawn_blocking(move || manager.embedding_summary(&kb_id))
+        .await
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+/// Online embedding progress for a single source (K21-b).
+#[tauri::command]
+pub async fn cmd_kb_source_embedding_status(
+    ingest: State<'_, Arc<KnowledgeIngestManager>>,
+    kb_id: String,
+    source_id: String,
+) -> StoreResult<SourceEmbeddingProgress> {
+    let manager = Arc::clone(ingest.inner());
+    spawn_blocking(move || manager.source_embedding_status(&kb_id, &source_id))
+        .await
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+/// Retry or trigger online embedding for a source or entire knowledge base (K21-b).
+#[tauri::command]
+pub async fn cmd_kb_retry_embedding(
+    ingest: State<'_, Arc<KnowledgeIngestManager>>,
+    kb_id: String,
+    source_id: Option<String>,
+) -> StoreResult<()> {
+    let manager = Arc::clone(ingest.inner());
+    spawn_blocking(move || manager.retry_embedding(&kb_id, source_id.as_deref()))
         .await
         .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
 }
