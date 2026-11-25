@@ -31,8 +31,9 @@ import {
 } from '@/components/icons';
 import { Virtuoso } from 'react-virtuoso';
 
-import type { SessionSearchHit } from '@/api/searchClient';
+import type { KnowledgeGlobalSearchHit, SessionSearchHit } from '@/api/searchClient';
 import { useHistorySearch } from '@/hooks/useHistorySearch';
+import { useKnowledgeOverlaySearch } from '@/hooks/useKnowledgeOverlaySearch';
 import { isSessionDeleted } from '@/hooks/useTaskCenterData';
 
 import type { SessionTag, TaskCenterData } from '@/hooks/useTaskCenterData';
@@ -71,6 +72,7 @@ interface HistorySearchOverlayContentProps {
 }
 
 type BrowseFilter = 'all' | 'favorite';
+type SearchCategory = 'sessions' | 'knowledge';
 
 const BROWSE_FILTER_OPTIONS: { key: BrowseFilter; labelKey: string }[] = [
     { key: 'all', labelKey: 'historyOverlay.filters.all' },
@@ -230,6 +232,7 @@ export default memo(function HistorySearchOverlayContent({
 
     // Search state
     const [isSearchMode, setIsSearchMode] = useState(false);
+    const [searchCategory, setSearchCategory] = useState<SearchCategory>('sessions');
     const [searchQuery, setSearchQuery] = useState('');
     const [composing, setComposing] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -241,11 +244,20 @@ export default memo(function HistorySearchOverlayContent({
     const searchWorkspaces = useMemo(() => projects.map(project => project.path), [projects]);
     const search = useHistorySearch({ query: searchQuery, tag: selectedUserTag,
         workspaces: searchWorkspaces, composing,
-        enabled: isSearchMode && !parseSessionIdQuery(searchQuery),
+        enabled: isSearchMode && searchCategory === 'sessions' && !parseSessionIdQuery(searchQuery),
+    });
+    const kbSearch = useKnowledgeOverlaySearch({
+        query: searchQuery,
+        composing,
+        enabled: isSearchMode && searchCategory === 'knowledge' && !parseSessionIdQuery(searchQuery),
     });
     const searchResults = search.hits;
-    const searchError = search.status === 'error';
-    const isSearching = search.status === 'searching' || search.status === 'indexing';
+    const searchError = searchCategory === 'knowledge'
+        ? kbSearch.status === 'error'
+        : search.status === 'error';
+    const isSearching = searchCategory === 'knowledge'
+        ? kbSearch.status === 'searching' || kbSearch.status === 'indexing'
+        : search.status === 'searching' || search.status === 'indexing';
     const [pendingDeleteSession, setPendingDeleteSession] = useState<{ id: string; title: string } | null>(null);
     const [statsSession, setStatsSession] = useState<{ id: string; title: string } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ sessionId: string; source: 'history' | 'search'; x: number; y: number } | null>(null);
@@ -287,8 +299,18 @@ export default memo(function HistorySearchOverlayContent({
 
     const exitSearchMode = useCallback(() => {
         setIsSearchMode(false);
+        setSearchCategory('sessions');
         setSearchQuery('');
     }, []);
+
+    const handleCopyKnowledgeRef = useCallback(async (hit: KnowledgeGlobalSearchHit) => {
+        try {
+            await copyPlainText(hit.reference);
+            toast.success(t('historyOverlay.knowledgeRefCopied'));
+        } catch {
+            toast.error(t('historyOverlay.searchFailed'));
+        }
+    }, [t, toast]);
 
     const projectsByWorkspace = useMemo(() => {
         const byWorkspace = new Map<string, Project>();
@@ -640,7 +662,8 @@ export default memo(function HistorySearchOverlayContent({
                                             openDirectMatch();
                                         } else if (e.key === 'Enter') {
                                             e.preventDefault();
-                                            search.refresh();
+                                            if (searchCategory === 'knowledge') kbSearch.refresh();
+                                            else search.refresh();
                                         }
                                     }}
                                 />
@@ -718,13 +741,77 @@ export default memo(function HistorySearchOverlayContent({
                             </div>
                         ) : isSearchMode && searchQuery.trim() !== '' ? (
                             <div className="flex min-h-0 flex-1 flex-col" aria-busy={isSearching}>
-                                <div className="mb-2 flex items-center justify-between px-1 text-xs text-[var(--ink-muted)]/70">
-                                    <span>{t('historyOverlay.recentActivityOrder')}</span>
+                                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-[var(--ink-muted)]/70">
+                                    <div className="flex items-center gap-1" role="tablist" aria-label={t('historyOverlay.searchCategoryLabel')}>
+                                        {(['sessions', 'knowledge'] as const).map((cat) => (
+                                            <button
+                                                key={cat}
+                                                type="button"
+                                                role="tab"
+                                                aria-selected={searchCategory === cat}
+                                                data-testid={`global-search-category-${cat}`}
+                                                onClick={() => setSearchCategory(cat)}
+                                                className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                                                    searchCategory === cat
+                                                        ? 'bg-[var(--button-primary-bg)] text-[var(--button-primary-text)]'
+                                                        : 'text-[var(--ink-muted)] hover:bg-[var(--hover-bg)] hover:text-[var(--ink)]'
+                                                }`}
+                                            >
+                                                {t(`historyOverlay.categories.${cat}`)}
+                                            </button>
+                                        ))}
+                                    </div>
                                     <span role="status">{isSearching
-                                        ? t(search.status === 'indexing' ? 'historyOverlay.preparingIndex' : 'historyOverlay.searching')
-                                        : search.status === 'ready' ? t('historyOverlay.resultsLoaded', { loaded: searchRows.length, total: search.total }) : ''}</span>
+                                        ? t((searchCategory === 'knowledge' ? kbSearch.status : search.status) === 'indexing' ? 'historyOverlay.preparingIndex' : 'historyOverlay.searching')
+                                        : searchCategory === 'knowledge'
+                                            ? (kbSearch.status === 'ready' ? t('historyOverlay.resultsLoaded', { loaded: kbSearch.hits.length, total: kbSearch.total }) : '')
+                                            : (search.status === 'ready' ? t('historyOverlay.resultsLoaded', { loaded: searchRows.length, total: search.total }) : '')}</span>
                                 </div>
-                                {searchError && !isSearching ? (
+                                {searchCategory === 'knowledge' ? (
+                                    searchError && !isSearching ? (
+                                        <div role="alert" className="py-8 text-center text-sm text-[var(--error)]">
+                                            {t('historyOverlay.searchFailed')}
+                                            <button type="button" onClick={kbSearch.refresh} className="ml-2 underline">{t('historyOverlay.retry')}</button>
+                                        </div>
+                                    ) : kbSearch.hits.length === 0 && !isSearching ? (
+                                        <div className="py-8 text-center text-sm text-[var(--ink-muted)]/60">
+                                            {t('historyOverlay.noResults')}
+                                        </div>
+                                    ) : (
+                                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-2 pr-1" data-testid="global-search-knowledge-results">
+                                            {kbSearch.hits.map((hit) => (
+                                                <button
+                                                    key={hit.reference}
+                                                    type="button"
+                                                    onClick={() => { void handleCopyKnowledgeRef(hit); }}
+                                                    data-testid="global-search-knowledge-hit"
+                                                    className="w-full rounded-lg border border-[var(--line)] bg-[var(--paper-elevated)] p-3 text-left transition-colors hover:border-[var(--line-strong)] hover:bg-[var(--hover-bg)]"
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="truncate text-sm font-medium text-[var(--ink)]">{hit.title}</span>
+                                                        <span className="shrink-0 font-mono text-xs text-[var(--ink-muted)]">{hit.reference}</span>
+                                                    </div>
+                                                    {hit.prefix && (
+                                                        <p className="mt-0.5 truncate text-xs text-[var(--accent)]">{hit.prefix}</p>
+                                                    )}
+                                                    <p className="mt-1 line-clamp-2 text-xs text-[var(--ink-secondary)]">{hit.snippet}</p>
+                                                </button>
+                                            ))}
+                                            {kbSearch.hasMore && (
+                                                <div className="flex justify-center py-2">
+                                                    <button
+                                                        type="button"
+                                                        disabled={kbSearch.loadingMore}
+                                                        onClick={() => { void kbSearch.loadMore(); }}
+                                                        className="rounded-md bg-[var(--button-secondary-bg)] px-3 py-1 text-xs text-[var(--button-secondary-text)] hover:bg-[var(--hover-bg)] disabled:opacity-50"
+                                                    >
+                                                        {kbSearch.loadingMore ? t('historyOverlay.loadingMore') : t('historyOverlay.loadMoreKnowledge')}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                ) : searchError && !isSearching ? (
                                     <div role="alert" className="py-8 text-center text-sm text-[var(--error)]">
                                         {t('historyOverlay.searchFailed')}
                                         <button type="button" onClick={search.refresh} className="ml-2 underline">{t('historyOverlay.retry')}</button>

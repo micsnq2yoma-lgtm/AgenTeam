@@ -486,6 +486,13 @@
     "noResults": "No results",
     "searchFailed": "Search failed. Please try again.",
     "recentActivityOrder": "Most recently active first",
+    "searchCategoryLabel": "Search category",
+    "categories": {
+      "sessions": "Chats",
+      "knowledge": "Knowledge"
+    },
+    "knowledgeRefCopied": "Knowledge reference copied",
+    "loadMoreKnowledge": "Load more",
     "searching": "Searching…",
     "preparingIndex": "Preparing search index…",
     "resultsLoaded": "Showing {{loaded}} of {{total}} tasks",
