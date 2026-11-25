@@ -335,6 +335,17 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
   - 每项展示操作类型、理由、外链风险与 Git 风险标记，支持逐项勾选、「仅选安全项 / 全部接受 / 全不选」快捷操作、行内目标路径编辑（`overrideTargetRel`）与拒绝方案（`ConfirmDialog`）；
   - 批准后自动触发执行并展示执行进度、部分完成汇总与逐项错误原因（如 `FILE_IN_USE`），对已执行方案提供经 `ConfirmDialog` 确认的一键逆序撤销与跳过已修改文件提示。
 
+## K16 嵌入模型包管理（`KnowledgeModelPackManager`）
+
+`KnowledgeModelPackManager`（`src-tauri/src/knowledge/model_pack.rs`）复用语音模型包的信任与发布机制，独立负责本地嵌入权重包的安装、校验、原子激活与卸载（仅管理数据文件，推理引擎与协议留在应用签名包内）：
+
+- **内建 Source Lock 与模型选型**：`embedding-model-pack-source-lock.json` 编译期固化默认本地嵌入模型包为 **Qwen3-Embedding-0.6B（int8 ONNX）**（`packId = local-knowledge-embedding-qwen3-0.6b-int8`、`packRevision = kb-embed-qwen3-0.6b-int8-v1`、`dimension = 1024`、`maxTokens = 8192`、`pooling = last_token`、`normalize = true`），并锁定官方下载域名 `download.myagents.io`、1 GiB 下载硬上限、Minisign 分离签名策略与文件白名单（`models/embedding/model.int8.onnx`、`models/embedding/tokenizer.json`、`legal/LICENSE.txt`）。
+- **信任校验与原子发布**：在线安装与离线本地包导入均执行相同的安全流水线：官方 HTTPS 域名校验（禁止重定向、禁止凭据 URL）→ 复用 `resource_signature::verify_minisign_bytes`（上游资源公钥 `upstream-resources.pub`）验证 `manifest.json.minisig` → 比对编译期 source lock（`packId`、维度、文件白名单、路径安全）→ 写入 `private/<uuid>/` 并逐文件校验字节大小与 SHA-256 → 原子移入 `packs/<revision>/` → 通过 `write_workspace_file_no_follow` 原子发布 `active.json`。
+- **启动复验与安全降级**：启动时自动清理 `private/` 残留并重新校验 `active.json`、`manifest.json` 签名及磁盘权重 SHA-256；若未安装、已卸载或磁盘文件被篡改，`active_pack()` 返回 `None` 且 `usable = false`，检索层自动安全降级为 BM25 而不崩溃。
+- **桌面控制面命令**：注册仅面向用户的 4 个 Tauri 命令（`cmd_kb_embedding_pack_status`、`cmd_kb_embedding_pack_install`、`cmd_kb_embedding_pack_install_local`、`cmd_kb_embedding_pack_remove`），不暴露至 Management API / CLI。
+
 ## 待接入章节
 
-### K16–K20 模型包、语义检索和其他来源
+### K17–K18 Document Worker `embed`、向量索引与混合检索（RRF）
+
+### K19–K20 URL 导入与全局搜索分类

@@ -3,6 +3,7 @@ pub mod commands;
 pub(crate) mod curator_task;
 pub mod ingest;
 pub mod linked;
+pub mod model_pack;
 pub mod organize;
 pub(crate) mod read;
 pub mod store;

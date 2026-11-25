@@ -115,6 +115,32 @@ export interface UndoReport {
   failed: string[];
 }
 
+export type KnowledgeModelPackStatusKind =
+  | 'not_installed'
+  | 'checking'
+  | 'downloading'
+  | 'verifying'
+  | 'installing'
+  | 'removing'
+  | 'ready'
+  | 'update_available'
+  | 'error';
+
+export interface KnowledgeModelPackStatus {
+  status: KnowledgeModelPackStatusKind;
+  usable: boolean;
+  packId: string;
+  displayName: string;
+  dimension: number;
+  maxTokens: number;
+  activeRevision?: string;
+  availableRevision: string;
+  downloadedBytes: number;
+  totalDownloadBytes: number;
+  installedModelBytes: number;
+  lastErrorCode?: string;
+}
+
 export interface KnowledgeBaseRecord {
   id: string;
   name: string;
