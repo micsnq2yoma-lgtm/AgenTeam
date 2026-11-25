@@ -297,7 +297,8 @@
     "deleteMessage": "库内的资料副本、转换结果和整理出的 wiki 会一并删除。你的原文件不会被动。此操作无法撤销。",
     "searchModeLabel": "检索：{{mode}}",
     "searchModes": {
-      "bm25": "BM25"
+      "bm25": "BM25",
+      "hybrid": "混合 (BM25 + 向量)"
     },
     "storageLabel": "占用：{{size}}",
     "pendingCuration": "{{count}} 份待整理",
@@ -419,6 +420,11 @@
       "limitLabel": "返回条数",
       "allOption": "全部",
       "modeBadge": "模式：{{mode}}",
+      "compareColumnsToggle": "三列对比",
+      "columnBm25": "BM25 词法",
+      "columnVector": "向量语义",
+      "columnHybrid": "RRF 混合",
+      "vectorDegradedHint": "未安装本地嵌入模型或暂无向量，已自动降级为 BM25",
       "hitsSummary": "命中 {{count}} 条片段",
       "emptyPrompt": "输入查询以测试当前知识库的检索效果",
       "noHits": "没有命中相关片段，尝试换个关键词或放宽筛选",

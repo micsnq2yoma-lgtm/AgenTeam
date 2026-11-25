@@ -351,8 +351,14 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
 - **Worker 侧（`src-tauri/document-worker/src/embed.rs`）**：遵守单 workload、不持久化业务状态、不联网约束。接收最多 256 条切块（单条 ≤ 32 KiB），校验模型/分词器/ONNX Runtime 路径非符号链接后经 `ort` 动态加载运行推理，按配置执行 `last_token` 或 `mean` 池化与 L2 归一化，输出对称 int8 标量量化向量（`vector: Vec<i8>` + `scale: f32`），支持随时响应 `Cancel` 帧中止。
 - **Host 侧（`src-tauri/src/knowledge/embedding.rs` + `local_inference.rs`）**：在 `ComputeWorkloadKind` 新增 `KnowledgeEmbedding`（与 `DocumentOcr` / `AgentAttachmentAsr` 同级，让位于 `RecordLive` / `RecordBackfill` / `RecordDiarization`）。`KnowledgeEmbeddingClient::embed_batch` 先校验 `KnowledgeModelPackManager::active_pack()`（未安装或已卸载时直接返回 `KB_STORE_UNAVAILABLE` 供检索层无声降级回 BM25），再向 `LocalComputeCoordinator` 申请重算力租约并在租约保护下派发单次 Worker 进程（通过 `crate::process_cmd::new` 启动，避免 Windows 控制台闪烁）。
 
-## 待接入章节
+## K18 向量索引与混合检索（RRF）
 
-### K18 向量索引与混合检索（RRF）
+`KnowledgeVectorIndex`（`src-tauri/src/knowledge/vector_index.rs`）为每个知识库持久化派生 int8 向量投影，并与 Tantivy BM25 通过 RRF 融合提供混合检索：
+
+- **存储布局与缓存键**：持久化于 `<app-data>/knowledge/<kb-id>/vectors/<model-revision>/entries.json` 与原子指针 `<kb-id>/vectors/active.json`（含单调递增 `generation`）。缓存键为 `(model_revision, chunk_content_hash)`，文件移动/改名保持 `chunk_content_hash` 不变、零重嵌；切换模型版本时后台构建新版本并原子翻动 `active.json`。
+- **BM25 + 向量 RRF 与降级策略**：`fuse_bm25_and_vector_rrf` 按 `score = Σ 1/(60 + rank)` 融合并维持每源最多 3 条去重上限。未安装本地嵌入模型、模型被卸载或向量索引为空时自动返回 `mode = "bm25"` 且零报错；向量就绪时返回 `mode = "hybrid"`。
+- **检索测试页三列对比**：`KnowledgeSearchResult` 新增可选的 `bm25Hits` 与 `vectorHits`；`KnowledgeSearchTab` 新增「三列对比」切换按钮，可并排查看 BM25 词法、向量语义（降级时显示提示）与 RRF 混合结果。
+
+## 待接入章节
 
 ### K19–K20 URL 导入与全局搜索分类

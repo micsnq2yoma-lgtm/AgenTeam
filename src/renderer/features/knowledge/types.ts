@@ -270,6 +270,8 @@ export interface KnowledgeSearchHit {
 export interface KnowledgeSearchResult {
   mode: string;
   hits: KnowledgeSearchHit[];
+  bm25Hits?: KnowledgeSearchHit[];
+  vectorHits?: KnowledgeSearchHit[];
 }
 
 export interface WikiPageEntry {

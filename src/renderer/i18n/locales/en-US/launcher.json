@@ -297,7 +297,8 @@
     "deleteMessage": "Its source copies, converted content and generated wiki are removed. Your original files are not touched. This cannot be undone.",
     "searchModeLabel": "Search: {{mode}}",
     "searchModes": {
-      "bm25": "BM25"
+      "bm25": "BM25",
+      "hybrid": "Hybrid (BM25 + Vector)"
     },
     "storageLabel": "Storage: {{size}}",
     "pendingCuration": "{{count}} awaiting curation",
@@ -419,6 +420,11 @@
       "limitLabel": "Max results",
       "allOption": "All",
       "modeBadge": "Mode: {{mode}}",
+      "compareColumnsToggle": "3-column compare",
+      "columnBm25": "BM25 lexical",
+      "columnVector": "Vector semantic",
+      "columnHybrid": "RRF hybrid",
+      "vectorDegradedHint": "Local embedding model not installed or no vectors indexed yet; degraded to BM25",
       "hitsSummary": "{{count}} matching chunk(s)",
       "emptyPrompt": "Enter a query to test retrieval against this knowledge base",
       "noHits": "No matching chunks found. Try different keywords or relax filters.",
