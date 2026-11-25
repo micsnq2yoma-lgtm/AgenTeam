@@ -33,6 +33,13 @@ export const KNOWLEDGE_ERROR_CODES = [
 
 export type KnowledgeErrorCode = (typeof KNOWLEDGE_ERROR_CODES)[number];
 
+export interface KnowledgeLinkedFolder {
+  path: string;
+  organizeAllowed: boolean;
+  gitConfirmed: boolean;
+  isGitWorkTree: boolean;
+}
+
 export interface KnowledgeRef {
   kbId: KnowledgeBaseId;
   sourceId: KnowledgeSourceId;

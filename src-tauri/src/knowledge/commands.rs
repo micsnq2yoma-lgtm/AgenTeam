@@ -8,11 +8,12 @@ use tokio::sync::broadcast::error::RecvError;
 
 use super::chunker::KnowledgeChunk;
 use super::ingest::{ImportFailure, ImportOutcome, KnowledgeIngestManager};
+use super::linked::{KnowledgeLinkedManager, LinkedFolderScanSummary};
 use super::store::ingest::IngestJob;
 use super::store::{
     KnowledgeBase, KnowledgeBasePatch, KnowledgeBaseStats, KnowledgeSource, KnowledgeSourceDetail,
-    KnowledgeStore, KnowledgeUiEvent, LintReportEntry, MetadataKey, MetadataOutcome, MetadataPatch,
-    ResolvedKnowledgeRef, RuleDocKind, StoreResult, WikiPageEntry,
+    KnowledgeStore, KnowledgeUiEvent, LinkedFolder, LintReportEntry, MetadataKey, MetadataOutcome,
+    MetadataPatch, ResolvedKnowledgeRef, RuleDocKind, StoreResult, WikiPageEntry,
 };
 use super::types::{KnowledgeErrorCode, KnowledgeMetadataOrigin};
 use crate::search::{
@@ -368,6 +369,68 @@ pub async fn cmd_kb_write_rule_doc(
         store.write_rule_doc(&kb_id, doc, &content)
     })
     .await
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkedFolderAttachResult {
+    pub folder: LinkedFolder,
+    pub summary: LinkedFolderScanSummary,
+}
+
+#[tauri::command]
+pub async fn cmd_kb_add_linked_folder(
+    state: State<'_, Arc<KnowledgeLinkedManager>>,
+    kb_id: String,
+    path: PathBuf,
+) -> StoreResult<LinkedFolderAttachResult> {
+    let manager = Arc::clone(state.inner());
+    spawn_blocking(move || {
+        let (folder, summary) = manager.add_linked_folder(&kb_id, &path)?;
+        Ok(LinkedFolderAttachResult { folder, summary })
+    })
+    .await
+    .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+#[tauri::command]
+pub async fn cmd_kb_remove_linked_folder(
+    state: State<'_, Arc<KnowledgeLinkedManager>>,
+    kb_id: String,
+    path: PathBuf,
+) -> StoreResult<usize> {
+    let manager = Arc::clone(state.inner());
+    spawn_blocking(move || manager.remove_linked_folder(&kb_id, &path))
+        .await
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+#[tauri::command]
+pub async fn cmd_kb_update_linked_folder(
+    state: State<'_, Arc<KnowledgeLinkedManager>>,
+    kb_id: String,
+    path: PathBuf,
+    organize_allowed: Option<bool>,
+    git_confirmed: Option<bool>,
+) -> StoreResult<LinkedFolder> {
+    let manager = Arc::clone(state.inner());
+    spawn_blocking(move || {
+        manager.update_linked_folder(&kb_id, &path, organize_allowed, git_confirmed)
+    })
+    .await
+    .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
+}
+
+#[tauri::command]
+pub async fn cmd_kb_scan_linked_folder(
+    state: State<'_, Arc<KnowledgeLinkedManager>>,
+    kb_id: String,
+    path: PathBuf,
+) -> StoreResult<LinkedFolderScanSummary> {
+    let manager = Arc::clone(state.inner());
+    spawn_blocking(move || manager.scan_linked_folder(&kb_id, &path))
+        .await
+        .map_err(|_| KnowledgeErrorCode::KbStoreUnavailable)?
 }
 
 #[cfg(test)]

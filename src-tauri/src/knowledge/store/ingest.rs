@@ -642,6 +642,7 @@ impl KnowledgeStore {
                     },
                 },
                 curation_pending: false,
+                linked: None,
                 ingest: Some(ImportRecord {
                     id: id.clone(),
                     extension,

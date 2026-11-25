@@ -12,6 +12,8 @@ use uuid::Uuid;
 mod chunks;
 pub use chunks::ResolvedFragment;
 mod curation;
+pub(crate) mod linked;
+pub use linked::{LinkedFolder, LinkedSourceSnapshot};
 mod wiki;
 pub(crate) use wiki::MAX_WIKI_PAGE_BYTES;
 pub use wiki::{LintItem, LintKind, LintReport, LintReportEntry, WikiPageEntry};
@@ -140,6 +142,8 @@ pub struct KnowledgeBase {
     pub pending_categories: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub pending_category_reasons: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub linked_folders: Vec<LinkedFolder>,
 }
 
 /// Missing fields retain their values. An explicit null clears the curator.
@@ -184,6 +188,7 @@ impl KnowledgeBase {
             wiki_enabled: true,
             pending_categories: Vec::new(),
             pending_category_reasons: BTreeMap::new(),
+            linked_folders: Vec::new(),
         };
         kb.apply_patch(patch)?;
         Ok(kb)
@@ -337,6 +342,8 @@ struct SourceRecord {
     source: KnowledgeSource,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     ingest: Option<ingest::ImportRecord>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    linked: Option<linked::LinkedSourceMeta>,
     /// Ready content that still waits for a curation round. Set when a content
     /// version becomes ready and cleared when the curator writes its metadata,
     /// so a failed round leaves the source queued for the next one.
@@ -958,9 +965,22 @@ impl KnowledgeStore {
             Ok((record, dir))
         })?;
         let source = record.source;
-        let extension = record.ingest.as_ref().map(|item| item.extension.as_str());
-        let (fragment, excerpt, preview) =
-            self.resolve_citation_details(&reference, &source, extension, &source_dir)?;
+        let extension = record
+            .ingest
+            .as_ref()
+            .map(|item| item.extension.as_str())
+            .or_else(|| record.linked.as_ref().map(|item| item.extension.as_str()));
+        let linked_root = record
+            .linked
+            .as_ref()
+            .map(|item| item.folder_root.as_path());
+        let (fragment, excerpt, preview) = self.resolve_citation_details(
+            &reference,
+            &source,
+            extension,
+            linked_root,
+            &source_dir,
+        )?;
         Ok(ResolvedKnowledgeRef {
             reference,
             source,

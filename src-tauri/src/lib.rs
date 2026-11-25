@@ -821,6 +821,10 @@ pub fn run() {
             knowledge::commands::cmd_kb_list_lint_reports,
             knowledge::commands::cmd_kb_read_rule_doc,
             knowledge::commands::cmd_kb_write_rule_doc,
+            knowledge::commands::cmd_kb_add_linked_folder,
+            knowledge::commands::cmd_kb_remove_linked_folder,
+            knowledge::commands::cmd_kb_update_linked_folder,
+            knowledge::commands::cmd_kb_scan_linked_folder,
             // Canonical Record commands.
             record::cmd_record_create,
             record::cmd_record_list,
@@ -1643,12 +1647,20 @@ pub fn run() {
                     Arc::clone(&store),
                     document_processing::global().cloned(),
                 ));
+                let linked = Arc::new(knowledge::linked::KnowledgeLinkedManager::new(
+                    Arc::clone(&store),
+                    document_processing::global().cloned(),
+                ));
                 app.manage(Arc::clone(&store));
                 app.manage(Arc::clone(&ingest));
+                app.manage(Arc::clone(&linked));
                 knowledge::commands::spawn_ui_event_forwarder(app.handle().clone(), store);
                 tauri::async_runtime::spawn_blocking(move || {
                     if let Err(code) = ingest.recover() {
                         ulog_error!("[knowledge] ingest recovery failed code={:?}", code);
+                    }
+                    if let Err(code) = linked.start() {
+                        ulog_error!("[knowledge] linked folder watcher start failed code={:?}", code);
                     }
                 });
                 match search::SearchEngine::new(data_dir) {
@@ -1921,6 +1933,9 @@ pub fn run() {
                     };
                     if let Err(error) = tauri::async_runtime::block_on(cliproxy::shutdown()) {
                         ulog_error!("[cliproxy] shutdown failed code={}", error.code);
+                    }
+                    if let Some(linked) = _app_handle.try_state::<Arc<knowledge::linked::KnowledgeLinkedManager>>() {
+                        linked.shutdown();
                     }
                     if let Some(ingest) = _app_handle.try_state::<Arc<knowledge::ingest::KnowledgeIngestManager>>() {
                         if let Err(code) = ingest.shutdown() {

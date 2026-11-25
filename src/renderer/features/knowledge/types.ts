@@ -26,6 +26,13 @@ export type KnowledgeMetadataKey =
   | 'language'
   | 'duplicateOf';
 
+export interface KnowledgeLinkedFolder {
+  path: string;
+  organizeAllowed: boolean;
+  gitConfirmed: boolean;
+  isGitWorkTree: boolean;
+}
+
 export interface KnowledgeBaseRecord {
   id: string;
   name: string;
@@ -37,6 +44,7 @@ export interface KnowledgeBaseRecord {
   wikiEnabled: boolean;
   pendingCategories: string[];
   pendingCategoryReasons?: Record<string, string>;
+  linkedFolders?: KnowledgeLinkedFolder[];
 }
 
 export interface KnowledgeBaseCreateInput {

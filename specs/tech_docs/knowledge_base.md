@@ -298,8 +298,17 @@ K9 新增 11 个仅面向桌面 UI 的 Tauri 命令（均不暴露到 Management
 | 英文（`en`） | 22 | 0.6364 | 0.6364 | 0.6364 |
 | 中文（`zh`） | 22 | 0.5455 | 0.5455 | 0.5455 |
 
+## K12 Linked folder、watcher 与移动识别
+
+知识库支持以只读方式接入本地文件夹（`linkedFolders[]` 持久化在 `kb.json`）。每条记录包含规范路径 `path`、`organizeAllowed`（默认 `false`）、`gitConfirmed`（默认 `false`）以及向上检查 `.git` 目录或工作树文件得到的 `isGitWorkTree`。
+
+- **安全扫描与只读边界**：`src-tauri/src/knowledge/linked.rs` 复用 `file_indexer::SKIP_DIRS`，默认跳过隐藏目录/文件与常见凭据扩展名/文件名（如 `.env`、`id_rsa`、`*.key`、`*.pem`、`credentials.json` 等）以及系统黑名单路径。遍历每层目录均先经 `symlink_metadata` 拒绝符号链接、Windows NTFS junction 与重解析点，读文件经 `open_workspace_regular_file_no_follow_classified` 做句柄相对 no-follow 打开、有界读取与读后二次元数据校验。Store 仅在 `<app-data>/knowledge/<kb>/sources/<src>/` 内保存 `source.json` 与 `content.md`，**不复制 `original.<ext>`**；移除 linked folder 或删除知识库时**绝不删除或改动任何用户原文件**。
+- **去抖 watcher 与移动识别**：`KnowledgeLinkedManager` 复用 `notify_debouncer_full`（默认 2 秒滑动去抖）监听各知识库已接入文件夹，应用退出时释放系统监听。每次增量对账按 `(size, mtime_ms)` 指纹或 `original_sha256` 识别外部移动/改名（含 Windows/macOS 仅改大小写重命名与跨工具复制删除导致的 mtime 变化）：仅更新 `source.json` 的 `currentPath`、`displayName` 与 `fileFingerprint`，保持 `source_id`、`content.md`、`content_hash`、`content_revision` 与用户锁元数据不变，不重新切块、不触发后续嵌入重算。
+- **跨平台路径归一化**：Windows 统一剥离 `\\?\` 前缀并按大小写不敏感键匹配；macOS 统一剥离 APFS `/System/Volumes/Data` firmlink 前缀并按大小写不敏感键匹配；Linux 保持大小写敏感匹配。
+- **桌面控制面命令**：新增仅面向用户的 Tauri 命令 `cmd_kb_add_linked_folder`、`cmd_kb_remove_linked_folder`、`cmd_kb_update_linked_folder` 与 `cmd_kb_scan_linked_folder`（均不注册到 Management API / CLI）。
+
 ## 待接入章节
 
-### K12–K15 Linked folder、物理整理与恢复
+### K13–K15 物理整理与恢复
 
 ### K16–K20 模型包、语义检索和其他来源
