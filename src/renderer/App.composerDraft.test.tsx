@@ -6,6 +6,7 @@ import type { SessionMetadata } from '@/api/sessionClient';
 import { SessionDeletionContext } from '@/context/SessionDeletionContext';
 import { renderWithTheme } from '@/test/renderWithTheme';
 import {
+  chatComposerDraftKey,
   clearAllComposerDrafts,
   createSessionDraftKey,
   getComposerDraft,
@@ -302,11 +303,7 @@ vi.mock('@/pages/Chat', () => ({
           selectedModel="mimo-v2.5-pro"
           workspacePath={mocks.project.path}
           sessionId={sessionId}
-          draftKey={
-            sessionId && !isPendingSessionId(sessionId)
-              ? createSessionDraftKey(sessionId)
-              : undefined
-          }
+          draftKey={chatComposerDraftKey(sessionId)}
         />
       </div>
     );

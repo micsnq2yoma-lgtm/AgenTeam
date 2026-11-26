@@ -2,6 +2,7 @@ import type {
   AgentMentionSnapshot,
   QueryMentionContext,
 } from '../../../shared/agentMentions';
+import { isPendingSessionId } from '../../../shared/constants';
 
 export interface ComposerDraftRecord {
   readonly text: string;
@@ -18,6 +19,13 @@ export const MAX_COMPOSER_DRAFTS = 50;
 
 export function createSessionDraftKey(sessionId: string): string {
   return `session:${sessionId}`;
+}
+
+/** Resolve the composer draft key for a Chat surface: only persisted real
+ * Session IDs own a draft; null/empty and unsent pending sessions return undefined. */
+export function chatComposerDraftKey(sessionId: string | null | undefined): string | undefined {
+  if (!sessionId || isPendingSessionId(sessionId)) return undefined;
+  return createSessionDraftKey(sessionId);
 }
 
 const drafts = new Map<string, ComposerDraftRecord>();
