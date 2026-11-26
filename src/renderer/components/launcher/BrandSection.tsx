@@ -20,12 +20,17 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { resolveSupportedLocale } from '../../../shared/i18n';
+import { workspacePathsEqual } from '../../../shared/workspacePath';
 import { ProductWordmark } from '@/components/brand/ProductWordmark';
 import DropZoneOverlay from '@/components/DropZoneOverlay';
 import SimpleChatInput, {
   type ImageAttachment,
   type SimpleChatInputHandle,
 } from '@/components/SimpleChatInput';
+import {
+  getComposerDraft,
+  LAUNCHER_DRAFT_KEY,
+} from '@/components/chat-input/composerDraftStore';
 import CronTaskSettingsModal, {
   GOAL_SLASH_PRESET,
   type CronInitialConfig,
@@ -75,7 +80,8 @@ interface BrandSectionProps {
     images?: ImageAttachment[],
     cron?: import('@/types/tab').InitialMessageCron,
     context?: import('../../../shared/agentMentions').QueryMentionContext,
-  ) => void;
+    onSubmitted?: () => void,
+  ) => boolean | void | Promise<boolean | void>;
   recordingBusy?: boolean;
   /** Pending session id used for launcher-staged user attachments. */
   attachmentSessionId?: string | null;
@@ -320,14 +326,30 @@ export default memo(function BrandSection({
   // execute against an inconsistent prompt. Strip them silently and surface
   // a toast (text outside references survives, so this is a soft reset).
   // Cross-review (CC) caught the stagedCron-not-cleared subtle UX trap.
+  const [restoredDraftWorkspacePath] = useState<string | null>(
+    () => getComposerDraft(LAUNCHER_DRAFT_KEY)?.workspacePath ?? null,
+  );
   const lastWorkspacePathRef = useRef<string | null>(
-    selectedProject?.path ?? null,
+    restoredDraftWorkspacePath ?? selectedProject?.path ?? null,
+  );
+  const awaitingRestoredWorkspaceCheckRef = useRef<boolean>(
+    restoredDraftWorkspacePath !== null,
   );
   useEffect(() => {
     const next = selectedProject?.path ?? null;
-    if (lastWorkspacePathRef.current === next) return;
+    // While a restored draft has not yet been compared against a loaded
+    // workspace, do not overwrite the saved workspacePath with an initial null
+    // while config is still loading (C3).
+    if (awaitingRestoredWorkspaceCheckRef.current && next === null) return;
+    awaitingRestoredWorkspaceCheckRef.current = false;
+    const previous = lastWorkspacePathRef.current;
+    const unchanged =
+      previous === null
+        ? next === null
+        : next !== null && workspacePathsEqual(previous, next);
+    if (unchanged) return;
     // Skip the first run (initial selection — no draft to clear yet).
-    if (lastWorkspacePathRef.current !== null) {
+    if (previous !== null) {
       const result = inputRef.current?.clearWorkspaceBoundDraft();
       const total =
         (result?.strippedReferences ?? 0) + (result?.clearedImages ?? 0);
@@ -345,8 +367,14 @@ export default memo(function BrandSection({
 
   // Dialogue-mode submit is a straight pass-through to the parent's `onSend`.
   const handleSend = useCallback(
-    (text: string, images?: ImageAttachment[], _permissionMode?: PermissionMode, context?: import('../../../shared/agentMentions').QueryMentionContext) => {
-      if (recordingBusy) return;
+    (
+      text: string,
+      images?: ImageAttachment[],
+      _permissionMode?: PermissionMode,
+      context?: import('../../../shared/agentMentions').QueryMentionContext,
+      onSubmitted?: () => void,
+    ) => {
+      if (recordingBusy) return false;
       // Repackage staged cron config into the InitialMessageCron shape so
       // Chat's autoSend can dispatch to startCronTask without poking back
       // into the modal's `CronSettingsResult` schema. Schedule fallback
@@ -373,7 +401,7 @@ export default memo(function BrandSection({
             executionTarget: stagedCron.executionTarget,
           }
         : undefined;
-      onSend(text, images, cron, context);
+      return onSend(text, images, cron, context, onSubmitted);
     },
     [onSend, recordingBusy, stagedCron],
   );
@@ -513,6 +541,7 @@ export default memo(function BrandSection({
                  * is the launcher's "current workspace" from WorkspaceSelector. */
                 workspacePath={selectedProject?.path ?? null}
                 sessionId={attachmentSessionId}
+                draftKey={LAUNCHER_DRAFT_KEY}
                 /* PRD 0.2.7 cron staging — StatusBar shows iff a config is staged. */
                 cronModeEnabled={stagedCron !== null}
                 cronConfig={cronStatusBarConfig}
