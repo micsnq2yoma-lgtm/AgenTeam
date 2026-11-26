@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  chatComposerDraftKey,
   clearAllComposerDrafts,
   createSessionDraftKey,
   deleteComposerDraft,
@@ -13,6 +14,14 @@ import {
 describe('composerDraftStore', () => {
   beforeEach(() => {
     clearAllComposerDrafts();
+  });
+
+  it('derives Chat draft keys only for real persisted session IDs (R1)', () => {
+    expect(chatComposerDraftKey(null)).toBeUndefined();
+    expect(chatComposerDraftKey(undefined)).toBeUndefined();
+    expect(chatComposerDraftKey('')).toBeUndefined();
+    expect(chatComposerDraftKey('pending-tab-123')).toBeUndefined();
+    expect(chatComposerDraftKey('real-session-42')).toBe('session:real-session-42');
   });
 
   it('stores, reads, and deletes drafts by key', () => {

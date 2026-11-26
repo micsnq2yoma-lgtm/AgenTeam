@@ -83,7 +83,7 @@ import SimpleChatInput, {
   type ImageAttachment,
   type SimpleChatInputHandle,
 } from '@/components/SimpleChatInput';
-import { createSessionDraftKey } from '@/components/chat-input/composerDraftStore';
+import { chatComposerDraftKey } from '@/components/chat-input/composerDraftStore';
 import type { SlashCommand as InputSlashCommand } from '@/components/SlashCommandMenu';
 import AgentStatusPanel from '@/components/agent-status/AgentStatusPanel';
 import ContextUsageIndicator from '@/components/ContextUsageIndicator';
@@ -6873,11 +6873,7 @@ export default function Chat({
               agentDir={agentDir}
               workspacePath={agentDir}
               sessionId={sessionId}
-              draftKey={
-                sessionId && !isPendingSessionId(sessionId)
-                  ? createSessionDraftKey(sessionId)
-                  : undefined
-              }
+              draftKey={chatComposerDraftKey(sessionId)}
               showBuiltinSdkSlashCommands={showBuiltinSdkSlashCommands}
               clientActionSlashCommands={runtimeClientActionSlashCommands}
               workspaceSlashCommands={workspaceCapabilitySlashCommands}
