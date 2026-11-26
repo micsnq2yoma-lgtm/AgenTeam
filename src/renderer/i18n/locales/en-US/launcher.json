@@ -475,6 +475,7 @@
       "generalTitle": "General & Curation",
       "curatorAgentLabel": "Curator agent",
       "curatorAgentNone": "None (manual or off only)",
+      "curatorAgentRemoved": "{{name}} (project removed)",
       "curationModeLabel": "Curation mode",
       "curationAutoNeedsAgent": "Select a curator agent before enabling automatic curation",
       "curationIntervalLabel": "Curation interval",

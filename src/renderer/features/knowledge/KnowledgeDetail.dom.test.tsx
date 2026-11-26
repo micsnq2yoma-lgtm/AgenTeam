@@ -19,6 +19,7 @@ vi.mock('@/hooks/useConfig', () => ({
     config: {
       agents: [{ id: 'agent_1', name: 'Researcher' }],
     },
+    projects: [{ id: 'project_1', name: 'Research', path: '/work/research', agentId: 'agent_1', providerId: null, permissionMode: null }],
   }),
 }));
 vi.mock('@/components/markdown-editor/MarkdownEditor', () => ({

@@ -475,6 +475,7 @@
       "generalTitle": "基本与整理设置",
       "curatorAgentLabel": "整理 Agent",
       "curatorAgentNone": "未指定（仅手动或关闭）",
+      "curatorAgentRemoved": "{{name}}（项目已移除）",
       "curationModeLabel": "整理模式",
       "curationAutoNeedsAgent": "选择整理 Agent 后才可启用自动整理",
       "curationIntervalLabel": "自动整理间隔",

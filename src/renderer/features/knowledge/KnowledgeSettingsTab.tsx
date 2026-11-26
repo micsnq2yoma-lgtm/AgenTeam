@@ -16,6 +16,7 @@ import MarkdownEditor, { type MarkdownEditorHandle } from '@/components/markdown
 import { useToast } from '@/components/Toast';
 import { useConfig } from '@/hooks/useConfig';
 
+import { curatorAgentOptions } from './curatorAgentOptions';
 import { knowledgeClient, knowledgeErrorCode } from './knowledgeClient';
 import type {
   KnowledgeAgentWriteAccess,
@@ -40,7 +41,7 @@ export default function KnowledgeSettingsTab({
   onDeleted,
 }: KnowledgeSettingsTabProps) {
   const { t } = useTranslation('launcher');
-  const { config } = useConfig();
+  const { config, projects } = useConfig();
   const toast = useToast();
   const toastRef = useRef(toast);
   useLayoutEffect(() => {
@@ -143,13 +144,15 @@ export default function KnowledgeSettingsTab({
     }
   };
 
-  const agents = useMemo(() => config.agents ?? [], [config.agents]);
   const agentOptions = useMemo<SelectOption[]>(
     () => [
       { value: '', label: t('knowledge.settings.curatorAgentNone') },
-      ...agents.map((agent) => ({ value: agent.id, label: agent.name })),
+      ...curatorAgentOptions(projects, config.agents ?? [], curatorAgentId).map((agent) => ({
+        value: agent.id,
+        label: agent.removed ? t('knowledge.settings.curatorAgentRemoved', { name: agent.name }) : agent.name,
+      })),
     ],
-    [agents, t],
+    [projects, config.agents, curatorAgentId, t],
   );
   const curationModeOptions = useMemo<SelectOption[]>(
     () => [
