@@ -6,10 +6,11 @@
 
 | 项目 | 内容 |
 |---|---|
-| 当前阶段 | **阶段 B：方案设计**（阶段 A 已通过审查） |
-| 最新审查意见 | [`reviews/stage-a.md`](./reviews/stage-a.md)（**必读**，含用户最终裁决） |
-| 你要做的 | 1. 按审查意见写阶段 B 方案 `specs/handoff/composer_draft/stage-b.md`，推送后停下，不写功能代码。<br>2. 同时安装 Rust 工具链（版本以 `rust-toolchain.toml` 为准），确认 Tauri 桌面端能以开发模式启动；问题写进 stage-b.md。 |
-| 停止点 | 推送 stage-b.md 后停下，等待 Claude 审查 |
+| 当前阶段 | **阶段 C：实现 + 回归测试 + 自动化验证**（阶段 B 方案已有条件批准） |
+| 最新审查意见 | [`reviews/stage-b.md`](./reviews/stage-b.md)（**必读**：C1–C6 必须落实，C1 是阻塞项）；历史意见见 [`reviews/stage-a.md`](./reviews/stage-a.md) |
+| 你要做的 | 1. 按 stage-b.md 方案 + 审查意见实现并补测试。<br>2. 跑测试 / lint / typecheck / 依赖检查，贴原文。<br>3. 报告写入 `specs/handoff/composer_draft/stage-c.md`，逐条对应 C1–C6。 |
+| 停止点 | 推送代码和 stage-c.md 后停下，等待 Claude 审查 |
+| 桌面端环境 | 安装 CMake + VS C++ Build Tools：**只有用户在指令里明确同意后才能安装**，否则先不装 |
 | 用户已定 | 未发送的 pending Chat 草稿**不保留**；阶段 D 由 Gemini 在本机桌面端实测 M1–M7 |
 
 阶段报告存放位置：今后都放在本目录（`specs/handoff/composer_draft/`），文件名为 `stage-<x>.md`。阶段 A 的报告保留在原位置 `specs/handoff/composer-draft-stage-a.md`。
