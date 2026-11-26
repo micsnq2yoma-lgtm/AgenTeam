@@ -51,6 +51,10 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { DispatchTaskDialog } from '@/components/task-center/DispatchTaskDialog';
 import CustomTitleBar from '@/components/CustomTitleBar';
 import GlobalSidebar from '@/components/global-sidebar/GlobalSidebar';
+import {
+  createSessionDraftKey,
+  deleteComposerDraft,
+} from '@/components/chat-input/composerDraftStore';
 import LinkContextMenuProvider from '@/components/LinkContextMenuProvider';
 import { SessionDeletionContext } from '@/context/SessionDeletionContext';
 import type { AdoptMigratedSessionOptions } from '@/context/TabContext';
@@ -1760,6 +1764,9 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       initialMessage?: InitialMessage,
       analyticsContext?: LaunchProjectAnalyticsContext,
       sessionBirthHint?: LaunchSessionBirthHint,
+      launchOptions?: {
+        onInitialMessageCommitted?: () => void;
+      },
     ) => {
       const activeTabId = tabWorkspaceController.getSnapshot().activeTabId;
       if (!activeTabId) return false;
@@ -2097,6 +2104,13 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
             setActiveTabId(targetTabId);
           }
         });
+        // Runs strictly AFTER flushSync: any Launcher SimpleChatInput unmount
+        // cleanup has already executed synchronously inside flushSync, so the
+        // explicit launcher-send callback clears the handed-off draft cleanly
+        // without touching drafts for launches from other entry points (C1).
+        if (initialMessage) {
+          launchOptions?.onInitialMessageCommitted?.();
+        }
         requestAnimationFrame(() =>
           requestAnimationFrame(() => {
             perfMark('chat_painted', { tabId: targetTabId });
@@ -4294,11 +4308,15 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
       }
 
       try {
-        return await deleteSessionThroughAppOwner({
+        const result = await deleteSessionThroughAppOwner({
           sessionId,
           getTabs: () => tabWorkspaceController.getSnapshot().tabs,
           terminateTabsForSession: (targetSessionId) => {
-            const plans = [];
+            const plans: Array<{
+              captured: NonNullable<ReturnType<typeof tabWorkspaceController.capture>>;
+              replacement: ReturnType<typeof resetTabToLauncher>;
+              mount: 'immediate';
+            }> = [];
             for (const tab of tabWorkspaceController.getSnapshot().tabs) {
               if (tab.view === 'chat' && tab.sessionId === targetSessionId) {
                 clearPendingSessionBirth(tab.id);
@@ -4312,7 +4330,9 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
                 }
               }
             }
-            tabWorkspaceController.replaceMany(plans);
+            flushSync(() => {
+              tabWorkspaceController.replaceMany(plans);
+            });
           },
           hasPersistentOwners: querySessionHasPersistentOwners,
           handoffMountedSessionActivity: startBackgroundCompletionForDeletion,
@@ -4320,6 +4340,10 @@ export default function App({ rendererAttachment = COLD_RENDERER_ATTACHMENT }: {
           deletePersistedSession: (targetSessionId, releasableTabIds) =>
             taskCenterActions.deleteSession(targetSessionId, releasableTabIds),
         });
+        if (result.deleted) {
+          deleteComposerDraft(createSessionDraftKey(sessionId));
+        }
+        return result;
       } finally {
         releaseTransition();
       }

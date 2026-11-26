@@ -16,6 +16,10 @@ import { RENDERER_PERF_PHASE } from '../../shared/perfTrace';
 import { track } from '@/analytics';
 import type { EntryIntent, Surface } from '@/analytics';
 import { type ImageAttachment } from '@/components/SimpleChatInput';
+import {
+  deleteComposerDraft,
+  LAUNCHER_DRAFT_KEY,
+} from '@/components/chat-input/composerDraftStore';
 import { projectTaskExecutionOverrides } from '@/utils/taskProviderProjection';
 import { coerceRuntimeBirthPermissionMode, getDefaultNewSessionPermissionMode } from '../../shared/runtimeBirthFields';
 import { useToast } from '@/components/Toast';
@@ -96,6 +100,9 @@ interface LauncherProps {
     initialMessage?: InitialMessage,
     analyticsContext?: { surface?: Surface; entryIntent?: EntryIntent },
     sessionBirthHint?: LaunchSessionBirthHint,
+    launchOptions?: {
+      onInitialMessageCommitted?: () => void;
+    },
   ) => Promise<boolean>;
   isStarting?: boolean;
   startError?: string | null;
@@ -867,18 +874,19 @@ export default function Launcher({
       images?: ImageAttachment[],
       cron?: import('@/types/tab').InitialMessageCron,
       context?: import('../../shared/agentMentions').QueryMentionContext,
-    ) => {
+      onSubmitted?: () => void,
+    ): Promise<boolean> => {
       if (!selectedWorkspace) {
         toastRef.current.error(t('toasts.selectWorkspaceFirst'));
-        return;
+        return false;
       }
       if (runtimeExecutionUnavailable) {
         toastRef.current.warning(t('toasts.runtimeUnavailable'));
-        return;
+        return false;
       }
       if (launcherProviderModelIncomplete) {
         toastRef.current.warning(t('toasts.selectCompatibleProviderModel'));
-        return;
+        return false;
       }
 
       // PRD 0.2.3 + cross-review: split provider/model by runtime dimension. For builtin,
@@ -1040,7 +1048,7 @@ export default function Launcher({
           });
           toastRef.current.success(t('toasts.standaloneCronCreated'));
           setLaunchingProjectId(null);
-          return;
+          return true;
         } catch (err) {
           console.error(
             '[Launcher] Failed to create standalone cron task:',
@@ -1052,14 +1060,25 @@ export default function Launcher({
             }),
           );
           setLaunchingProjectId(null);
-          return;
+          return false;
         }
       }
 
-      onLaunchProject(selectedWorkspace, initialMessage, {
-        surface: 'launcher_input',
-        entryIntent: 'send_message',
-      });
+      return onLaunchProject(
+        selectedWorkspace,
+        initialMessage,
+        {
+          surface: 'launcher_input',
+          entryIntent: 'send_message',
+        },
+        undefined,
+        {
+          onInitialMessageCommitted: () => {
+            onSubmitted?.();
+            deleteComposerDraft(LAUNCHER_DRAFT_KEY);
+          },
+        },
+      );
     },
     [
       selectedWorkspace,

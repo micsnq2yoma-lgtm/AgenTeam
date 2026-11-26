@@ -76,6 +76,11 @@ import { MentionPicker } from './components/MentionPicker';
 import { useMentionPicker, type MentionOption } from './hooks/useMentionPicker';
 import { McpStatusNotice } from './components/McpStatusNotice';
 import { useAttachmentHandling } from './hooks/useAttachmentHandling';
+import {
+  deleteComposerDraft,
+  getComposerDraft,
+  setComposerDraft,
+} from './composerDraftStore';
 import { PermissionModeIcon, PermissionModeMenuContent } from '../PermissionModeMenu';
 
 // ===== Module-level pure helpers (extracted from render body) =====
@@ -223,6 +228,7 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
   onOverlayHeightChange,
   workspacePath = null,
   sessionId = null,
+  draftKey,
 }, ref) {
   const { t } = useTranslation('chat');
   const isLauncherMode = mode === 'launcher';
@@ -288,10 +294,20 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
 
   // PERFORMANCE FIX: Use internal state to avoid parent re-renders on every keystroke
   // This prevents MessageList from re-rendering when typing in long conversations
-  const [inputValue, setInputValue] = useState(externalValue ?? '');
-  const [agentMentions,setAgentMentions]=useState<AgentMentionSnapshot[]>([]);
-  const [requiredSystemSkill, setRequiredSystemSkill] = useState<QueryMentionContext["requiredSystemSkill"]>();
-  const [primaryContext, setPrimaryContext] = useState<QueryMentionContext["primaryContext"]>();
+  const [inputValue, setInputValue] = useState(() =>
+    externalValue ?? (draftKey ? getComposerDraft(draftKey)?.text ?? '' : ''),
+  );
+  const [agentMentions, setAgentMentions] = useState<AgentMentionSnapshot[]>(() => {
+    if (externalValue !== undefined || !draftKey) return [];
+    const saved = getComposerDraft(draftKey);
+    return saved?.agentMentions ? [...saved.agentMentions] : [];
+  });
+  const [requiredSystemSkill, setRequiredSystemSkill] = useState<QueryMentionContext["requiredSystemSkill"]>(() =>
+    externalValue === undefined && draftKey ? getComposerDraft(draftKey)?.requiredSystemSkill : undefined,
+  );
+  const [primaryContext, setPrimaryContext] = useState<QueryMentionContext["primaryContext"]>(() =>
+    externalValue === undefined && draftKey ? getComposerDraft(draftKey)?.primaryContext : undefined,
+  );
 
   // Sync with external value when it changes (e.g., after send clears input)
   // NOTE: Intentionally only depend on externalValue - we only want to sync when
@@ -302,6 +318,41 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalValue]);
+
+  const draftKeyRef = useRef(draftKey);
+  const workspacePathRef = useRef(workspacePath);
+  const agentMentionsRef = useRef(agentMentions);
+  const primaryContextRef = useRef(primaryContext);
+  const requiredSystemSkillRef = useRef(requiredSystemSkill);
+  useLayoutEffect(() => {
+    draftKeyRef.current = draftKey;
+    workspacePathRef.current = workspacePath;
+    agentMentionsRef.current = agentMentions;
+    primaryContextRef.current = primaryContext;
+    requiredSystemSkillRef.current = requiredSystemSkill;
+  }, [draftKey, workspacePath, agentMentions, primaryContext, requiredSystemSkill]);
+
+  // Persist unsent draft into renderer memory on unmount (single-page shell
+  // unmounts non-active Launcher / Chat tabs when switching pages).
+  useLayoutEffect(() => {
+    return () => {
+      const key = draftKeyRef.current;
+      if (!key) return;
+      const text = inputValueRef.current;
+      if (text.length === 0) {
+        deleteComposerDraft(key);
+        return;
+      }
+      const activeMentions = activeAgentSnapshots(text, agentMentionsRef.current);
+      setComposerDraft(key, {
+        text,
+        ...(activeMentions.length > 0 ? { agentMentions: activeMentions } : {}),
+        ...(primaryContextRef.current ? { primaryContext: primaryContextRef.current } : {}),
+        ...(requiredSystemSkillRef.current ? { requiredSystemSkill: requiredSystemSkillRef.current } : {}),
+        workspacePath: workspacePathRef.current ?? null,
+      });
+    };
+  }, []);
 
   // Issue #231: previously a useEffect on `[inputValue]` pushed every change
   // back to the parent Chat page via `onInputChange?.(inputValue)` so the
@@ -1027,7 +1078,11 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
       const actionName = resolveClientActionName(text, enabledClientActionCommands);
       if (actionName) {
         if (showConfigLockedReason()) return;
+        inputValueRef.current = '';
         setInputValue('');
+        if (draftKeyRef.current) {
+          deleteComposerDraft(draftKeyRef.current);
+        }
         setShowSlashMenu(false);
         setSlashPosition(null);
         onSlashAction(actionName);
@@ -1078,10 +1133,14 @@ const SimpleChatInput = memo(forwardRef<SimpleChatInputHandle, SimpleChatInputPr
         if (submitted) return;
         submitted = true;
         if (inputValueRef.current === inputValue) {
+          inputValueRef.current = '';
           setInputValue('');
           setAgentMentions([]);
           setPrimaryContext(undefined);
           setRequiredSystemSkill(undefined);
+          if (draftKeyRef.current) {
+            deleteComposerDraft(draftKeyRef.current);
+          }
         }
         const submittedImages = new Set(images.map(image => image.id));
         setImages(current => current.filter(image => !submittedImages.has(image.id)));

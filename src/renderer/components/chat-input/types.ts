@@ -60,6 +60,9 @@ export interface SimpleChatInputProps {
   isLoading: boolean;
   workspacePath?: string | null;
   sessionId?: string | null;
+  /** Optional key in composerDraftStore; when set, unsent text & @-mention
+   * context survive component unmount/remount under the single-page shell. */
+  draftKey?: string;
   sessionState?: SessionState;
   systemStatus?: string | null;
   agentDir?: string;

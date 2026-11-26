@@ -27,6 +27,9 @@ export interface LauncherRenderBinding {
       assistantEntry?: AssistantEntry;
     },
     sessionBirthHint?: LaunchSessionBirthHint,
+    launchOptions?: {
+      onInitialMessageCommitted?: () => void;
+    },
   ) => Promise<boolean>;
   /** Opens the app-wide New Agent panel (the launcher's "add folder" entry). */
   onOpenNewAgentPanel: () => void;
