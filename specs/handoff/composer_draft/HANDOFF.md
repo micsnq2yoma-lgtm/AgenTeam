@@ -6,11 +6,10 @@
 
 | 项目 | 内容 |
 |---|---|
-| 当前阶段 | **阶段 D：桌面端实测**（阶段 C 代码已批准） |
-| 最新审查意见 | [`reviews/stage-c.md`](./reviews/stage-c.md)（**必读**）；历史意见见 [`reviews/stage-b.md`](./reviews/stage-b.md)、[`reviews/stage-a.md`](./reviews/stage-a.md) |
-| 你要做的 | 1. 先完成 R1（Chat draftKey 只保留一份实现）和 R2（确认 depcruise 警告是基线就有的），R1 单独提交，并重跑测试 / lint / typecheck。<br>2. 完成 Windows 开发环境准备，以开发模式启动 Tauri 桌面端。<br>3. 实测 M1–M7 以及 D1、D2，截图放到 `stage-d/`。<br>4. 报告写入 `specs/handoff/composer_draft/stage-d.md`。 |
-| 停止点 | 推送后停下，等待 Claude 审查；不要合并，不要开 PR |
-| 桌面端环境 | 用户已授权，CMake 和 VS Build Tools 已装好（D 盘）；如果还需要修改仓库配置或额外授权，先回报 |
+| 当前阶段 | **阶段 D 收尾：补测 M6**（R1、R2 已通过，其余验收项已通过，D2 改为以自动化测试为准） |
+| 最新审查意见 | [`reviews/stage-d.md`](./reviews/stage-d.md)（**必读**）；历史意见见 `reviews/` 下的 stage-a/b/c |
+| 你要做的 | 在桌面端重新测一次 M6，截"离开前 / 离开中 / 切回后"三张截图（必须单独截，文件内容不能相同），替换 `stage-d/m6-*`，更新 `stage-d.md` |
+| 停止点 | 推送后停下；不要合并、不要开 PR、不要清理分支 |
 | 用户已定 | 未发送的 pending Chat 草稿**不保留**；阶段 D 由 Gemini 在本机桌面端实测 |
 
 阶段报告存放位置：今后都放在本目录（`specs/handoff/composer_draft/`），文件名为 `stage-<x>.md`。阶段 A 的报告保留在原位置 `specs/handoff/composer-draft-stage-a.md`。
