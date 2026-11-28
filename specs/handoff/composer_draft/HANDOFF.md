@@ -6,11 +6,9 @@
 
 | 项目 | 内容 |
 |---|---|
-| 当前阶段 | **阶段 D 收尾：补测 M6**（R1、R2 已通过，其余验收项已通过，D2 改为以自动化测试为准） |
-| 最新审查意见 | [`reviews/stage-d.md`](./reviews/stage-d.md)（**必读**）；历史意见见 `reviews/` 下的 stage-a/b/c |
-| 你要做的 | 在桌面端重新测一次 M6，截"离开前 / 离开中 / 切回后"三张截图（必须单独截，文件内容不能相同），替换 `stage-d/m6-*`，更新 `stage-d.md` |
-| 停止点 | 推送后停下；不要合并、不要开 PR、不要清理分支 |
-| 用户已定 | 未发送的 pending Chat 草稿**不保留**；阶段 D 由 Gemini 在本机桌面端实测 |
+| 当前阶段 | **已完成**：M6 补测已通过，阶段 A–D 全部验收通过 |
+| 交付 | 两个功能提交已 cherry-pick 到干净分支 `claude/compassionate-planck-48pty4`（基于最新 main，不含任何 `specs/handoff` 文件） |
+| 你要做的 | **无**。不要再往本分支推送；合并 / 开 PR / 删除本分支由用户决定 |
 
 阶段报告存放位置：今后都放在本目录（`specs/handoff/composer_draft/`），文件名为 `stage-<x>.md`。阶段 A 的报告保留在原位置 `specs/handoff/composer-draft-stage-a.md`。
 
